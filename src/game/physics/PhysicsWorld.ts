@@ -5,6 +5,7 @@ export class PhysicsWorld {
   private engine: Engine;
   private world: World;
   private boundaries: Body[] = [];
+  private isPaused: boolean = false;
 
   constructor() {
     this.engine = Engine.create({
@@ -147,7 +148,23 @@ export class PhysicsWorld {
   }
 
   public update(deltaTime: number = GAME_CONFIG.physics.timestep): void {
-    Engine.update(this.engine, deltaTime);
+    if (!this.isPaused) {
+      Engine.update(this.engine, deltaTime);
+    }
+  }
+
+  public pause(): void {
+    this.isPaused = true;
+    console.log('Physics simulation paused');
+  }
+
+  public resume(): void {
+    this.isPaused = false;
+    console.log('Physics simulation resumed');
+  }
+
+  public isPausedState(): boolean {
+    return this.isPaused;
   }
 
   public addBodies(bodies: Body[]): void {

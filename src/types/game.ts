@@ -166,6 +166,7 @@ export interface SerializableScrew {
   id: string;
   shapeId: string;
   position: Vector2;
+  relativeOffset?: Vector2; // Position relative to parent shape center
   color: ScrewColor;
   isRemovable: boolean;
   isCollected: boolean;

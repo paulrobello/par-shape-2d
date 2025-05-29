@@ -1,6 +1,6 @@
 import { Layer as ILayer, Rectangle } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
-import { GAME_CONFIG, SHAPE_TINTS } from '@/game/utils/Constants';
+import {GAME_CONFIG, SHAPE_TINTS, UI_CONSTANTS} from '@/game/utils/Constants';
 
 export class Layer implements ILayer {
   public id: string;
@@ -19,7 +19,7 @@ export class Layer implements ILayer {
   public clearingStartTime: number = 0; // When layer clearing started
   public clearingDelay: number = 3000; // 3 seconds delay for shapes to fall
 
-  constructor(id: string, index: number, depthIndex: number, physicsLayerGroup: number, colorIndex: number, startFadeIn: boolean = false) {
+  constructor(id: string, index: number, depthIndex: number, physicsLayerGroup: number, colorIndex: number, startFadeIn: boolean = false, isRestored: boolean = false) {
     this.id = id;
     this.index = index;
     this.depthIndex = depthIndex;
@@ -31,12 +31,17 @@ export class Layer implements ILayer {
     // Initialize with minimal bounds - will be updated by GameManager immediately
     this.bounds = {
       x: 10, 
-      y: 158, 
+      y: UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height + UI_CONSTANTS.holdingHoles.height + 10,
       width: GAME_CONFIG.canvas.width - 20,
-      height: GAME_CONFIG.canvas.height - 158 - 10,
+      height: GAME_CONFIG.canvas.height - (UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height + UI_CONSTANTS.holdingHoles.height - 10)
     };
-    
-    if (startFadeIn) {
+
+    if (isRestored) {
+      // Restored layers are always fully visible and never fade
+      this.fadeOpacity = 1.0;
+      this.fadeStartTime = 0;
+      console.log(`Layer ${this.id} created as restored - no fade-in`);
+    } else if (startFadeIn) {
       this.startFadeIn();
     } else {
       this.fadeOpacity = 1; // Fully visible by default
@@ -49,15 +54,20 @@ export class Layer implements ILayer {
   }
 
   public updateFadeAnimation(): void {
-    if (this.fadeOpacity >= 1) return;
-    
+    // Never fade restored layers or layers that are already fully visible
+    if (this.fadeOpacity >= 1 || this.fadeStartTime === 0) {
+      return;
+    }
+
     const elapsed = Date.now() - this.fadeStartTime;
     const progress = Math.min(elapsed / this.fadeDuration, 1);
-    
+
     // Ease-in-out animation
     this.fadeOpacity = progress < 0.5 
       ? 2 * progress * progress 
       : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      
+    console.log(`Layer ${this.id} fade animation: opacity=${this.fadeOpacity.toFixed(2)}, progress=${progress.toFixed(2)}`);
   }
 
   public getFadeOpacity(): number {
@@ -74,15 +84,6 @@ export class Layer implements ILayer {
     }
     // Don't update tint - it should remain fixed based on colorIndex from creation
     this.isVisible = newIndex < GAME_CONFIG.layer.maxVisible;
-    
-    // Update bounds to match new index - all layers share the same playable area
-    // Note: Bounds will be updated by GameManager with actual virtual dimensions
-    this.bounds = {
-      x: 10, // Minimal margin from left
-      y: 158, // 5px gap below holding holes (141 + 12 + 5 = 158)
-      width: GAME_CONFIG.canvas.width - 20, // Will be updated by GameManager with virtual dimensions
-      height: GAME_CONFIG.canvas.height - 158 - 10, // Will be updated by GameManager with virtual dimensions
-    };
   }
 
   public addShape(shape: Shape): void {
@@ -123,7 +124,7 @@ export class Layer implements ILayer {
     if (this.isEmpty()) {
       return true;
     }
-    
+
     // If there are no shapes with screws, start the clearing timer
     if (!this.hasShapesWithScrews()) {
       if (this.clearingStartTime === 0) {
@@ -131,17 +132,17 @@ export class Layer implements ILayer {
         console.log(`Layer ${this.id} has no shapes with screws, starting clearing timer`);
         return false; // Not cleared yet, allow shapes to fall
       }
-      
+
       // Check if enough time has passed for shapes to fall out of view
       const elapsed = Date.now() - this.clearingStartTime;
       if (elapsed >= this.clearingDelay) {
         console.log(`Layer ${this.id} clearing delay expired, layer can be cleared`);
         return true;
       }
-      
+
       return false; // Still waiting for shapes to fall
     }
-    
+
     // Reset clearing timer if screws are added back somehow
     this.clearingStartTime = 0;
     return false;
@@ -160,36 +161,64 @@ export class Layer implements ILayer {
     return { ...this.bounds };
   }
 
-  public updateBounds(newBounds: Rectangle): void {
+  public updateBounds(newBounds: Rectangle, skipRedistribution: boolean = false): void {
     const oldBounds = { ...this.bounds };
     this.bounds = { ...newBounds };
     console.log(`Layer ${this.id} bounds updated from (${oldBounds.x}, ${oldBounds.y}, ${oldBounds.width.toFixed(0)}, ${oldBounds.height.toFixed(0)}) to (${this.bounds.x}, ${this.bounds.y}, ${this.bounds.width.toFixed(0)}, ${this.bounds.height.toFixed(0)})`);
-    
+
     // If bounds changed significantly, redistribute existing shapes to use the new space
-    const heightChanged = Math.abs(newBounds.height - oldBounds.height) > 50;
-    const widthChanged = Math.abs(newBounds.width - oldBounds.width) > 50;
-    
-    if ((heightChanged || widthChanged) && this.shapes.length > 0) {
-      console.log(`Layer ${this.id} bounds changed significantly, redistributing ${this.shapes.length} shapes`);
-      this.redistributeShapes();
+    // Skip redistribution if explicitly requested (e.g., during game restoration)
+    if (!skipRedistribution) {
+      const heightChanged = Math.abs(newBounds.height - oldBounds.height) > 50;
+      const widthChanged = Math.abs(newBounds.width - oldBounds.width) > 50;
+
+      if ((heightChanged || widthChanged) && this.shapes.length > 0) {
+        console.log(`Layer ${this.id} bounds changed significantly, redistributing ${this.shapes.length} shapes`);
+        this.redistributeShapes();
+      }
+    } else {
+      console.log(`Layer ${this.id} bounds updated without redistribution (restoration mode)`);
     }
   }
 
   private redistributeShapes(): void {
-    // Redistribute existing shapes to better use the new bounds
+    // Instead of randomly redistributing shapes, maintain their relative positions
+    // within the bounds to prevent them from jumping around
     const margin = 50;
     const usableWidth = Math.max(100, this.bounds.width - 2 * margin);
     const usableHeight = Math.max(100, this.bounds.height - 2 * margin);
-    
-    this.shapes.forEach((shape) => {
-      // Generate new random position within the new bounds
+
+    // Get the bounds of all shapes to determine their current distribution
+    const shapeBounds = this.shapes.map(shape => shape.getBounds());
+
+    // Find the min/max coordinates of all shapes to determine their current distribution area
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    shapeBounds.forEach(bounds => {
+      minX = Math.min(minX, bounds.x);
+      minY = Math.min(minY, bounds.y);
+      maxX = Math.max(maxX, bounds.x + bounds.width);
+      maxY = Math.max(maxY, bounds.y + bounds.height);
+    });
+
+    // Calculate the current distribution area
+    const currentWidth = Math.max(1, maxX - minX);
+    const currentHeight = Math.max(1, maxY - minY);
+
+    this.shapes.forEach((shape, index) => {
+      const bounds = shapeBounds[index];
+
+      // Calculate the relative position of the shape within the current distribution area
+      const relativeX = (bounds.x - minX) / currentWidth;
+      const relativeY = (bounds.y - minY) / currentHeight;
+
+      // Apply the same relative position to the new bounds
       const newPosition = {
-        x: this.bounds.x + margin + Math.random() * usableWidth,
-        y: this.bounds.y + margin + Math.random() * usableHeight,
+        x: this.bounds.x + margin + relativeX * usableWidth,
+        y: this.bounds.y + margin + relativeY * usableHeight,
       };
-      
-      console.log(`Redistributing shape ${shape.id} from (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}) to (${newPosition.x.toFixed(1)}, ${newPosition.y.toFixed(1)})`);
-      
+
+      console.log(`Redistributing shape ${shape.id} from (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}) to (${newPosition.x.toFixed(1)}, ${newPosition.y.toFixed(1)}) - maintaining relative position`);
+
       // Update physics body position
       const { Body } = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
       Body.setPosition(shape.body, newPosition);
@@ -220,7 +249,7 @@ export class Layer implements ILayer {
     for (let i = this.shapes.length - 1; i >= 0; i--) {
       const shape = this.shapes[i];
       const bounds = shape.getBounds();
-      
+
       if (
         point.x >= bounds.x &&
         point.x <= bounds.x + bounds.width &&
@@ -230,7 +259,7 @@ export class Layer implements ILayer {
         return shape;
       }
     }
-    
+
     return null;
   }
 
@@ -255,93 +284,30 @@ export class Layer implements ILayer {
       isVisible: this.isVisible,
       isGenerated: this.isGenerated,
       bounds: { ...this.bounds },
-      fadeOpacity: this.fadeOpacity,
-      fadeDirection: this.fadeOpacity < 1 ? 1 : 0, // Estimate fade direction
+      fadeOpacity: 1.0, // Always save as fully visible to prevent fade issues on restore
+      fadeDirection: 0, // No fade direction when saving
       fadeSpeed: 1000 / this.fadeDuration, // Convert duration to speed
     };
   }
 
   public fromSerializable(
     data: import('@/types/game').SerializableLayer,
-    physicsWorld: import('@/game/physics/PhysicsWorld').PhysicsWorld,
-    screwManager: import('@/game/systems/ScrewManager').ScrewManager
+    _physicsWorld: import('@/game/physics/PhysicsWorld').PhysicsWorld, // eslint-disable-line @typescript-eslint/no-unused-vars
+    _screwManager: import('@/game/systems/ScrewManager').ScrewManager // eslint-disable-line @typescript-eslint/no-unused-vars
   ): void {
-    // Restore basic properties
-    this.fadeOpacity = data.fadeOpacity;
+    // For restored layers, fade properties are already set correctly in constructor
+    // Just restore other basic properties
     this.isVisible = data.isVisible;
     this.isGenerated = data.isGenerated;
     
+    console.log(`Layer ${this.id} fromSerializable: fadeOpacity already set to ${this.fadeOpacity}`);
+
     // Don't restore saved bounds - keep the current bounds that were updated for mobile
     // The bounds should already be correctly set by updateLayerBoundsForScale()
     console.log(`Layer ${this.id} keeping current bounds (${this.bounds.x}, ${this.bounds.y}, ${this.bounds.width.toFixed(0)}, ${this.bounds.height.toFixed(0)}) instead of saved bounds (${data.bounds.x}, ${data.bounds.y}, ${data.bounds.width.toFixed(0)}, ${data.bounds.height.toFixed(0)})`);
-    
-    // Recreate shapes
+
+    // Don't recreate shapes here - they are handled by GameManager's simpleRestore
     this.shapes = [];
-    if (data.shapes) {
-      console.log(`Restoring ${data.shapes.length} shapes for layer ${this.id}`);
-      data.shapes.forEach((shapeData, index) => {
-        console.log(`Restoring shape ${index}:`, {
-          id: shapeData?.id,
-          type: shapeData?.type,
-          hasPosition: !!shapeData?.position,
-          hasBodyPosition: !!shapeData?.bodyPosition
-        });
-        
-        if (!shapeData) {
-          console.error(`Shape data at index ${index} is undefined`);
-          return;
-        }
-        
-        // Create a temporary body that will be replaced in fromSerializable
-        const { Bodies } = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
-        const tempPosition = shapeData.position || shapeData.bodyPosition || { x: 0, y: 0 };
-        const tempBody = Bodies.rectangle(tempPosition.x, tempPosition.y, 100, 60);
-        
-        const shape = new Shape(
-          shapeData.id || `shape-${index}`,
-          shapeData.type || 'rectangle',
-          tempPosition,
-          tempBody,
-          this.id,
-          shapeData.color || '#000000',
-          shapeData.tint || '#000000',
-          {
-            width: shapeData.width,
-            height: shapeData.height,
-            radius: shapeData.radius,
-            vertices: shapeData.vertices
-          }
-        );
-        
-        // Restore shape from serialized data (this will replace the temp body)
-        shape.fromSerializable(shapeData, physicsWorld, screwManager);
-        
-        // Check if shape is within current layer bounds and reposition if needed
-        const shapeBounds = shape.getBounds();
-        const shapeOutOfBounds = (
-          shapeBounds.x < this.bounds.x ||
-          shapeBounds.x + shapeBounds.width > this.bounds.x + this.bounds.width ||
-          shapeBounds.y < this.bounds.y ||
-          shapeBounds.y + shapeBounds.height > this.bounds.y + this.bounds.height
-        );
-        
-        if (shapeOutOfBounds) {
-          // Reposition shape within current bounds
-          const margin = 50;
-          const newX = Math.max(this.bounds.x + margin, Math.min(this.bounds.x + this.bounds.width - margin, shape.position.x));
-          const newY = Math.max(this.bounds.y + margin, Math.min(this.bounds.y + this.bounds.height - margin, shape.position.y));
-          
-          console.log(`Repositioning shape ${shape.id} from (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}) to (${newX.toFixed(1)}, ${newY.toFixed(1)}) to fit in current bounds`);
-          
-          // Update physics body position and sync shape position
-          const { Body } = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
-          Body.setPosition(shape.body, { x: newX, y: newY });
-          shape.updateFromBody();
-        }
-        
-        // Add to layer
-        this.shapes.push(shape);
-      });
-    }
+    console.log(`Layer ${this.id} fromSerializable: shapes will be restored by GameManager`);
   }
 }

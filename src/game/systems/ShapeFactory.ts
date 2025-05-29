@@ -1,7 +1,7 @@
 import { Bodies, Body } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeType, Vector2 } from '@/types/game';
-import { PHYSICS_CONSTANTS, SHAPE_TINTS, GAME_CONFIG } from '@/game/utils/Constants';
+import { PHYSICS_CONSTANTS, SHAPE_TINTS } from '@/game/utils/Constants';
 import { randomBetween, createRegularPolygonVertices } from '@/game/utils/MathUtils';
 
 export class ShapeFactory {
@@ -14,7 +14,7 @@ export class ShapeFactory {
     physicsLayerGroup: number,
     colorIndex: number,
     existingShapes: Shape[] = [],
-    layerBounds?: { x: number; y: number; width: number; height: number }
+    layerBounds: { x: number; y: number; width: number; height: number }
   ): Shape {
     const shapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'triangle', 'star'];
     const type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
@@ -30,7 +30,7 @@ export class ShapeFactory {
     physicsLayerGroup: number,
     colorIndex: number,
     existingShapes: Shape[] = [],
-    layerBounds?: { x: number; y: number; width: number; height: number }
+    layerBounds: { x: number; y: number; width: number; height: number }
   ): Shape {
     const id = `shape-${++this.shapeCounter}`;
     
@@ -84,28 +84,16 @@ export class ShapeFactory {
     type: ShapeType,
     existingShapes: Shape[],
     maxAttempts: number = 50,
-    layerBounds?: { x: number; y: number; width: number; height: number }
+    layerBounds: { x: number; y: number; width: number; height: number }
   ): Vector2 {
     const testRadius = this.getShapeApproximateRadius(type);
     
-    // Use provided layer bounds or fall back to defaults
-    let playAreaX, playAreaY, playAreaWidth, playAreaHeight;
-    
-    if (layerBounds) {
-      playAreaX = layerBounds.x;
-      playAreaY = layerBounds.y;
-      playAreaWidth = layerBounds.width;
-      playAreaHeight = layerBounds.height;
-      console.log(`Using provided layer bounds for repositioning: (${playAreaX}, ${playAreaY}, ${playAreaWidth}, ${playAreaHeight})`);
-    } else {
-      // Fallback to hardcoded values
-      playAreaX = 10;
-      playAreaY = 200;
-      playAreaWidth = 620;
-      playAreaHeight = 550;
-      console.log(`Using fallback bounds for repositioning: (${playAreaX}, ${playAreaY}, ${playAreaWidth}, ${playAreaHeight})`);
-    }
-    
+    const playAreaX = layerBounds.x;
+    const playAreaY = layerBounds.y;
+    const playAreaWidth = layerBounds.width;
+    const playAreaHeight = layerBounds.height;
+    console.log(`Using provided layer bounds for repositioning: (${playAreaX}, ${playAreaY}, ${playAreaWidth}, ${playAreaHeight})`);
+
     // Helper function to clamp position within bounds
     const clampPosition = (pos: Vector2): Vector2 => ({
       x: Math.max(playAreaX + testRadius, Math.min(playAreaX + playAreaWidth - testRadius, pos.x)),
@@ -297,45 +285,5 @@ export class ShapeFactory {
     
     // Use modulo to cycle through colors if we have more layers than colors
     return layerColors[colorIndex % layerColors.length];
-  }
-
-  public static createTestShapes(layerId: string, layerIndex: number, physicsLayerGroup: number, colorIndex: number, count: number = 3, layerBounds?: { x: number; y: number; width: number; height: number }): Shape[] {
-    const shapes: Shape[] = [];
-    
-    // Use provided layer bounds or fall back to default canvas dimensions
-    let playAreaX, playAreaY, playAreaWidth, playAreaHeight;
-    
-    if (layerBounds) {
-      // Use the provided layer bounds for shape placement
-      const minMargin = 50; // Margin to keep shapes away from edges
-      playAreaX = layerBounds.x + minMargin;
-      playAreaY = layerBounds.y + minMargin;
-      playAreaWidth = Math.max(100, layerBounds.width - (2 * minMargin));
-      playAreaHeight = Math.max(100, layerBounds.height - (2 * minMargin));
-      console.log(`Using provided layer bounds for createTestShapes: (${playAreaX}, ${playAreaY}, ${playAreaWidth}, ${playAreaHeight})`);
-    } else {
-      // Fallback to original hardcoded values for backward compatibility
-      const headerHeight = 158; // Header + containers + holding holes
-      const minMargin = 50; // Margin to keep shapes away from edges
-      
-      playAreaX = minMargin;
-      playAreaY = headerHeight + minMargin;
-      playAreaWidth = GAME_CONFIG.canvas.width - (2 * minMargin);
-      playAreaHeight = GAME_CONFIG.canvas.height - headerHeight - (2 * minMargin);
-      console.log(`Using fallback bounds for createTestShapes: (${playAreaX}, ${playAreaY}, ${playAreaWidth}, ${playAreaHeight})`);
-    }
-    
-    for (let i = 0; i < count; i++) {
-      // Generate completely random position within the play area
-      const position = {
-        x: playAreaX + Math.random() * playAreaWidth,
-        y: playAreaY + Math.random() * playAreaHeight,
-      };
-      
-      const shape = this.createRandomShape(position, layerId, layerIndex, physicsLayerGroup, colorIndex, shapes, layerBounds);
-      shapes.push(shape);
-    }
-    
-    return shapes;
   }
 }

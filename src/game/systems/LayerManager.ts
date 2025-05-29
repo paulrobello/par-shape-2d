@@ -20,10 +20,12 @@ export class LayerManager {
   private onLayerCreated?: () => void;
   private onLayerClearedCallback?: () => void;
   private getCurrentBounds?: () => { x: number; y: number; width: number; height: number };
+  private isRestoringFlag: boolean = false;
 
   constructor(physicsWorld: PhysicsWorld, maxLayers: number = 10) {
     this.physicsWorld = physicsWorld;
     this.screwManager = new ScrewManager(physicsWorld);
+    this.screwManager.setLayerManager(this); // Set circular reference for shape lookup
     this.maxLayers = maxLayers;
   }
 
@@ -39,7 +41,7 @@ export class LayerManager {
     this.getCurrentBounds = callback;
   }
 
-  public createLayer(fadeIn: boolean = false, bounds?: { x: number; y: number; width: number; height: number }): Layer {
+  public createLayer(fadeIn: boolean = false, isRestored: boolean = false): Layer {
     const id = `layer-${++this.layerCounter}`;
     const index = this.layers.length;
     
@@ -54,12 +56,14 @@ export class LayerManager {
     // Find an unused color from the 5-color pool for visible layers
     const colorIndex = this.getUnusedColorIndex();
     
-    const layer = new Layer(id, index, depthIndex, physicsLayerGroup, colorIndex, fadeIn);
+    const layer = new Layer(id, index, depthIndex, physicsLayerGroup, colorIndex, fadeIn, isRestored);
     
     // Update bounds immediately if provided, or get current bounds
-    const currentBounds = bounds || (this.getCurrentBounds ? this.getCurrentBounds() : null);
+    const currentBounds = this.getCurrentBounds ? this.getCurrentBounds() : null;
     if (currentBounds) {
       layer.updateBounds(currentBounds);
+    } else {
+      console.warn(`No current bounds provided for layer ${layer.id}, using default bounds`);
     }
     
     // Insert layer sorted by depth (highest depth renders first/behind)
@@ -248,6 +252,9 @@ export class LayerManager {
     
     console.log(`After removal - layersGeneratedThisLevel: ${this.layersGeneratedThisLevel}, totalLayersForLevel: ${this.totalLayersForLevel}, active layers: ${this.layers.length}`);
     
+    // This method should not be called during restoration
+    // Layer clearing is handled by the game manager during normal gameplay
+    
     // Generate a new layer if we haven't reached the total for this level
     if (this.layersGeneratedThisLevel < this.totalLayersForLevel) {
       console.log(`Generating new layer: ${this.layersGeneratedThisLevel}/${this.totalLayersForLevel} generated, ${this.layers.length} active layers`);
@@ -319,6 +326,12 @@ export class LayerManager {
   }
 
   public updateShapePositions(): void {
+    // Skip all layer management during restoration to prevent interference
+    if (this.isRestoringFlag) {
+      console.log('Skipping updateShapePositions during restoration');
+      return;
+    }
+    
     // Create a copy of layers array to avoid modification during iteration
     const layersToCheck = [...this.layers];
     
@@ -387,18 +400,6 @@ export class LayerManager {
     return null;
   }
 
-  public getShapeAtPoint(point: { x: number; y: number }): Shape | null {
-    // Check visible layers from front to back (lowest depth first)
-    const visibleLayers = this.getVisibleLayers().sort((a, b) => a.depthIndex - b.depthIndex);
-    
-    for (const layer of visibleLayers) {
-      const shape = layer.getShapeAtPoint(point);
-      if (shape) return shape;
-    }
-    
-    return null;
-  }
-
   public initializeLevel(_levelNumber: number): void { // eslint-disable-line @typescript-eslint/no-unused-vars
     // Clear existing layers
     this.clearAllLayers();
@@ -449,35 +450,8 @@ export class LayerManager {
     return this.totalLayersForLevel;
   }
 
-  public getRemainingShapeCount(): number {
-    return this.layers.reduce((count, layer) => 
-      count + layer.getShapeCount(), 0
-    );
-  }
-
   public getRemainingLayerCount(): number {
     return this.layers.filter(layer => !layer.isCleared()).length;
-  }
-
-  public createTestLevel(): void {
-    // Create a single test layer with shapes for development
-    const layer = this.createLayer();
-    const testShapes = ShapeFactory.createTestShapes(layer.id, layer.index, layer.physicsLayerGroup, layer.colorIndex, 4, layer.getBounds());
-    
-    testShapes.forEach(shape => {
-      layer.addShape(shape);
-    });
-    
-    // Add to physics world
-    const bodies = testShapes.map(shape => shape.body);
-    this.physicsWorld.addBodies(bodies);
-    
-    // Generate screws for test shapes
-    testShapes.forEach(shape => {
-      this.screwManager.generateScrewsForShape(shape);
-    });
-    
-    layer.setGenerated(true);
   }
 
   public getScrewManager(): ScrewManager {
@@ -504,7 +478,11 @@ export class LayerManager {
   }
 
   public fromSerializable(data: import('@/types/game').SerializableLayerManagerState): void {
+    console.log(`Starting synchronous LayerManager restoration`);
     console.log(`Loading LayerManager state - layersGeneratedThisLevel: ${data.layersGeneratedThisLevel}, totalLayersForLevel: ${data.totalLayersForLevel}, layers count: ${data.layers?.length || 0}`);
+    
+    // Set restoration flag to prevent interference
+    this.isRestoringFlag = true;
     
     // Clear existing state
     this.clearAllLayers();
@@ -521,14 +499,17 @@ export class LayerManager {
     
     // Recreate layers
     if (data.layers) {
-      data.layers.forEach(layerData => {
+      data.layers.forEach((layerData, index) => {
+        console.log(`Restoring layer ${index + 1}/${data.layers.length}: ${layerData.id}`);
+        
         const layer = new Layer(
           layerData.id,
           layerData.index,
           layerData.depthIndex,
           layerData.physicsLayerGroup,
           layerData.colorIndex,
-          false // Don't fade in when loading
+          false, // Don't fade in when loading
+          true   // Mark as restored to prevent any fade-in
         );
         
         // Restore layer state
@@ -536,6 +517,8 @@ export class LayerManager {
         
         // Add layer to manager
         this.layers.push(layer);
+        
+        console.log(`Layer ${layerData.id} restored with ${layer.getAllShapes().length} shapes`);
       });
     }
     
@@ -544,5 +527,16 @@ export class LayerManager {
     
     // Update visibility
     this.updateLayerVisibility();
+    
+    console.log(`LayerManager restoration complete: ${this.layers.length} layers, ${this.getAllShapes().length} total shapes`);
+    
+    // Log detailed layer information for debugging
+    this.layers.forEach(layer => {
+      console.log(`Layer ${layer.id}: ${layer.getAllShapes().length} shapes, visible: ${layer.isVisible}, depthIndex: ${layer.depthIndex}, fadeOpacity: ${layer.fadeOpacity}`);
+    });
+    
+    // Clear restoration flag
+    this.isRestoringFlag = false;
+    console.log('LayerManager restoration flag cleared - normal operations can resume');
   }
 }

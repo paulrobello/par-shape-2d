@@ -49,41 +49,18 @@ export const SHAPE_TINTS = [
   '#F0E6FF', // Light purple
 ] as const;
 
-export const CONTAINER_COLORS: Record<ScrewColor, string> = {
-  pink: '#8B4B87',
-  red: '#8B2635',
-  green: '#1F5F1F',
-  blue: '#1C5DA0',
-  lightBlue: '#4A80A0',
-  yellow: '#B8860B',
-  purple: '#5D4E75',
-  orange: '#B8632F',
-  brown: '#654321',
-} as const;
-
-export const DEBUG_COLOR_KEYS: Record<string, ScrewColor> = {
-  '1': 'red',
-  '2': 'green', 
-  '3': 'blue',
-  '4': 'yellow',
-  '5': 'orange',
-  '6': 'purple',
-  '7': 'pink',
-  '8': 'lightBlue',
-  '9': 'brown',
-} as const;
-
 export const UI_CONSTANTS = {
   header: {
-    height: 80,
+    height: 60,
   },
   containers: {
-    height: 70,
+    width: 120,
+    height: 50,
     spacing: 16,
     borderRadius: 20,
   },
   holdingHoles: {
-    height: 35,
+    height: 30,
     spacing: 24,
     radius: 4, // Smaller holes for better proportion
   },
@@ -115,20 +92,5 @@ export const PHYSICS_CONSTANTS = {
   constraint: {
     stiffness: 1,
     damping: 0.1,
-  },
-} as const;
-
-export const ANIMATION_CONSTANTS = {
-  screwCollection: {
-    duration: 800, // ms
-    easing: 'easeInOutCubic',
-  },
-  containerFall: {
-    duration: 600,
-    easing: 'easeInBack',
-  },
-  shapeDestroy: {
-    duration: 400,
-    easing: 'easeOutQuart',
   },
 } as const;

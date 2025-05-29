@@ -40,9 +40,9 @@ export class GameState {
     };
   }
 
-  private initializeContainers(activeScrewColors?: ScrewColor[]): void {
+  private initializeContainers(activeScrewColors?: ScrewColor[], virtualGameWidth?: number, virtualGameHeight?: number): void {
     let colors: ScrewColor[];
-    
+
     if (activeScrewColors && activeScrewColors.length >= GAME_CONFIG.containers.count) {
       // Use colors from active screws if we have enough
       colors = getRandomColorsFromList(activeScrewColors, GAME_CONFIG.containers.count);
@@ -50,19 +50,23 @@ export class GameState {
       // Fallback to random colors for initial setup
       colors = getRandomScrewColors(GAME_CONFIG.containers.count);
     }
-    
-    // Calculate container positioning based on canvas width
+
+    // Use provided virtual dimensions or fall back to original canvas dimensions
+    const currentWidth = virtualGameWidth || GAME_CONFIG.canvas.width;
+    const currentHeight = virtualGameHeight || GAME_CONFIG.canvas.height;
+
+    // Calculate container positioning based on current virtual width
     const containerWidth = 120; // Container width
     const containerSpacing = 5; // Gap between containers
     const totalContainersWidth = (GAME_CONFIG.containers.count * containerWidth) + ((GAME_CONFIG.containers.count - 1) * containerSpacing);
-    const startX = (GAME_CONFIG.canvas.width - totalContainersWidth) / 2;
-    
+    const startX = (currentWidth - totalContainersWidth) / 2;
+
     this.containers = colors.map((color, index) => ({
       id: `container-${index}`,
       color,
       position: {
         x: startX + (containerWidth / 2) + index * (containerWidth + containerSpacing),
-        y: GAME_CONFIG.canvas.height * (UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height / 2) / GAME_CONFIG.canvas.height
+        y: currentHeight * (UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height / 2) / GAME_CONFIG.canvas.height
       },
       holes: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
       reservedHoles: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
@@ -71,16 +75,26 @@ export class GameState {
     }));
   }
 
-  private initializeHoldingHoles(): void {
+  private initializeHoldingHoles(virtualGameWidth?: number, virtualGameHeight?: number): void {
+    // Use provided virtual dimensions or fall back to original canvas dimensions
+    const currentWidth = virtualGameWidth || GAME_CONFIG.canvas.width;
+    const currentHeight = virtualGameHeight || GAME_CONFIG.canvas.height;
+
+    const scaledHeaderHeight = currentHeight * (UI_CONSTANTS.header.height / GAME_CONFIG.canvas.height);
+
+    const scaledContainerHeight = currentHeight * (UI_CONSTANTS.containers.height / GAME_CONFIG.canvas.height);
+
+    const scaledHoldingHoleHeight = currentHeight * (UI_CONSTANTS.holdingHoles.height / GAME_CONFIG.canvas.height);
+
     // Calculate holdingY based on the proportion of the original design height
-    const holdingY = GAME_CONFIG.canvas.height * (141 / GAME_CONFIG.canvas.height);
-    
-    // Calculate holding holes positioning based on canvas width
+    const holdingY = scaledHeaderHeight + scaledContainerHeight + (scaledHoldingHoleHeight / 2);
+
+    // Calculate holding holes positioning based on current virtual width
     const screwDiameter = 24; // Screw diameter
     const holeSpacing = 5; // Gap between holes
     const totalHolesWidth = (GAME_CONFIG.holdingHoles.count * screwDiameter) + ((GAME_CONFIG.holdingHoles.count - 1) * holeSpacing);
-    const startX = (GAME_CONFIG.canvas.width - totalHolesWidth) / 2;
-    
+    const startX = (currentWidth - totalHolesWidth) / 2;
+
     this.holdingHoles = Array.from({ length: GAME_CONFIG.holdingHoles.count }, (_, index) => ({
       id: `holding-${index}`,
       position: { 
@@ -122,9 +136,9 @@ export class GameState {
     const savedData = localStorage.getItem('par-shape-2d-save');
     console.log('=== CHECKING GAME IN PROGRESS ===');
     console.log('Saved data exists:', !!savedData);
-    
+
     if (!savedData) return false;
-    
+
     try {
       const data = JSON.parse(savedData);
       console.log('Parsed save data structure:', {
@@ -132,7 +146,7 @@ export class GameState {
         hasGameState: !!data.gameState,
         hasLayerManagerState: !!data.layerManagerState
       });
-      
+
       // Handle both old and new save formats
       const state = data.gameState || data.state;
       console.log('Game state:', {
@@ -140,10 +154,10 @@ export class GameState {
         gameOver: state?.gameOver,
         levelComplete: state?.levelComplete
       });
-      
+
       const hasGame = state && state.gameStarted && !state.gameOver && !state.levelComplete;
       console.log('Has game in progress:', hasGame);
-      
+
       return hasGame;
     } catch (error) {
       console.error('Failed to check saved game:', error);
@@ -203,7 +217,7 @@ export class GameState {
     // Calculate the exact position of a hole within a container
     // Holes are arranged horizontally: x - 36, x, x + 36
     const holeX = container.position.x - 36 + holeIndex * 36;
-    
+
     return {
       x: holeX,
       y: container.position.y
@@ -220,7 +234,7 @@ export class GameState {
 
     // Check if this screw has a reservation
     const reservedIndex = container.reservedHoles.findIndex(id => id === screw.id);
-    
+
     if (reservedIndex !== -1) {
       // Use the reserved hole
       if (container.holes[reservedIndex] !== null) {
@@ -234,7 +248,7 @@ export class GameState {
       // Find first available unreserved hole
       const emptyHoleIndex = this.getFirstEmptyHoleIndex(container);
       if (emptyHoleIndex === -1) return false;
-      
+
       container.holes[emptyHoleIndex] = screw;
       console.log(`Screw ${screw.id} placed in unreserved hole ${emptyHoleIndex}`);
     }
@@ -264,7 +278,7 @@ export class GameState {
     this.containers.forEach((container, index) => {
       if (container.isMarkedForRemoval && container.removalTimer !== undefined) {
         container.removalTimer -= deltaTime;
-        
+
         if (container.removalTimer <= 0) {
           // Time to replace the container - include holding hole screws
           const activeScrewColors = activeShapes ? this.getAllActiveScrewColors(activeShapes) : undefined;
@@ -278,7 +292,7 @@ export class GameState {
     if (containerIndex < 0 || containerIndex >= this.containers.length) return;
 
     const oldContainer = this.containers[containerIndex];
-    
+
     // Get existing container colors to avoid duplicates
     const existingColors = this.containers
       .filter((_, index) => index !== containerIndex)
@@ -290,7 +304,7 @@ export class GameState {
       availableColors = getRandomColorsFromList(activeScrewColors, 1, existingColors);
       console.log(`Selecting container color from active screws: [${activeScrewColors.join(', ')}], avoiding [${existingColors.join(', ')}], selected: ${availableColors[0] || 'none'}`);
     }
-    
+
     // Fallback to any available color if no active shape colors work
     if (availableColors.length === 0) {
       availableColors = getRandomScrewColors(1, existingColors);
@@ -326,11 +340,6 @@ export class GameState {
     }
 
     // Note: GameManager will handle moving holding screws to new containers
-  }
-
-  // Keep the old method for backward compatibility but make it use the new delayed system
-  public removeFullContainer(containerId: string): void {
-    this.markContainerForRemoval(containerId);
   }
 
   public removeContainer(containerIndex: number): void {
@@ -382,7 +391,7 @@ export class GameState {
 
   public getHoldingScrewsReadyForContainers(): { screw: Screw; holeId: string; containerId: string }[] {
     const readyScrews: { screw: Screw; holeId: string; containerId: string }[] = [];
-    
+
     this.holdingHoles.forEach(hole => {
       if (hole.screw) {
         const availableContainer = this.findAvailableContainer(hole.screw.color);
@@ -395,7 +404,7 @@ export class GameState {
         }
       }
     });
-    
+
     return readyScrews;
   }
 
@@ -441,7 +450,7 @@ export class GameState {
       if (!savedData) return false;
 
       const data = JSON.parse(savedData);
-      
+
       // Support both old and new save formats
       if (data.gameState) {
         // New format with full game save
@@ -481,12 +490,12 @@ export class GameState {
       if (!savedData) return null;
 
       const data = JSON.parse(savedData);
-      
+
       // Only return data if it's in the new full format
       if (data.gameState && data.layerManagerState) {
         return data as import('@/types/game').FullGameSave;
       }
-      
+
       return null;
     } catch (error) {
       console.error('Failed to get full save data:', error);
@@ -494,20 +503,10 @@ export class GameState {
     }
   }
 
-  public getUniqueShapeColors(shapes: Shape[]): ScrewColor[] {
-    const colorSet = new Set<ScrewColor>();
-    shapes.forEach(shape => {
-      shape.screws.forEach(screw => {
-        colorSet.add(screw.color);
-      });
-    });
-    return Array.from(colorSet);
-  }
-
-  public getAllActiveScrewColors(shapes: Shape[]): ScrewColor[] {
-    const colorSet = new Set<ScrewColor>();
-    
+  public getUniqueShapeColors(shapes: Shape[]): Set<ScrewColor> {
     // Add colors from screws in shapes
+
+    const colorSet = new Set<ScrewColor>();
     shapes.forEach(shape => {
       shape.screws.forEach(screw => {
         if (!screw.isCollected) {
@@ -515,59 +514,61 @@ export class GameState {
         }
       });
     });
-    
+
+    return colorSet;
+  }
+
+  public getAllActiveScrewColors(shapes: Shape[]): ScrewColor[] {
+    const colorSet = this.getUniqueShapeColors(shapes);
+
     // Add colors from screws in holding holes
     this.holdingHoles.forEach(hole => {
       if (hole.screw) {
         colorSet.add(hole.screw.color);
       }
     });
-    
+
     return Array.from(colorSet);
   }
 
-  public shouldCreateNewContainer(activeScrewColors: ScrewColor[]): boolean {
-    // Only create new containers if we have at least 2 unique colors from active screws
-    return activeScrewColors.length >= 2;
-  }
+  public updateContainersFromActiveScrewColors(activeScrewColors: ScrewColor[], virtualGameWidth?: number, virtualGameHeight?: number): void {
+    console.log('Current containers before update:', this.containers.map(c => c.color));
 
-  public updateContainersFromActiveShapes(activeShapes: Shape[]): void {
-    const activeShapeColors = this.getUniqueShapeColors(activeShapes);
-
-    // Update any containers that need removal
-    this.containers.forEach((container, index) => {
-      if (container.isMarkedForRemoval && container.removalTimer !== undefined && container.removalTimer <= 0) {
-        // Only replace if we have enough colors, otherwise just remove
-        if (this.shouldCreateNewContainer(activeShapeColors)) {
-          this.replaceContainer(index, activeShapeColors);
-        } else {
-          this.removeContainer(index);
-        }
-      }
-    });
-  }
-
-  public updateContainersFromActiveScrewColors(activeScrewColors: ScrewColor[]): void {
     // Only update if we have enough unique colors
     if (activeScrewColors.length >= GAME_CONFIG.containers.count) {
       console.log(`Updating containers with active screw colors: ${activeScrewColors.join(', ')}`);
-      this.initializeContainers(activeScrewColors);
+      this.initializeContainers(activeScrewColors, virtualGameWidth, virtualGameHeight);
     } else {
       console.log(`Not enough screw colors (${activeScrewColors.length}) to update containers, keeping current colors`);
     }
+
+    console.log('Containers after update:', this.containers.map(c => c.color));
   }
 
-  public recalculatePositions(): void {
+  public recalculatePositions(virtualGameWidth?: number, virtualGameHeight?: number): void {
+    // Use provided virtual dimensions or fall back to original canvas dimensions
+    const currentWidth = virtualGameWidth || GAME_CONFIG.canvas.width;
+    const currentHeight = virtualGameHeight || GAME_CONFIG.canvas.height;
+
+    const scaledHeaderHeight = currentHeight * (UI_CONSTANTS.header.height / GAME_CONFIG.canvas.height);
+
+    const scaledContainerHeight = currentHeight * (UI_CONSTANTS.containers.height / GAME_CONFIG.canvas.height);
+
+    const scaledHoldingHoleHeight = currentHeight * (UI_CONSTANTS.holdingHoles.height / GAME_CONFIG.canvas.height);
+
+    // Calculate holdingY based on the proportion of the original design height
+    const holdingY = scaledHeaderHeight + scaledContainerHeight + (scaledHoldingHoleHeight / 2);
+
     // Recalculate container positions
     if (this.containers.length > 0) {
       const containerWidth = 120;
       const containerSpacing = 5;
       const totalContainersWidth = (this.containers.length * containerWidth) + ((this.containers.length - 1) * containerSpacing);
-      const startX = (GAME_CONFIG.canvas.width - totalContainersWidth) / 2;
-      
+      const startX = (currentWidth - totalContainersWidth) / 2;
+
       this.containers.forEach((container, index) => {
         container.position.x = startX + (containerWidth / 2) + index * (containerWidth + containerSpacing);
-        container.position.y = GAME_CONFIG.canvas.height * (UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height / 2) / GAME_CONFIG.canvas.height;
+        container.position.y = currentHeight * (UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height / 2) / GAME_CONFIG.canvas.height;
       });
     }
 
@@ -576,11 +577,11 @@ export class GameState {
       const screwDiameter = 24;
       const holeSpacing = 5;
       const totalHolesWidth = (this.holdingHoles.length * screwDiameter) + ((this.holdingHoles.length - 1) * holeSpacing);
-      const startX = (GAME_CONFIG.canvas.width - totalHolesWidth) / 2;
-      
+      const startX = (currentWidth - totalHolesWidth) / 2;
+
       this.holdingHoles.forEach((hole, index) => {
         hole.position.x = startX + (screwDiameter / 2) + index * (screwDiameter + holeSpacing);
-        hole.position.y = GAME_CONFIG.canvas.height * (141 / GAME_CONFIG.canvas.height);
+        hole.position.y = holdingY;
       });
     }
   }

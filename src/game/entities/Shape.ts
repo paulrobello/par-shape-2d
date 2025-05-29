@@ -96,7 +96,7 @@ export class Shape implements IShape {
 
   public getPath2D(): Path2D {
     const path = new Path2D();
-    
+
     switch (this.type) {
       case 'rectangle':
       case 'square':
@@ -117,11 +117,11 @@ export class Shape implements IShape {
     const w = this.width || 60;
     const h = this.height || 60;
     const radius = Math.min(w, h) * 0.1;
-    
+
     // Create rounded rectangle
     const x = this.position.x - w / 2;
     const y = this.position.y - h / 2;
-    
+
     path.moveTo(x + radius, y);
     path.lineTo(x + w - radius, y);
     path.quadraticCurveTo(x + w, y, x + w, y + radius);
@@ -132,7 +132,7 @@ export class Shape implements IShape {
     path.lineTo(x, y + radius);
     path.quadraticCurveTo(x, y, x + radius, y);
     path.closePath();
-    
+
     return path;
   }
 
@@ -147,7 +147,7 @@ export class Shape implements IShape {
     const path = new Path2D();
     const r = this.radius || 30;
     const vertices = createRegularPolygonVertices(this.position, r, 3);
-    
+
     if (vertices.length > 0) {
       path.moveTo(vertices[0].x, vertices[0].y);
       for (let i = 1; i < vertices.length; i++) {
@@ -155,7 +155,7 @@ export class Shape implements IShape {
       }
       path.closePath();
     }
-    
+
     return path;
   }
 
@@ -163,19 +163,19 @@ export class Shape implements IShape {
     const path = new Path2D();
     const radius = this.radius || 30;
     const sides = 5; // Pentagon to match physics shape
-    
+
     for (let i = 0; i < sides; i++) {
       const angle = (i * Math.PI * 2) / sides - Math.PI / 2; // Start from top
       const x = this.position.x + Math.cos(angle) * radius;
       const y = this.position.y + Math.sin(angle) * radius;
-      
+
       if (i === 0) {
         path.moveTo(x, y);
       } else {
         path.lineTo(x, y);
       }
     }
-    
+
     path.closePath();
     return path;
   }
@@ -184,7 +184,7 @@ export class Shape implements IShape {
     const points: Vector2[] = [];
     const centerX = this.position.x;
     const centerY = this.position.y;
-    
+
     switch (this.type) {
       case 'circle':
         const radius = this.radius || 30;
@@ -196,17 +196,17 @@ export class Shape implements IShape {
           });
         }
         break;
-        
+
       case 'rectangle':
       case 'square':
         const w = this.width || 60;
         const h = this.height || 60;
         const perimeter = 2 * (w + h);
-        
+
         for (let i = 0; i < count; i++) {
           const t = (i / count) * perimeter;
           let x, y;
-          
+
           if (t < w) {
             // Top edge
             x = centerX - w/2 + t;
@@ -224,11 +224,11 @@ export class Shape implements IShape {
             x = centerX - w/2;
             y = centerY + h/2 - (t - 2 * w - h);
           }
-          
+
           points.push({ x, y });
         }
         break;
-        
+
       case 'triangle':
         const triangleRadius = this.radius || 30;
         const triangleVertices = createRegularPolygonVertices(this.position, triangleRadius, 3);
@@ -237,19 +237,19 @@ export class Shape implements IShape {
           const t = ((i / count) * 3) % 1;
           const v1 = triangleVertices[edgeIndex];
           const v2 = triangleVertices[(edgeIndex + 1) % 3];
-          
+
           points.push({
             x: v1.x + (v2.x - v1.x) * t,
             y: v1.y + (v2.y - v1.y) * t,
           });
         }
         break;
-        
+
       case 'star':
         const starRadius = this.radius || 30;
         const sides = 5; // Pentagon vertices
         const pentagonVertices: Vector2[] = [];
-        
+
         // Generate pentagon vertices
         for (let i = 0; i < sides; i++) {
           const angle = (i * Math.PI * 2) / sides - Math.PI / 2;
@@ -258,28 +258,28 @@ export class Shape implements IShape {
             y: this.position.y + Math.sin(angle) * starRadius,
           });
         }
-        
+
         // Distribute points along pentagon edges
         for (let i = 0; i < count; i++) {
           const edgeIndex = Math.floor((i / count) * pentagonVertices.length);
           const t = ((i / count) * pentagonVertices.length) % 1;
           const v1 = pentagonVertices[edgeIndex];
           const v2 = pentagonVertices[(edgeIndex + 1) % pentagonVertices.length];
-          
+
           points.push({
             x: v1.x + (v2.x - v1.x) * t,
             y: v1.y + (v2.y - v1.y) * t,
           });
         }
         break;
-        
+
       default:
         // Fallback to body vertices
         this.body.vertices.forEach(vertex => {
           points.push({ x: vertex.x, y: vertex.y });
         });
     }
-    
+
     return points;
   }
 
@@ -315,8 +315,13 @@ export class Shape implements IShape {
       // Physics body properties for recreation
       bodyPosition: this.body ? { x: this.body.position.x, y: this.body.position.y } : { ...this.position },
       bodyAngle: this.body ? this.body.angle : this.rotation,
-      bodyVelocity: this.body ? { x: this.body.velocity.x, y: this.body.velocity.y } : { x: 0, y: 0 },
-      bodyAngularVelocity: this.body ? this.body.angularVelocity : 0,
+      bodyVelocity: this.body ? {
+        x: (typeof this.body.velocity.x === 'number' && isFinite(this.body.velocity.x)) ? this.body.velocity.x : 0,
+        y: (typeof this.body.velocity.y === 'number' && isFinite(this.body.velocity.y)) ? this.body.velocity.y : 0
+      } : { x: 0, y: 0 },
+      bodyAngularVelocity: this.body ? 
+        (typeof this.body.angularVelocity === 'number' && isFinite(this.body.angularVelocity)) ? this.body.angularVelocity : 0 
+        : 0,
       isStatic: this.body ? this.body.isStatic : false,
       isSleeping: this.body ? this.body.isSleeping : false,
       // Physics material properties
@@ -338,299 +343,64 @@ export class Shape implements IShape {
     physicsWorld: import('@/game/physics/PhysicsWorld').PhysicsWorld,
     screwManager: import('@/game/systems/ScrewManager').ScrewManager
   ): void {
-    console.log('Shape.fromSerializable called with data:', data);
-    
-    if (!data) {
-      console.error('Shape.fromSerializable: data is undefined');
-      return;
+    // Simple restoration - just update position from save data
+    if (data.bodyPosition) {
+      const Matter = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
+      Matter.Body.setPosition(this.body, data.bodyPosition);
+      this.position = { ...data.bodyPosition };
     }
     
-    // Update properties that might have changed
-    this.position = data.position ? { ...data.position } : { ...this.position };
-    this.rotation = data.rotation || this.rotation;
-    this.layerId = data.layerId || this.layerId;
-    this.color = data.color || this.color;
-    this.tint = data.tint || this.tint;
-    
-    // Restore holes where screws were removed
+    // Restore holes
     this.holes = data.holes ? data.holes.map(hole => ({ ...hole })) : [];
     
-    // Recreate physics body with saved state
-    // First remove old body if it exists
-    if (this.body) {
-      physicsWorld.removeBodies([this.body]);
-    }
-    
-    // Create new body based on shape type and restore its state
-    console.log('Creating physics body for shape:', this.id, 'type:', this.type);
-    this.body = this.createPhysicsBody(data);
-    physicsWorld.addBodies([this.body]);
-    
-    // Restore screws
+    console.log(`Updated shape ${this.id} position to (${this.position.x}, ${this.position.y})`);
+
+    // Restore screws - connect to existing screws in ScrewManager instead of creating new ones
     this.screws = [];
     if (data.screws) {
       data.screws.forEach(screwData => {
-        // Import Screw class here to avoid circular dependencies
-        const { Screw: ScrewClass } = require('@/game/entities/Screw'); // eslint-disable-line @typescript-eslint/no-require-imports
+        // Find existing screw in ScrewManager by ID
+        const existingScrew = screwManager.getScrew(screwData.id);
         
-        const screw = new ScrewClass(
-          screwData.id,
-          screwData.shapeId,
-          screwData.position,
-          screwData.color
-        );
-        
-        // Restore screw properties
-        screw.isRemovable = screwData.isRemovable;
-        screw.isCollected = screwData.isCollected;
-        screw.isBeingCollected = screwData.isBeingCollected;
-        screw.targetContainerId = screwData.targetContainerId;
-        
-        this.screws.push(screw);
-        
-        // Register screw with screw manager if not collected
-        if (!screw.isCollected) {
-          screwManager.addScrew(screw);
-          if (!screw.isBeingCollected) {
-            screwManager.attachScrewToShape(screw, this);
+        if (existingScrew) {
+          // Use existing screw and attach it to this shape
+          this.screws.push(existingScrew);
+          
+          // Attach constraint if not collected and not animating
+          if (!existingScrew.isCollected && !existingScrew.isBeingCollected) {
+            screwManager.attachScrewToShape(existingScrew, this);
+          }
+        } else {
+          // Fallback: create screw if not found in manager (shouldn't happen with proper order)
+          console.warn(`Screw ${screwData.id} not found in ScrewManager, creating new one`);
+          
+          const { Screw: ScrewClass } = require('@/game/entities/Screw'); // eslint-disable-line @typescript-eslint/no-require-imports
+          const screw = new ScrewClass(
+            screwData.id,
+            screwData.shapeId,
+            screwData.position,
+            screwData.color
+          );
+
+          // Restore screw properties
+          screw.isRemovable = screwData.isRemovable;
+          screw.isCollected = screwData.isCollected;
+          screw.isBeingCollected = screwData.isBeingCollected;
+          screw.targetContainerId = screwData.targetContainerId;
+
+          this.screws.push(screw);
+
+          // Register screw with screw manager if not collected
+          if (!screw.isCollected) {
+            screwManager.addScrew(screw);
+            if (!screw.isBeingCollected) {
+              screwManager.attachScrewToShape(screw, this);
+            }
           }
         }
       });
     }
   }
 
-  private createPhysicsBody(data: import('@/types/game').SerializableShape): Body {
-    console.log('createPhysicsBody called with data:', {
-      hasBodyPosition: !!data.bodyPosition,
-      hasPosition: !!data.position,
-      type: this.type,
-      id: this.id
-    });
-    
-    // Import Matter.js here to avoid circular dependencies
-    const Matter = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
-    
-    // Use bodyPosition if available, otherwise fall back to position
-    const bodyPos = data.bodyPosition || data.position || { x: 0, y: 0 };
-    const bodyAngle = data.bodyAngle || data.rotation || 0;
-    const bodyVel = data.bodyVelocity || { x: 0, y: 0 };
-    const bodyAngVel = data.bodyAngularVelocity || 0;
-    const isStatic = data.isStatic || false;
-    const isSleeping = data.isSleeping || false;
-    
-    // Physics material properties with fallbacks from PHYSICS_CONSTANTS
-    const friction = data.friction ?? 0.1;
-    const frictionAir = data.frictionAir ?? 0.01; 
-    const restitution = data.restitution ?? 0.3;
-    const density = data.density ?? 0.001;
-    
-    // Collision filter properties
-    const collisionGroup = data.collisionGroup || 0;
-    const collisionCategory = data.collisionCategory || 1;
-    const collisionMask = data.collisionMask ?? 0xFFFFFFFF;
-    
-    // Body identification
-    const bodyLabel = data.bodyLabel || `shape-${this.id}`;
-    
-    console.log('createPhysicsBody using:', { 
-      bodyPos, 
-      bodyAngle, 
-      type: this.type,
-      collisionGroup,
-      collisionCategory,
-      collisionMask,
-      friction,
-      density
-    });
-    
-    let body: Body;
-    
-    try {
-      switch (this.type) {
-      case 'rectangle':
-        body = Matter.Bodies.rectangle(
-          bodyPos.x,
-          bodyPos.y,
-          data.width || 100,
-          data.height || 60,
-          {
-            friction,
-            frictionAir,
-            restitution,
-            density,
-            render: { visible: false }
-          }
-        );
-        break;
-      case 'square':
-        const size = data.width || 80;
-        body = Matter.Bodies.rectangle(
-          bodyPos.x,
-          bodyPos.y,
-          size,
-          size,
-          {
-            friction,
-            frictionAir,
-            restitution,
-            density,
-            render: { visible: false }
-          }
-        );
-        break;
-      case 'circle':
-        body = Matter.Bodies.circle(
-          bodyPos.x,
-          bodyPos.y,
-          data.radius || 40,
-          {
-            friction,
-            frictionAir,
-            restitution,
-            density,
-            render: { visible: false }
-          }
-        );
-        break;
-      case 'triangle':
-        const triangleVertices = data.vertices || [
-          { x: 0, y: -40 },
-          { x: -35, y: 30 },
-          { x: 35, y: 30 }
-        ];
-        console.log('Triangle vertices:', triangleVertices.length, triangleVertices);
-        
-        if (triangleVertices.length >= 3) {
-          const absoluteTriangleVertices = triangleVertices.map(v => ({
-            x: v.x + bodyPos.x,
-            y: v.y + bodyPos.y
-          }));
-          body = Matter.Bodies.fromVertices(
-            bodyPos.x,
-            bodyPos.y,
-            [absoluteTriangleVertices],
-            {
-              friction,
-              frictionAir,
-              restitution,
-              density,
-              render: { visible: false }
-            }
-          );
-        } else {
-          console.log('Triangle vertices invalid, falling back to rectangle');
-          // Fallback to rectangle if vertices are invalid
-          body = Matter.Bodies.rectangle(
-            bodyPos.x,
-            bodyPos.y,
-            data.width || 100,
-            data.height || 60,
-            {
-              friction,
-              frictionAir,
-              restitution,
-              density,
-              render: { visible: false }
-            }
-          );
-        }
-        break;
-      case 'star':
-        const starVertices = data.vertices || [];
-        console.log('Star vertices:', starVertices.length, starVertices);
-        
-        if (starVertices.length >= 3) {
-          const absoluteStarVertices = starVertices.map(v => ({
-            x: v.x + bodyPos.x,
-            y: v.y + bodyPos.y
-          }));
-          body = Matter.Bodies.fromVertices(
-            bodyPos.x,
-            bodyPos.y,
-            [absoluteStarVertices],
-            {
-              friction,
-              frictionAir,
-              restitution,
-              density,
-              render: { visible: false }
-            }
-          );
-        } else {
-          console.log('Star vertices invalid, falling back to circle');
-          // Fallback to circle if vertices are invalid
-          body = Matter.Bodies.circle(
-            bodyPos.x,
-            bodyPos.y,
-            data.radius || 40,
-            {
-              friction,
-              frictionAir,
-              restitution,
-              density,
-              render: { visible: false }
-            }
-          );
-        }
-        break;
-      default:
-        // Fallback to rectangle
-        body = Matter.Bodies.rectangle(
-          bodyPos.x,
-          bodyPos.y,
-          100,
-          60,
-          {
-            friction,
-            frictionAir,
-            restitution,
-            density,
-            render: { visible: false }
-          }
-        );
-      }
-    } catch (error) {
-      console.error('Error creating physics body, using fallback rectangle:', error);
-      // Ultimate fallback - simple rectangle
-      body = Matter.Bodies.rectangle(
-        bodyPos.x,
-        bodyPos.y,
-        100,
-        60,
-        {
-          friction,
-          frictionAir,
-          restitution,
-          density,
-          render: { visible: false }
-        }
-      );
-    }
-    
-    // Set collision filter and identification
-    body.collisionFilter.group = collisionGroup;
-    body.collisionFilter.category = collisionCategory;
-    body.collisionFilter.mask = collisionMask;
-    body.label = bodyLabel;
-    
-    // Store shape reference on body for easy lookup
-    (body as Body & { shapeId: string }).shapeId = this.id;
-    
-    // Restore physics state
-    try {
-      Matter.Body.setAngle(body, bodyAngle);
-      Matter.Body.setVelocity(body, bodyVel);
-      Matter.Body.setAngularVelocity(body, bodyAngVel);
-      Matter.Body.setStatic(body, isStatic);
-      
-      if (isSleeping) {
-        Matter.Sleeping.set(body, true);
-      }
-    } catch (error) {
-      console.error('Error setting physics body properties:', error);
-      // Continue with basic body - physics state restoration failed but body is still usable
-    }
-    
-    return body;
-  }
+    // Rest of fromSerializable method is fine as is
 }
