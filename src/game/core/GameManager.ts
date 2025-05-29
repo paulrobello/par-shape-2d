@@ -913,7 +913,7 @@ export class GameManager {
     
     // Header background - use virtual width to fill entire screen
     this.ctx.fillStyle = '#34495E';
-    this.ctx.fillRect(0, 0, this.virtualGameWidth, 80);
+    this.ctx.fillRect(0, 0, this.virtualGameWidth, this.virtualGameHeight * (UI_CONSTANTS.header.height / GAME_CONFIG.canvas.height));
     
     // Calculate layers remaining
     const totalLayers = this.layerManager.getTotalLayersForLevel();
@@ -1058,7 +1058,9 @@ export class GameManager {
     // Background area for containers and holding holes
     // From HUD bottom (80) to 5px past holding holes bottom (141 + 12 + 5 = 158)
     this.ctx.fillStyle = '#34495E'; // Same as HUD background
-    this.ctx.fillRect(0, 80, this.virtualGameWidth, 158 - 80);
+    const scaledHeaderBottom = this.virtualGameHeight * (UI_CONSTANTS.header.height / GAME_CONFIG.canvas.height);
+    const scaledContainerHoldingBottom = this.virtualGameHeight * (158 / GAME_CONFIG.canvas.height);
+    this.ctx.fillRect(0, scaledHeaderBottom, this.virtualGameWidth, scaledContainerHoldingBottom - scaledHeaderBottom);
   }
 
   private renderContainers(): void {
@@ -1566,7 +1568,8 @@ export class GameManager {
 
   private getCurrentPlayableBounds(): { x: number; y: number; width: number; height: number } {
     // Use virtual game dimensions to maximize space usage
-    const headerHeight = 158; // Height of header + containers + holding holes
+    // Calculate header height dynamically based on the proportion of the original design height
+    const headerHeight = this.virtualGameHeight * (158 / GAME_CONFIG.canvas.height);
     const minMargin = 10; // Minimal margin to prevent edge spawning
     
     const bounds = {

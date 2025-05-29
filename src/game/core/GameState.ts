@@ -1,5 +1,5 @@
 import { GameState as IGameState, Level, Container, HoldingHole, ScrewColor, Screw, Shape } from '@/types/game';
-import { GAME_CONFIG } from '@/game/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS } from '@/game/utils/Constants';
 import { getRandomScrewColors, getRandomColorsFromList } from '@/game/utils/Colors';
 
 export class GameState {
@@ -60,9 +60,9 @@ export class GameState {
     this.containers = colors.map((color, index) => ({
       id: `container-${index}`,
       color,
-      position: { 
+      position: {
         x: startX + (containerWidth / 2) + index * (containerWidth + containerSpacing),
-        y: 100 
+        y: GAME_CONFIG.canvas.height * (UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height / 2) / GAME_CONFIG.canvas.height
       },
       holes: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
       reservedHoles: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
@@ -72,9 +72,8 @@ export class GameState {
   }
 
   private initializeHoldingHoles(): void {
-    // Position holding holes with 5px gap below containers
-    // Container bottom is at 100 + 24 = 124, so holding holes at 124 + 5 + 12 = 141
-    const holdingY = 141;
+    // Calculate holdingY based on the proportion of the original design height
+    const holdingY = GAME_CONFIG.canvas.height * (141 / GAME_CONFIG.canvas.height);
     
     // Calculate holding holes positioning based on canvas width
     const screwDiameter = 24; // Screw diameter
@@ -568,7 +567,7 @@ export class GameState {
       
       this.containers.forEach((container, index) => {
         container.position.x = startX + (containerWidth / 2) + index * (containerWidth + containerSpacing);
-        // Keep the same Y position
+        container.position.y = GAME_CONFIG.canvas.height * (UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height / 2) / GAME_CONFIG.canvas.height;
       });
     }
 
@@ -581,7 +580,7 @@ export class GameState {
       
       this.holdingHoles.forEach((hole, index) => {
         hole.position.x = startX + (screwDiameter / 2) + index * (screwDiameter + holeSpacing);
-        // Keep the same Y position
+        hole.position.y = GAME_CONFIG.canvas.height * (141 / GAME_CONFIG.canvas.height);
       });
     }
   }
