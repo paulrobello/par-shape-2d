@@ -1,0 +1,80 @@
+# PAR Shape 2D
+
+## About
+This is a 2D physics game where you must remove screws from shapes in order clear them from the screen.
+
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+
+## Gameplay
+
+* The objective is to clear all layers of shapes by removing screws.
+* The top of the screen has the title of the game, the current level number, Number of layers remaining to clear, current level score and game total score.
+* Each screw removed from a shape adds to the current level score. If the level is completed, the score is added to the game total score.
+* After completing a level, increment the level number and reset the current level score to 0 and generate a new playing area.
+* Next row down is a set of 4 container boxes each with 3 holes in them.
+* Each container box has a different color and is associated with a specific screw color.
+* When a screw is removed, it flies to the first container box that matches its color and has an empty hole.
+* When a container box is full, it should delay for 1 second then fall off the screen and be removed. 
+* When a container box is removed a new container box with random color selected from screw colors that are on screen to replace it.
+* Under the row of container boxes is a row of 5 empty holding holes that are used to hold screws that get removed from shapes but do not match any of the container boxes.
+* When a new container box is added, if any screws are in the holding holes, they should be moved to the new container box if it has an empty hole that matches their color.
+* When all holding holes are full, the player has 5 seconds to try and free up a holding hole or they loose the game and must restart the current level.
+* Under the row of holding holes is a stack of layers that contain shapes.
+* Each layer should be the same width 512px and height 512px. (this may change later)
+* Each level has 10 layers but only 4 are visible at a time.
+* 3 to 6 shapes are loaded into a layer.
+* Shapes only interact with the layer they are in.
+* A Shape can have between 1 and 5 screws in it depending on the shape and size.
+* The screws in the shape should not overlap with each other or the edge of the shape itself.
+* When all screws are removed from a shape, it is allowed to fall from the screen and is removed from the layer once off-screen.
+* All shapes in a layer should have the same tint to indicate they are part of the same layer.
+* Shapes should have a solid border with a translucent inner area to allow the player to see the shapes behind them.
+* Shapes can be any of the following: rectangle, square, circle, triangle, pentagon. (More will be added later)
+* Shapes when placed in the layer should not overlap.
+* A screw can not be removed if it is even partially blocked by a shape in a layer in front of its layer.
+* Screws from any layer can be removed as long as they are not blocked.
+* Screws should be randomly colored but must be one of the following colors: pink, red, green, blue, light blue, yellow, purple, orange, or brown.
+* When all shapes are removed from a layer, if there are any more layers remaining to be generated in the level, a new layer should be added behind the stack with a new tint color and between 3 and 6 new shapes.
+* When all layers are cleared, the level is completed and the player can move on to the next level after clicking a continue button.
+* Only visible layers should be generated to save on performance.
+* Game state should be saved in local storage so that the player can continue where they left off.
+
+## Physics
+
+* This project uses [Matter.js](https://brm.io/matter-js/) for physics simulation.
+* Read the docs located in `./docs/MatterJs_docs` to fully understand how to use the physics engine.
+* Shapes are rigid bodies with low friction and can collide with each other in their layer.
+* Screws are constraints that are attached to the shapes and can be removed by the player.
+* Screws should only interact with the shape they are attached to.
+* If a shapes only has one screw in it, the shape can be allowed rotate around the screw.
+
+## Animation
+
+* Screws should fly to their destination container box or holding hole when removed.
+* If a blocked screw is clicked, it should shake to indicate it cannot be removed.
+
+## Graphics
+
+* Use HTML Canvas for rendering the game.
+* Layers should be rendered back to front so the transparency of shapes allows the player to see the shapes behind them.
+* Shapes should be rendered with a solid border and a translucent inner area.
+* Generate the shape graphics using a combination of HTML Canvas drawing functions.
+* Select points on the shapes for screw holes based on the shape type and size. Draw small transparent circles with solid borders at these points to represent the screw holes.
+* Screws should be rendered as small circles with a solid color and a small border. They should also have have a little x in the center to repsent the screw head.
+
+## Mobile Support
+
+* The game should be playable on mobile devices.
+* Use touch events to allow the player to remove screws by tapping on them.
+* If more than 1 unblocked screws are within the touch area, select the screw that matches the color of the container box that has an empty hole.
+* Ensure the game is responsive and works well on different screen sizes.
+* Use a mobile-friendly UI for the game controls and information display.
+* Ensure the game is playable with one hand, as the player may need to hold their device with one hand while playing.
+* Haptic feedback should be provided when a screw is removed or a container box is filled.
+
+## More Information 
+
+* Read all files in the `docs` folder including looking at any images

@@ -1,0 +1,215 @@
+import { Body, Constraint } from 'matter-js';
+
+export interface Vector2 {
+  x: number;
+  y: number;
+}
+
+export interface Rectangle {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'star';
+
+export type ScrewColor = 'pink' | 'red' | 'green' | 'blue' | 'lightBlue' | 'yellow' | 'purple' | 'orange' | 'brown';
+
+export interface GameState {
+  currentLevel: number;
+  levelScore: number;
+  totalScore: number;
+  gameStarted: boolean;
+  gameOver: boolean;
+  levelComplete: boolean;
+}
+
+export interface Shape {
+  id: string;
+  type: ShapeType;
+  position: Vector2;
+  rotation: number;
+  width?: number;
+  height?: number;
+  radius?: number;
+  vertices?: Vector2[];
+  body: Body;
+  screws: Screw[];
+  layerId: string;
+  color: string;
+  tint: string;
+}
+
+export interface Screw {
+  id: string;
+  shapeId: string;
+  position: Vector2;
+  color: ScrewColor;
+  constraint: Constraint | null;
+  isRemovable: boolean;
+  isCollected: boolean;
+  isBeingCollected: boolean; // Whether screw is currently animating to target
+  targetContainerId?: string; // Which container this screw is flying to
+}
+
+export interface Container {
+  id: string;
+  color: ScrewColor;
+  position: Vector2;
+  holes: (Screw | null)[];
+  reservedHoles: (string | null)[]; // Screw IDs that have reserved holes but haven't arrived yet
+  maxHoles: number;
+  isFull: boolean;
+  isMarkedForRemoval?: boolean;
+  removalTimer?: number;
+}
+
+export interface HoldingHole {
+  id: string;
+  position: Vector2;
+  screw: Screw | null;
+}
+
+export interface Layer {
+  id: string;
+  index: number;
+  depthIndex: number; // For depth-based rendering
+  physicsLayerGroup: number; // For physics separation
+  colorIndex: number; // Fixed color index for this layer
+  shapes: Shape[];
+  tint: string;
+  isVisible: boolean;
+  isGenerated: boolean;
+  bounds: Rectangle;
+}
+
+export interface Level {
+  number: number;
+  totalLayers: number;
+  layersGenerated: number;
+  layers: Layer[];
+}
+
+export interface GameConfig {
+  canvas: {
+    width: number;
+    height: number;
+  };
+  layer: {
+    width: number;
+    height: number;
+    maxVisible: number;
+  };
+  shapes: {
+    minPerLayer: number;
+    maxPerLayer: number;
+    minScrews: number;
+    maxScrews: number;
+  };
+  containers: {
+    count: number;
+    maxHoles: number;
+  };
+  holdingHoles: {
+    count: number;
+  };
+  physics: {
+    gravity: Vector2;
+    timestep: number;
+  };
+}
+
+export interface RenderContext {
+  ctx: CanvasRenderingContext2D;
+  canvas: HTMLCanvasElement;
+  debugMode: boolean;
+  holes?: Array<{ x: number; y: number; radius: number }>;
+}
+
+// Serializable versions for save/load (without Matter.js objects)
+export interface SerializableShape {
+  id: string;
+  type: ShapeType;
+  position: Vector2;
+  rotation: number;
+  width?: number;
+  height?: number;
+  radius?: number;
+  vertices?: Vector2[];
+  screws: SerializableScrew[];
+  holes: Vector2[]; // Positions where screws were removed
+  layerId: string;
+  color: string;
+  tint: string;
+  // Physics body properties for recreation
+  bodyPosition: Vector2;
+  bodyAngle: number;
+  bodyVelocity: Vector2;
+  bodyAngularVelocity: number;
+  isStatic: boolean;
+  isSleeping: boolean;
+  // Physics material properties
+  friction: number;
+  frictionAir: number;
+  restitution: number;
+  density: number;
+  // Collision filter properties
+  collisionGroup: number;
+  collisionCategory: number;
+  collisionMask: number;
+  // Body identification
+  bodyLabel: string;
+}
+
+export interface SerializableScrew {
+  id: string;
+  shapeId: string;
+  position: Vector2;
+  color: ScrewColor;
+  isRemovable: boolean;
+  isCollected: boolean;
+  isBeingCollected: boolean;
+  targetContainerId?: string;
+  // Animation state for recreation
+  animationTarget?: Vector2;
+  animationProgress?: number;
+}
+
+export interface SerializableLayer {
+  id: string;
+  index: number;
+  depthIndex: number;
+  physicsLayerGroup: number;
+  colorIndex: number;
+  shapes: SerializableShape[];
+  tint: string;
+  isVisible: boolean;
+  isGenerated: boolean;
+  bounds: Rectangle;
+  // Additional state for recreation
+  fadeOpacity: number;
+  fadeDirection: number;
+  fadeSpeed: number;
+}
+
+export interface SerializableLayerManagerState {
+  layers: SerializableLayer[];
+  layerCounter: number;
+  depthCounter: number;
+  physicsGroupCounter: number;
+  colorCounter: number;
+  totalLayersForLevel: number;
+  layersGeneratedThisLevel: number;
+}
+
+export interface FullGameSave {
+  gameState: GameState;
+  level: Level;
+  containers: Container[];
+  holdingHoles: HoldingHole[];
+  layerManagerState: SerializableLayerManagerState;
+  screwManagerState: {
+    animatingScrews: SerializableScrew[];
+  };
+}
