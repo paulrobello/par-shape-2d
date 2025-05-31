@@ -2,17 +2,19 @@
 
 ## Table of Contents
 1. [Project Overview](#project-overview)
-2. [Architecture Overview](#architecture-overview)
+2. [Event-Driven Architecture](#event-driven-architecture)
 3. [Core Systems](#core-systems)
-4. [Game Mechanics](#game-mechanics)
-5. [Rendering System](#rendering-system)
-6. [Input System](#input-system)
-7. [Save System](#save-system)
-8. [Mobile Support](#mobile-support)
-9. [File Structure & Mapping](#file-structure--mapping)
-10. [Technical Decisions](#technical-decisions)
-11. [Performance Considerations](#performance-considerations)
-12. [Development Features](#development-features)
+4. [Event System](#event-system)
+5. [Game Mechanics](#game-mechanics)
+6. [Rendering System](#rendering-system)
+7. [Input System](#input-system)
+8. [Save System](#save-system)
+9. [Mobile Support](#mobile-support)
+10. [File Structure & Mapping](#file-structure--mapping)
+11. [Technical Decisions](#technical-decisions)
+12. [Performance Considerations](#performance-considerations)
+13. [Development Features](#development-features)
+14. [Migration Summary](#migration-summary)
 
 ## Project Overview
 
@@ -25,25 +27,29 @@ PAR Shape 2D is a 2D physics-based puzzle game where players must strategically 
 - **Progression**: 10 layers per level, with automatic level advancement
 
 ### Key Features
-- Physics-based gameplay using Matter.js
-- Layer-based depth system with transparency
-- Smart touch selection for mobile devices
-- Color-coded screw collection system
-- Local storage save/resume functionality
-- Responsive design with portrait mode optimization
-- Haptic feedback for mobile devices
+- **Event-Driven Architecture** with 72 event types for loose coupling and maintainability
+- Physics-based gameplay using Matter.js with constraint-based screw system
+- Layer-based depth system with transparency and fade effects
+- Smart touch selection prioritizing container color matches for mobile devices
+- Color-coded screw collection system with 9 distinct screw colors
+- Comprehensive local storage save/resume with Matter.js physics serialization
+- Responsive design with portrait mode optimization and device-specific scaling
+- Haptic feedback for mobile devices with vibration patterns
+- Advanced event system with debugging, monitoring, and performance tracking capabilities
 
-## Architecture Overview
+## Event-Driven Architecture
 
-The application follows a modular architecture with clear separation of concerns:
+The application follows a **clean event-driven architecture** with complete decoupling between systems:
 
 ```
 ┌─────────────────┐
-│   React Layer   │  ← UI Components, Event Handling
+│   React Layer   │  ← UI Components, SystemCoordinator
 ├─────────────────┤
-│  Game Manager   │  ← Central Orchestrator
+│  Game Manager   │  ← Input Handling & Rendering Coordination
 ├─────────────────┤
-│ Core Systems    │  ← State, Physics, Layers, Screws
+│   Event Bus     │  ← Centralized Event Communication
+├─────────────────┤
+│ Core Systems    │  ← Event-Driven: State, Physics, Layers, Screws
 ├─────────────────┤
 │   Entities      │  ← Shapes, Screws, Layers
 ├─────────────────┤
@@ -54,19 +60,36 @@ The application follows a modular architecture with clear separation of concerns
 ```
 
 ### Design Patterns
+- **Event-Driven Architecture**: Systems communicate via events, not direct calls
+- **Publisher-Subscriber**: EventBus manages all inter-system communication
 - **Entity-Component-System**: Game objects with modular components
-- **Manager Pattern**: Centralized system coordination
+- **Coordinator Pattern**: SystemCoordinator manages system lifecycle
 - **Factory Pattern**: Procedural shape generation
-- **Observer Pattern**: Event-driven callbacks
 - **Strategy Pattern**: Different rendering strategies per shape type
 
+### Architecture Benefits
+- **Loose Coupling**: Systems are independent and testable
+- **Clean Code**: No complex parameter passing or circular dependencies
+- **Maintainability**: Changes to one system don't affect others
+- **Debugging**: Comprehensive event flow monitoring and validation
+- **Scalability**: Easy to add new systems or modify existing ones
+
 ## Core Systems
+
+All core systems extend the `BaseSystem` class and communicate exclusively through events:
 
 ### Physics System
 **File**: `src/game/physics/PhysicsWorld.ts`
 
-The physics system wraps Matter.js with game-specific functionality:
+Event-driven physics system that manages Matter.js independently:
 
+**Event-Driven Features**:
+- **Event Communication**: Listens for bounds changes, game state events
+- **Autonomous Operation**: Manages physics without external dependencies
+- **Event Emission**: Publishes collision events, physics step completion
+- **Body Management**: Handles add/remove events from other systems
+
+**Core Functionality**:
 - **Engine Configuration**: 60fps timestep, optimized iterations
 - **Gravity**: Moderate downward force (0.8 units)
 - **Boundaries**: Non-collidable walls (shapes fall through)
@@ -82,7 +105,7 @@ The physics system wraps Matter.js with game-specific functionality:
 ### Game State Management
 **File**: `src/game/core/GameState.ts`
 
-Centralized state management with persistence:
+Event-driven state management with full decoupling:
 
 ```typescript
 interface GameState {
@@ -95,6 +118,12 @@ interface GameState {
 }
 ```
 
+**Event-Driven Features**:
+- **Event Handlers**: Responds to screw collection, level changes, save/restore requests
+- **State Events**: Emits score updates, level progression, game state changes
+- **Container Management**: Handles container filling/replacement through events
+- **Persistence Events**: Coordinates save/restore operations
+
 **Responsibilities**:
 - Score tracking and level progression
 - Container and holding hole management
@@ -105,8 +134,15 @@ interface GameState {
 ### Layer Management
 **File**: `src/game/systems/LayerManager.ts`
 
-Manages the layer system with depth-based rendering:
+Event-driven layer system with complete autonomy:
 
+**Event-Driven Features**:
+- **Event Handlers**: Responds to level start, bounds changes, shape events
+- **Layer Events**: Emits layer creation, clearing, visibility changes
+- **Shape Coordination**: Coordinates with ScrewManager through events
+- **Bounds Events**: Handles responsive design through event system
+
+**Core Functionality**:
 - **Layer Generation**: Lazy loading of 4 visible layers
 - **Depth Ordering**: Back-to-front rendering with `depthIndex`
 - **Visibility Management**: Only visible layers are processed
@@ -116,12 +152,65 @@ Manages the layer system with depth-based rendering:
 ### Screw Management  
 **File**: `src/game/systems/ScrewManager.ts`
 
-Handles screw interactions and animations:
+Event-driven screw system managing all screw interactions:
 
+**Event-Driven Features**:
+- **Event Handlers**: Responds to shape creation, screw clicks, container updates
+- **Screw Events**: Emits screw creation, removal, blocking state changes
+- **Physics Events**: Coordinates constraint management through physics events
+- **Animation Events**: Manages collection animations with event feedback
+
+**Core Functionality**:
 - **Constraint Management**: Creating/removing Matter.js constraints
 - **Animation System**: Smooth screw collection animations
 - **Blocking Detection**: Checking if screws are blocked by shapes
 - **Smart Selection**: Prioritizing screws for container matching
+
+## Event System
+
+### EventBus
+**File**: `src/game/events/EventBus.ts`
+
+Centralized singleton event system managing all inter-system communication:
+
+**Features**:
+- **Type-Safe Events**: Comprehensive TypeScript event definitions (72+ event types)
+- **Priority System**: Events can have different priorities (LOW, NORMAL, HIGH, CRITICAL)
+- **Loop Detection**: Prevents infinite event chains with configurable limits
+- **Performance Tracking**: Monitors event frequency, duration, and handler counts
+- **Async Support**: Both synchronous and asynchronous event emission
+- **Subscription Management**: Automatic cleanup and memory management
+- **Event History**: Maintains 1000 recent events for debugging
+
+### Event Types
+**File**: `src/game/events/EventTypes.ts`
+
+Comprehensive event definitions covering all system interactions (72 total event types):
+
+**Categories**:
+- **Game Lifecycle**: start, pause, resume, game over, level progression (7 types)
+- **Screw System**: clicks, removal, collection, animations, blocking (10 types)
+- **Shape System**: creation, destruction, physics updates (6 types)
+- **Layer System**: creation, clearing, visibility changes (6 types)
+- **Container System**: filling, replacement, color updates (9 types)
+- **Physics Events**: body/constraint management, collisions (8 types)
+- **Save/Restore**: state persistence operations (5 types)
+- **Score Events**: point tracking and updates (3 types)
+- **Debug Events**: mode toggles and performance testing (3 types)
+- **System Communication**: 148 total emissions, 62 total subscriptions
+
+### BaseSystem
+**File**: `src/game/core/BaseSystem.ts`
+
+Abstract base class providing event-aware functionality to all systems:
+
+**Capabilities**:
+- **Event Subscription**: Type-safe event handling with automatic cleanup
+- **Event Emission**: Publishing events to other systems with priority support
+- **Lifecycle Management**: Initialize, update, render, destroy with proper sequencing
+- **State Management**: Active/inactive state handling with event notifications
+- **Debug Support**: System information, monitoring, and performance tracking
+- **Error Handling**: Robust error management for event operations
 
 ## Game Mechanics
 
@@ -136,10 +225,10 @@ Handles screw interactions and animations:
 
 ### Scoring System
 
-- **Container Placement**: 10 points per screw
-- **Holding Hole**: 5 points per screw (less desirable)
+- **Container Placement**: 100 points per screw in matching container
+- **Holding Hole**: 50 points per screw (emergency storage, less desirable)
 - **Level Completion**: Level score added to total score
-- **Progressive Difficulty**: More complex shapes at higher levels
+- **Progressive Difficulty**: More complex shapes and additional screws at higher levels
 
 ### Container System
 
@@ -285,10 +374,11 @@ Automatic saving at key moments:
 Comprehensive mobile optimization:
 
 ### Device Adaptation
-- **Viewport Detection**: Automatic mobile/desktop detection
-- **Orientation Handling**: Portrait mode enforcement with rotation notice
-- **Screen Utilization**: Full-screen canvas on mobile devices
-- **Safe Areas**: Respects device-specific screen boundaries
+- **Device Detection**: react-device-detect library for accurate identification
+- **Viewport Detection**: Automatic mobile/desktop detection with responsive canvas sizing
+- **Orientation Handling**: Portrait mode enforcement with rotation notice overlay
+- **Screen Utilization**: Full viewport canvas on mobile, proportional scaling on desktop
+- **Safe Areas**: Respects device-specific screen boundaries and notches
 
 ### Touch Optimization
 - **Large Touch Targets**: 30px radius for comfortable tapping
@@ -308,6 +398,7 @@ Native mobile feedback integration:
 - **Container Filling**: Medium vibration (20ms)
 - **Game Over**: Heavy vibration (30ms)
 - **Cross-Platform**: Works on both iOS and Android
+- **Implementation**: Navigator.vibrate API with fallback detection
 
 ## File Structure & Mapping
 
@@ -325,23 +416,40 @@ src/components/game/
 ### Game Core
 ```
 src/game/core/
-├── GameManager.ts          # Central orchestrator
-│   ├── Canvas management and scaling
-│   ├── Input handling (mouse/touch)
-│   ├── Render loop coordination  
-│   ├── Game state transitions
-│   └── Event callback management
+├── BaseSystem.ts          # Abstract base class for all systems
+│   ├── Event subscription and emission
+│   ├── Lifecycle management (init/update/render/destroy)
+│   ├── State management and debugging support
+│   └── Error handling for event operations
 │
-├── GameState.ts           # State management and persistence
-│   ├── Score and level tracking
-│   ├── Container/holding hole management
-│   ├── Save/load functionality
-│   └── Screw placement logic
+├── GameManager.ts         # Simplified orchestrator (12 emissions, 18 subscriptions)
+│   ├── Canvas management and responsive scaling
+│   ├── Input handling (mouse/touch) with coordinate transformation
+│   ├── Render loop coordination and debug mode
+│   └── Event-driven game loop management
 │
-└── GameLoop.ts           # Game loop timing and update/render cycles
-    ├── 60fps target timing
-    ├── Update/render coordination
-    └── Performance monitoring
+├── GameState.ts          # Event-driven state management (53 emissions, 10 subscriptions)
+│   ├── Score and level tracking with persistence
+│   ├── Container/holding hole management with replacement logic
+│   ├── Comprehensive save/load with Matter.js serialization
+│   └── Screw placement and reservation system
+│
+├── GameLoop.ts          # Game loop timing and coordination
+│   ├── 60fps target timing with performance monitoring
+│   ├── Update/render coordination through events
+│   └── Frame rate tracking and optimization
+│
+├── SystemCoordinator.ts # System lifecycle management
+│   ├── Initialization sequencing of all systems
+│   ├── Event-driven system coordination
+│   ├── Cleanup and resource management
+│   └── Debug mode integration
+│
+└── EventFlowValidator.ts # Event system monitoring and validation
+    ├── Tracks 15 key events with priority monitoring
+    ├── Event flow validation and loop detection
+    ├── Performance analysis and debugging
+    └── System health monitoring
 ```
 
 ### Physics System
@@ -418,22 +526,64 @@ src/game/rendering/
 ```
 src/game/utils/
 ├── Constants.ts         # Game configuration and constants
-│   ├── Game dimensions and limits
-│   ├── Physics parameters
-│   ├── Color definitions
-│   └── Animation settings
+│   ├── Game dimensions, colors, and limits
+│   ├── Physics parameters and collision groups
+│   ├── Layout settings for mobile/desktop
+│   └── Animation timing and container settings
 │
 ├── Colors.ts           # Color management utilities
-│   ├── Random color selection
-│   ├── Color manipulation (lighten/darken)
-│   ├── RGBA conversion utilities
-│   └── Container color matching
+│   ├── Random color selection with 9 screw colors
+│   ├── Color manipulation (lighten/darken/alpha)
+│   ├── RGBA conversion and hex utilities
+│   └── Container color matching algorithms
 │
-└── MathUtils.ts       # Mathematical utility functions
-    ├── Vector operations
-    ├── Collision detection helpers
-    ├── Geometric calculations
-    └── Animation easing functions
+├── MathUtils.ts       # Mathematical utility functions
+│   ├── Vector operations and geometric calculations
+│   ├── Collision detection and intersection helpers
+│   ├── Animation easing functions
+│   └── Coordinate transformation utilities
+│
+└── DeviceDetection.ts # Device and platform detection
+    ├── Mobile/desktop identification using react-device-detect
+    ├── Touch capability detection
+    ├── Viewport size calculations
+    └── Responsive design utilities
+```
+
+### Event System
+```
+src/game/events/
+├── EventBus.ts          # Centralized singleton event system
+│   ├── Priority handling (LOW, NORMAL, HIGH, CRITICAL)
+│   ├── Loop detection and prevention
+│   ├── Performance tracking and monitoring
+│   ├── Event history (1000 recent events)
+│   └── Async/sync event emission support
+│
+├── EventTypes.ts        # Comprehensive event type definitions (72 types)
+│   ├── Game lifecycle events (7 types)
+│   ├── Screw system events (10 types)
+│   ├── Shape and layer events (12 types)
+│   ├── Container and physics events (17 types)
+│   └── Debug and system events (26 types)
+│
+├── EventLogger.ts       # Event logging and debugging
+│   ├── Detailed event logging with timestamps
+│   ├── Event filtering and categorization
+│   ├── Performance metrics collection
+│   └── Debug output formatting
+│
+├── EventDebugger.ts     # Advanced debugging tools
+│   ├── Event flow analysis and visualization
+│   ├── System communication mapping
+│   ├── Performance bottleneck identification
+│   └── Event chain validation
+│
+└── index.ts            # Event system exports and utilities
+    ├── Event type exports
+    ├── Utility functions
+    ├── Debug helpers
+    └── Type guards
 ```
 
 ### Type Definitions
@@ -543,6 +693,33 @@ Real-time game statistics:
 - Physics update timing
 - Rendering performance metrics
 
+## Migration Summary
+
+The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tightly-coupled monolithic architecture to a clean event-driven system:
+
+### Migration Phases
+1. **Planning**: Analyzed existing codebase and designed event-driven architecture
+2. **Foundation**: Created EventBus, BaseSystem, and event type definitions
+3. **Core Implementation**: Built event-driven versions of all major systems
+4. **System Creation**: Completed GameManager, GameState, LayerManager, ScrewManager, PhysicsWorld
+5. **Testing & Validation**: Created SystemCoordinator and EventFlowValidator for comprehensive testing
+6. **Cleanup & Documentation**: Replaced original systems, updated documentation
+
+### Benefits Achieved
+- **Eliminated Complexity**: Reduced 2040-line monolithic GameManager
+- **Improved Maintainability**: Systems can be modified independently
+- **Enhanced Testability**: Individual systems can be tested in isolation
+- **Better Debugging**: Comprehensive event flow monitoring and validation
+- **Cleaner Code**: No complex parameter passing or circular dependencies
+- **Fixed Bugs**: Resolved save/restore issues through cleaner state management
+
+### Current State
+- ✅ All systems use event-driven architecture
+- ✅ Comprehensive event system with debugging
+- ✅ SystemCoordinator manages all system lifecycle
+- ✅ Build passes with no TypeScript errors
+- ✅ Ready for production use
+
 ---
 
-*This design document reflects the current implementation as of the codebase analysis. The architecture provides a solid foundation for future enhancements while maintaining clean separation of concerns and optimized performance across platforms.*
+*This design document reflects the current event-driven implementation. The architecture provides a robust, maintainable foundation for future enhancements while ensuring loose coupling and optimal performance across platforms.*

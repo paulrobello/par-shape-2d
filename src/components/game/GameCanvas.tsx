@@ -1,8 +1,26 @@
 'use client';
 
 import React, { useRef, useEffect, useState } from 'react';
-import { GameManager } from '@/game/core/GameManager';
+import { SystemCoordinator } from '@/game/core/SystemCoordinator';
+import { eventFlowValidator } from '@/game/core/EventFlowValidator';
+import { GameState } from '@/game/core/GameState';
+import { GameEvent } from '@/game/events/EventTypes';
 import { GAME_CONFIG } from '@/game/utils/Constants';
+import { DeviceDetection } from '@/game/utils/DeviceDetection';
+
+// Type guard for Visual Viewport API support
+function hasVisualViewport(window: Window): window is Window & { visualViewport: VisualViewport } {
+  return 'visualViewport' in window && window.visualViewport !== undefined;
+}
+
+// Function to get actual visible viewport dimensions, accounting for mobile browser UI
+function getActualViewportDimensions(): { width: number; height: number } {
+  if (typeof window === 'undefined') {
+    return { width: GAME_CONFIG.canvas.width, height: GAME_CONFIG.canvas.height };
+  }
+
+  return { width: window.innerWidth, height: window.innerHeight};
+}
 
 // Responsive canvas sizing function
 function getResponsiveCanvasSize(): { width: number; height: number } {
@@ -10,18 +28,19 @@ function getResponsiveCanvasSize(): { width: number; height: number } {
     return { width: GAME_CONFIG.canvas.width, height: GAME_CONFIG.canvas.height };
   }
   
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const isMobile = viewportHeight > viewportWidth || viewportWidth < 1200; // Portrait orientation or narrow width
+  const { width: viewportWidth, height: viewportHeight } = getActualViewportDimensions();
   
-  if (isMobile) {
-    // Mobile: Use full screen dimensions for maximum screen usage
+  // Use proper device detection instead of viewport dimensions
+  if (DeviceDetection.isMobileDevice()) {
+    // Mobile/Tablet: Use actual visible viewport dimensions for maximum usable screen area
+    console.log(`Mobile device detected:`, DeviceDetection.getDeviceInfo());
     return {
       width: viewportWidth,
       height: viewportHeight
     };
   } else {
     // Desktop: Scale to fit nicely in viewport while maintaining aspect ratio
+    console.log(`Desktop device detected:`, DeviceDetection.getDeviceInfo());
     const originalAspectRatio = GAME_CONFIG.canvas.width / GAME_CONFIG.canvas.height;
     const maxWidth = viewportWidth * 0.9;
     const maxHeight = viewportHeight * 0.9;
@@ -69,11 +88,17 @@ interface DebugInfo {
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const gameManagerRef = useRef<GameManager | null>(null);
+  const coordinatorRef = useRef<SystemCoordinator | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
-  const [gameStarted, setGameStarted] = useState(false);
+  const [gameStarted, setGameStarted] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [eventStats, setEventStats] = useState<{
+    totalEvents: number;
+    eventsByType: Record<string, number>;
+    eventsBySources: Record<string, number>;
+    recentEvents: GameEvent[];
+  } | null>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -84,98 +109,74 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     canvas.width = width;
     canvas.height = height;
     
-    // Initialize game manager
-    const gameManager = new GameManager();
-    gameManagerRef.current = gameManager;
+    // Initialize system coordinator
+    const coordinator = new SystemCoordinator();
+    coordinatorRef.current = coordinator;
 
-    try {
-      gameManager.initialize(canvas);
-      // Update canvas size AFTER initialization to ensure virtual dimensions are recalculated
-      gameManager.updateCanvasSize(width, height);
-      setIsInitialized(true);
+    const initializeSystems = async () => {
+      try {
+        // Start event monitoring for debugging
+        eventFlowValidator.startMonitoring();
+        eventFlowValidator.testEventEmission();
 
-      // Set up event callbacks
-      gameManager.onScrewCollectedCallback((screwId) => {
-        console.log('Screw collected:', screwId);
-      });
+        await coordinator.initialize(canvas);
+        coordinator.updateCanvasSize(width, height);
+        setIsInitialized(true);
+        console.log('Event-driven systems initialized successfully');
 
-      gameManager.onShapeClearedCallback((shapeId) => {
-        console.log('Shape cleared:', shapeId);
-      });
+        // Start the coordinator
+        coordinator.start();
 
-      gameManager.onLevelCompleteCallback(() => {
-        console.log('Level complete!');
-      });
+        // Automatically start the game
+        setTimeout(() => {
+          const gameManager = coordinator.getGameManager();
+          if (gameManager) {
+            // Emit game started event to begin gameplay
+            console.log('Auto-starting game...');
+            handleStart();
+          }
+        }, 500);
 
-      gameManager.onGameOverCallback(() => {
-        console.log('Game over!');
-      });
+        // Validate event flow
+        setTimeout(() => {
+          const validation = eventFlowValidator.validateEventFlow();
+          console.log('Event flow validation:', validation);
+          setEventStats(eventFlowValidator.getEventStats());
+        }, 1000);
 
-      // Check if there's a saved game to resume automatically
-      const hasGameInProgress = gameManager.getGameState().hasGameInProgress();
-      if (hasGameInProgress) {
-        console.log('Found saved game, automatically resuming...');
-        gameManager.start();
+      } catch (error) {
+        console.error('Failed to initialize event-driven systems:', error);
       }
+    };
 
-    } catch (error) {
-      console.error('Failed to initialize game:', error);
-    }
+    initializeSystems();
 
     // Cleanup
     return () => {
-      if (gameManagerRef.current) {
-        gameManagerRef.current.dispose();
-        gameManagerRef.current = null;
+      eventFlowValidator.stopMonitoring();
+      if (coordinatorRef.current) {
+        coordinatorRef.current.destroy();
+        coordinatorRef.current = null;
       }
     };
   }, []);
 
-  // Handle keyboard shortcuts
+  // Handle keyboard shortcuts - simplified since GameManager handles most of them now
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
-      if (!gameManagerRef.current) return;
+      if (!coordinatorRef.current) return;
 
+      const gameManager = coordinatorRef.current.getGameManager();
+      if (!gameManager) return;
+
+      // Only handle debug mode toggle here - GameManager handles the rest
       switch (event.key.toLowerCase()) {
         case 'd':
           event.preventDefault();
-          gameManagerRef.current.toggleDebugMode();
-          setDebugMode(gameManagerRef.current.isDebugMode());
-          break;
-        case 'r':
-          event.preventDefault();
-          gameManagerRef.current.restart();
-          break;
-        case 'g':
-          event.preventDefault();
-          // Test game over (for debugging)
-          if (gameManagerRef.current) {
-            (gameManagerRef.current as any).gameState.endGame(); // eslint-disable-line @typescript-eslint/no-explicit-any
-          }
-          break;
-        case 's':
-          event.preventDefault();
-          // Force save (for debugging)
-          if (gameManagerRef.current) {
-            (gameManagerRef.current as any).forceSave(); // eslint-disable-line @typescript-eslint/no-explicit-any
-          }
-          break;
-        case 'i':
-          event.preventDefault();
-          // Inspect save data (for debugging)
-          if (gameManagerRef.current) {
-            (gameManagerRef.current as any).inspectSaveData(); // eslint-disable-line @typescript-eslint/no-explicit-any
-          }
-          break;
-        case 'c':
-          event.preventDefault();
-          // Clear save data (for debugging)
-          if (gameManagerRef.current) {
-            (gameManagerRef.current as any).clearSaveData(); // eslint-disable-line @typescript-eslint/no-explicit-any
-          }
+          setDebugMode(gameManager.getDebugMode());
           break;
         default:
-          // Reserved for future debug commands
+          // Other keys are handled by GameManager directly
           break;
       }
     };
@@ -186,11 +187,44 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
 
   // Update debug info regularly when debug mode is enabled
   useEffect(() => {
-    if (!debugMode || !gameManagerRef.current) return;
+    if (!debugMode || !coordinatorRef.current) return;
 
     const updateDebugInfo = () => {
-      if (gameManagerRef.current) {
-        setDebugInfo(gameManagerRef.current.getDebugInfo());
+      if (coordinatorRef.current) {
+        const gameManager = coordinatorRef.current.getGameManager();
+        const layerManager = coordinatorRef.current.getLayerManager();
+        const screwManager = coordinatorRef.current.getScrewManager();
+        const physicsWorld = coordinatorRef.current.getPhysicsWorld();
+        // const gameState = coordinatorRef.current.getGameState(); // TODO: Use for game over timer
+        
+        if (gameManager && layerManager && screwManager && physicsWorld) {
+          // Get actual data from systems
+          const allLayers = layerManager.getLayers();
+          const allScrews = screwManager.getAllScrews();
+          const physicsStats = physicsWorld.getStats();
+          
+          // Calculate shape count across all layers
+          const activeShapes = allLayers.reduce((total, layer) => {
+            return total + layer.getAllShapes().length;
+          }, 0);
+          
+          // Calculate active (non-collected) screws
+          const activeScrews = allScrews.filter(screw => !screw.isCollected).length;
+          
+          // Get visible layers count
+          const visibleLayers = layerManager.getVisibleLayers().length;
+          
+          setDebugInfo({
+            layersGenerated: allLayers.length,
+            totalLayers: 10,
+            activeLayers: allLayers.length,
+            visibleLayers: visibleLayers,
+            activeShapes: activeShapes,
+            activeScrews: activeScrews,
+            physicsBodies: physicsStats.bodyCount,
+            gameOverTimer: null // TODO: Implement game over timer if needed
+          });
+        }
       }
     };
 
@@ -205,12 +239,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
 
   // Monitor game state to show/hide instructions
   useEffect(() => {
-    if (!gameManagerRef.current) return;
+    if (!coordinatorRef.current) return;
 
     const updateGameState = () => {
-      if (gameManagerRef.current) {
-        const state = gameManagerRef.current.getGameState().getState();
-        setGameStarted(state.gameStarted);
+      if (coordinatorRef.current) {
+        const gameManager = coordinatorRef.current.getGameManager();
+        if (gameManager) {
+          const state = gameManager.getState() as { gameStarted?: boolean };
+          setGameStarted(state.gameStarted || false);
+        }
       }
     };
 
@@ -223,45 +260,74 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     return () => clearInterval(interval);
   }, [isInitialized]);
 
-  // Handle window resize for responsive canvas
+  // Handle window resize and viewport changes for responsive canvas
   useEffect(() => {
     const handleResize = () => {
-      if (gameManagerRef.current && canvasRef.current) {
+      if (coordinatorRef.current && canvasRef.current) {
         const { width, height } = getResponsiveCanvasSize();
         canvasRef.current.width = width;
         canvasRef.current.height = height;
-        gameManagerRef.current.updateCanvasSize(width, height);
+        coordinatorRef.current.updateCanvasSize(width, height);
+        console.log(`Canvas resized to: ${width}x${height}`);
       }
     };
 
+    // Handle regular window resize events
     window.addEventListener('resize', handleResize);
+
+    // Handle Visual Viewport API changes (iOS Safari toolbar show/hide)
+    if (hasVisualViewport(window)) {
+      const handleViewportChange = () => {
+        console.log('Visual viewport changed, triggering canvas resize');
+        handleResize();
+      };
+
+      window.visualViewport.addEventListener('resize', handleViewportChange);
+      window.visualViewport.addEventListener('scroll', handleViewportChange);
+      
+      return () => {
+        window.removeEventListener('resize', handleResize);
+        if (hasVisualViewport(window)) {
+          window.visualViewport.removeEventListener('resize', handleViewportChange);
+          window.visualViewport.removeEventListener('scroll', handleViewportChange);
+        }
+      };
+    }
+
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-
   const handleStart = () => {
-    if (gameManagerRef.current) {
-      // If game is over, restart instead of just starting
-      const gameState = gameManagerRef.current.getGameState().getState();
-      if (gameState.gameOver) {
-        gameManagerRef.current.restart();
-      } else {
-        gameManagerRef.current.start();
+    if (coordinatorRef.current) {
+      const gameState = coordinatorRef.current.getSystem('GameState') as GameState | null;
+      if (gameState) {
+        // Start the game by calling the GameState's startGame method
+        gameState.startGame();
+        console.log('Game started through event system');
       }
     }
   };
 
-
   const handleRestart = () => {
-    if (gameManagerRef.current) {
-      gameManagerRef.current.restart();
+    if (coordinatorRef.current) {
+      const gameState = coordinatorRef.current.getSystem('GameState') as GameState | null;
+      if (gameState) {
+        // Reset the game state and start fresh
+        gameState.reset();
+        setTimeout(() => {
+          gameState.startGame();
+        }, 100);
+        console.log('Game restarted through event system');
+      }
     }
   };
 
   const toggleDebug = () => {
-    if (gameManagerRef.current) {
-      gameManagerRef.current.toggleDebugMode();
-      setDebugMode(gameManagerRef.current.isDebugMode());
+    if (coordinatorRef.current) {
+      const gameManager = coordinatorRef.current.getGameManager();
+      if (gameManager) {
+        setDebugMode(!gameManager.getDebugMode());
+      }
     }
   };
 
@@ -295,92 +361,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           }}
         />
         
-        {/* Gameplay Instructions Overlay */}
-        {isInitialized && !gameStarted && (
-          <div style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(44, 62, 80, 0.95)',
-            borderRadius: '8px',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center',
-            padding: '20px',
-            color: '#ECF0F1',
-            textAlign: 'center',
-          }}>
-            <h2 style={{ 
-              color: '#3498DB', 
-              marginBottom: '20px', 
-              fontSize: '28px',
-              fontWeight: 'bold' 
-            }}>
-              PAR Shape 2D
-            </h2>
-            
-            <div style={{ 
-              maxWidth: '400px', 
-              lineHeight: '1.6',
-              fontSize: '16px',
-              marginBottom: '25px'
-            }}>
-              <h3 style={{ color: '#E67E22', marginBottom: '15px', fontSize: '20px' }}>
-                How to Play
-              </h3>
-              
-              <div style={{ textAlign: 'left', marginBottom: '15px' }}>
-                <p style={{ marginBottom: '10px' }}>
-                  <strong style={{ color: '#F39C12' }}>Objective:</strong> Clear all layers of shapes by removing screws.
-                </p>
-                
-                <p style={{ marginBottom: '10px' }}>
-                  <strong style={{ color: '#F39C12' }}>Gameplay:</strong>
-                </p>
-                <ul style={{ paddingLeft: '20px', marginBottom: '10px' }}>
-                  <li>Click on screws to remove them from shapes</li>
-                  <li>When all screws are removed, shapes fall and disappear</li>
-                  <li>Screws fly to matching colored containers</li>
-                  <li>If no container matches, screws go to holding holes</li>
-                </ul>
-                
-                <p style={{ marginBottom: '10px' }}>
-                  <strong style={{ color: '#E74C3C' }}>Warning:</strong> If all 5 holding holes fill up, you have 5 seconds to free one up or you lose!
-                </p>
-                
-                <p style={{ marginBottom: '10px' }}>
-                  <strong style={{ color: '#F39C12' }}>Strategy:</strong> You can only remove screws that aren&apos;t blocked by shapes in front layers.
-                </p>
-              </div>
-            </div>
-            
-            <button
-              onClick={handleStart}
-              style={{
-                padding: '12px 30px',
-                backgroundColor: '#27AE60',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                transition: 'background-color 0.3s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#2ECC71';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#27AE60';
-              }}
-            >
-              Start Game
-            </button>
-          </div>
-        )}
       </div>
       
       {/* Game Controls */}
@@ -390,7 +370,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         gap: '15px',
         justifyContent: 'center',
         flexWrap: 'wrap',
-        padding: '0 20px' // Add padding for mobile
+        padding: '0 20px'
       }}>
         <button
           onClick={handleStart}
@@ -403,9 +383,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
             cursor: 'pointer',
             fontSize: '16px',
             fontWeight: '600',
-            minHeight: '44px', // iOS recommended touch target size
+            minHeight: '44px',
             minWidth: '80px',
-            touchAction: 'manipulation', // Prevent zoom on double-tap
+            touchAction: 'manipulation',
           }}
         >
           Start
@@ -450,26 +430,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         </button>
       </div>
 
-      {/* Instructions */}
-      <div className="hidden md:block" style={{
-        marginTop: '20px',
-        textAlign: 'center',
-        color: '#7F8C8D',
-        fontSize: '14px',
-        maxWidth: '600px',
-        margin: '20px auto 0',
-        padding: '0 20px',
-        lineHeight: '1.5'
-      }}>
-        <p><strong>Controls:</strong></p>
-        <p>Tap/Click on screws to remove them • Smart touch selection for mobile</p>
-        <p>Desktop: D: Toggle Debug • R: Restart • G: Test Game Over</p>
-        <p>Debug: S: Force Save • I: Inspect Save Data • C: Clear Save Data</p>
-        <p>Remove screws to drop shapes and clear levels!</p>
-        <p style={{ fontSize: '12px', marginTop: '10px', fontStyle: 'italic' }}>
-          Mobile: Touch area optimized, haptic feedback enabled
-        </p>
-      </div>
+      {/* System Status Display - Only show when not initialized */}
+      {!isInitialized && (
+        <div style={{
+          marginTop: '20px',
+          textAlign: 'center',
+          color: '#7F8C8D',
+          fontSize: '14px',
+          maxWidth: '600px',
+          margin: '20px auto 0',
+          padding: '0 20px',
+        }}>
+          <p>⏳ Initializing game systems...</p>
+        </div>
+      )}
 
       {/* Debug Info Panel */}
       {debugMode && debugInfo && (
@@ -483,7 +457,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           margin: '20px auto',
         }}>
           <h3 style={{ color: '#FFFFFF', marginBottom: '15px', fontSize: '16px' }}>
-            Debug Information
+            Event-Driven Debug Information
           </h3>
           <div style={{
             display: 'grid',
@@ -518,78 +492,43 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         </div>
       )}
 
-      {/* Active Layers Debug Info */}
-      {debugMode && debugInfo && debugInfo.layerDetails && (
+      {/* Event Flow Debug Info */}
+      {debugMode && eventStats && (
         <div style={{
           marginTop: '20px',
           textAlign: 'center',
-          backgroundColor: '#34495E',
+          backgroundColor: '#2C3E50',
           padding: '15px',
           borderRadius: '8px',
           maxWidth: '800px',
           margin: '20px auto',
         }}>
           <h3 style={{ color: '#FFFFFF', marginBottom: '15px', fontSize: '16px' }}>
-            Active Layers ({debugInfo.layerDetails.length})
+            Event Flow Statistics ({eventStats.totalEvents} total events)
           </h3>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-            gap: '10px',
-            justifyItems: 'center',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+            gap: '15px',
+            textAlign: 'left',
           }}>
-            {debugInfo.layerDetails.map((layer) => (
-              <div 
-                key={layer.id}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '10px',
-                  backgroundColor: '#2C3E50',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  border: `2px solid ${layer.tint}`,
-                }}
-              >
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  marginBottom: '4px',
-                }}>
-                  <div 
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      backgroundColor: layer.tint,
-                      borderRadius: '3px',
-                      border: '1px solid #FFFFFF',
-                      flexShrink: 0,
-                    }}
-                  />
-                  <span style={{ 
-                    color: '#FFFFFF',
-                    fontWeight: 'bold',
-                    fontSize: '13px'
-                  }}>
-                    {layer.id}
-                  </span>
+            <div>
+              <h4 style={{ color: '#F39C12', marginBottom: '10px', fontSize: '14px' }}>Events by Type:</h4>
+              {Object.entries(eventStats.eventsByType).map(([type, count]: [string, unknown]) => (
+                <div key={type} style={{ color: '#BDC3C7', fontSize: '12px' }}>
+                  {type}: {String(count)}
                 </div>
-                <div style={{ color: '#BDC3C7', fontSize: '11px', textAlign: 'center' }}>
-                  <div>Shapes: <span style={{ color: '#F39C12', fontWeight: 'bold' }}>{layer.shapeCount}</span></div>
-                  <div>Depth: {layer.depthIndex} | Index: {layer.index}</div>
-                  <div>Color: {layer.colorIndex} | {layer.isGenerated ? 'Generated' : 'Loading'}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          {debugInfo.layerDetails.length === 0 && (
-            <div style={{ color: '#BDC3C7', fontStyle: 'italic' }}>
-              No active layers
+              ))}
             </div>
-          )}
+            <div>
+              <h4 style={{ color: '#E67E22', marginBottom: '10px', fontSize: '14px' }}>Events by Source:</h4>
+              {Object.entries(eventStats.eventsBySources).map(([source, count]: [string, unknown]) => (
+                <div key={source} style={{ color: '#BDC3C7', fontSize: '12px' }}>
+                  {source}: {String(count)}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -603,7 +542,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           fontSize: '18px',
           fontWeight: 'bold',
         }}>
-          Initializing game...
+          Initializing event-driven systems...
         </div>
       )}
     </div>

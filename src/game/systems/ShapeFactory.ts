@@ -4,6 +4,11 @@ import { ShapeType, Vector2 } from '@/types/game';
 import { PHYSICS_CONSTANTS, SHAPE_TINTS } from '@/game/utils/Constants';
 import { randomBetween, createRegularPolygonVertices } from '@/game/utils/MathUtils';
 
+type ShapeDimensions = 
+  | { width: number; height: number } // Rectangle/Square
+  | { radius: number } // Circle/Triangle/Pentagon
+  | Record<string, never>; // For star or other shapes
+
 export class ShapeFactory {
   private static shapeCounter = 0;
 
@@ -38,7 +43,7 @@ export class ShapeFactory {
     const finalPosition = this.findNonOverlappingPosition(position, type, existingShapes, 50, layerBounds);
     
     let body: Body;
-    let dimensions: any = {}; // eslint-disable-line @typescript-eslint/no-explicit-any
+    let dimensions: ShapeDimensions = {};
     
     switch (type) {
       case 'rectangle':

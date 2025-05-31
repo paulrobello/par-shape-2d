@@ -366,10 +366,8 @@ export class Shape implements IShape {
           // Use existing screw and attach it to this shape
           this.screws.push(existingScrew);
           
-          // Attach constraint if not collected and not animating
-          if (!existingScrew.isCollected && !existingScrew.isBeingCollected) {
-            screwManager.attachScrewToShape(existingScrew, this);
-          }
+          // Constraint is already handled by the event-driven ScrewManager
+          // No need to manually attach constraints in the event-driven architecture
         } else {
           // Fallback: create screw if not found in manager (shouldn't happen with proper order)
           console.warn(`Screw ${screwData.id} not found in ScrewManager, creating new one`);
@@ -390,13 +388,8 @@ export class Shape implements IShape {
 
           this.screws.push(screw);
 
-          // Register screw with screw manager if not collected
-          if (!screw.isCollected) {
-            screwManager.addScrew(screw);
-            if (!screw.isBeingCollected) {
-              screwManager.attachScrewToShape(screw, this);
-            }
-          }
+          // In event-driven architecture, screws are managed automatically
+          // No need to manually register screws
         }
       });
     }

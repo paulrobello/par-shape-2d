@@ -49,20 +49,34 @@ export const SHAPE_TINTS = [
   '#F0E6FF', // Light purple
 ] as const;
 
+export const LAYOUT_CONSTANTS = {
+  shapeArea: {
+    startY: 200, // Y position where shape area begins (below containers and holding holes)
+    backgroundColor: '#1A252F', // Darker background for shape area
+    borderColor: '#34495E', // Subtle border color
+  },
+} as const;
+
 export const UI_CONSTANTS = {
   header: {
     height: 60,
   },
   containers: {
     width: 120,
-    height: 50,
-    spacing: 16,
-    borderRadius: 20,
+    height: 40,
+    spacing: 10,
+    borderRadius: 8,
+    startY: 100,
+    hole: {
+      radius: 8,
+      count: 3,
+    },
   },
   holdingHoles: {
-    height: 30,
-    spacing: 24,
-    radius: 4, // Smaller holes for better proportion
+    radius: 8, // Same as container hole radius
+    spacing: 20, // Reduced spacing for smaller holes
+    startY: 160,
+    innerRadius: 6, // radius - 2 for inner hole
   },
   screws: {
     radius: 12,
@@ -87,7 +101,7 @@ export const PHYSICS_CONSTANTS = {
     friction: 0.1,
     frictionAir: 0.02,
     restitution: 0.3,
-    density: 0.001,
+    density: 0.01, // Increased from 0.001 to make shapes heavier and fall better
   },
   constraint: {
     stiffness: 1,

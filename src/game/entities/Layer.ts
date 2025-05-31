@@ -1,6 +1,6 @@
 import { Layer as ILayer, Rectangle } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
-import {GAME_CONFIG, SHAPE_TINTS, UI_CONSTANTS} from '@/game/utils/Constants';
+import {GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS} from '@/game/utils/Constants';
 
 export class Layer implements ILayer {
   public id: string;
@@ -31,9 +31,9 @@ export class Layer implements ILayer {
     // Initialize with minimal bounds - will be updated by GameManager immediately
     this.bounds = {
       x: 10, 
-      y: UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height + UI_CONSTANTS.holdingHoles.height + 10,
+      y: LAYOUT_CONSTANTS.shapeArea.startY,
       width: GAME_CONFIG.canvas.width - 20,
-      height: GAME_CONFIG.canvas.height - (UI_CONSTANTS.header.height + UI_CONSTANTS.containers.height + UI_CONSTANTS.holdingHoles.height - 10)
+      height: GAME_CONFIG.canvas.height - LAYOUT_CONSTANTS.shapeArea.startY - 10
     };
 
     if (isRestored) {

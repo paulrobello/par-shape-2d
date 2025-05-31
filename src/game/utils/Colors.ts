@@ -5,7 +5,16 @@ export function getAllScrewColors(): ScrewColor[] {
   return Object.keys(SCREW_COLORS) as ScrewColor[];
 }
 
-export function getRandomScrewColor(): ScrewColor {
+export function getRandomScrewColor(preferredColors?: ScrewColor[]): ScrewColor {
+  // If preferred colors are provided and not empty, use them with higher probability
+  if (preferredColors && preferredColors.length > 0) {
+    // 80% chance to use preferred colors, 20% chance for any color
+    if (Math.random() < 0.8) {
+      return preferredColors[Math.floor(Math.random() * preferredColors.length)];
+    }
+  }
+  
+  // Fallback to any random color
   const colors = getAllScrewColors();
   return colors[Math.floor(Math.random() * colors.length)];
 }

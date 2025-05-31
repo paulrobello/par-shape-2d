@@ -1,13 +1,14 @@
-import { Screw } from '@/game/entities/Screw';
-import { RenderContext } from '@/types/game';
+import { RenderContext, Screw } from '@/types/game';
 import { SCREW_COLORS, UI_CONSTANTS } from '@/game/utils/Constants';
 import { hexToRgba } from '@/game/utils/Colors';
 
 export class ScrewRenderer {
-  public static renderScrew(screw: Screw, context: RenderContext): void {
+  public static renderScrew(screw: Screw, context: RenderContext, forceRender: boolean = false): void {
     const { ctx } = context;
     
-    if (screw.isCollected && !screw.isBeingCollected) {
+    // Skip rendering collected screws unless forced (e.g., when rendering in containers/holes)
+    // Always render screws that are being collected or transferred
+    if (!forceRender && screw.isCollected && !screw.isBeingCollected && !screw.isBeingTransferred) {
       return; // Don't render collected screws
     }
 
@@ -17,10 +18,12 @@ export class ScrewRenderer {
     const radius = UI_CONSTANTS.screws.radius;
     const borderWidth = UI_CONSTANTS.screws.borderWidth;
     
-    // Apply transparency for collection animation
+    // Apply transparency for animations
     let alpha = 1;
     if (screw.isBeingCollected) {
       alpha = 1 - screw.collectionProgress * 0.3; // Slight fade during collection
+    } else if (screw.isBeingTransferred) {
+      alpha = 1 - screw.transferProgress * 0.2; // Slight fade during transfer (less than collection)
     }
     
     // Apply alpha if not fully opaque

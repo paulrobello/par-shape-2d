@@ -1,5 +1,6 @@
-import { Constraint } from 'matter-js';
+import { Constraint, Body } from 'matter-js';
 import { Screw as IScrew, ScrewColor, Vector2 } from '@/types/game';
+import { UI_CONSTANTS } from '@/game/utils/Constants';
 
 export class Screw implements IScrew {
   public id: string;
@@ -14,7 +15,20 @@ export class Screw implements IScrew {
   public isBeingCollected: boolean = false;
   public collectionProgress: number = 0; // 0-1 for animation
   public targetPosition?: Vector2; // For collection animation
+  public animationStartPosition?: Vector2; // Original position when animation started
   public targetContainerId?: string; // Which container this screw is flying to
+  public targetHoleIndex?: number; // Which hole index in the container
+  public targetType?: 'container' | 'holding_hole'; // Type of destination
+  public anchorBody?: Body; // Physics anchor body for constraint
+
+  // Transfer animation properties (holding hole to container)
+  public isBeingTransferred: boolean = false;
+  public transferProgress: number = 0; // 0-1 for transfer animation
+  public transferStartPosition?: Vector2; // Position when transfer started
+  public transferTargetPosition?: Vector2; // Target position for transfer
+  public transferFromHoleIndex?: number; // Which holding hole index
+  public transferToContainerIndex?: number; // Which container index
+  public transferToHoleIndex?: number; // Which hole index in container
 
   constructor(
     id: string,
@@ -57,11 +71,12 @@ export class Screw implements IScrew {
     
     this.isBeingCollected = true;
     this.targetPosition = { ...targetPosition };
+    this.animationStartPosition = { ...this.position }; // Save original position
     this.collectionProgress = 0;
   }
 
   public updateCollectionAnimation(deltaTime: number): boolean {
-    if (!this.isBeingCollected || !this.targetPosition) return false;
+    if (!this.isBeingCollected || !this.targetPosition || !this.animationStartPosition) return false;
 
     // Animation duration in milliseconds
     const animationDuration = 800;
@@ -74,9 +89,9 @@ export class Screw implements IScrew {
       // Use easing for smooth animation
       const easedProgress = this.easeInOutCubic(this.collectionProgress);
       
-      // Calculate current position between start and target
-      const startX = this.position.x;
-      const startY = this.position.y;
+      // Calculate current position between start and target using saved start position
+      const startX = this.animationStartPosition.x;
+      const startY = this.animationStartPosition.y;
       const targetX = this.targetPosition.x;
       const targetY = this.targetPosition.y;
       
@@ -88,7 +103,54 @@ export class Screw implements IScrew {
       // Animation complete
       this.position = { ...this.targetPosition };
       this.isBeingCollected = false;
-      this.collect();
+      // Don't call collect() here - let the ScrewManager handle final placement
+      return true; // Animation complete
+    }
+  }
+
+  public startTransfer(fromPosition: Vector2, toPosition: Vector2, fromHoleIndex?: number, toContainerIndex?: number, toHoleIndex?: number): void {
+    if (this.isBeingTransferred || this.isBeingCollected) return;
+    
+    this.isBeingTransferred = true;
+    this.transferStartPosition = { ...fromPosition };
+    this.transferTargetPosition = { ...toPosition };
+    this.transferProgress = 0;
+    this.position = { ...fromPosition }; // Set current position to start position
+    
+    // Store transfer destination information
+    this.transferFromHoleIndex = fromHoleIndex;
+    this.transferToContainerIndex = toContainerIndex;
+    this.transferToHoleIndex = toHoleIndex;
+  }
+
+  public updateTransferAnimation(deltaTime: number): boolean {
+    if (!this.isBeingTransferred || !this.transferStartPosition || !this.transferTargetPosition) return false;
+
+    // Animation duration in milliseconds
+    const animationDuration = 600; // Slightly faster than collection animation
+    const progressIncrement = deltaTime / animationDuration;
+    
+    this.transferProgress = Math.min(1, this.transferProgress + progressIncrement);
+
+    // Update position based on animation progress
+    if (this.transferProgress < 1) {
+      // Use easing for smooth animation
+      const easedProgress = this.easeInOutCubic(this.transferProgress);
+      
+      // Calculate current position between start and target
+      const startX = this.transferStartPosition.x;
+      const startY = this.transferStartPosition.y;
+      const targetX = this.transferTargetPosition.x;
+      const targetY = this.transferTargetPosition.y;
+      
+      this.position.x = startX + (targetX - startX) * easedProgress;
+      this.position.y = startY + (targetY - startY) * easedProgress;
+      
+      return false; // Animation not complete
+    } else {
+      // Animation complete
+      this.position = { ...this.transferTargetPosition };
+      this.isBeingTransferred = false;
       return true; // Animation complete
     }
   }
@@ -98,7 +160,7 @@ export class Screw implements IScrew {
   }
 
   public getBounds(): { x: number; y: number; width: number; height: number } {
-    const radius = 12; // Screw radius
+    const radius = UI_CONSTANTS.screws.radius;
     return {
       x: this.position.x - radius,
       y: this.position.y - radius,
@@ -108,7 +170,7 @@ export class Screw implements IScrew {
   }
 
   public containsPoint(point: Vector2): boolean {
-    const radius = 12; // Screw radius
+    const radius = UI_CONSTANTS.screws.radius;
     const dx = point.x - this.position.x;
     const dy = point.y - this.position.y;
     return (dx * dx + dy * dy) <= (radius * radius);
@@ -128,11 +190,25 @@ export class Screw implements IScrew {
     cloned.isBeingCollected = this.isBeingCollected;
     cloned.collectionProgress = this.collectionProgress;
     cloned.targetPosition = this.targetPosition ? { ...this.targetPosition } : undefined;
+    cloned.animationStartPosition = this.animationStartPosition ? { ...this.animationStartPosition } : undefined;
+    cloned.isBeingTransferred = this.isBeingTransferred;
+    cloned.transferProgress = this.transferProgress;
+    cloned.transferStartPosition = this.transferStartPosition ? { ...this.transferStartPosition } : undefined;
+    cloned.transferTargetPosition = this.transferTargetPosition ? { ...this.transferTargetPosition } : undefined;
+    cloned.transferFromHoleIndex = this.transferFromHoleIndex;
+    cloned.transferToContainerIndex = this.transferToContainerIndex;
+    cloned.transferToHoleIndex = this.transferToHoleIndex;
     return cloned;
   }
 
   public dispose(): void {
     this.constraint = null;
     this.targetPosition = undefined;
+    this.animationStartPosition = undefined;
+    this.transferStartPosition = undefined;
+    this.transferTargetPosition = undefined;
+    this.transferFromHoleIndex = undefined;
+    this.transferToContainerIndex = undefined;
+    this.transferToHoleIndex = undefined;
   }
 }

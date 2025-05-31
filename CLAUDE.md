@@ -9,26 +9,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run dev` - Start the dev server (dont run this, it hangs)
 - `npm start` - Start the production server after building (dont run this, it hangs)
 
+**Important:** always use `npm run lint && npm run build` to check your work.
+
 ## Architecture Overview
 
-This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. The game follows a layered architecture:
+This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. The game follows a **clean event-driven architecture** with complete decoupling between systems for optimal maintainability and testing.
 
-**Core Systems:**
-- `GameManager` - Central orchestrator handling input, rendering, and game state transitions
-- `GameState` - Manages score, level progression, containers, and local storage persistence
-- `PhysicsWorld` - Matter.js wrapper with game-specific physics behavior
-- `LayerManager` - Handles the layer system with depth-based rendering and visibility culling
+**Event-Driven Communication:**
+- **72 Event Types** covering all system interactions across 11 categories
+- **148 Event Emissions** and **62 Event Subscriptions** across all systems  
+- **Centralized EventBus** with priority handling, loop detection, and performance monitoring
+- **Type-Safe Events** with comprehensive TypeScript definitions
 
-**Entity System:**
-- `Layer` - Contains shapes with depth ordering and fade effects
-- `Shape` - Game objects with Matter.js physics bodies and screw attachment points
-- `Screw` - Removable constraints that hold shapes in place
+**Core Systems (All Event-Driven):**
+- `GameManager` - Input handling and rendering coordination (12 emissions, 18 subscriptions)
+- `GameState` - State management, scoring, and persistence (53 emissions, 10 subscriptions)
+- `PhysicsWorld` - Matter.js wrapper with autonomous physics management (4 emissions, 9 subscriptions)
+- `LayerManager` - Layer system with depth-based rendering (26 emissions, 7 subscriptions)
+- `ScrewManager` - Screw logic, constraints, and animations (51 emissions, 12 subscriptions)
+- `SystemCoordinator` - System lifecycle management (1 emission, 0 subscriptions)
+- `EventFlowValidator` - Debug monitoring and performance tracking (1 emission, 15 subscriptions)
 
-**Rendering Pipeline:**
-- Canvas-based rendering with responsive scaling
-- Back-to-front layer rendering with transparency
-- Procedural shape generation with screw hole placement
-- Smart coordinate transformation for mobile/desktop
+**System Foundation:**
+- `BaseSystem` - Abstract base class providing event-aware functionality to all systems
+- `EventBus` - Singleton event system with priority handling and comprehensive debugging
+- All systems extend BaseSystem and communicate exclusively through events
+
+**Key Architecture Benefits:**
+- **Complete Decoupling:** No direct system dependencies or circular references
+- **Enhanced Testability:** Systems can be tested in complete isolation
+- **Improved Maintainability:** Changes to one system don't affect others
+- **Comprehensive Debugging:** Event flow monitoring and validation throughout
+- **Clean Code:** Eliminates complex parameter passing and state management
 
 ## Game Mechanics Implementation
 
@@ -43,6 +55,12 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 ## Mobile Optimizations
 
 The game uses responsive canvas scaling with virtual game dimensions that scale to screen size. Touch handling prevents default browser behaviors and includes haptic feedback integration.
+
+## Code style
+
+- Avoid using types `any` and `unknown`
+- Always try to use proper types or type unions
+- Try not to duplicate code, if multiple areas could benefit for some functionality reason about how it could best be shared.
 
 ## Save System
 
@@ -70,7 +88,7 @@ Physics bodies use collision groups to separate layers. Screws are implemented a
 
 **Matter.js Documentation:** Comprehensive Matter.js API documentation is available in `docs/MatterJs_docs/` covering all physics engine components including Bodies, Engine, World, Constraints, Collision detection, and more. Refer to these docs when implementing physics features.
 
-## Technical Design Document
+## Technical Design Documents
 
 A comprehensive technical design document is available at `project_design.md` which provides:
 
@@ -81,9 +99,17 @@ A comprehensive technical design document is available at `project_design.md` wh
 - Performance considerations and optimizations
 - Mobile support strategies
 
-**Important:** When making architectural changes to the codebase, always update `project_design.md` to reflect the current implementation. This ensures the design document remains an accurate reference for the system architecture and helps maintain consistency across development iterations.
+**Important:** When making architectural changes to the codebase, always update `project_design.md` to reflect the current implementation.
 
-**Important:** `project_design.md` should be read in to help unstand and locate the code you need to work on. It provides a high-level overview of the architecture, file structure, and key components of the game.
+**Important:** `project_design.md` should be read in to help understand and locate the code you need to work on. It provides a high-level overview of the architecture, file structure, and key components of the game.
+
+A comprehensive design document for the event system is available at `event_flow.md` which provides:
+
+- A full breakdown of all events their emitters and subscribers
+
+**Important:** When making changes to the event system, always update `event_flow.md` to reflect the current implementation.
+
+**Important:** `event_flow.md` should be read in to help understand and locate the code you need to work on related to eventing.
 
 ## Webserver
 
@@ -104,3 +130,11 @@ Example workflow:
 ```
 
 This prevents context overflow errors and ensures screenshots can be properly analyzed.
+
+**Current State:**
+- All systems now use the event-driven architecture
+- Original tightly-coupled code has been removed
+- Build passes successfully with no TypeScript errors
+- Event system provides comprehensive debugging capabilities
+- Ready for production use
+

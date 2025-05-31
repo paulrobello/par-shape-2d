@@ -23,6 +23,7 @@ export interface GameState {
   gameStarted: boolean;
   gameOver: boolean;
   levelComplete: boolean;
+  shapesRemovedThisLevel?: number; // Track shapes removed for progress calculation
 }
 
 export interface Shape {
@@ -50,14 +51,25 @@ export interface Screw {
   isRemovable: boolean;
   isCollected: boolean;
   isBeingCollected: boolean; // Whether screw is currently animating to target
+  collectionProgress: number; // 0-1 for animation
+  targetPosition?: Vector2; // For collection animation
   targetContainerId?: string; // Which container this screw is flying to
+  
+  // Transfer animation properties (holding hole to container)
+  isBeingTransferred: boolean;
+  transferProgress: number; // 0-1 for transfer animation
+  transferStartPosition?: Vector2; // Position when transfer started
+  transferTargetPosition?: Vector2; // Target position for transfer
+  transferFromHoleIndex?: number; // Which holding hole index
+  transferToContainerIndex?: number; // Which container index
+  transferToHoleIndex?: number; // Which hole index in container
 }
 
 export interface Container {
   id: string;
   color: ScrewColor;
   position: Vector2;
-  holes: (Screw | null)[];
+  holes: (string | null)[]; // Screw IDs in holes - get actual screws from ScrewManager
   reservedHoles: (string | null)[]; // Screw IDs that have reserved holes but haven't arrived yet
   maxHoles: number;
   isFull: boolean;
@@ -68,7 +80,8 @@ export interface Container {
 export interface HoldingHole {
   id: string;
   position: Vector2;
-  screw: Screw | null;
+  screwId: string | null; // ID of screw in this hole - get actual screw from ScrewManager
+  reservedBy?: string; // Screw ID that has reserved this hole
 }
 
 export interface Layer {
