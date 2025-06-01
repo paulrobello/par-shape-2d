@@ -5,7 +5,7 @@ import { SystemCoordinator } from '@/game/core/SystemCoordinator';
 import { eventFlowValidator } from '@/game/core/EventFlowValidator';
 import { GameState } from '@/game/core/GameState';
 import { GameEvent } from '@/game/events/EventTypes';
-import { GAME_CONFIG } from '@/game/utils/Constants';
+import { GAME_CONFIG, getTotalLayersForLevel } from '@/game/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 
 // Type guard for Visual Viewport API support
@@ -17,6 +17,14 @@ function hasVisualViewport(window: Window): window is Window & { visualViewport:
 function getActualViewportDimensions(): { width: number; height: number } {
   if (typeof window === 'undefined') {
     return { width: GAME_CONFIG.canvas.width, height: GAME_CONFIG.canvas.height };
+  }
+
+  // On mobile, try to use the Visual Viewport API for more accurate dimensions
+  if (hasVisualViewport(window) && DeviceDetection.isMobileDevice()) {
+    return { 
+      width: window.visualViewport.width, 
+      height: window.visualViewport.height 
+    };
   }
 
   return { width: window.innerWidth, height: window.innerHeight};
@@ -32,11 +40,15 @@ function getResponsiveCanvasSize(): { width: number; height: number } {
   
   // Use proper device detection instead of viewport dimensions
   if (DeviceDetection.isMobileDevice()) {
-    // Mobile/Tablet: Use actual visible viewport dimensions for maximum usable screen area
+    // Mobile/Tablet: Use CSS viewport units which CSS will override anyway
     console.log(`Mobile device detected:`, DeviceDetection.getDeviceInfo());
+    console.log(`Mobile viewport: ${viewportWidth}x${viewportHeight}`);
+    
+    // Set canvas internal resolution to match CSS viewport dimensions
+    // CSS will override the display size to 100vw/100vh anyway
     return {
-      width: viewportWidth,
-      height: viewportHeight
+      width: Math.floor(viewportWidth),
+      height: Math.floor(viewportHeight)
     };
   } else {
     // Desktop: Scale to fit nicely in viewport while maintaining aspect ratio
@@ -106,8 +118,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
 
     // Set responsive canvas size
     const { width, height } = getResponsiveCanvasSize();
+    
+    // Set canvas internal resolution
     canvas.width = width;
     canvas.height = height;
+    
+    // On mobile, don't set explicit CSS sizes - let the CSS viewport units handle it
+    if (DeviceDetection.isMobileDevice()) {
+      console.log(`Mobile: Canvas internal=${width}x${height}, letting CSS handle display size with viewport units`);
+    } else {
+      // Desktop: Set explicit sizes
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      console.log(`Desktop: Canvas initialized: Internal=${width}x${height}, CSS=${canvas.style.width}x${canvas.style.height}`);
+    }
     
     // Initialize system coordinator
     const coordinator = new SystemCoordinator();
@@ -195,9 +219,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         const layerManager = coordinatorRef.current.getLayerManager();
         const screwManager = coordinatorRef.current.getScrewManager();
         const physicsWorld = coordinatorRef.current.getPhysicsWorld();
-        // const gameState = coordinatorRef.current.getGameState(); // TODO: Use for game over timer
+        const gameState = coordinatorRef.current.getGameState();
         
-        if (gameManager && layerManager && screwManager && physicsWorld) {
+        if (gameManager && layerManager && screwManager && physicsWorld && gameState) {
           // Get actual data from systems
           const allLayers = layerManager.getLayers();
           const allScrews = screwManager.getAllScrews();
@@ -211,12 +235,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           // Calculate active (non-collected) screws
           const activeScrews = allScrews.filter(screw => !screw.isCollected).length;
           
-          // Get visible layers count
+          // Get visible layers count and current level
           const visibleLayers = layerManager.getVisibleLayers().length;
+          const currentLevel = gameState.getState().currentLevel;
           
           setDebugInfo({
             layersGenerated: allLayers.length,
-            totalLayers: 10,
+            totalLayers: getTotalLayersForLevel(currentLevel),
             activeLayers: allLayers.length,
             visibleLayers: visibleLayers,
             activeShapes: activeShapes,
@@ -265,10 +290,23 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     const handleResize = () => {
       if (coordinatorRef.current && canvasRef.current) {
         const { width, height } = getResponsiveCanvasSize();
-        canvasRef.current.width = width;
-        canvasRef.current.height = height;
+        const canvas = canvasRef.current;
+        
+        // Set canvas internal resolution
+        canvas.width = width;
+        canvas.height = height;
+        
+        // On mobile, don't set explicit CSS sizes - let the CSS viewport units handle it
+        if (DeviceDetection.isMobileDevice()) {
+          console.log(`Mobile resize: Canvas internal=${width}x${height}, letting CSS handle display size with viewport units`);
+        } else {
+          // Desktop: Set explicit sizes
+          canvas.style.width = `${width}px`;
+          canvas.style.height = `${height}px`;
+          console.log(`Desktop resize: Canvas resized to: Internal=${width}x${height}, CSS=${canvas.style.width}x${canvas.style.height}`);
+        }
+        
         coordinatorRef.current.updateCanvasSize(width, height);
-        console.log(`Canvas resized to: ${width}x${height}`);
       }
     };
 
@@ -337,7 +375,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
       height: '100%',
       maxWidth: '100vw',
       maxHeight: '100vh',
-      overflow: 'hidden'
+      overflow: 'hidden',
+      position: 'relative'
     }}>
       <div style={{ 
         position: 'relative', 
@@ -353,11 +392,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
             backgroundColor: '#2C3E50',
             cursor: 'pointer',
             display: 'block',
-            width: '100%',
-            height: '100%',
-            margin: 0,
+            margin: '0 auto', // Center horizontally on desktop
             padding: 0,
             touchAction: 'none', // Prevent default touch behaviors
+            // Don't set width/height here as we handle it in JavaScript
+            // to ensure canvas internal size matches CSS size for accurate touch coordinates
           }}
         />
         

@@ -5,7 +5,7 @@
 
 import { BaseSystem } from './BaseSystem';
 import { GameState as IGameState, Level, Container, HoldingHole, ScrewColor, Screw as ScrewInterface, FullGameSave } from '@/types/game';
-import { GAME_CONFIG, UI_CONSTANTS } from '@/game/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS, getTotalLayersForLevel } from '@/game/utils/Constants';
 import { getRandomScrewColors, getRandomColorsFromList } from '@/game/utils/Colors';
 import {
   SaveRequestedEvent,
@@ -15,7 +15,10 @@ import {
   LayerClearedEvent,
   HoldingHoleFilledEvent,
   ScrewTransferCompletedEvent,
-  LayerShapesReadyEvent
+  ScrewTransferFailedEvent,
+  LayerShapesReadyEvent,
+  NextLevelRequestedEvent,
+  AllLayersClearedEvent
 } from '../events/EventTypes';
 
 export class GameState extends BaseSystem {
@@ -25,6 +28,8 @@ export class GameState extends BaseSystem {
   private holdingHoles: HoldingHole[] = [];
   private hasUnsavedChanges = false;
   private containersInitialized = false;
+  private virtualGameWidth = GAME_CONFIG.canvas.width;
+  private virtualGameHeight = GAME_CONFIG.canvas.height;
 
   constructor() {
     super('GameState');
@@ -52,9 +57,12 @@ export class GameState extends BaseSystem {
     
     // Transfer events
     this.subscribe('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this));
+    this.subscribe('screw:transfer:failed', this.handleScrewTransferFailed.bind(this));
     
     // Level management events - listen to level completion from other systems
     this.subscribe('layer:cleared', this.handleLayerCleared.bind(this));
+    this.subscribe('all_layers:cleared', this.handleAllLayersCleared.bind(this));
+    this.subscribe('next_level:requested', this.handleNextLevelRequested.bind(this));
     
     // Shape events
     this.subscribe('shape:destroyed', this.handleShapeDestroyed.bind(this));
@@ -75,7 +83,7 @@ export class GameState extends BaseSystem {
   private createInitialLevel(): Level {
     return {
       number: 1,
-      totalLayers: 10,
+      totalLayers: getTotalLayersForLevel(1),
       layersGenerated: 0,
       layers: [],
     };
@@ -86,14 +94,9 @@ export class GameState extends BaseSystem {
     this.executeIfActive(() => {
       const { screw, destination, points } = event;
       
-      // ScrewManager has already placed the screw, we just need to handle scoring
-      if (destination === 'container') {
-        this.addScore(points);
-        console.log(`Added ${points} points for screw ${screw.id} placed in container`);
-      } else if (destination === 'holding_hole') {
-        this.addScore(points);
-        console.log(`Added ${points} points for screw ${screw.id} placed in holding hole`);
-      }
+      // Award points for screw removal (regardless of destination)
+      this.addScore(points);
+      console.log(`Added ${points} points for removing screw ${screw.id} from shape (destination: ${destination})`);
       
       this.markUnsavedChanges();
     });
@@ -166,10 +169,21 @@ export class GameState extends BaseSystem {
       if (holeIndex >= 0 && holeIndex < this.holdingHoles.length) {
         const hole = this.holdingHoles[holeIndex];
         
+        const wasFullBefore = this.isHoldingAreaFull();
+        
         if (screwId === null) {
           // Screw was transferred out of hole (hole now empty)
           hole.screwId = null;
           console.log(`🕳️ Holding hole ${holeIndex} is now empty`);
+          
+          // If holes were full before but not anymore, cancel the timer
+          if (wasFullBefore && !this.isHoldingAreaFull()) {
+            console.log(`✅ Holding holes no longer full - cancelling game over timer`);
+            this.emit({
+              type: 'holding_holes:available',
+              timestamp: Date.now()
+            });
+          }
         } else {
           // Screw was placed in hole
           hole.screwId = screwId;
@@ -197,6 +211,37 @@ export class GameState extends BaseSystem {
     });
   }
 
+  private handleScrewTransferFailed(event: ScrewTransferFailedEvent): void {
+    this.executeIfActive(() => {
+      const { screwId, toContainerIndex, toHoleIndex, fromHoleIndex, reason } = event;
+      
+      console.log(`❌ GameState: Transfer failed for screw ${screwId}: ${reason}`);
+      
+      // Clear the reservation if it was made
+      if (toContainerIndex >= 0 && toContainerIndex < this.containers.length) {
+        const container = this.containers[toContainerIndex];
+        if (toHoleIndex >= 0 && toHoleIndex < container.maxHoles) {
+          if (container.reservedHoles[toHoleIndex] === screwId) {
+            container.reservedHoles[toHoleIndex] = null;
+            console.log(`🧹 Cleared reservation for container ${container.id} hole ${toHoleIndex}`);
+          }
+        }
+      }
+      
+      // Restore the screw to the holding hole
+      if (fromHoleIndex >= 0 && fromHoleIndex < this.holdingHoles.length) {
+        this.holdingHoles[fromHoleIndex].screwId = screwId;
+        console.log(`↩️ Restored screw ${screwId} to holding hole ${fromHoleIndex}`);
+        
+        this.emit({
+          type: 'holding_hole:state:updated',
+          timestamp: Date.now(),
+          holdingHoles: this.holdingHoles
+        });
+      }
+    });
+  }
+
   private handleScrewTransferCompleted(event: ScrewTransferCompletedEvent): void {
     this.executeIfActive(() => {
       const { screwId, toContainerIndex, toHoleIndex } = event;
@@ -205,7 +250,8 @@ export class GameState extends BaseSystem {
         const container = this.containers[toContainerIndex];
         
         if (toHoleIndex >= 0 && toHoleIndex < container.maxHoles) {
-          // Place the screw ID in the container hole
+          // Clear the reservation and place the screw in the actual hole
+          container.reservedHoles[toHoleIndex] = null;
           container.holes[toHoleIndex] = screwId;
           console.log(`Completed transfer of screw ${screwId} to container ${container.id} hole ${toHoleIndex}`);
           
@@ -238,6 +284,10 @@ export class GameState extends BaseSystem {
 
   private handleBoundsChanged(event: BoundsChangedEvent): void {
     this.executeIfActive(() => {
+      // Store the current virtual game dimensions for use in calculations
+      this.virtualGameWidth = event.width;
+      this.virtualGameHeight = event.height;
+      console.log(`GameState: Updated virtual dimensions to ${event.width}x${event.height}`);
       this.recalculatePositions(event.width, event.height);
     });
   }
@@ -327,10 +377,43 @@ export class GameState extends BaseSystem {
   private handleLayerCleared(_event: LayerClearedEvent): void {
     void _event;
     this.executeIfActive(() => {
-      // Check if all layers are cleared
-      if (this.level.layersGenerated >= this.level.totalLayers) {
-        this.completeLevel();
-      }
+      // Level completion is now handled by LayerManager emitting level:complete event
+      // when all layers are actually cleared, so we don't need to check here
+      console.log('GameState: Layer cleared event received');
+    });
+  }
+
+  private handleAllLayersCleared(_event: AllLayersClearedEvent): void {
+    void _event;
+    this.executeIfActive(() => {
+      console.log('GameState: All layers cleared - completing level');
+      // Mark level as complete and emit proper level:complete event
+      this.state.levelComplete = true;
+      this.state.totalScore += this.state.levelScore;
+      
+      // Emit level:complete with correct level and score data
+      this.emit({
+        type: 'level:complete',
+        timestamp: Date.now(),
+        level: this.state.currentLevel,
+        score: this.state.levelScore
+      });
+
+      this.emit({
+        type: 'total_score:updated',
+        timestamp: Date.now(),
+        totalScore: this.state.totalScore
+      });
+      
+      this.markUnsavedChanges();
+    });
+  }
+
+  private handleNextLevelRequested(_event: NextLevelRequestedEvent): void {
+    void _event;
+    this.executeIfActive(() => {
+      console.log('GameState: Next level requested - advancing to next level');
+      this.nextLevel();
     });
   }
 
@@ -429,27 +512,6 @@ export class GameState extends BaseSystem {
     });
   }
 
-  public completeLevel(): void {
-    this.executeIfActive(() => {
-      this.state.levelComplete = true;
-      this.state.totalScore += this.state.levelScore;
-      
-      this.emit({
-        type: 'level:complete',
-        timestamp: Date.now(),
-        level: this.state.currentLevel,
-        score: this.state.levelScore
-      });
-
-      this.emit({
-        type: 'total_score:updated',
-        timestamp: Date.now(),
-        totalScore: this.state.totalScore
-      });
-      
-      this.markUnsavedChanges();
-    });
-  }
 
   public nextLevel(): void {
     this.executeIfActive(() => {
@@ -460,7 +522,7 @@ export class GameState extends BaseSystem {
       
       this.level = {
         number: this.state.currentLevel,
-        totalLayers: 10,
+        totalLayers: getTotalLayersForLevel(this.state.currentLevel),
         layersGenerated: 0,
         layers: [],
       };
@@ -533,7 +595,7 @@ export class GameState extends BaseSystem {
       colors = getRandomScrewColors(GAME_CONFIG.containers.count);
     }
 
-    const currentWidth = virtualGameWidth || GAME_CONFIG.canvas.width;
+    const currentWidth = virtualGameWidth || this.virtualGameWidth;
 
     const containerWidth = UI_CONSTANTS.containers.width;
     const containerHeight = UI_CONSTANTS.containers.height;
@@ -542,18 +604,29 @@ export class GameState extends BaseSystem {
     const totalContainersWidth = (GAME_CONFIG.containers.count * containerWidth) + ((GAME_CONFIG.containers.count - 1) * spacing);
     const startX = (currentWidth - totalContainersWidth) / 2;
 
-    this.containers = colors.map((color, index) => ({
-      id: `container-${index}`,
-      color,
-      position: {
-        x: startX + (index * (containerWidth + spacing)) + (containerWidth / 2),
-        y: startY + (containerHeight / 2)
-      },
-      holes: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
-      reservedHoles: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
-      maxHoles: GAME_CONFIG.containers.maxHoles,
-      isFull: false,
-    }));
+    this.containers = colors.map((color, index) => {
+      const containerLeftX = startX + (index * (containerWidth + spacing));
+      const containerCenterX = containerLeftX + (containerWidth / 2);
+      console.log(`🏭 Creating container ${index}: leftX=${containerLeftX}, centerX=${containerCenterX}, width=${containerWidth}`);
+      return {
+        id: `container-${index}`,
+        color,
+        position: {
+          x: containerCenterX,
+          y: startY + (containerHeight / 2)
+        },
+        holes: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
+        reservedHoles: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
+        maxHoles: GAME_CONFIG.containers.maxHoles,
+        isFull: false,
+        // Fade animation properties
+        fadeOpacity: 1.0,
+        fadeStartTime: 0,
+        fadeDuration: 500, // 0.5 seconds
+        isFadingOut: false,
+        isFadingIn: false,
+      };
+    });
     
     // Emit container state update
     this.emit({
@@ -564,7 +637,7 @@ export class GameState extends BaseSystem {
   }
 
   private initializeHoldingHoles(virtualGameWidth?: number, virtualGameHeight?: number): void {
-    const currentWidth = virtualGameWidth || GAME_CONFIG.canvas.width;
+    const currentWidth = virtualGameWidth || this.virtualGameWidth;
     void virtualGameHeight; // Unused parameter
     
     const holeRadius = UI_CONSTANTS.holdingHoles.radius;
@@ -638,12 +711,17 @@ export class GameState extends BaseSystem {
     const container = this.containers.find(c => c.id === containerId);
     if (container && container.isFull && !container.isMarkedForRemoval) {
       container.isMarkedForRemoval = true;
-      container.removalTimer = 750;
+      container.removalTimer = 500; // Changed to match fade duration
       
-      // Start replacement process after delay
+      // Start fade-out animation
+      container.isFadingOut = true;
+      container.fadeStartTime = Date.now();
+      console.log(`🎭 Starting fade-out animation for container ${container.id} (opacity: ${container.fadeOpacity})`);
+      
+      // Start replacement process after fade-out completes
       setTimeout(() => {
         this.replaceContainer(this.containers.indexOf(container));
-      }, 750);
+      }, 500); // 0.5 seconds for fade-out
     }
   }
 
@@ -710,7 +788,15 @@ export class GameState extends BaseSystem {
       reservedHoles: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
       maxHoles: GAME_CONFIG.containers.maxHoles,
       isFull: false,
+      // Start with fade-in animation
+      fadeOpacity: 0.0,
+      fadeStartTime: Date.now(),
+      fadeDuration: 500, // 0.5 seconds
+      isFadingOut: false,
+      isFadingIn: true,
     };
+    
+    console.log(`🎭 Starting fade-in animation for new container ${this.containers[containerIndex].id}`);
 
     this.emit({
       type: 'container:replaced',
@@ -830,24 +916,34 @@ export class GameState extends BaseSystem {
       return;
     }
 
+    // Reserve the hole immediately to prevent race conditions
+    targetContainer.reservedHoles[emptyHoleIndex] = screwId;
+    console.log(`Reserved container ${targetContainer.id} hole ${emptyHoleIndex} for screw ${screwId}`);
+
     // Calculate positions for animation
     const holdingHole = this.holdingHoles[holeIndex];
     const fromPosition = { ...holdingHole.position };
     
-    // Calculate target container hole position
+    // Calculate target container hole position using stored virtual game dimensions
     const containerWidth = UI_CONSTANTS.containers.width;
     const containerHeight = UI_CONSTANTS.containers.height;
     const spacing = UI_CONSTANTS.containers.spacing;
     const startY = UI_CONSTANTS.containers.startY;
-    const currentWidth = GAME_CONFIG.canvas.width;
     const totalWidth = (this.containers.length * containerWidth) + ((this.containers.length - 1) * spacing);
-    const startX = (currentWidth - totalWidth) / 2;
+    const startX = (this.virtualGameWidth - totalWidth) / 2;
+    console.log(`🎯 GameState: Using virtual width ${this.virtualGameWidth} for transfer calculation (containerWidth: ${containerWidth}, spacing: ${spacing}, totalWidth: ${totalWidth}, startX: ${startX})`);
     const containerIndex = this.containers.indexOf(targetContainer);
+    // Calculate container position using the SAME logic as GameManager rendering
+    // This ensures animation targets match exactly where containers are visually rendered
     const containerX = startX + (containerIndex * (containerWidth + spacing));
-    const holeSpacing = containerWidth / 4;
+    console.log(`🎯 GameState: Calculated containerX=${containerX} for container ${containerIndex} (same as GameManager logic)`);
+    // Calculate hole spacing based on container width and number of holes
+    const holeCount = UI_CONSTANTS.containers.hole.count;
+    const holeSpacing = containerWidth / (holeCount + 1); // +1 for proper spacing
     const holeX = containerX + holeSpacing + (emptyHoleIndex * holeSpacing);
     const holeY = startY + containerHeight / 2;
     const toPosition = { x: holeX, y: holeY };
+    console.log(`🎯 Hole position calculation: containerX=${containerX}, holeSpacing=${holeSpacing}, emptyHoleIndex=${emptyHoleIndex}, final holeX=${holeX}, holeY=${holeY}`);
     
     // Start the transfer animation (ScrewManager will validate color match)
     console.log(`🚀 GameState: EMITTING screw:transfer:started for screw ${screwId} from hole ${holeIndex} to container ${containerIndex} hole ${emptyHoleIndex}`);
@@ -878,7 +974,7 @@ export class GameState extends BaseSystem {
 
   private recalculatePositions(virtualGameWidth?: number, virtualGameHeight?: number): void {
     void virtualGameHeight; // Currently unused
-    const currentWidth = virtualGameWidth || GAME_CONFIG.canvas.width;
+    const currentWidth = virtualGameWidth || this.virtualGameWidth;
 
     // Recalculate container positions
     if (this.containers.length > 0) {
@@ -937,7 +1033,7 @@ export class GameState extends BaseSystem {
         depthCounter: 0,
         physicsGroupCounter: 0,
         colorCounter: 0,
-        totalLayersForLevel: 10,
+        totalLayersForLevel: getTotalLayersForLevel(1),
         layersGeneratedThisLevel: 0,
       },
       screwManagerState: {
@@ -967,9 +1063,32 @@ export class GameState extends BaseSystem {
         this.holdingHoles = data.holdingHoles || [];
       }
 
+      // Ensure all loaded containers have fade properties
+      this.containers.forEach(container => {
+        if (container.fadeOpacity === undefined) {
+          container.fadeOpacity = 1.0;
+          container.fadeStartTime = 0;
+          container.fadeDuration = 500;
+          container.isFadingOut = false;
+          container.isFadingIn = false;
+        }
+      });
+
       if (this.containers.length === 0) {
         this.initializeContainers();
       }
+      
+      // Double-check that all containers have fade properties after initialization
+      this.containers.forEach(container => {
+        if (container.fadeOpacity === undefined) {
+          container.fadeOpacity = 1.0;
+          container.fadeStartTime = 0;
+          container.fadeDuration = 500;
+          container.isFadingOut = false;
+          container.isFadingIn = false;
+          console.log(`🎭 Added missing fade properties to container ${container.id}`);
+        }
+      });
       if (this.holdingHoles.length === 0) {
         this.initializeHoldingHoles();
       }
@@ -1036,5 +1155,50 @@ export class GameState extends BaseSystem {
 
   public getActiveContainerColors(): ScrewColor[] {
     return this.containers.map(container => container.color);
+  }
+
+  // Override BaseSystem update method to handle container animations
+  public update(deltaTime: number): void {
+    void deltaTime; // GameState doesn't need frame timing
+    this.executeIfActive(() => {
+      // Update container fade animations
+      this.updateContainerAnimations();
+    });
+  }
+
+  private updateContainerAnimations(): void {
+    const currentTime = Date.now();
+    
+    this.containers.forEach(container => {
+      if (container.isFadingOut || container.isFadingIn) {
+        const elapsed = currentTime - container.fadeStartTime;
+        const progress = Math.min(elapsed / container.fadeDuration, 1);
+        
+        if (container.isFadingOut) {
+          // Fade from 1 to 0
+          container.fadeOpacity = 1 - progress;
+          
+          if (progress >= 1) {
+            container.isFadingOut = false;
+            container.fadeOpacity = 0;
+            console.log(`🎭 Fade-out completed for container ${container.id}`);
+          }
+        } else if (container.isFadingIn) {
+          // Fade from 0 to 1
+          container.fadeOpacity = progress;
+          
+          // Debug logging for fade-in
+          if (elapsed % 100 < 16) { // Log roughly every 100ms
+            console.log(`🎭 Fade-in progress for container ${container.id}: ${(progress * 100).toFixed(1)}% (opacity: ${container.fadeOpacity.toFixed(2)})`);
+          }
+          
+          if (progress >= 1) {
+            container.isFadingIn = false;
+            container.fadeOpacity = 1;
+            console.log(`🎭 Fade-in completed for container ${container.id}`);
+          }
+        }
+      }
+    });
   }
 }

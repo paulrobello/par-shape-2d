@@ -7,7 +7,7 @@ import { BaseSystem } from '../core/BaseSystem';
 import { Layer } from '@/game/entities/Layer';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeFactory } from '@/game/systems/ShapeFactory';
-import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS } from '@/game/utils/Constants';
+import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, getTotalLayersForLevel } from '@/game/utils/Constants';
 import { ScrewColor } from '@/types/game';
 import { randomIntBetween } from '@/game/utils/MathUtils';
 import {
@@ -452,13 +452,26 @@ export class LayerManager extends BaseSystem {
     console.log(`After removal - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
     
     // Generate a new layer if we haven't reached the total for this level
-    if (this.state.layersGeneratedThisLevel < this.state.totalLayersForLevel) {
+    // AND we still have visible layers (not at the end of the level)
+    const shouldGenerateNewLayer = this.state.layersGeneratedThisLevel < this.state.totalLayersForLevel && 
+                                   this.state.layers.length > 0;
+    
+    if (shouldGenerateNewLayer) {
       console.log(`Generating new layer: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} generated, ${this.state.layers.length} active layers`);
       const newLayer = this.createLayer(true); // Create with fade-in animation
       this.generateShapesForLayer(newLayer);
       console.log(`After generation - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
     } else {
-      console.log(`No new layer generated: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} layers already generated for this level`);
+      console.log(`No new layer generated: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} layers generated, ${this.state.layers.length} active layers remaining`);
+      
+      // Check if level is complete (no more active layers)
+      if (this.state.layers.length === 0) {
+        console.log('🎉 All layers cleared! Level complete!');
+        this.emit({
+          type: 'all_layers:cleared',
+          timestamp: Date.now()
+        });
+      }
     }
   }
 
@@ -625,8 +638,9 @@ export class LayerManager extends BaseSystem {
       // Clear existing layers
       this.clearAllLayers();
       
-      // Reset layer generation counter for new level
+      // Reset layer generation counter for new level and update total layers for this level
       this.state.layersGeneratedThisLevel = 0;
+      this.state.totalLayersForLevel = getTotalLayersForLevel(levelNumber);
       
       // Create initial visible layers
       const initialLayers = Math.min(GAME_CONFIG.layer.maxVisible, this.state.maxLayers);
@@ -673,7 +687,9 @@ export class LayerManager extends BaseSystem {
   }
 
   public isLevelComplete(): boolean {
-    return this.state.layers.length === 0 && this.state.layersGeneratedThisLevel >= this.state.totalLayersForLevel;
+    // Level is complete when all layers are cleared, regardless of how many were generated
+    // This ensures the level can complete even if fewer than totalLayersForLevel were needed
+    return this.state.layers.length === 0;
   }
 
   public getLayersGeneratedThisLevel(): number {

@@ -8,7 +8,7 @@ import { BaseSystem } from './BaseSystem';
 import { GameLoop } from './GameLoop';
 import { eventBus } from '@/game/events/EventBus';
 import { ScrewManager } from '@/game/systems/ScrewManager';
-import { GAME_CONFIG, SCREW_COLORS, LAYOUT_CONSTANTS, UI_CONSTANTS } from '@/game/utils/Constants';
+import { GAME_CONFIG, SCREW_COLORS, LAYOUT_CONSTANTS, UI_CONSTANTS, getTotalLayersForLevel } from '@/game/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { Vector2, Container, HoldingHole, RenderContext, Screw } from '@/types/game';
 import { Layer } from '@/game/entities/Layer';
@@ -45,6 +45,7 @@ interface GameManagerState {
   
   // UI state
   showMenuOverlay: boolean;
+  holdingHolesFull: boolean;
   
   // Game state (simplified - only what's needed for rendering)
   gameStarted: boolean;
@@ -84,6 +85,7 @@ export class GameManager extends BaseSystem {
       virtualGameWidth: GAME_CONFIG.canvas.width,
       virtualGameHeight: GAME_CONFIG.canvas.height,
       showMenuOverlay: false,
+      holdingHolesFull: false,
       gameStarted: false,
       gameOver: false,
       levelComplete: false,
@@ -126,6 +128,7 @@ export class GameManager extends BaseSystem {
     this.subscribe('holding_hole:filled', this.handleHoldingHoleFilled.bind(this));
     this.subscribe('container:filled', this.handleContainerFilled.bind(this));
     this.subscribe('holding_holes:full', this.handleHoldingHolesFull.bind(this));
+    this.subscribe('holding_holes:available', this.handleHoldingHolesAvailable.bind(this));
     
     // Physics events for debug monitoring
     this.subscribe('physics:collision:detected', this.handleCollisionDetected.bind(this));
@@ -299,6 +302,9 @@ export class GameManager extends BaseSystem {
     this.executeIfActive(() => {
       console.log(`⚠️ All holding holes are full! Starting ${event.countdown / 1000}s countdown to game over...`);
       
+      // Set holding holes full state for visual effects
+      this.state.holdingHolesFull = true;
+      
       // Start countdown timer
       let remainingTime = event.countdown;
       const countdownInterval = setInterval(() => {
@@ -323,6 +329,23 @@ export class GameManager extends BaseSystem {
       
       // Store the interval so we can clear it if the game state changes
       this.state.gameOverCountdown = countdownInterval;
+    });
+  }
+  
+  private handleHoldingHolesAvailable(_event: import('@/game/events/EventTypes').HoldingHolesAvailableEvent): void {
+    void _event;
+    this.executeIfActive(() => {
+      console.log(`✅ Holding holes are now available - cancelling game over countdown`);
+      
+      // Clear holding holes full state
+      this.state.holdingHolesFull = false;
+      
+      // Clear the countdown timer if it's running
+      if (this.state.gameOverCountdown) {
+        clearInterval(this.state.gameOverCountdown);
+        this.state.gameOverCountdown = null;
+        console.log(`🔄 Game over countdown cancelled - game can continue`);
+      }
     });
   }
   
@@ -396,6 +419,11 @@ export class GameManager extends BaseSystem {
       this.state.canvas.width = width;
       this.state.canvas.height = height;
 
+      // Always update virtual game dimensions to match canvas for proper element positioning
+      this.state.virtualGameWidth = width;
+      this.state.virtualGameHeight = height;
+      console.log(`Updated virtual game dimensions to ${width}x${height} to match canvas`);
+
       this.updateCanvasScaling();
       this.emitBoundsChanged();
     });
@@ -444,6 +472,13 @@ export class GameManager extends BaseSystem {
         return;
       }
 
+      // Check for level complete screen clicks
+      if (this.state.levelComplete && this.checkLevelCompleteClick(clickPoint)) {
+        console.log('Level complete screen clicked - advancing to next level');
+        this.advanceToNextLevel();
+        return;
+      }
+
       // Process normal game input
       this.handleGameInput(clickPoint, 'mouse');
     });
@@ -458,11 +493,47 @@ export class GameManager extends BaseSystem {
   private handleTouchEnd(event: TouchEvent): void {
     this.executeIfActive(() => {
       event.preventDefault();
+      console.log('=== TOUCH END DETECTED ===');
       if (!this.state.canvas || event.changedTouches.length === 0) return;
 
       const rect = this.state.canvas.getBoundingClientRect();
       const touch = event.changedTouches[0];
+      
+      console.log(`Touch coordinates: clientX=${touch.clientX}, clientY=${touch.clientY}`);
+      console.log(`Canvas bounds: left=${rect.left}, top=${rect.top}, width=${rect.width}, height=${rect.height}`);
+      console.log(`Canvas internal size: ${this.state.canvas.width}x${this.state.canvas.height}`);
+      console.log(`Canvas display size: ${rect.width}x${rect.height}`);
+      console.log(`Canvas scale: ${this.state.canvasScale}, offset: (${this.state.canvasOffset.x}, ${this.state.canvasOffset.y})`);
+      
       const touchPoint = this.transformCanvasCoordinates(touch.clientX - rect.left, touch.clientY - rect.top);
+      console.log(`Transformed touch point: (${touchPoint.x.toFixed(1)}, ${touchPoint.y.toFixed(1)})`);
+
+      // Check for menu button touches first
+      if (this.checkMenuButtonClick(touchPoint)) {
+        console.log('Menu button touched - toggling overlay');
+        this.state.showMenuOverlay = !this.state.showMenuOverlay;
+        return;
+      }
+
+      // Check for menu overlay button touches
+      if (this.state.showMenuOverlay && this.checkMenuOverlayClick(touchPoint)) {
+        console.log('Menu overlay button touched');
+        return;
+      }
+
+      // If menu overlay is showing but touch was outside menu area, close it
+      if (this.state.showMenuOverlay) {
+        console.log('Touch outside menu - closing overlay');
+        this.state.showMenuOverlay = false;
+        return;
+      }
+
+      // Check for level complete screen touches
+      if (this.state.levelComplete && this.checkLevelCompleteClick(touchPoint)) {
+        console.log('Level complete screen touched - advancing to next level');
+        this.advanceToNextLevel();
+        return;
+      }
 
       // Same logic as click for touch
       this.handleGameInput(touchPoint, 'touch');
@@ -562,9 +633,10 @@ export class GameManager extends BaseSystem {
 
     // Check all screws to find the closest one within range
     this.state.allScrews.forEach(screw => {
-      if (screw.isCollected || screw.isBeingCollected || !screw.isRemovable) {
-        return; // Skip collected, animating, or non-removable screws
+      if (screw.isCollected || screw.isBeingCollected) {
+        return; // Skip collected or animating screws
       }
+      // NOTE: Now including non-removable (blocked) screws for click detection
 
       const dx = screw.position.x - point.x;
       const dy = screw.position.y - point.y;
@@ -592,8 +664,14 @@ export class GameManager extends BaseSystem {
     const x = this.state.virtualGameWidth - buttonSize - margin;
     const y = margin;
 
-    return point.x >= x && point.x <= x + buttonSize &&
-           point.y >= y && point.y <= y + buttonSize;
+    console.log(`Menu button check: point(${point.x.toFixed(1)}, ${point.y.toFixed(1)}) vs button area(${x.toFixed(1)}, ${y.toFixed(1)}, ${(x + buttonSize).toFixed(1)}, ${(y + buttonSize).toFixed(1)})`);
+    console.log(`Virtual game dimensions: ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
+
+    const isInButton = point.x >= x && point.x <= x + buttonSize &&
+                      point.y >= y && point.y <= y + buttonSize;
+    
+    console.log(`Menu button clicked: ${isInButton}`);
+    return isInButton;
   }
 
   private checkMenuOverlayClick(point: Vector2): boolean {
@@ -638,10 +716,16 @@ export class GameManager extends BaseSystem {
     this.executeIfActive(() => {
       switch (action) {
         case 'start':
-          this.emit({
-            type: 'game:started',
-            timestamp: Date.now()
-          });
+          if (this.state.levelComplete) {
+            // If level is complete, advance to next level
+            this.advanceToNextLevel();
+          } else {
+            // Otherwise start/continue game
+            this.emit({
+              type: 'game:started',
+              timestamp: Date.now()
+            });
+          }
           break;
         case 'restart':
           // Clear save data and restart
@@ -675,37 +759,61 @@ export class GameManager extends BaseSystem {
     });
   }
 
+  private checkLevelCompleteClick(point: Vector2): boolean {
+    void point; // Currently accepting any click on level complete screen
+    // Check if click is anywhere on the level complete screen for now
+    // You could make this more specific to just the button area if needed
+    return true;
+  }
+
+  private advanceToNextLevel(): void {
+    this.executeIfActive(() => {
+      // Clear level complete state
+      this.state.levelComplete = false;
+      
+      // Directly call nextLevel on GameState through event system
+      // We'll use a dedicated event for this
+      eventBus.emit({
+        type: 'next_level:requested',
+        timestamp: Date.now(),
+        source: 'GameManager'
+      });
+    });
+  }
+
   // Canvas Scaling and Transformation
   private updateCanvasScaling(): void {
     if (!this.state.canvas || !this.state.ctx) return;
 
+    // Since virtual dimensions always match canvas dimensions, use 1:1 scaling with no offset
     const canvasWidth = this.state.canvas.width;
     const canvasHeight = this.state.canvas.height;
 
-    // Calculate uniform scaling to fit the virtual game area within the canvas
-    const scaleX = canvasWidth / this.state.virtualGameWidth;
-    const scaleY = canvasHeight / this.state.virtualGameHeight;
-    this.state.canvasScale = Math.min(scaleX, scaleY);
+    // No scaling needed - virtual dimensions match canvas dimensions
+    this.state.canvasScale = 1;
+    this.state.canvasOffset.x = 0;
+    this.state.canvasOffset.y = 0;
 
-    // Calculate offset to center the game area
-    const scaledGameWidth = this.state.virtualGameWidth * this.state.canvasScale;
-    const scaledGameHeight = this.state.virtualGameHeight * this.state.canvasScale;
-    this.state.canvasOffset.x = (canvasWidth - scaledGameWidth) / 2;
-    this.state.canvasOffset.y = (canvasHeight - scaledGameHeight) / 2;
+    // Apply identity transformation
+    this.state.ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-    // Apply transformation
-    this.state.ctx.setTransform(
-      this.state.canvasScale, 0, 0, this.state.canvasScale,
-      this.state.canvasOffset.x, this.state.canvasOffset.y
-    );
-
-    // console.log(`Canvas scaling updated: scale=${this.state.canvasScale.toFixed(3)}, offset=(${this.state.canvasOffset.x.toFixed(1)}, ${this.state.canvasOffset.y.toFixed(1)})`);
+    console.log(`Canvas scaling updated: canvas=${canvasWidth}x${canvasHeight}, virtual=${this.state.virtualGameWidth}x${this.state.virtualGameHeight}, scale=1:1, no offset`);
   }
 
   private transformCanvasCoordinates(clientX: number, clientY: number): Vector2 {
-    // Transform from canvas coordinates to virtual game coordinates
-    const virtualX = (clientX - this.state.canvasOffset.x) / this.state.canvasScale;
-    const virtualY = (clientY - this.state.canvasOffset.y) / this.state.canvasScale;
+    if (!this.state.canvas) return { x: clientX, y: clientY };
+    
+    // Account for the difference between CSS display size and canvas internal size
+    const rect = this.state.canvas.getBoundingClientRect();
+    const canvasDisplayWidth = rect.width;
+    const canvasDisplayHeight = rect.height;
+    const canvasInternalWidth = this.state.canvas.width;
+    const canvasInternalHeight = this.state.canvas.height;
+    
+    // Scale client coordinates to canvas internal coordinates
+    // Since virtual dimensions match canvas internal dimensions, this is the final result
+    const virtualX = (clientX / canvasDisplayWidth) * canvasInternalWidth;
+    const virtualY = (clientY / canvasDisplayHeight) * canvasInternalHeight;
 
     return { x: virtualX, y: virtualY };
   }
@@ -795,6 +903,11 @@ export class GameManager extends BaseSystem {
         this.renderDebugInfo();
       }
 
+      // Render pulsing red border if holding holes are full
+      if (this.state.holdingHolesFull) {
+        this.renderPulsingRedBorder();
+      }
+
       // Render menu overlay on top of everything
       if (this.state.showMenuOverlay) {
         this.renderMenuOverlay();
@@ -828,12 +941,39 @@ export class GameManager extends BaseSystem {
   private renderLevelComplete(): void {
     if (!this.state.ctx) return;
 
+    // Draw semi-transparent overlay
+    this.state.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    this.state.ctx.fillRect(0, 0, this.state.virtualGameWidth, this.state.virtualGameHeight);
+
+    // Draw level complete text
     this.state.ctx.fillStyle = '#00FF00';
     this.state.ctx.font = '48px Arial';
     this.state.ctx.textAlign = 'center';
-    this.state.ctx.fillText('Level Complete!', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 - 50);
+    this.state.ctx.fillText('Level Complete!', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 - 100);
+    
+    // Draw score
     this.state.ctx.font = '24px Arial';
-    this.state.ctx.fillText(`Level ${this.state.currentLevel} Score: ${this.state.levelScore}`, this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 + 50);
+    this.state.ctx.fillStyle = '#FFFFFF';
+    this.state.ctx.fillText(`Level ${this.state.currentLevel} Score: ${this.state.levelScore}`, this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 - 50);
+    
+    // Draw next level button
+    const buttonWidth = 200;
+    const buttonHeight = 60;
+    const buttonX = (this.state.virtualGameWidth - buttonWidth) / 2;
+    const buttonY = this.state.virtualGameHeight / 2 + 20;
+    
+    this.state.ctx.fillStyle = '#4CAF50';
+    this.state.ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    
+    this.state.ctx.fillStyle = '#FFFFFF';
+    this.state.ctx.font = '24px Arial';
+    this.state.ctx.textAlign = 'center';
+    this.state.ctx.fillText('Next Level', this.state.virtualGameWidth / 2, buttonY + 38);
+    
+    // Draw click instruction
+    this.state.ctx.font = '18px Arial';
+    this.state.ctx.fillStyle = '#CCCCCC';
+    this.state.ctx.fillText('Click to continue', this.state.virtualGameWidth / 2, buttonY + 100);
   }
 
   private renderGame(): void {
@@ -862,18 +1002,18 @@ export class GameManager extends BaseSystem {
     if (!this.state.ctx) return;
 
     // Calculate level progress percentage
-    const totalLayersInLevel = 10; // From GameState
+    const totalLayersInLevel = getTotalLayersForLevel(this.state.currentLevel);
     const avgShapesPerLayer = (GAME_CONFIG.shapes.minPerLayer + GAME_CONFIG.shapes.maxPerLayer) / 2; // 4.5
     const totalShapesEstimate = totalLayersInLevel * avgShapesPerLayer;
-    const progressPercent = Math.floor((this.state.shapesRemovedThisLevel / totalShapesEstimate) * 100);
+    const progressPercent = Math.min(100, Math.floor((this.state.shapesRemovedThisLevel / totalShapesEstimate) * 100));
 
     // Render score and level info
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '20px Arial';
     this.state.ctx.textAlign = 'left';
     this.state.ctx.fillText(`Level: ${this.state.currentLevel} (${progressPercent}%)`, 20, 30);
-    this.state.ctx.fillText(`Score: ${this.state.levelScore}`, 20, 60);
-    this.state.ctx.fillText(`Total: ${this.state.totalScore}`, 20, 90);
+    this.state.ctx.fillText(`Level Score: ${this.state.levelScore}`, 20, 60);
+    this.state.ctx.fillText(`Grand Total: ${this.state.totalScore}`, 20, 90);
   }
 
   private renderMenuButton(): void {
@@ -1050,29 +1190,41 @@ export class GameManager extends BaseSystem {
     // Center the containers horizontally
     const totalWidth = (this.state.containers.length * containerWidth) + ((this.state.containers.length - 1) * spacing);
     const startX = (this.state.virtualGameWidth - totalWidth) / 2;
+    console.log(`🎨 GameManager: virtualGameWidth=${this.state.virtualGameWidth}, totalWidth=${totalWidth}, startX=${startX}`);
 
     this.state.containers.forEach((container, index) => {
       const x = startX + (index * (containerWidth + spacing));
+      if (index === 0) {
+        console.log(`🎨 GameManager: Rendering container ${index} at leftX=${x}, storedCenterX=${container.position.x}, containerWidth=${containerWidth}`);
+      }
       
+      // Apply container fade opacity (default to 1.0 if not set)
+      ctx.save();
+      ctx.globalAlpha = container.fadeOpacity !== undefined ? container.fadeOpacity : 1.0;
       
-      // Draw container background with rounded corners
-      ctx.fillStyle = SCREW_COLORS[container.color];
+      // Draw container background (white) with rounded corners
+      ctx.fillStyle = '#FFFFFF';
       this.drawRoundedRect(ctx, x, startY, containerWidth, containerHeight, borderRadius);
       ctx.fill();
       
-      // Draw container border with rounded corners
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 3;
+      // Draw container border (matching container color) with rounded corners
+      ctx.strokeStyle = SCREW_COLORS[container.color];
+      ctx.lineWidth = 4;
       this.drawRoundedRect(ctx, x, startY, containerWidth, containerHeight, borderRadius);
       ctx.stroke();
       
-      // Draw three holes in the container and render any screws in them
+      // Draw holes in the container and render any screws in them
       ctx.fillStyle = '#000';
       const holeRadius = UI_CONSTANTS.containers.hole.radius;
-      const holeSpacing = containerWidth / 4;
-      for (let i = 0; i < UI_CONSTANTS.containers.hole.count; i++) {
+      const holeCount = UI_CONSTANTS.containers.hole.count;
+      // Calculate hole spacing based on container width and number of holes
+      const holeSpacing = containerWidth / (holeCount + 1); // +1 for proper spacing
+      for (let i = 0; i < holeCount; i++) {
         const holeX = x + holeSpacing + (i * holeSpacing);
         const holeY = startY + containerHeight / 2;
+        if (index === 0) { // Log all holes for first container to see the pattern
+          console.log(`🎨 Rendering container ${index} hole ${i}: containerX=${x}, holeSpacing=${holeSpacing}, final holeX=${holeX}, holeY=${holeY}`);
+        }
         
         // Draw hole
         ctx.beginPath();
@@ -1105,6 +1257,9 @@ export class GameManager extends BaseSystem {
           }
         }
       }
+      
+      // Restore alpha for next container
+      ctx.restore();
     });
   }
 
@@ -1136,6 +1291,12 @@ export class GameManager extends BaseSystem {
 
     this.state.holdingHoles.forEach((hole, index) => {
       const x = startX + (index * (holeRadius * 2 + spacing)) + holeRadius;
+      
+      // Draw light grey circle around holding hole
+      ctx.fillStyle = '#CCCCCC';
+      ctx.beginPath();
+      ctx.arc(x, startY, holeRadius + 4, 0, Math.PI * 2);
+      ctx.fill();
       
       // Draw hole (same style as container holes)
       ctx.fillStyle = '#000';
@@ -1182,6 +1343,10 @@ export class GameManager extends BaseSystem {
       const layer = this.state.visibleLayers[i];
       const shapes = layer.getAllShapes();
       
+      // Apply layer fade-in opacity
+      this.state.ctx.save();
+      this.state.ctx.globalAlpha = layer.getFadeOpacity();
+      
       shapes.forEach(shape => {
         // First render the shape
         ShapeRenderer.renderShape(shape, renderContext);
@@ -1193,6 +1358,9 @@ export class GameManager extends BaseSystem {
           }
         });
       });
+      
+      // Restore alpha for next layer
+      this.state.ctx.restore();
     }
     
     // Render any transferring screws (they are no longer attached to shapes)
@@ -1208,6 +1376,26 @@ export class GameManager extends BaseSystem {
         });
       }
     }
+  }
+
+  private renderPulsingRedBorder(): void {
+    if (!this.state.ctx) return;
+
+    const ctx = this.state.ctx;
+    
+    // Calculate pulsing alpha based on time
+    const time = Date.now() / 1000; // Convert to seconds
+    const pulseSpeed = 1; // Pulses per second (slower pulse)
+    const alpha = (Math.sin(time * pulseSpeed * Math.PI * 2) + 1) * 0.3 + 0.4; // Alpha between 0.4 and 1.0
+    
+    // Draw red border around entire canvas
+    const borderWidth = 8;
+    ctx.strokeStyle = `rgba(255, 0, 0, ${alpha})`;
+    ctx.lineWidth = borderWidth;
+    
+    // Draw border rectangle (inside canvas bounds)
+    const half = borderWidth / 2;
+    ctx.strokeRect(half, half, this.state.virtualGameWidth - borderWidth, this.state.virtualGameHeight - borderWidth);
   }
 
   protected onDestroy(): void {

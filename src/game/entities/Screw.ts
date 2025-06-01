@@ -30,6 +30,11 @@ export class Screw implements IScrew {
   public transferToContainerIndex?: number; // Which container index
   public transferToHoleIndex?: number; // Which hole index in container
 
+  // Shake animation properties (for blocked screws)
+  public isShaking: boolean = false;
+  public shakeProgress: number = 0; // 0-1 for shake animation
+  public shakeOffset: Vector2 = { x: 0, y: 0 }; // Current shake offset
+
   constructor(
     id: string,
     shapeId: string,
@@ -155,6 +160,49 @@ export class Screw implements IScrew {
     }
   }
 
+  public startShake(): void {
+    if (this.isShaking || this.isBeingCollected || this.isBeingTransferred) return;
+    
+    this.isShaking = true;
+    this.shakeProgress = 0;
+    this.shakeOffset = { x: 0, y: 0 };
+  }
+
+  public updateShakeAnimation(deltaTime: number): boolean {
+    if (!this.isShaking) return false;
+
+    // Animation duration in milliseconds
+    const animationDuration = 300; // Quick shake animation
+    const progressIncrement = deltaTime / animationDuration;
+    
+    this.shakeProgress = Math.min(1, this.shakeProgress + progressIncrement);
+
+    // Calculate shake offset using sine wave for smooth oscillation
+    if (this.shakeProgress < 1) {
+      const frequency = 8; // How many shakes during the duration
+      const amplitude = 3; // Maximum shake distance in pixels
+      const fadeOut = 1 - this.shakeProgress; // Fade out the shake over time
+      
+      const shakeValue = Math.sin(this.shakeProgress * frequency * Math.PI * 2) * amplitude * fadeOut;
+      
+      // Alternate between horizontal and vertical shake
+      if (Math.floor(this.shakeProgress * frequency) % 2 === 0) {
+        this.shakeOffset.x = shakeValue;
+        this.shakeOffset.y = 0;
+      } else {
+        this.shakeOffset.x = 0;
+        this.shakeOffset.y = shakeValue;
+      }
+      
+      return false; // Animation not complete
+    } else {
+      // Animation complete
+      this.isShaking = false;
+      this.shakeOffset = { x: 0, y: 0 };
+      return true; // Animation complete
+    }
+  }
+
   private easeInOutCubic(t: number): number {
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   }
@@ -198,6 +246,9 @@ export class Screw implements IScrew {
     cloned.transferFromHoleIndex = this.transferFromHoleIndex;
     cloned.transferToContainerIndex = this.transferToContainerIndex;
     cloned.transferToHoleIndex = this.transferToHoleIndex;
+    cloned.isShaking = this.isShaking;
+    cloned.shakeProgress = this.shakeProgress;
+    cloned.shakeOffset = { ...this.shakeOffset };
     return cloned;
   }
 
@@ -210,5 +261,8 @@ export class Screw implements IScrew {
     this.transferFromHoleIndex = undefined;
     this.transferToContainerIndex = undefined;
     this.transferToHoleIndex = undefined;
+    this.isShaking = false;
+    this.shakeProgress = 0;
+    this.shakeOffset = { x: 0, y: 0 };
   }
 }

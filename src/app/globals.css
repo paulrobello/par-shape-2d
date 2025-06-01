@@ -29,15 +29,19 @@ body {
 }
 
 
-/* Mobile game optimizations - only on touch devices */
-@media (max-width: 768px) and (pointer: coarse) {
+/* Mobile game optimizations - only on mobile touch devices */
+@media (max-width: 768px) and (pointer: coarse) and (hover: none) {
   /* Ensure full screen layout */
   html, body {
     width: 100vw;
     height: 100vh;
+    height: 100dvh; /* Use dynamic viewport height for better mobile support */
     overflow: hidden;
     margin: 0;
     padding: 0;
+    position: fixed; /* Prevent scrolling on mobile */
+    top: 0;
+    left: 0;
   }
   
   /* Hide all page content on mobile except canvas */
@@ -47,6 +51,7 @@ body {
     left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important; /* Use dynamic viewport height */
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
@@ -64,6 +69,7 @@ body {
     left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important; /* Use dynamic viewport height */
     margin: 0 !important;
     padding: 0 !important;
     overflow: hidden !important;
@@ -76,21 +82,26 @@ body {
     left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important; /* Use dynamic viewport height */
     padding: 0 !important;
     margin: 0 !important;
     overflow: hidden !important;
     z-index: 1000 !important;
   }
   
-  /* Canvas full screen */
+  /* Canvas full screen on mobile - force viewport dimensions */
   .game-canvas-container canvas {
     position: fixed !important;
     top: 0 !important;
     left: 0 !important;
     width: 100vw !important;
     height: 100vh !important;
+    height: 100dvh !important;
     border: none !important;
     border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    z-index: 1001 !important;
   }
   
   /* Prevent zoom on input focus */
@@ -188,5 +199,26 @@ body {
 @media (pointer: fine) {
   .rotation-notice {
     display: none !important;
+  }
+}
+
+/* Desktop-specific styles */
+@media (pointer: fine) {
+  html, body {
+    overflow: auto; /* Allow scrolling on desktop */
+    position: static; /* Reset position */
+    height: auto; /* Allow normal height */
+  }
+  
+  .game-canvas-container {
+    position: relative !important; /* Reset mobile overrides */
+    width: auto !important;
+    height: auto !important;
+  }
+  
+  .game-canvas-container canvas {
+    position: static !important; /* Reset mobile positioning */
+    display: block !important;
+    margin: 0 auto !important; /* Center on desktop */
   }
 }

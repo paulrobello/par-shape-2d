@@ -58,6 +58,14 @@ export interface LevelProgressUpdatedEvent extends BaseEvent {
   shapesRemoved: number;
 }
 
+export interface NextLevelRequestedEvent extends BaseEvent {
+  type: 'next_level:requested';
+}
+
+export interface AllLayersClearedEvent extends BaseEvent {
+  type: 'all_layers:cleared';
+}
+
 // Screw system events
 export interface ScrewClickedEvent extends BaseEvent {
   type: 'screw:clicked';
@@ -100,6 +108,12 @@ export interface ScrewUnblockedEvent extends BaseEvent {
   screw: Screw;
 }
 
+export interface ScrewBlockedClickEvent extends BaseEvent {
+  type: 'screw:blocked:clicked';
+  screw: Screw;
+  position: { x: number; y: number };
+}
+
 export interface ScrewTransferStartedEvent extends BaseEvent {
   type: 'screw:transfer:started';
   screwId: string;
@@ -116,6 +130,15 @@ export interface ScrewTransferCompletedEvent extends BaseEvent {
   fromHoleIndex: number;
   toContainerIndex: number;
   toHoleIndex: number;
+}
+
+export interface ScrewTransferFailedEvent extends BaseEvent {
+  type: 'screw:transfer:failed';
+  screwId: string;
+  fromHoleIndex: number;
+  toContainerIndex: number;
+  toHoleIndex: number;
+  reason: string;
 }
 
 export interface ShapeScrewsReadyEvent extends BaseEvent {
@@ -217,6 +240,10 @@ export interface HoldingHoleFilledEvent extends BaseEvent {
 export interface HoldingHolesFullEvent extends BaseEvent {
   type: 'holding_holes:full';
   countdown: number;
+}
+
+export interface HoldingHolesAvailableEvent extends BaseEvent {
+  type: 'holding_holes:available';
 }
 
 export interface ContainerColorsUpdatedEvent extends BaseEvent {
@@ -417,6 +444,8 @@ export type GameEvent =
   | LevelCompleteEvent
   | LevelStartedEvent
   | LevelProgressUpdatedEvent
+  | NextLevelRequestedEvent
+  | AllLayersClearedEvent
   | ScrewClickedEvent
   | ScrewRemovedEvent
   | ScrewCollectedEvent
@@ -424,8 +453,10 @@ export type GameEvent =
   | ScrewAnimationCompletedEvent
   | ScrewBlockedEvent
   | ScrewUnblockedEvent
+  | ScrewBlockedClickEvent
   | ScrewTransferStartedEvent
   | ScrewTransferCompletedEvent
+  | ScrewTransferFailedEvent
   | ShapeScrewsReadyEvent
   | ShapeCreatedEvent
   | ShapeDestroyedEvent
@@ -442,6 +473,7 @@ export type GameEvent =
   | ContainerReplacedEvent
   | HoldingHoleFilledEvent
   | HoldingHolesFullEvent
+  | HoldingHolesAvailableEvent
   | ContainerColorsUpdatedEvent
   | ContainerStateUpdatedEvent
   | HoldingHoleStateUpdatedEvent

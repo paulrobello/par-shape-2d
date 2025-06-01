@@ -10,12 +10,13 @@ import { Shape } from '@/game/entities/Shape';
 import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
 import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS } from '@/game/utils/Constants';
 import { getRandomScrewColor } from '@/game/utils/Colors';
-import { randomIntBetween, distance } from '@/game/utils/MathUtils';
+import { randomIntBetween, createRegularPolygonVertices } from '@/game/utils/MathUtils';
 import {
   ShapeCreatedEvent,
   ShapeDestroyedEvent,
   ScrewClickedEvent,
   ContainerColorsUpdatedEvent,
+  BoundsChangedEvent,
   SaveRequestedEvent,
   RestoreRequestedEvent,
   ScrewTransferStartedEvent,
@@ -33,6 +34,8 @@ interface ScrewManagerState {
   holdingHoles: HoldingHole[]; // Actual holding hole state from GameState
   allShapes: Shape[];
   layerDepthLookup: Map<string, number>;
+  virtualGameWidth: number;
+  virtualGameHeight: number;
 }
 
 export class ScrewManager extends BaseSystem {
@@ -48,6 +51,8 @@ export class ScrewManager extends BaseSystem {
       containerColors: [],
       containers: [],
       holdingHoles: [],
+      virtualGameWidth: GAME_CONFIG.canvas.width,
+      virtualGameHeight: GAME_CONFIG.canvas.height,
       allShapes: [],
       layerDepthLookup: new Map()
     };
@@ -72,6 +77,9 @@ export class ScrewManager extends BaseSystem {
       // Update transfer animations  
       const { completed: transferCompleted } = this.updateTransferAnimations(deltaTime);
       
+      // Update shake animations
+      this.updateShakeAnimations(deltaTime);
+      
       // Handle completed collection animations
       if (completed.length > 0) {
         console.log(`${completed.length} screw animations completed`);
@@ -93,7 +101,7 @@ export class ScrewManager extends BaseSystem {
               timestamp: Date.now(),
               screw,
               destination: this.determineDestinationType(screw),
-              points: screw.targetType === 'container' ? 100 : 50 // Container = 100 points, holding hole = 50 points
+              points: 10 // Fixed 10 points per screw removed from shape
             });
             
             // Remove the screw from the shape's screws array now that animation is complete
@@ -147,6 +155,9 @@ export class ScrewManager extends BaseSystem {
     
     // Container events
     this.subscribe('container:colors:updated', this.handleContainerColorsUpdated.bind(this));
+    
+    // Bounds change events
+    this.subscribe('bounds:changed', this.handleBoundsChanged.bind(this));
     
     // Save/restore events
     this.subscribe('save:requested', this.handleSaveRequested.bind(this));
@@ -209,11 +220,47 @@ export class ScrewManager extends BaseSystem {
     });
   }
 
+  private handleBoundsChanged(event: BoundsChangedEvent): void {
+    this.executeIfActive(() => {
+      // Update stored virtual game dimensions for target calculations
+      this.state.virtualGameWidth = event.width;
+      this.state.virtualGameHeight = event.height;
+      console.log(`🎯 ScrewManager: Updated virtual dimensions to ${event.width}x${event.height}`);
+    });
+  }
+
   private handleScrewClicked(event: ScrewClickedEvent): void {
     this.executeIfActive(() => {
       const screw = this.state.screws.get(event.screw.id);
-      if (!screw || !screw.isRemovable || screw.isCollected || screw.isBeingCollected) {
-        console.log(`Screw ${event.screw.id} is not removable, already collected, or being collected`);
+      if (!screw) {
+        console.log(`Screw ${event.screw.id} not found`);
+        return;
+      }
+      
+      // If screw is blocked, start shake animation
+      if (!screw.isRemovable && !screw.isCollected && !screw.isBeingCollected) {
+        console.log(`🔒 Screw ${event.screw.id} is blocked - starting shake animation`);
+        screw.startShake();
+        console.log(`📳 Shake animation started for screw ${event.screw.id} - isShaking: ${screw.isShaking}`);
+        
+        // Add haptic feedback for mobile if available
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(50); // Short vibration for blocked screw feedback
+        }
+        
+        // Emit blocked click event
+        this.emit({
+          type: 'screw:blocked:clicked',
+          timestamp: Date.now(),
+          screw,
+          position: event.position
+        });
+        return;
+      }
+      
+      // Continue with normal click handling for removable screws
+      if (screw.isCollected || screw.isBeingCollected) {
+        console.log(`Screw ${event.screw.id} is already collected or being collected`);
         return;
       }
 
@@ -270,12 +317,8 @@ export class ScrewManager extends BaseSystem {
           const activeCount = remainingScrews.filter(s => s.id !== event.screw.id && !s.isBeingCollected).length;
           
           if (activeCount === 0) {
-            console.log(`Last screw removed from shape ${shape.id}, applying reduced downward force`);
-            // Apply a reduced downward force instead of changing gravity
-            if (shape.body) {
-              const reducedForce = { x: 0, y: shape.body.mass * 0.0004 }; // Half of normal gravity effect
-              Body.applyForce(shape.body, shape.body.position, reducedForce);
-            }
+            console.log(`Last screw removed from shape ${shape.id}, letting gravity take effect naturally`);
+            // No manual forces - let gravity and physics handle the falling motion naturally
           }
           
           // Emit screw removed event for physics
@@ -314,6 +357,9 @@ export class ScrewManager extends BaseSystem {
     this.executeIfActive(() => {
       this.state.containers = event.containers;
       console.log(`🎯 ScrewManager: Container state updated - ${event.containers.length} containers`);
+      
+      // Check if any screws in holding holes can now transfer to new/updated containers
+      this.checkAllHoldingHolesForTransfers();
     });
   }
   
@@ -334,6 +380,17 @@ export class ScrewManager extends BaseSystem {
         const targetContainer = this.state.containers.find(c => this.state.containers.indexOf(c) === event.toContainerIndex);
         if (!targetContainer) {
           console.error(`❌ ScrewManager: Target container ${event.toContainerIndex} not found`);
+          
+          // Emit transfer failed event
+          this.emit({
+            type: 'screw:transfer:failed',
+            timestamp: Date.now(),
+            screwId: event.screwId,
+            fromHoleIndex: event.fromHoleIndex,
+            toContainerIndex: event.toContainerIndex,
+            toHoleIndex: event.toHoleIndex,
+            reason: 'Target container not found'
+          });
           return;
         }
 
@@ -361,12 +418,15 @@ export class ScrewManager extends BaseSystem {
           console.log(`  - ${id}: collected=${screw.isCollected}, beingCollected=${screw.isBeingCollected}, targetType=${screw.targetType || 'none'}, position=(${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
         });
         
-        // Re-emit holding hole filled event to restore the screw to the holding hole
+        // Emit transfer failed event
         this.emit({
-          type: 'holding_hole:filled',
+          type: 'screw:transfer:failed',
           timestamp: Date.now(),
-          holeIndex: event.fromHoleIndex,
-          screwId: event.screwId
+          screwId: event.screwId,
+          fromHoleIndex: event.fromHoleIndex,
+          toContainerIndex: event.toContainerIndex,
+          toHoleIndex: event.toHoleIndex,
+          reason: 'Screw not found in ScrewManager state'
         });
       }
     });
@@ -523,11 +583,14 @@ export class ScrewManager extends BaseSystem {
     this.executeIfActive(() => {
       if (shape.screws.length > 0) return; // Already has screws
 
-      const shapeArea = this.getShapeArea(shape);
-      const maxScrewsForSize = this.getMaxScrewsForArea(shapeArea);
+      // Get possible positions first to determine realistic limits
+      const possiblePositions = this.getShapeScrewLocations(shape);
+      const maxPossibleScrews = this.getMaxScrewsForShape(shape, possiblePositions);
+      
+      // Randomize screw count within realistic bounds
       const screwCount = randomIntBetween(
-        GAME_CONFIG.shapes.minScrews,
-        Math.min(GAME_CONFIG.shapes.maxScrews, maxScrewsForSize)
+        Math.min(GAME_CONFIG.shapes.minScrews, maxPossibleScrews),
+        Math.min(GAME_CONFIG.shapes.maxScrews, maxPossibleScrews)
       );
 
       const screwPositions = this.calculateScrewPositions(shape, screwCount);
@@ -569,185 +632,222 @@ export class ScrewManager extends BaseSystem {
   }
 
   private calculateScrewPositions(shape: Shape, count: number): Vector2[] {
+    // Get all possible screw positions (corners + center + alternates)
+    const possiblePositions = this.getShapeScrewLocations(shape);
     const screwRadius = UI_CONSTANTS.screws.radius;
-    const minDistance = screwRadius * 4;
-    const maxAttempts = 500;
-    const maxRetries = 3;
-
-    if (count === 1) {
-      return [{ ...shape.position }];
-    }
-
-    for (let retry = 0; retry < maxRetries; retry++) {
-      console.log(`Attempt ${retry + 1}/${maxRetries} to place ${count} screws on ${shape.type}`);
-
-      const positions = this.attemptScrewPlacement(shape, count, minDistance, maxAttempts, screwRadius);
-
-      if (positions.length > 1 || retry === maxRetries - 1) {
-        console.log(`Successfully placed ${positions.length} screws on attempt ${retry + 1}`);
-        return positions;
-      }
-
-      console.log(`Only placed ${positions.length} screw(s) on attempt ${retry + 1}, retrying...`);
-    }
-
-    return [{ ...shape.position }];
-  }
-
-  private attemptScrewPlacement(
-    shape: Shape, 
-    count: number, 
-    minDistance: number, 
-    maxAttempts: number, 
-    screwRadius: number
-  ): Vector2[] {
-    const positions: Vector2[] = [];
+    const minSeparation = screwRadius * 4;
     
-    for (let i = 0; i < count; i++) {
-      let placed = false;
-
-      for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
-        const candidatePoint = this.getRandomPositionInShape(shape);
-
-        if (!this.isPositionWithinShapeBounds(candidatePoint, shape)) {
-          continue;
-        }
-
-        const tooClose = positions.some(existing => {
-          const dist = distance(existing, candidatePoint);
-          return dist < minDistance;
-        });
-
-        if (!tooClose) {
-          positions.push({ ...candidatePoint });
-          placed = true;
-        }
-      }
-
-      if (!placed) {
-        console.warn(`Could not place screw ${i + 1} on ${shape.type} shape with normal spacing, trying with reduced spacing`);
-        
-        const relaxedMinDistance = Math.max(screwRadius * 2.5, minDistance * 0.7);
-
-        for (let attempt = 0; attempt < maxAttempts && !placed; attempt++) {
-          const candidatePoint = this.getRandomPositionInShape(shape);
-
-          if (!this.isPositionWithinShapeBounds(candidatePoint, shape)) {
-            continue;
-          }
-
-          const tooClose = positions.some(existing => {
-            const dist = distance(existing, candidatePoint);
-            return dist < relaxedMinDistance;
-          });
-
-          if (!tooClose) {
-            positions.push({ ...candidatePoint });
-            placed = true;
-            console.log(`Successfully placed screw ${i + 1} with relaxed spacing`);
-          }
-        }
-      }
-
-      if (!placed && i === 0) {
-        console.warn(`Forcing placement of mandatory first screw at shape center for ${shape.type}`);
-        positions.push({ ...shape.position });
-        placed = true;
-      }
-
-      if (!placed && i > 0) {
-        console.warn(`Could not place screw ${i + 1} on ${shape.type} shape even with relaxed spacing, stopping placement`);
-        break;
-      }
+    if (count === 1) {
+      // For single screw, always use center
+      return [possiblePositions.center];
     }
 
-    return positions;
+    // Determine maximum screws based on shape size and available positions
+    const maxPossibleScrews = this.getMaxScrewsForShape(shape, possiblePositions);
+    const actualCount = Math.min(count, maxPossibleScrews);
+    
+    // Build pool of all available positions
+    const allPositions = [
+      ...possiblePositions.corners,
+      ...possiblePositions.alternates,
+      possiblePositions.center
+    ];
+    
+    // Select positions without overlap
+    const selectedPositions = this.selectNonOverlappingPositions(allPositions, actualCount, minSeparation);
+    
+    console.log(`Placed ${selectedPositions.length} screws on ${shape.type} shape (requested ${count}, max possible: ${maxPossibleScrews})`);
+    return selectedPositions;
   }
 
-  private getRandomPositionInShape(shape: Shape): Vector2 {
-    let x: number, y: number;
-    const screwRadius = UI_CONSTANTS.screws.radius;
+  private getMaxScrewsForShape(shape: Shape, positions: { corners: Vector2[], center: Vector2, alternates: Vector2[] }): number {
+    const totalPositions = positions.corners.length + positions.alternates.length + 1; // +1 for center
+    
+    // Calculate shape-specific limits based on area and type
+    const shapeArea = this.getShapeArea(shape);
+    let areaBasedLimit: number;
+    
+    if (shapeArea < 2500) areaBasedLimit = 1;
+    else if (shapeArea < 4000) areaBasedLimit = 2;
+    else if (shapeArea < 6000) areaBasedLimit = 3;
+    else if (shapeArea < 10000) areaBasedLimit = 4;
+    else if (shapeArea < 15000) areaBasedLimit = 5;
+    else areaBasedLimit = 6;
+    
+    // Return the minimum of available positions and area-based limit
+    return Math.min(totalPositions, areaBasedLimit);
+  }
 
-    switch (shape.type) {
-      case 'rectangle':
-      case 'square':
-        const width = shape.width || 60;
-        const height = shape.height || 60;
-        // Increased margin to prevent edge overlap
-        const margin = Math.max(35, screwRadius * 3.5);
-        const safeWidth = Math.max(15, width - margin * 2);
-        const safeHeight = Math.max(15, height - margin * 2);
-        const safeWidthRatio = safeWidth / width;
-        const safeHeightRatio = safeHeight / height;
-        x = shape.position.x + (Math.random() - 0.5) * width * safeWidthRatio;
-        y = shape.position.y + (Math.random() - 0.5) * height * safeHeightRatio;
-        break;
-
-      case 'circle':
-        const circleRadius = shape.radius || 30;
-        const angle = Math.random() * Math.PI * 2;
-        // Increased margin to prevent edge overlap
-        const circleMargin = Math.max(35, screwRadius * 3.5);
-        const maxDistance = Math.max(8, circleRadius - circleMargin);
-        const distance = Math.random() * maxDistance;
-        x = shape.position.x + Math.cos(angle) * distance;
-        y = shape.position.y + Math.sin(angle) * distance;
-        break;
-
-      case 'triangle':
-      case 'star':
-        const polyRadius = shape.radius || 30;
-        const polyAngle = Math.random() * Math.PI * 2;
-        // Increased margin to prevent edge overlap - extra margin for irregular shapes
-        const polyMargin = Math.max(40, screwRadius * 4);
-        const polyMaxDistance = Math.max(6, polyRadius - polyMargin);
-        const polyDistance = Math.random() * polyMaxDistance;
-        x = shape.position.x + Math.cos(polyAngle) * polyDistance;
-        y = shape.position.y + Math.sin(polyAngle) * polyDistance;
-        break;
-
-      default:
-        x = shape.position.x;
-        y = shape.position.y;
+  private selectNonOverlappingPositions(positions: Vector2[], count: number, minSeparation: number): Vector2[] {
+    if (positions.length === 0) return [];
+    if (count === 1) return [positions[positions.length - 1]]; // Use center (last position)
+    
+    const selected: Vector2[] = [];
+    const available = [...positions];
+    
+    // Shuffle positions for random selection
+    for (let i = available.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [available[i], available[j]] = [available[j], available[i]];
     }
-
-    return { x, y };
-  }
-
-  private isPositionWithinShapeBounds(position: Vector2, shape: Shape): boolean {
-    const screwRadius = UI_CONSTANTS.screws.radius;
-
-    switch (shape.type) {
-      case 'rectangle':
-      case 'square':
-        const width = shape.width || 60;
-        const height = shape.height || 60;
-        const halfWidth = width / 2;
-        const halfHeight = height / 2;
-        const margin = Math.max(30, screwRadius * 3);
-        return (
-          position.x >= shape.position.x - halfWidth + margin &&
-          position.x <= shape.position.x + halfWidth - margin &&
-          position.y >= shape.position.y - halfHeight + margin &&
-          position.y <= shape.position.y + halfHeight - margin
+    
+    for (const position of available) {
+      if (selected.length >= count) break;
+      
+      // Check if this position overlaps with any selected position
+      const overlaps = selected.some(selected => {
+        const distance = Math.sqrt(
+          Math.pow(position.x - selected.x, 2) + 
+          Math.pow(position.y - selected.y, 2)
         );
+        return distance < minSeparation;
+      });
+      
+      if (!overlaps) {
+        selected.push(position);
+      }
+    }
+    
+    // If we couldn't place enough screws due to overlap, ensure we have at least the center
+    if (selected.length === 0 && positions.length > 0) {
+      selected.push(positions[positions.length - 1]); // Center is typically last
+    }
+    
+    return selected;
+  }
 
+  private getShapeScrewLocations(shape: Shape): { corners: Vector2[], center: Vector2, alternates: Vector2[] } {
+    const screwRadius = UI_CONSTANTS.screws.radius;
+    const margin = screwRadius * 2.5; // Ensure screw doesn't touch edges
+    const minSeparation = screwRadius * 4; // Minimum distance between screws
+    
+    let corners: Vector2[] = [];
+    let alternates: Vector2[] = [];
+    const center = { ...shape.position };
+    
+    switch (shape.type) {
+      case 'rectangle':
+      case 'square':
+        const width = shape.width || 60;
+        const height = shape.height || 60;
+        const halfWidth = width / 2 - margin;
+        const halfHeight = height / 2 - margin;
+        
+        // Check if shape is too small for corner placement
+        const tooNarrow = width < minSeparation + (margin * 2);
+        const tooShort = height < minSeparation + (margin * 2);
+        
+        if (tooNarrow && tooShort) {
+          // Very small shape - only center
+          corners = [];
+          alternates = [];
+        } else if (tooNarrow) {
+          // Too narrow for side-by-side corners - use top/bottom centers
+          corners = [];
+          alternates = [
+            { x: shape.position.x, y: shape.position.y - halfHeight }, // Top center
+            { x: shape.position.x, y: shape.position.y + halfHeight }, // Bottom center
+          ];
+        } else if (tooShort) {
+          // Too short for stacked corners - use left/right centers
+          corners = [];
+          alternates = [
+            { x: shape.position.x - halfWidth, y: shape.position.y }, // Left center
+            { x: shape.position.x + halfWidth, y: shape.position.y }, // Right center
+          ];
+        } else {
+          // Normal size - use all corners
+          corners = [
+            { x: shape.position.x - halfWidth, y: shape.position.y - halfHeight }, // Top-left
+            { x: shape.position.x + halfWidth, y: shape.position.y - halfHeight }, // Top-right
+            { x: shape.position.x - halfWidth, y: shape.position.y + halfHeight }, // Bottom-left
+            { x: shape.position.x + halfWidth, y: shape.position.y + halfHeight }, // Bottom-right
+          ];
+        }
+        break;
+        
       case 'circle':
         const radius = shape.radius || 30;
-        const dist = distance(position, shape.position);
-        const circleMargin = Math.max(30, screwRadius * 3);
-        return dist <= radius - circleMargin;
-
+        const cornerRadius = radius - margin;
+        
+        if (radius < minSeparation / 2 + margin) {
+          // Small circle - only center
+          corners = [];
+        } else {
+          // Place 4 "corners" at cardinal directions
+          corners = [
+            { x: shape.position.x, y: shape.position.y - cornerRadius }, // Top
+            { x: shape.position.x + cornerRadius, y: shape.position.y }, // Right
+            { x: shape.position.x, y: shape.position.y + cornerRadius }, // Bottom
+            { x: shape.position.x - cornerRadius, y: shape.position.y }, // Left
+          ];
+        }
+        break;
+        
       case 'triangle':
+        const triRadius = shape.radius || 30;
+        
+        if (triRadius < minSeparation / 2 + margin) {
+          // Small triangle - only center
+          corners = [];
+        } else {
+          const vertices = createRegularPolygonVertices(shape.position, triRadius, 3);
+          
+          // Calculate positions inset from each vertex
+          corners = vertices.map(vertex => {
+            const direction = {
+              x: shape.position.x - vertex.x,
+              y: shape.position.y - vertex.y
+            };
+            const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+            const normalized = {
+              x: direction.x / length,
+              y: direction.y / length
+            };
+            
+            return {
+              x: vertex.x + normalized.x * margin,
+              y: vertex.y + normalized.y * margin
+            };
+          });
+        }
+        break;
+        
       case 'star':
-        const polyRadius = shape.radius || 30;
-        const polyDist = distance(position, shape.position);
-        const polyMargin = Math.max(35, screwRadius * 3.5);
-        return polyDist <= polyRadius - polyMargin;
-
+        const starRadius = shape.radius || 30;
+        
+        if (starRadius < minSeparation / 2 + margin) {
+          // Small star - only center
+          corners = [];
+        } else {
+          const starVertices = createRegularPolygonVertices(shape.position, starRadius, 5);
+          
+          // For star (pentagon), use all 5 vertices inset by margin
+          corners = starVertices.map(vertex => {
+            const direction = {
+              x: shape.position.x - vertex.x,
+              y: shape.position.y - vertex.y
+            };
+            const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
+            const normalized = {
+              x: direction.x / length,
+              y: direction.y / length
+            };
+            
+            return {
+              x: vertex.x + normalized.x * margin,
+              y: vertex.y + normalized.y * margin
+            };
+          });
+        }
+        break;
+        
       default:
-        return true;
+        // Fallback to just center
+        break;
     }
+    
+    return { corners, center, alternates };
   }
 
   private getShapeArea(shape: Shape): number {
@@ -771,15 +871,6 @@ export class ScrewManager extends BaseSystem {
       default:
         return 3600;
     }
-  }
-
-  private getMaxScrewsForArea(area: number): number {
-    if (area < 2500) return 1;
-    if (area < 4000) return 2;
-    if (area < 6000) return 3;
-    if (area < 10000) return 4;
-    if (area < 15000) return 5;
-    return 6;
   }
 
   private createScrew(shapeId: string, position: Vector2, preferredColors?: ScrewColor[]): Screw {
@@ -832,12 +923,13 @@ export class ScrewManager extends BaseSystem {
         
         // Calculate actual container position (matches GameManager.renderContainers exactly)
         const totalWidth = (this.state.containers.length * containerWidth) + ((this.state.containers.length - 1) * spacing);
-        const virtualGameWidth = GAME_CONFIG.canvas.width; // Use actual canvas width
+        const virtualGameWidth = this.state.virtualGameWidth; // Use current virtual game width
         const startX = (virtualGameWidth - totalWidth) / 2;
         const containerX = startX + (containerIndex * (containerWidth + spacing));
         
         // Calculate hole position within container (matches GameManager logic exactly)
-        const holeSpacing = containerWidth / 4;
+        const holeCount = UI_CONSTANTS.containers.hole.count;
+        const holeSpacing = containerWidth / (holeCount + 1); // +1 for proper spacing
         const holeX = containerX + holeSpacing + (holeIndex * holeSpacing);
         const holeY = startY + containerHeight / 2;
         
@@ -914,6 +1006,9 @@ export class ScrewManager extends BaseSystem {
           holeIndex,
           screwId: screw.id
         });
+        
+        // Check if there's now a matching container available and transfer immediately
+        this.checkAndTransferFromHoldingHole(screw, holeIndex);
       }
     } else if (screw.targetType === 'container' && screw.targetHoleIndex !== undefined) {
       // Find the container by ID
@@ -1092,11 +1187,7 @@ export class ScrewManager extends BaseSystem {
           console.log(`🔧 Increased density for shape ${shape.id}: new mass=${mass}`);
         }
         
-        // Apply a moderate downward force to overcome any physics quirks
-        Body.applyForce(shape.body, shape.body.position, { 
-          x: 0, 
-          y: 0.01 * mass // Reduced downward force proportional to mass (10x less)
-        });
+        // Let gravity handle the falling motion naturally - no manual forces needed
         
         // Preserve layer-based collision filtering - shapes should only interact within their layer
         // Don't modify collision filters to maintain proper layer separation
@@ -1225,11 +1316,7 @@ export class ScrewManager extends BaseSystem {
           console.log(`🔧 Increased density for shape ${shape.id}: new mass=${mass}`);
         }
         
-        // Apply a moderate downward force to overcome any physics quirks
-        Body.applyForce(shape.body, shape.body.position, { 
-          x: 0, 
-          y: 0.01 * mass // Reduced downward force proportional to mass (10x less)
-        });
+        // Let gravity handle the falling motion naturally - no manual forces needed
         
         // Preserve layer-based collision filtering - shapes should only interact within their layer
         // Don't modify collision filters to maintain proper layer separation
@@ -1625,6 +1712,25 @@ export class ScrewManager extends BaseSystem {
     return { completed: completedTransfers, transferred: transferredScrews };
   }
 
+  public updateShakeAnimations(deltaTime: number): void {
+    this.executeIfActive(() => {
+      let shakingCount = 0;
+      for (const screw of this.state.screws.values()) {
+        if (screw.isShaking) {
+          shakingCount++;
+          const wasComplete = screw.updateShakeAnimation(deltaTime);
+          if (wasComplete) {
+            console.log(`📳 Shake animation completed for screw ${screw.id}`);
+          }
+        }
+      }
+      // Only log when there are shaking screws to avoid spam
+      if (shakingCount > 0 && Date.now() % 1000 < 50) {
+        console.log(`📳 Updating ${shakingCount} shaking screws`);
+      }
+    });
+  }
+
   public getAllScrews(): Screw[] {
     return Array.from(this.state.screws.values());
   }
@@ -1690,6 +1796,92 @@ export class ScrewManager extends BaseSystem {
       this.state.constraints.clear();
       this.state.screwCounter = 0;
     });
+  }
+
+  private checkAllHoldingHolesForTransfers(): void {
+    this.executeIfActive(() => {
+      console.log(`🔍 Checking all holding holes for possible transfers...`);
+      
+      // Check each holding hole that has a screw
+      this.state.holdingHoles.forEach((hole, holeIndex) => {
+        if (hole.screwId) {
+          // Find the screw object
+          const screw = this.state.screws.get(hole.screwId);
+          if (screw && !screw.isBeingTransferred && !screw.isBeingCollected) {
+            // Check if this screw can transfer to a matching container
+            this.checkAndTransferFromHoldingHole(screw, holeIndex);
+          }
+        }
+      });
+    });
+  }
+
+  private checkAndTransferFromHoldingHole(screw: Screw, holeIndex: number): void {
+    this.executeIfActive(() => {
+      // Find a matching container with available space
+      const matchingContainer = this.state.containers.find(container => 
+        container.color === screw.color && 
+        !container.isFull &&
+        container.holes.some((hole, idx) => hole === null && container.reservedHoles[idx] === null) // Has at least one truly empty hole
+      );
+      
+      if (matchingContainer) {
+        const containerIndex = this.state.containers.indexOf(matchingContainer);
+        // Find first hole that is both empty AND not reserved
+        const emptyHoleIndex = matchingContainer.holes.findIndex((hole, idx) => 
+          hole === null && matchingContainer.reservedHoles[idx] === null
+        );
+        
+        if (emptyHoleIndex !== -1) {
+          console.log(`🔄 Found matching container for screw ${screw.id} (${screw.color}) - transferring from holding hole ${holeIndex} to container ${containerIndex} hole ${emptyHoleIndex}`);
+          
+          // Reserve the container hole immediately
+          matchingContainer.reservedHoles[emptyHoleIndex] = screw.id;
+          console.log(`📌 Reserved container ${containerIndex} hole ${emptyHoleIndex} for screw ${screw.id}`);
+          
+          // Calculate positions for animation
+          const fromPosition = this.state.holdingHoles[holeIndex].position;
+          const toPosition = this.calculateContainerHolePosition(containerIndex, emptyHoleIndex);
+          
+          // Start transfer animation
+          this.emit({
+            type: 'screw:transfer:started',
+            timestamp: Date.now(),
+            screwId: screw.id,
+            fromHoleIndex: holeIndex,
+            toContainerIndex: containerIndex,
+            toHoleIndex: emptyHoleIndex,
+            fromPosition,
+            toPosition
+          });
+          
+          // Clear the holding hole immediately (screw is now animating)
+          this.emit({
+            type: 'holding_hole:filled',
+            timestamp: Date.now(),
+            holeIndex,
+            screwId: null
+          });
+        }
+      }
+    });
+  }
+
+  private calculateContainerHolePosition(containerIndex: number, holeIndex: number): Vector2 {
+    // Use actual UI constants to match the calculation logic in GameState
+    const containerWidth = UI_CONSTANTS.containers.width;
+    const containerHeight = UI_CONSTANTS.containers.height;  
+    const spacing = UI_CONSTANTS.containers.spacing;
+    const startY = UI_CONSTANTS.containers.startY;
+    const currentWidth = GAME_CONFIG.canvas.width;
+    const totalWidth = (this.state.containers.length * containerWidth) + ((this.state.containers.length - 1) * spacing);
+    const startX = (currentWidth - totalWidth) / 2;
+    const containerX = startX + (containerIndex * (containerWidth + spacing));
+    const holeSpacing = containerWidth / 4;
+    const holeX = containerX + holeSpacing + (holeIndex * holeSpacing);
+    const holeY = startY + containerHeight / 2;
+    
+    return { x: holeX, y: holeY };
   }
 
   // Serialization methods for save/load

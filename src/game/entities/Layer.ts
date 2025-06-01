@@ -15,7 +15,7 @@ export class Layer implements ILayer {
   public bounds: Rectangle;
   public fadeOpacity: number = 0; // For fade-in animation
   public fadeStartTime: number = 0;
-  public fadeDuration: number = 750; // 0.75 seconds in milliseconds
+  public fadeDuration: number = 1000; // 1 second in milliseconds
   public clearingStartTime: number = 0; // When layer clearing started
   public clearingDelay: number = 3000; // 3 seconds delay for shapes to fall
 

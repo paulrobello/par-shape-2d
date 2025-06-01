@@ -23,6 +23,7 @@ export const viewport = {
   maximumScale: 1,
   userScalable: false,
   orientationLock: "portrait",
+  viewportFit: "cover", // This allows the app to extend into safe areas
 };
 
 export default function RootLayout({

@@ -17,7 +17,15 @@ export class ShapeRenderer {
       ctx.translate(-shape.position.x, -shape.position.y);
     }
     
-    // Create clipping mask if shape has holes
+    // Get the shape path
+    const path = shape.getPath2D();
+    
+    // Draw border FIRST (before any clipping is applied)
+    ctx.strokeStyle = shape.color;
+    ctx.lineWidth = UI_CONSTANTS.shapes.borderWidth;
+    ctx.stroke(path);
+    
+    // Create clipping mask if shape has holes (only affects the fill, not the border)
     if (shape.holes.length > 0) {
       // Start with the shape path
       const shapePath = shape.getPath2D();
@@ -41,18 +49,10 @@ export class ShapeRenderer {
       ctx.clip(compoundPath, 'evenodd');
     }
     
-    // Get the shape path
-    const path = shape.getPath2D();
-    
-    // Fill with tinted color and transparency
+    // Fill with tinted color and transparency (this respects the clipping)
     const fillColor = hexToRgba(shape.tint, UI_CONSTANTS.shapes.alpha);
     ctx.fillStyle = fillColor;
     ctx.fill(path);
-    
-    // Draw border
-    ctx.strokeStyle = shape.color;
-    ctx.lineWidth = UI_CONSTANTS.shapes.borderWidth;
-    ctx.stroke(path);
     
     // Add inner glow effect
     ctx.globalCompositeOperation = 'lighter';

@@ -149,6 +149,11 @@ export class SystemCoordinator {
       console.log('⚠️ SystemCoordinator: PhysicsWorld not available');
     }
     
+    // Update GameState for container animations and other state management
+    if (this.gameState) {
+      this.gameState.update(deltaTime);
+    }
+    
     // GameManager is NOT updated here to avoid circular calls
     // GameManager drives the update loop and calls this method
     if (this.screwManager) {

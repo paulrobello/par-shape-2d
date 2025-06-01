@@ -63,6 +63,11 @@ export interface Screw {
   transferFromHoleIndex?: number; // Which holding hole index
   transferToContainerIndex?: number; // Which container index
   transferToHoleIndex?: number; // Which hole index in container
+  
+  // Shake animation properties (for blocked screws)
+  isShaking: boolean;
+  shakeProgress: number; // 0-1 for shake animation
+  shakeOffset: Vector2; // Current shake offset
 }
 
 export interface Container {
@@ -75,6 +80,13 @@ export interface Container {
   isFull: boolean;
   isMarkedForRemoval?: boolean;
   removalTimer?: number;
+  
+  // Fade animation properties
+  fadeOpacity: number; // 0-1 for fade animation
+  fadeStartTime: number; // When fade animation started
+  fadeDuration: number; // Duration of fade in milliseconds (500ms)
+  isFadingOut: boolean; // Whether container is fading out
+  isFadingIn: boolean; // Whether container is fading in
 }
 
 export interface HoldingHole {

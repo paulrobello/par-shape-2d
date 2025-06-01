@@ -55,6 +55,8 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 * Screws should fly to their destination container box or holding hole when removed.
 * If a blocked screw is clicked, it should shake to indicate it cannot be removed.
+* The shake animation lasts 300ms with alternating horizontal/vertical oscillations.
+* Mobile devices provide haptic feedback (50ms vibration) when blocked screws are clicked.
 
 ## Graphics
 

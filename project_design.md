@@ -24,18 +24,23 @@ PAR Shape 2D is a 2D physics-based puzzle game where players must strategically 
 - **Objective**: Clear all layers by removing screws from shapes
 - **Mechanics**: Screws hold shapes in place; removing them allows shapes to fall via physics
 - **Strategy**: Screws can only be removed if not blocked by shapes in front layers
-- **Progression**: 10 layers per level, with automatic level advancement
+- **Progression**: Progressive layer count (10+ layers) per level, with automatic level advancement
 
 ### Key Features
 - **Event-Driven Architecture** with 72 event types for loose coupling and maintainability
 - Physics-based gameplay using Matter.js with constraint-based screw system
-- Layer-based depth system with transparency and fade effects
+- Layer-based depth system with transparency and fade-in effects (1 second duration)
 - Smart touch selection prioritizing container color matches for mobile devices
 - Color-coded screw collection system with 9 distinct screw colors
 - Comprehensive local storage save/resume with Matter.js physics serialization
 - Responsive design with portrait mode optimization and device-specific scaling
 - Haptic feedback for mobile devices with vibration patterns
+- Advanced animation system with collection, transfer, and shake animations
+- Blocked screw feedback with shake animation and haptic response
 - Advanced event system with debugging, monitoring, and performance tracking capabilities
+- Intelligent auto-transfer system from holding holes to matching containers
+- Visual warning system with pulsing red border when game over is imminent
+- Progressive difficulty with increasing layer counts every 3 levels
 
 ## Event-Driven Architecture
 
@@ -96,6 +101,13 @@ Event-driven physics system that manages Matter.js independently:
 - **Sleep Management**: Automatic wake-up of unsupported shapes
 - **Collision Detection**: Event-driven collision handling
 
+**Enhanced Physics Properties**:
+- **Reduced Air Friction**: 10x reduction (0.0005) for maximum natural swinging motion
+- **Lower Constraint Damping**: Reduced from 0.1 to 0.02 for realistic physics behavior
+- **Gravity-Only Forces**: Manual forces removed when screws are removed - only gravity applies
+- **Shape Border Rendering**: Fixed rendering order to prevent border thickness changes
+- **Responsive Bounds**: All systems update virtual dimensions when canvas resizes
+
 **Key Features**:
 - Constraint-based screw attachment
 - Shape stability checking
@@ -148,6 +160,7 @@ Event-driven layer system with complete autonomy:
 - **Visibility Management**: Only visible layers are processed
 - **Bounds Management**: Dynamic layer sizing for responsive design
 - **Physics Separation**: Each layer uses separate collision groups
+- **Fade-in Animation**: New layers fade in over 1 second with ease-in-out curve
 
 ### Screw Management  
 **File**: `src/game/systems/ScrewManager.ts`
@@ -225,31 +238,40 @@ Abstract base class providing event-aware functionality to all systems:
 
 ### Scoring System
 
-- **Container Placement**: 100 points per screw in matching container
-- **Holding Hole**: 50 points per screw (emergency storage, less desirable)
+- **Screw Removal**: 10 points per screw removed from shapes (regardless of destination)
 - **Level Completion**: Level score added to total score
-- **Progressive Difficulty**: More complex shapes and additional screws at higher levels
+- **Score Display**: HUD shows "Level Score" for current level and "Grand Total" for cumulative score
+- **Progressive Difficulty**: Layer count increases every 3 levels (levels 1-3: 10 layers, 4-6: 11 layers, 7-9: 12 layers, etc.)
 
 ### Container System
 
 Each level has 4 containers with specific colors:
-- **Capacity**: 3 screws per container
+- **Capacity**: 3 screws per container (uses UI_CONSTANTS.containers.hole.count)
 - **Color Matching**: Screws must match container color
-- **Replacement**: Full containers removed after 0.75 second delay
-- **Dynamic Colors**: New containers use colors from active screws
+- **Fade Animations**: Smooth 0.5-second fade-out when full, followed by 0.5-second fade-in for replacements
+- **Dynamic Colors**: New containers use colors from active screws prioritizing those in holding holes
+- **Visual Polish**: Containers use `globalAlpha` for opacity during animations
+- **Responsive Positioning**: Container and hole positions calculated using current virtual dimensions
+- **Consistent Calculations**: All systems use identical hole spacing formula: `containerWidth / (holeCount + 1)`
 
 ### Holding Holes System
 
 Emergency storage for non-matching screws:
 - **Capacity**: 5 holding holes total
-- **Game Over**: When all holes filled, 5-second countdown begins
-- **Auto-Transfer**: Screws move to matching containers when available
+- **Visual Design**: Light grey circular backgrounds for better visibility
+- **Game Over**: When all holes filled, 5-second countdown begins with pulsing red border warning
+- **Auto-Transfer**: Intelligent automatic transfer system:
+  - Immediate transfer when screw arrives if matching container available
+  - Batch transfer when new containers appear/are replaced
+  - Reservation system prevents multiple screws targeting same hole
+- **Visual Warning**: Pulsing red border (1 pulse/second) around canvas when all holes full
 
 ### Layer Blocking System
 
 Strategic depth-based gameplay:
 - **Z-Order Blocking**: Screws blocked by shapes in front layers
-- **Visual Feedback**: Blocked screws cannot be selected
+- **Visual Feedback**: Blocked screws show shake animation when clicked to indicate they cannot be removed
+- **Haptic Feedback**: Mobile devices vibrate briefly (50ms) when blocked screws are clicked
 - **Layer Transparency**: Back layers visible through front layers
 - **Depth Index**: Numerical ordering for consistent rendering
 
@@ -261,32 +283,112 @@ Strategic depth-based gameplay:
 The game uses HTML5 Canvas with sophisticated rendering features:
 
 ### Responsive Scaling
-- **Uniform Scaling**: Maintains aspect ratio across device sizes
-- **Virtual Dimensions**: Game logic operates in virtual coordinates
-- **Coordinate Transformation**: Client → Canvas → Virtual game coordinates
-- **Optimal Sizing**: Scales to fit viewport while preserving design
+- **Dynamic Canvas Dimensions**: Canvas adapts to viewport size on both mobile and desktop
+- **Virtual Dimensions**: Now match canvas dimensions (1:1 mapping) instead of fixed 640x800
+- **Coordinate Transformation**: Client → Canvas (no additional scaling needed)
+- **Optimal Sizing**: Mobile uses full viewport, desktop scales proportionally
+- **Bounds Events**: All systems receive bounds:changed events to update calculations
 
 ### Layer Rendering
-Depth-ordered rendering with transparency effects:
+Depth-ordered rendering with transparency and fade-in effects:
 
 ```typescript
-// Render layers back-to-front
-const sortedLayers = layerManager.getVisibleLayersSortedByDepth();
-sortedLayers.forEach(layer => {
-  ctx.globalAlpha = layer.getFadeOpacity();
+// Render layers back-to-front with fade-in animation
+for (let i = this.state.visibleLayers.length - 1; i >= 0; i--) {
+  const layer = this.state.visibleLayers[i];
+  
+  // Apply layer fade-in opacity
+  this.state.ctx.save();
+  this.state.ctx.globalAlpha = layer.getFadeOpacity();
+  
+  // Render shapes and screws with layer opacity
   ShapeRenderer.renderShapes(layer.getAllShapes(), renderContext);
   ScrewRenderer.renderScrews(getScrewsForLayer(layer), renderContext);
-});
+  
+  this.state.ctx.restore();
+}
 ```
+
+**Layer Fade-in Animation**:
+- **Duration**: 1 second (1000ms)
+- **Easing**: Ease-in-out curve for smooth appearance
+- **Implementation**: Applied via `ctx.globalAlpha` during rendering
+- **Trigger**: Activates when new layers are generated
+- **Visual Effect**: Gradual opacity transition from 0 to 1
+- **Purpose**: Provides smooth visual feedback for layer progression
 
 ### Shape Rendering
 Procedural shape generation with visual consistency:
 
-- **Supported Shapes**: Rectangle, Square, Circle, Triangle, Pentagon
+- **Supported Shapes**: Rectangle, Square, Circle, Triangle, Star (Pentagon removed)
 - **Visual Style**: Solid borders with translucent fills
 - **Screw Holes**: Automatically positioned based on shape geometry
 - **Tint System**: Each layer has a unique color tint
 - **Border Effects**: Consistent stroke width and styling
+
+### Shape Sizes
+Shapes are 87.5% larger than original design for improved visibility:
+
+- **Rectangle**: Base size 75-150 pixels with varied aspect ratios (0.4-2.5)
+- **Square**: Size range 90-158 pixels
+- **Circle**: Radius 45-90 pixels
+- **Triangle**: Radius 56-101 pixels
+- **Star**: Radius 56-90 pixels
+
+### Shape Placement
+Advanced deterministic placement system eliminating all overlaps:
+
+#### 3-Phase Placement Algorithm (ShapeFactory.ts)
+- **Phase 1**: Spiral pattern around preferred position using golden angle (137.5°)
+- **Phase 2**: Grid-based systematic coverage with distance-sorted positions
+- **Phase 3**: Corner and center positions as final deterministic attempts
+- **No Random Fallback**: Completely deterministic placement system
+
+#### Retry System with Size Reduction
+- **5 Retry Attempts**: Each retry uses progressively smaller shapes
+- **Size Reduction**: 15% smaller per retry attempt
+- **Shape Type Variation**: Different shape types attempted per retry
+- **Minimal Fallback**: 20px radius circle only if all attempts fail
+
+#### Enhanced Collision Detection
+- **Minimum Separation**: 30px between shape centers
+- **Actual Dimensions**: Uses real shape dimensions instead of approximations
+- **Stricter Requirements**: `Math.max(minSeparation, testRadius + otherRadius + 10)`
+- **Grid Optimization**: Grid size = `Math.max(testRadius * 2 + minSeparation, 80)`
+
+### Screw Placement
+Advanced multi-stage placement algorithm with shape-specific positioning:
+
+#### Core Algorithm (ScrewManager.ts:621-648)
+- **Position Generation**: Shape-specific placement locations (corners, center, alternates)
+- **Overlap Prevention**: Ensures minimum separation distance between screws
+- **Area-Based Constraints**: Dynamic limits based on shape size
+- **Fallback Strategy**: Graceful degradation for constrained spaces
+
+#### Distance Constants
+- **Minimum Separation**: 48 pixels between screws (4x screw radius = 48px)
+- **Safety Margin**: 30 pixels from shape edges (2.5x screw radius)
+- **Single Screw**: Always centered on shape for optimal rotation mechanics
+
+#### Shape-Specific Placement Logic
+- **Rectangles/Squares**: Corner placement with edge-center fallbacks for narrow/short shapes
+- **Circles**: Cardinal direction placement (top, right, bottom, left)
+- **Triangles**: Vertex-based placement with inward margin adjustment
+- **Stars**: Pentagon vertex placement with proper spacing
+
+#### Area-Based Screw Limits
+- **Very Small** (< 2500 area): 1 screw maximum
+- **Small** (2500-4000): 2 screws maximum  
+- **Medium** (4000-6000): 3 screws maximum
+- **Large** (6000-10000): 4 screws maximum
+- **Very Large** (10000-15000): 5 screws maximum
+- **Huge** (15000+): 6 screws maximum
+
+#### Position Selection Algorithm
+1. Generate all possible positions (corners + alternates + center)
+2. Apply overlap detection with minimum separation distance
+3. Select non-overlapping positions up to area-based limit
+4. Fallback to center position if overlap issues occur
 
 ### Mobile Optimizations
 - **Touch-Friendly**: Larger tap targets for mobile
@@ -365,6 +467,38 @@ Automatic saving at key moments:
 - **Physics Rebuilding**: Matter.js bodies recreated from serialized data
 - **Bounds Updating**: Layer bounds recalculated for current screen size
 - **Animation Continuity**: Ongoing animations restored
+
+## Animation System
+
+### Animation Types
+The game features three distinct animation systems for screw interactions:
+
+#### Collection Animation
+- **Duration**: 800ms with easeInOutCubic easing
+- **Purpose**: Smooth transition from screw to destination (container/holding hole)
+- **Visual**: Gradual fade and position interpolation
+- **State**: `isBeingCollected` flag with progress tracking (0-1)
+
+#### Transfer Animation
+- **Duration**: 600ms with easeInOutCubic easing  
+- **Purpose**: Move screws from holding holes to matching containers
+- **Visual**: Direct path animation with slight fade
+- **State**: `isBeingTransferred` flag with progress tracking (0-1)
+
+#### Shake Animation (Blocked Feedback)
+- **Duration**: 300ms with sine wave oscillation
+- **Purpose**: Visual feedback when blocked screws are clicked
+- **Visual**: Alternating horizontal/vertical shake with fade-out
+- **Intensity**: 3px maximum amplitude, 8 oscillations
+- **Haptic**: 50ms vibration on mobile devices
+- **State**: `isShaking` flag with progress tracking (0-1)
+
+### Animation Implementation
+**Files**: `src/game/entities/Screw.ts`, `src/game/systems/ScrewManager.ts`, `src/game/rendering/ScrewRenderer.ts`
+
+- **Entity-Level**: Animation state and progress managed in Screw entities
+- **System-Level**: ScrewManager updates all animations each frame
+- **Rendering-Level**: ScrewRenderer applies visual transformations
 
 ## Mobile Support
 
@@ -467,7 +601,7 @@ src/game/physics/
 src/game/entities/
 ├── Layer.ts              # Layer container with shapes and bounds
 │   ├── Shape collection management
-│   ├── Visibility and fade effects
+│   ├── Visibility and fade-in effects (1 second duration)
 │   ├── Bounds calculation and updates
 │   └── Serialization for save/load
 │
@@ -479,8 +613,8 @@ src/game/entities/
 │
 └── Screw.ts             # Removable constraints between shapes
     ├── Matter.js constraint management
-    ├── Animation state tracking
-    ├── Blocking detection
+    ├── Animation state tracking (collection, transfer, shake)
+    ├── Blocking detection and shake feedback
     └── Target container assignment
 ```
 
@@ -496,10 +630,14 @@ src/game/systems/
 ├── ScrewManager.ts      # Screw interactions and animations
 │   ├── Constraint creation/removal
 │   ├── Collection animation system
+│   ├── Shake animation for blocked screws
 │   ├── Blocking detection algorithms
 │   └── Smart selection logic
 │
-└── ShapeFactory.ts      # Procedural shape generation
+└── ShapeFactory.ts      # Procedural shape generation with overlap prevention
+    ├── Deterministic 3-phase placement algorithm
+    ├── Retry system with progressive size reduction
+    ├── Enhanced collision detection and separation
     ├── Shape type selection and sizing
     ├── Screw hole placement algorithms
     ├── Physics body creation
@@ -517,9 +655,11 @@ src/game/rendering/
 │
 └── ScrewRenderer.ts    # Screw visualization and UI elements
     ├── Screw drawing with cross pattern
-    ├── Animation state rendering
+    ├── Animation state rendering (collection, transfer, shake)
+    ├── Shake offset positioning for blocked screws
     ├── Container/holding hole display
-    └── Preview/collected state rendering
+    ├── Preview/collected state rendering
+    └── All dimensions from UI_CONSTANTS for uniform appearance
 ```
 
 ### Utility Layer
@@ -602,11 +742,28 @@ src/types/
 
 **Next.js**: Chosen for its excellent TypeScript support, optimized builds, and deployment convenience. The app directory structure provides clean organization.
 
-**Matter.js**: Selected for its mature physics engine with constraint support, excellent performance, and comprehensive feature set for 2D physics.
+**Matter.js**: Selected for its mature physics engine with constraint support, excellent performance, and comprehensive feature set for 2D physics. Enhanced with reduced damping for natural motion:
+
+```typescript
+export const PHYSICS_CONSTANTS = {
+  shape: {
+    friction: 0.05,        // Reduced for more sliding
+    frictionAir: 0.005,    // 4x less air resistance
+    restitution: 0.4,      // Slightly more bouncy
+    density: 0.012,        // Optimal weight for falling
+  },
+  constraint: {
+    stiffness: 1,
+    damping: 0.02,         // 5x less damping for swinging
+  },
+} as const;
+```
 
 **HTML5 Canvas**: Preferred over WebGL for simpler implementation, better compatibility, and sufficient performance for the game's requirements.
 
 **TypeScript**: Ensures type safety, better development experience, and maintainable code with comprehensive interfaces.
+
+**Responsive Design**: Canvas dimensions match viewport (mobile) or scale proportionally (desktop) with all systems updating via bounds:changed events.
 
 ### Architecture Decisions
 
@@ -653,6 +810,8 @@ src/types/
 - **Collision Groups**: Separate layer physics for efficiency
 - **Constraint Batching**: Efficient constraint creation/removal
 - **Update Frequency**: Optimized physics timestep
+- **Reduced Damping**: Natural swinging motion with minimal energy loss
+- **No Manual Forces**: Pure gravity-based falling without artificial impulses
 
 ## Development Features
 
@@ -718,7 +877,17 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ Comprehensive event system with debugging
 - ✅ SystemCoordinator manages all system lifecycle
 - ✅ Build passes with no TypeScript errors
-- ✅ Ready for production use
+- ✅ Enhanced physics with natural motion (10x reduced air friction, 5x less damping)
+- ✅ Zero shape overlaps with deterministic 3-phase placement algorithm
+- ✅ Layer fade-in animations (1s duration with ease-in-out curve)
+- ✅ Container fade animations (0.5s fade-out/fade-in transitions)
+- ✅ Fixed shape border rendering (prevents thickness changes)
+- ✅ No manual forces - pure gravity-based falling motion
+- ✅ Proper GameState update loop integration via SystemCoordinator
+- ✅ Responsive canvas dimensions with proper screw animation targeting
+- ✅ All rendering uses UI_CONSTANTS for uniform appearance
+- ✅ Fixed mobile layout issues and touch coordinate transformation
+- ✅ Ready for production use with polished visual experience
 
 ---
 

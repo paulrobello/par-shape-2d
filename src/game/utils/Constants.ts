@@ -62,7 +62,7 @@ export const UI_CONSTANTS = {
     height: 60,
   },
   containers: {
-    width: 120,
+    width: 80,
     height: 40,
     spacing: 10,
     borderRadius: 8,
@@ -81,6 +81,19 @@ export const UI_CONSTANTS = {
   screws: {
     radius: 12,
     borderWidth: 2,
+    highlight: {
+      offsetX: 2,
+      offsetY: 2,
+      sizeRatio: 0.4, // radius * this = highlight size
+    },
+    cross: {
+      sizeRatio: 0.6, // radius * this = cross size
+      lineWidth: 2,
+    },
+    indicators: {
+      removableRadiusOffset: 3, // radius + this = removable indicator radius
+      blockedRadiusOffset: 2, // radius + this = blocked indicator radius
+    },
   },
   shapes: {
     borderWidth: 3,
@@ -98,13 +111,26 @@ export const PHYSICS_CONSTANTS = {
     },
   },
   shape: {
-    friction: 0.1,
-    frictionAir: 0.02,
-    restitution: 0.3,
-    density: 0.01, // Increased from 0.001 to make shapes heavier and fall better
+    friction: 0.05, // Reduced friction for more sliding
+    frictionAir: 0.0005, // 10x reduced air resistance for maximum swinging motion
+    restitution: 0.4, // Slightly more bouncy
+    density: 0.012, // Slightly heavier for better falling motion
   },
   constraint: {
     stiffness: 1,
-    damping: 0.1,
+    damping: 0.02, // Much reduced damping for more swinging motion
   },
 } as const;
+
+/**
+ * Calculate total layers for a given level
+ * Levels 1-3: 10 layers
+ * Levels 4-6: 11 layers  
+ * Levels 7-9: 12 layers
+ * And so on... (+1 layer every 3 levels)
+ */
+export function getTotalLayersForLevel(level: number): number {
+  const baseLayers = 10;
+  const additionalLayers = Math.floor((level - 1) / 3);
+  return baseLayers + additionalLayers;
+}
