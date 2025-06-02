@@ -1,16 +1,11 @@
 import { Bodies, Body, Vertices, Bounds, Common } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeType, Vector2 } from '@/types/game';
-import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS, SHAPE_CONFIG } from '@/game/utils/Constants';
+import { ShapeDefinition, ShapeDimensions } from '@/types/shapes';
+import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS } from '@/game/utils/Constants';
 import { randomBetween } from '@/game/utils/MathUtils';
-import * as decomp from 'poly-decomp-es'
-
-type ShapeDimensions = 
-  | { width: number; height: number } // Rectangle/Square/Capsule
-  | { radius: number } // Circle
-  | { radius: number; sides: number } // Polygon
-  | { path: string; scale: number; originalVertices?: Vector2[] } // Path-based shapes (arrow, chevron, star, horseshoe)
-  | Record<string, never>; // Fallback
+import { ShapeRegistry } from './ShapeRegistry';
+import * as decomp from 'poly-decomp-es';
 
 export class ShapeFactory {
   private static shapeCounter = 0;
@@ -24,27 +19,36 @@ export class ShapeFactory {
     existingShapes: Shape[] = [],
     layerBounds: { x: number; y: number; width: number; height: number }
   ): Shape {
-    const maxRetries = 5; // Try up to 5 different shape/size combinations
+    const registry = ShapeRegistry.getInstance();
+    const enabledShapes = registry.getEnabledShapes();
+    
+    if (enabledShapes.length === 0) {
+      throw new Error('No shapes enabled in configuration');
+    }
+    
+    const maxRetries = 5;
     
     for (let retry = 0; retry < maxRetries; retry++) {
-      // Filter enabled shapes based on configuration
-      const allShapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'polygon', 'capsule', 'arrow', 'chevron', 'star', 'horseshoe'];
-      const shapeTypes = allShapeTypes.filter(type => SHAPE_CONFIG.enabledShapes[type]);
+      // Select a random shape definition
+      const definition = enabledShapes[Math.floor(Math.random() * enabledShapes.length)];
       
-      // If no shapes are enabled, default to circle
-      if (shapeTypes.length === 0) {
-        shapeTypes.push('circle');
-      }
-      
-      const type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
-      
-      const shape = this.createShapeWithPlacement(type, position, layerId, layerIndex, physicsLayerGroup, colorIndex, existingShapes, layerBounds, retry);
+      const shape = this.createShapeWithPlacement(
+        definition,
+        position,
+        layerId,
+        layerIndex,
+        physicsLayerGroup,
+        colorIndex,
+        existingShapes,
+        layerBounds,
+        retry
+      );
       
       if (shape) {
         return shape;
       }
       
-      console.log(`Retry ${retry + 1}/${maxRetries}: Failed to place ${type} shape, trying different shape/size`);
+      console.log(`Retry ${retry + 1}/${maxRetries}: Failed to place ${definition.id} shape, trying different shape/size`);
     }
     
     // If all retries failed, create a very small circle as absolute fallback
@@ -53,7 +57,7 @@ export class ShapeFactory {
   }
 
   private static createShapeWithPlacement(
-    type: ShapeType,
+    definition: ShapeDefinition,
     position: Vector2,
     layerId: string,
     layerIndex: number,
@@ -65,243 +69,444 @@ export class ShapeFactory {
   ): Shape | null {
     const id = `shape-${++this.shapeCounter}`;
     
-    // Get dimensions based on retry count (smaller sizes for later retries)
-    let dimensions: ShapeDimensions = {};
-    const sizeReduction = retryCount * 0.15; // Reduce size by 15% per retry
+    // Get dimensions based on definition and retry count
+    const sizeReduction = retryCount * (definition.dimensions.reductionFactor || 0.15);
+    const dimensions = this.generateDimensions(definition, sizeReduction);
     
-    switch (type) {
-      case 'rectangle':
-        dimensions = this.createRectangleDimensions(sizeReduction);
-        break;
-      case 'square':
-        dimensions = this.createSquareDimensions(sizeReduction);
-        break;
-      case 'circle':
-        dimensions = this.createCircleDimensions(sizeReduction);
-        break;
-      case 'polygon':
-        dimensions = this.createPolygonDimensions(sizeReduction);
-        break;
-      case 'capsule':
-        dimensions = this.createCapsuleDimensions(sizeReduction);
-        break;
-      case 'arrow':
-        dimensions = this.createArrowDimensions(sizeReduction);
-        break;
-      case 'chevron':
-        dimensions = this.createChevronDimensions(sizeReduction);
-        break;
-      case 'star':
-        dimensions = this.createStarDimensions(sizeReduction);
-        break;
-      case 'horseshoe':
-        dimensions = this.createHorseshoeDimensions(sizeReduction);
-        break;
-      default:
-        dimensions = this.createCircleDimensions(sizeReduction);
-    }
-    
-    // Try to find a non-overlapping position
-    const finalPosition = this.findNonOverlappingPosition(position, type, dimensions, existingShapes, layerBounds);
-    
-    if (!finalPosition) {
-      console.log(`Could not place ${type} shape (retry ${retryCount})`);
+    if (!dimensions) {
+      console.error(`Failed to generate dimensions for shape ${definition.id}`);
       return null;
     }
     
-    // Create the physics body
-    let body: Body;
-    let compositeData: { isComposite: boolean; parts: Body[] } | undefined;
+    // Find valid position
+    const testRadius = this.getShapeRadius(definition, dimensions);
+    const validPosition = this.findValidPosition(
+      position,
+      testRadius,
+      existingShapes,
+      layerBounds
+    );
     
-    switch (type) {
-      case 'rectangle':
-      case 'square':
-        body = this.createRectangleBody(finalPosition, dimensions as { width: number; height: number });
-        break;
-      case 'circle':
-        body = this.createCircleBody(finalPosition, dimensions as { radius: number });
-        break;
-      case 'polygon':
-        body = this.createPolygonBody(finalPosition, dimensions as { radius: number; sides: number });
-        break;
-      case 'capsule':
-        const capsuleResult = this.createCapsuleBody(finalPosition, dimensions as { width: number; height: number });
-        body = capsuleResult.composite;
-        compositeData = {
-          isComposite: true,
-          parts: capsuleResult.parts
-        };
-        break;
-      case 'arrow':
-      case 'chevron':
-      case 'star':
-      case 'horseshoe':
-        const pathResult = this.createPathBody(type, finalPosition, dimensions as { path: string; scale: number });
-        body = pathResult.body;
-        // Store original vertices for rendering
-        (dimensions as { path: string; scale: number; originalVertices?: Vector2[] }).originalVertices = pathResult.originalVertices;
-        break;
-      default:
-        body = this.createCircleBody(finalPosition, dimensions as { radius: number });
-    }
-
-    // Set collision group for layer separation using physics layer group
-    body.collisionFilter.group = physicsLayerGroup;
-    body.collisionFilter.category = 1 << (physicsLayerGroup - 1);
-    body.collisionFilter.mask = 1 << (physicsLayerGroup - 1);
-    
-    // Also set collision filters for composite parts
-    if (compositeData && compositeData.parts) {
-      compositeData.parts.forEach(part => {
-        part.collisionFilter.group = physicsLayerGroup;
-        part.collisionFilter.category = 1 << (physicsLayerGroup - 1);
-        part.collisionFilter.mask = 1 << (physicsLayerGroup - 1);
-      });
-    }
-
-    const color = this.getLayerColor(colorIndex);
-    const tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
-    
-    console.log(`Successfully placed ${type} shape at (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}) on retry ${retryCount}`);
-    
-    // Convert dimensions to Shape-compatible format
-    let shapeDimensions: { width?: number; height?: number; radius?: number; sides?: number; vertices?: Vector2[] } | undefined;
-    
-    if ('path' in dimensions && 'scale' in dimensions) {
-      // For path-based shapes, use original vertices for rendering
-      shapeDimensions = {
-        vertices: dimensions.originalVertices || (body.vertices as Vector2[])
-      };
-    } else {
-      shapeDimensions = dimensions as { width?: number; height?: number; radius?: number; sides?: number };
+    if (!validPosition) {
+      return null;
     }
     
-    return new Shape(id, type, finalPosition, body, layerId, color, tint, shapeDimensions, compositeData);
-  }
-
-  private static createMinimalShape(
-    position: Vector2,
-    layerId: string,
-    layerIndex: number,
-    physicsLayerGroup: number,
-    colorIndex: number,
-    layerBounds: { x: number; y: number; width: number; height: number }
-  ): Shape {
-    const id = `shape-${++this.shapeCounter}`;
-    const dimensions = { radius: 20 }; // Very small circle
+    // Create physics body
+    const bodyResult = this.createPhysicsBody(definition, validPosition, dimensions);
+    if (!bodyResult) {
+      console.error(`Failed to create physics body for shape ${definition.id}`);
+      return null;
+    }
     
-    // Clamp position to bounds
-    const finalPosition = {
-      x: Math.max(layerBounds.x + dimensions.radius, Math.min(layerBounds.x + layerBounds.width - dimensions.radius, position.x)),
-      y: Math.max(layerBounds.y + dimensions.radius, Math.min(layerBounds.y + layerBounds.height - dimensions.radius, position.y))
+    const { body, parts, originalVertices } = bodyResult;
+    
+    // Configure physics properties
+    Body.setMass(body, body.mass * 2);
+    body.friction = PHYSICS_CONSTANTS.shape.friction;
+    body.frictionAir = PHYSICS_CONSTANTS.shape.frictionAir;
+    body.restitution = PHYSICS_CONSTANTS.shape.restitution;
+    body.density = PHYSICS_CONSTANTS.shape.density;
+    
+    // Set collision group for layer separation using bit shifting
+    body.collisionFilter = {
+      group: physicsLayerGroup,
+      category: 1 << (physicsLayerGroup - 1),
+      mask: 1 << (physicsLayerGroup - 1)
     };
     
-    const body = this.createCircleBody(finalPosition, dimensions);
-    body.collisionFilter.group = physicsLayerGroup;
-    body.collisionFilter.category = 1 << (physicsLayerGroup - 1);
-    body.collisionFilter.mask = 1 << (physicsLayerGroup - 1);
-
+    // Also set collision filter for parts if composite
+    if (parts) {
+      parts.forEach(part => {
+        part.collisionFilter = {
+          group: physicsLayerGroup,
+          category: 1 << (physicsLayerGroup - 1),
+          mask: 1 << (physicsLayerGroup - 1)
+        };
+      });
+    }
+    
+    // Create the shape entity
     const color = this.getLayerColor(colorIndex);
     const tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
     
-    return new Shape(id, 'circle', finalPosition, body, layerId, color, tint, dimensions);
+    // Map definition ID to ShapeType
+    const shapeType = this.getShapeType(definition);
+    
+    const shape = new Shape(
+      id,
+      shapeType,
+      validPosition,
+      body,
+      layerId,
+      color,
+      tint,
+      {
+        width: dimensions.width,
+        height: dimensions.height,
+        radius: dimensions.radius,
+        sides: dimensions.sides,
+        vertices: originalVertices,
+      },
+      parts ? { isComposite: true, parts } : undefined
+    );
+    
+    return shape;
   }
 
-  public static createShape(
-    type: ShapeType,
-    position: Vector2,
-    layerId: string,
-    layerIndex: number,
-    physicsLayerGroup: number,
-    colorIndex: number,
-    existingShapes: Shape[] = [],
-    layerBounds: { x: number; y: number; width: number; height: number }
-  ): Shape {
-    // Use the new placement logic for existing createShape calls
-    const shape = this.createShapeWithPlacement(type, position, layerId, layerIndex, physicsLayerGroup, colorIndex, existingShapes, layerBounds, 0);
+  private static generateDimensions(definition: ShapeDefinition, sizeReduction: number): ShapeDimensions | null {
+    const dims = definition.dimensions;
+    const reduction = 1 - sizeReduction;
     
-    if (shape) {
-      return shape;
+    switch (definition.category) {
+      case 'basic':
+        if (definition.id === 'rectangle') {
+          const aspectRatio = randomBetween(dims.aspectRatio!.min, dims.aspectRatio!.max);
+          const widthRange = dims.width as { min: number; max: number };
+          const baseSize = randomBetween(
+            widthRange.min,
+            widthRange.max
+          ) * reduction;
+          
+          if (aspectRatio < 1) {
+            return {
+              width: Math.round(baseSize),
+              height: Math.round(baseSize * aspectRatio),
+            };
+          } else {
+            return {
+              width: Math.round(baseSize / aspectRatio),
+              height: Math.round(baseSize),
+            };
+          }
+        } else if (definition.id === 'square') {
+          const widthRange = dims.width as { min: number; max: number };
+          const size = randomBetween(
+            widthRange.min,
+            widthRange.max
+          ) * reduction;
+          return {
+            width: Math.round(size),
+            height: Math.round(size),
+          };
+        } else if (definition.id === 'circle') {
+          const radiusRange = dims.radius as { min: number; max: number };
+          return {
+            radius: randomBetween(
+              radiusRange.min,
+              radiusRange.max
+            ) * reduction,
+          };
+        }
+        break;
+        
+      case 'polygon':
+        const polygonRadiusRange = dims.radius as { min: number; max: number };
+        return {
+          radius: randomBetween(
+            polygonRadiusRange.min,
+            polygonRadiusRange.max
+          ) * reduction,
+          sides: dims.sides,
+        };
+        
+      case 'path':
+        return {
+          path: dims.path,
+          scale: randomBetween(dims.scale!.min, dims.scale!.max) * reduction,
+        };
+        
+      case 'composite':
+        if (definition.id === 'capsule') {
+          // Random number of screws determines width
+          const screwCount = Math.floor(Math.random() * 6) + 3; // 3-8 screws
+          const screwRadius = UI_CONSTANTS.screws.radius;
+          const spacing = 5;
+          const width = screwCount * (screwRadius * 2) + (screwCount - 1) * spacing;
+          
+          return {
+            width: Math.round(width * reduction),
+            height: Math.round((dims.height as number) * reduction),
+          };
+        }
+        break;
     }
     
-    // Fallback to minimal shape if placement fails
-    return this.createMinimalShape(position, layerId, layerIndex, physicsLayerGroup, colorIndex, layerBounds);
+    return null;
   }
 
-  private static findNonOverlappingPosition(
+  private static getShapeRadius(definition: ShapeDefinition, dimensions: ShapeDimensions): number {
+    switch (definition.category) {
+      case 'basic':
+        if (definition.id === 'circle') {
+          return dimensions.radius!;
+        } else {
+          return Math.max(dimensions.width!, dimensions.height!) / 2;
+        }
+      case 'polygon':
+        return dimensions.radius!;
+      case 'path':
+        // Estimate based on scale
+        return 60 * (dimensions.scale || 1);
+      case 'composite':
+        return Math.max(dimensions.width!, dimensions.height!) / 2;
+      default:
+        return 50;
+    }
+  }
+
+  private static createPhysicsBody(
+    definition: ShapeDefinition,
+    position: Vector2,
+    dimensions: ShapeDimensions
+  ): { body: Body; parts?: Body[]; originalVertices?: Vector2[] } | null {
+    switch (definition.physics.type) {
+      case 'rectangle':
+        return {
+          body: Bodies.rectangle(
+            position.x,
+            position.y,
+            dimensions.width!,
+            dimensions.height!,
+            {
+              ...PHYSICS_CONSTANTS.shape,
+              render: { visible: false },
+            }
+          ),
+        };
+        
+      case 'circle':
+        return {
+          body: Bodies.circle(
+            position.x,
+            position.y,
+            dimensions.radius!,
+            {
+              ...PHYSICS_CONSTANTS.shape,
+              render: { visible: false },
+            }
+          ),
+        };
+        
+      case 'polygon':
+        return {
+          body: Bodies.polygon(
+            position.x,
+            position.y,
+            dimensions.sides!,
+            dimensions.radius!,
+            {
+              ...PHYSICS_CONSTANTS.shape,
+              render: { visible: false },
+            }
+          ),
+        };
+        
+      case 'fromVertices':
+        return this.createPathBody(position, dimensions);
+        
+      case 'composite':
+        if (definition.id === 'capsule') {
+          return this.createCapsuleBody(position, dimensions);
+        }
+        break;
+    }
+    
+    return null;
+  }
+
+  private static createPathBody(
+    position: Vector2,
+    dimensions: ShapeDimensions
+  ): { body: Body; originalVertices: Vector2[] } {
+    Common.setDecomp(decomp);
+    
+    // Create vertices from path
+    // @ts-expect-error the @types lib is not up to date
+    const vertices = Vertices.fromPath(dimensions.path!);
+    
+    // Scale the vertices
+    if (dimensions.scale && dimensions.scale !== 1 && dimensions.scale > 0) {
+      const initialBounds = Bounds.create(vertices);
+      const center = {
+        x: (initialBounds.min.x + initialBounds.max.x) / 2,
+        y: (initialBounds.min.y + initialBounds.max.y) / 2
+      };
+      Vertices.scale(vertices, dimensions.scale, dimensions.scale, center);
+    }
+    
+    // Center the vertices at origin
+    const bounds = Bounds.create(vertices);
+    const centerX = (bounds.min.x + bounds.max.x) / 2;
+    const centerY = (bounds.min.y + bounds.max.y) / 2;
+    Vertices.translate(vertices, { x: -centerX, y: -centerY }, 1);
+    
+    // Store original vertices for rendering
+    const originalVertices: Vector2[] = vertices.map(v => ({
+      x: v.x,
+      y: v.y
+    }));
+    
+    // Create the body with decomposition
+    const body = Bodies.fromVertices(
+      position.x,
+      position.y,
+      [vertices],
+      {
+        ...PHYSICS_CONSTANTS.shape,
+        render: { visible: false },
+      },
+      true // flag for decomposition
+    );
+    
+    return { body, originalVertices };
+  }
+
+  private static createCapsuleBody(
+    position: Vector2,
+    dimensions: ShapeDimensions
+  ): { body: Body; parts: Body[] } {
+    const radius = dimensions.height! / 2;
+    const rectWidth = dimensions.width! - dimensions.height!;
+    
+    // Create the parts
+    const rectangle = Bodies.rectangle(
+      position.x,
+      position.y,
+      rectWidth,
+      dimensions.height!,
+      {
+        ...PHYSICS_CONSTANTS.shape,
+        render: { visible: false },
+      }
+    );
+    
+    const leftCircle = Bodies.circle(
+      position.x - rectWidth / 2,
+      position.y,
+      radius,
+      {
+        ...PHYSICS_CONSTANTS.shape,
+        render: { visible: false },
+      }
+    );
+    
+    const rightCircle = Bodies.circle(
+      position.x + rectWidth / 2,
+      position.y,
+      radius,
+      {
+        ...PHYSICS_CONSTANTS.shape,
+        render: { visible: false },
+      }
+    );
+    
+    // Create composite body
+    const capsuleComposite = Body.create({
+      parts: [rectangle, leftCircle, rightCircle],
+      ...PHYSICS_CONSTANTS.shape,
+      render: { visible: false },
+    });
+    
+    Body.setPosition(capsuleComposite, position);
+    
+    return {
+      body: capsuleComposite,
+      parts: [rectangle, leftCircle, rightCircle]
+    };
+  }
+
+  private static getShapeType(definition: ShapeDefinition): ShapeType {
+    // Map definition IDs to ShapeTypes
+    const typeMapping: Record<string, ShapeType> = {
+      'rectangle': 'rectangle',
+      'square': 'square',
+      'circle': 'circle',
+      'triangle': 'polygon',
+      'pentagon': 'polygon',
+      'hexagon': 'polygon',
+      'heptagon': 'polygon',
+      'octagon': 'polygon',
+      'capsule': 'capsule',
+      'arrow': 'arrow',
+      'chevron': 'chevron',
+      'star': 'star',
+      'horseshoe': 'horseshoe',
+    };
+    
+    return typeMapping[definition.id] || 'circle';
+  }
+
+  private static findValidPosition(
     preferredPosition: Vector2,
-    type: ShapeType,
-    dimensions: ShapeDimensions,
+    testRadius: number,
     existingShapes: Shape[],
     layerBounds: { x: number; y: number; width: number; height: number }
   ): Vector2 | null {
-    const testRadius = this.getShapeRadiusFromDimensions(type, dimensions);
-    const minSeparation = 30; // Minimum distance between shape centers
+    // Implementation remains the same as before
+    const minSeparation = 30;
+    const playAreaX = layerBounds.x + 20;
+    const playAreaY = layerBounds.y + 20;
+    const playAreaWidth = layerBounds.width - 40;
+    const playAreaHeight = layerBounds.height - 40;
     
-    const playAreaX = layerBounds.x;
-    const playAreaY = layerBounds.y;
-    const playAreaWidth = layerBounds.width;
-    const playAreaHeight = layerBounds.height;
-
-    // Helper function to clamp position within bounds
-    const clampPosition = (pos: Vector2): Vector2 => ({
-      x: Math.max(playAreaX + testRadius, Math.min(playAreaX + playAreaWidth - testRadius, pos.x)),
-      y: Math.max(playAreaY + testRadius, Math.min(playAreaY + playAreaHeight - testRadius, pos.y))
-    });
-
-    // Enhanced overlap checking that considers actual shape bounds
-    const checkOverlap = (testPos: Vector2): boolean => {
-      return existingShapes.some(shape => {
-        const distance = Math.sqrt(
-          Math.pow(testPos.x - shape.position.x, 2) +
-          Math.pow(testPos.y - shape.position.y, 2)
-        );
-        const otherRadius = this.getShapeApproximateRadius(shape.type);
-        
-        // Use stricter separation for better visual appearance
-        const requiredSeparation = Math.max(minSeparation, testRadius + otherRadius + 10);
-        return distance < requiredSeparation;
-      });
+    const clampPosition = (pos: Vector2): Vector2 => {
+      return {
+        x: Math.max(playAreaX + testRadius, Math.min(playAreaX + playAreaWidth - testRadius, pos.x)),
+        y: Math.max(playAreaY + testRadius, Math.min(playAreaY + playAreaHeight - testRadius, pos.y))
+      };
     };
     
-    // Phase 1: Try positions around the preferred position with increasing radius
-    for (let attempt = 0; attempt < 50; attempt++) {
-      let testPosition: Vector2;
-      
-      if (attempt === 0) {
-        testPosition = clampPosition(preferredPosition);
-      } else {
-        // Use spiral pattern around preferred position
-        const angle = (attempt * 137.5) * (Math.PI / 180); // Golden angle for even distribution
-        const radius = Math.min(attempt * 20, Math.min(playAreaWidth, playAreaHeight) / 3);
-        testPosition = clampPosition({
-          x: preferredPosition.x + Math.cos(angle) * radius,
-          y: preferredPosition.y + Math.sin(angle) * radius,
-        });
+    const checkOverlap = (position: Vector2): boolean => {
+      for (const shape of existingShapes) {
+        const shapeBounds = shape.getBounds();
+        const shapeRadius = Math.max(shapeBounds.width, shapeBounds.height) / 2;
+        const distance = Math.sqrt(
+          Math.pow(position.x - shape.position.x, 2) + 
+          Math.pow(position.y - shape.position.y, 2)
+        );
+        const requiredDistance = Math.max(minSeparation, testRadius + shapeRadius + 10);
+        
+        if (distance < requiredDistance) {
+          return true;
+        }
       }
+      return false;
+    };
+    
+    // Try preferred position first
+    const clampedPreferred = clampPosition(preferredPosition);
+    if (!checkOverlap(clampedPreferred)) {
+      return clampedPreferred;
+    }
+    
+    // Try spiral pattern
+    const spiralSteps = 50;
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    
+    for (let i = 1; i <= spiralSteps; i++) {
+      const angle = i * goldenAngle;
+      const radius = Math.sqrt(i) * minSeparation;
+      
+      const testPosition = clampPosition({
+        x: preferredPosition.x + Math.cos(angle) * radius,
+        y: preferredPosition.y + Math.sin(angle) * radius
+      });
       
       if (!checkOverlap(testPosition)) {
         return testPosition;
       }
     }
     
-    // Phase 2: Grid-based placement for systematic coverage
+    // Try grid positions
     const gridSize = Math.max(testRadius * 2 + minSeparation, 80);
-    const cols = Math.floor(playAreaWidth / gridSize);
-    const rows = Math.floor(playAreaHeight / gridSize);
-    
-    // Create array of grid positions in deterministic order
     const gridPositions: Vector2[] = [];
-    for (let row = 0; row < rows; row++) {
-      for (let col = 0; col < cols; col++) {
-        gridPositions.push({
-          x: playAreaX + col * gridSize + gridSize / 2,
-          y: playAreaY + row * gridSize + gridSize / 2
-        });
+    
+    for (let gx = playAreaX + testRadius; gx <= playAreaX + playAreaWidth - testRadius; gx += gridSize) {
+      for (let gy = playAreaY + testRadius; gy <= playAreaY + playAreaHeight - testRadius; gy += gridSize) {
+        gridPositions.push({ x: gx, y: gy });
       }
     }
     
-    // Sort grid positions by distance from preferred position for better placement
     gridPositions.sort((a, b) => {
       const distA = Math.sqrt(Math.pow(a.x - preferredPosition.x, 2) + Math.pow(a.y - preferredPosition.y, 2));
       const distB = Math.sqrt(Math.pow(b.x - preferredPosition.x, 2) + Math.pow(b.y - preferredPosition.y, 2));
@@ -315,7 +520,7 @@ export class ShapeFactory {
       }
     }
     
-    // Phase 3: Try center and corners as last deterministic attempt
+    // Try corners and center
     const corners = [
       { x: playAreaX + testRadius + 20, y: playAreaY + testRadius + 20 },
       { x: playAreaX + playAreaWidth - testRadius - 20, y: playAreaY + testRadius + 20 },
@@ -331,290 +536,51 @@ export class ShapeFactory {
       }
     }
     
-    // No valid position found
-    console.log(`Could not find non-overlapping position for ${type} shape with radius ${testRadius}`);
     return null;
   }
 
-  private static getShapeRadiusFromDimensions(type: ShapeType, dimensions: ShapeDimensions): number {
-    switch (type) {
-      case 'rectangle':
-      case 'square':
-      case 'capsule':
-        const rectDims = dimensions as { width: number; height: number };
-        return Math.max(rectDims.width, rectDims.height) / 2;
-      case 'circle':
-        const circleDims = dimensions as { radius: number };
-        return circleDims.radius;
-      case 'polygon':
-        const polygonDims = dimensions as { radius: number; sides: number };
-        return polygonDims.radius;
-      case 'arrow':
-      case 'chevron':
-      case 'star':
-      case 'horseshoe':
-        const pathDims = dimensions as { path: string; scale: number };
-        // Estimate radius based on typical path bounds and scale
-        return 60 * pathDims.scale; // Base radius of 60 multiplied by scale
-      default:
-        return 50; // Fallback radius
-    }
-  }
-
-  private static getShapeApproximateRadius(type: ShapeType): number {
-    switch (type) {
-      case 'rectangle':
-        return 100; // 87.5% increase: 48*1.875=90, plus extra for longer rectangles
-      case 'square':
-        return 88; // 87.5% increase: 42*1.875=79, rounded up for safety
-      case 'circle':
-        return 90; // 87.5% increase: 48*1.875=90
-      case 'polygon':
-        return 101; // 87.5% increase: 54*1.875=101 (covers triangles up to octagons)
-      case 'capsule':
-        // Max width for 8 screws: 8 * 24 + 7 * 5 = 227
-        return 114; // Half of max width
-      case 'arrow':
-      case 'chevron':
-      case 'star':
-      case 'horseshoe':
-        return 90; // Similar to other medium-sized shapes
-      default:
-        return 90; // 87.5% increase: 48*1.875=90
-    }
-  }
-
-  private static createRectangleDimensions(sizeReduction: number = 0) {
-    // Create more varied rectangles - some wide, some tall, some longer
-    const aspectRatio = randomBetween(0.4, 2.5); // Allow for very wide or very tall rectangles
-    const baseSize = randomBetween(75, 150) * (1 - sizeReduction); // 87.5% increase: 40*1.875=75, 80*1.875=150
+  private static createMinimalShape(
+    position: Vector2,
+    layerId: string,
+    layerIndex: number,
+    physicsLayerGroup: number,
+    colorIndex: number,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _layerBounds: { x: number; y: number; width: number; height: number }
+  ): Shape {
+    const id = `shape-${++this.shapeCounter}`;
+    const radius = 20;
     
-    if (aspectRatio < 1) {
-      // Wide rectangle
-      return {
-        width: Math.round(baseSize),
-        height: Math.round(baseSize * aspectRatio),
-      };
-    } else {
-      // Tall rectangle  
-      return {
-        width: Math.round(baseSize / aspectRatio),
-        height: Math.round(baseSize),
-      };
-    }
-  }
-
-  private static createSquareDimensions(sizeReduction: number = 0) {
-    const size = Math.round(randomBetween(90, 158) * (1 - sizeReduction)); // 87.5% increase: 48*1.875=90, 84*1.875=158
-    return {
-      width: size,
-      height: size,
-    };
-  }
-
-  private static createCircleDimensions(sizeReduction: number = 0) {
-    return {
-      radius: Math.round(randomBetween(45, 90) * (1 - sizeReduction)), // 87.5% increase: 24*1.875=45, 48*1.875=90
-    };
-  }
-
-  private static createPolygonDimensions(sizeReduction: number = 0) {
-    // Generate polygon with 3-8 sides (excluding 4 for rectangles/squares)
-    const possibleSides = [3, 5, 6, 7, 8]; // Exclude 4 sides
-    const sides = possibleSides[Math.floor(Math.random() * possibleSides.length)];
-    
-    return {
-      radius: Math.round(randomBetween(56, 101) * (1 - sizeReduction)), // 87.5% increase: 30*1.875=56, 54*1.875=101
-      sides: sides
-    };
-  }
-
-  private static createCapsuleDimensions(sizeReduction: number = 0) {
-    // Import constants properly
-    const screwRadius = UI_CONSTANTS.screws.radius;
-    const height = screwRadius * 2 + 10; // Height is double the screw radius + 10px
-    
-    // Length is between 3 and 8 screws with 5 pixels between each
-    const screwCount = Math.floor(randomBetween(3, 9)); // 3 to 8 screws
-    const screwSpacing = 5; // Space between screws
-    const width = screwCount * (screwRadius * 2) + (screwCount - 1) * screwSpacing;
-    
-    return {
-      width: Math.round(width * (1 - sizeReduction)),
-      height: Math.round(height * (1 - sizeReduction)),
-    };
-  }
-
-  private static createArrowDimensions(sizeReduction: number = 0) {
-    const scale = randomBetween(0.8, 1.5) * (1 - sizeReduction);
-    return {
-      path: '40 0 40 20 100 20 100 80 40 80 40 100 0 50',
-      scale: scale
-    };
-  }
-
-  private static createChevronDimensions(sizeReduction: number = 0) {
-    const scale = randomBetween(0.8, 1.5) * (1 - sizeReduction);
-    return {
-      path: '100 0 75 50 100 100 25 100 0 50 25 0',
-      scale: scale
-    };
-  }
-
-  private static createStarDimensions(sizeReduction: number = 0) {
-    const scale = randomBetween(0.8, 1.5) * (1 - sizeReduction);
-    return {
-      path: '50 0 63 38 100 38 69 59 82 100 50 75 18 100 31 59 0 38 37 38',
-      scale: scale
-    };
-  }
-
-  private static createHorseshoeDimensions(sizeReduction: number = 0) {
-    const scale = randomBetween(0.8, 1.5) * (1 - sizeReduction);
-    return {
-      path: '35 7 19 17 14 38 14 58 25 79 45 85 65 84 65 66 46 67 34 59 30 44 33 29 45 23 66 23 66 7 53 7',
-      scale: scale
-    };
-  }
-
-  private static createRectangleBody(position: Vector2, dimensions: { width: number; height: number }): Body {
-    return Bodies.rectangle(
-      position.x,
-      position.y,
-      dimensions.width,
-      dimensions.height,
-      {
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false }, // We'll handle rendering ourselves
-      }
-    );
-  }
-
-  private static createCircleBody(position: Vector2, dimensions: { radius: number }): Body {
-    return Bodies.circle(
-      position.x,
-      position.y,
-      dimensions.radius,
-      {
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false },
-      }
-    );
-  }
-
-  private static createPolygonBody(position: Vector2, dimensions: { radius: number; sides: number }): Body {
-    // Use Matter.js Bodies.polygon for consistent physics behavior
-    return Bodies.polygon(
-      position.x,
-      position.y,
-      dimensions.sides,
-      dimensions.radius,
-      {
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false },
-      }
-    );
-  }
-
-  private static createCapsuleBody(position: Vector2, dimensions: { width: number; height: number }): { composite: Body; parts: Body[] } {
-    
-    const radius = dimensions.height / 2;
-    const rectWidth = dimensions.width - dimensions.height; // Rectangle width without the circles
-    
-    // Create the middle rectangle
-    const rectangle = Bodies.rectangle(
-      position.x,
-      position.y,
-      rectWidth,
-      dimensions.height,
-      {
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false },
-      }
-    );
-    
-    // Create the left circle
-    const leftCircle = Bodies.circle(
-      position.x - rectWidth / 2,
-      position.y,
-      radius,
-      {
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false },
-      }
-    );
-    
-    // Create the right circle
-    const rightCircle = Bodies.circle(
-      position.x + rectWidth / 2,
-      position.y,
-      radius,
-      {
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false },
-      }
-    );
-    
-    // Create a composite body from the parts
-    const capsuleComposite = Body.create({
-      parts: [rectangle, leftCircle, rightCircle],
+    const body = Bodies.circle(position.x, position.y, radius, {
       ...PHYSICS_CONSTANTS.shape,
       render: { visible: false },
     });
     
-    // Set the position to ensure the composite is centered correctly
-    Body.setPosition(capsuleComposite, position);
+    Body.setMass(body, body.mass * 2);
+    body.friction = PHYSICS_CONSTANTS.shape.friction;
+    body.frictionAir = PHYSICS_CONSTANTS.shape.frictionAir;
+    body.restitution = PHYSICS_CONSTANTS.shape.restitution;
+    body.density = PHYSICS_CONSTANTS.shape.density;
     
-    return {
-      composite: capsuleComposite,
-      parts: [rectangle, leftCircle, rightCircle]
+    body.collisionFilter = {
+      group: physicsLayerGroup,
+      category: 1 << (physicsLayerGroup - 1),
+      mask: 1 << (physicsLayerGroup - 1)
     };
-  }
-
-  private static createPathBody(type: ShapeType, position: Vector2, dimensions: { path: string; scale: number }): { body: Body; originalVertices: Vector2[] } {
-
-    Common.setDecomp(decomp);
-    // Create vertices from path
-    // @ts-expect-error the @types lib is not up to date
-    const vertices = Vertices.fromPath(dimensions.path);
-
-    // Scale the vertices around their center
-    if (dimensions.scale !== 1 && dimensions.scale>0) {
-      const initialBounds = Bounds.create(vertices);
-      const center = {
-        x: (initialBounds.min.x + initialBounds.max.x) / 2,
-        y: (initialBounds.min.y + initialBounds.max.y) / 2
-      };
-      Vertices.scale(vertices, dimensions.scale, dimensions.scale, center);
-    }
     
-    // Center the vertices at origin
-    const bounds = Bounds.create(vertices);
-    const centerX = (bounds.min.x + bounds.max.x) / 2;
-    const centerY = (bounds.min.y + bounds.max.y) / 2;
-    Vertices.translate(vertices, { x: -centerX, y: -centerY }, 1);
+    const color = this.getLayerColor(colorIndex);
+    const tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
     
-    // Store original vertices for rendering (keep them in local coordinates relative to shape center)
-    const originalVertices: Vector2[] = vertices.map(v => ({
-      x: v.x, // Already centered at origin
-      y: v.y
-    }));
-    
-    // Create body using fromVertices with poly-decomp
-    const body = Bodies.fromVertices(
-      position.x,
-      position.y,
-      [vertices],
-      {
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false },
-      }
+    return new Shape(
+      id,
+      'circle',
+      position,
+      body,
+      layerId,
+      color,
+      tint,
+      { radius }
     );
-    
-    // Don't reset the angle - let the physics engine handle rotation naturally
-    // The vertices are already centered at origin, so they'll rotate correctly
-    
-    return { body, originalVertices };
   }
 
   private static getLayerColor(colorIndex: number): string {

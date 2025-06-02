@@ -1,0 +1,40 @@
+{
+  "id": "triangle",
+  "name": "Triangle",
+  "category": "polygon",
+  "dimensions": {
+    "type": "random",
+    "radius": { "min": 56, "max": 101 },
+    "sides": 3,
+    "reductionFactor": 0.15
+  },
+  "physics": {
+    "type": "polygon"
+  },
+  "rendering": {
+    "type": "primitive"
+  },
+  "screwPlacement": {
+    "strategy": "corners",
+    "cornerMargin": 30,
+    "minSeparation": 48,
+    "maxScrews": {
+      "byArea": [
+        { "maxArea": 2500, "screwCount": 1 },
+        { "maxArea": 4000, "screwCount": 2 },
+        { "maxArea": 6000, "screwCount": 3 },
+        { "maxArea": 10000, "screwCount": 4 },
+        { "maxArea": 15000, "screwCount": 5 }
+      ],
+      "absolute": 6
+    }
+  },
+  "visual": {
+    "supportsHoles": true
+  },
+  "behavior": {
+    "allowSingleScrew": true,
+    "singleScrewDynamic": true,
+    "rotationalInertiaMultiplier": 3
+  }
+}

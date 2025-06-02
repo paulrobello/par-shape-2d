@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Important:** This file is for guidance not for change logs or implementation details. Keep update high level.
+
 ## Development Commands
 
 - `npm run build` - Build the project for production (use this instead of `npm run dev` to check your work)
@@ -90,6 +92,8 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 - `ScrewManager` - Screw logic, constraints, and animations
 - `SystemCoordinator` - System lifecycle management
 - `EventFlowValidator` - Debug monitoring and performance tracking
+- `ShapeRegistry` - Manages JSON-based shape definitions
+- `ShapeLoader` - Loads and validates shape configurations
 
 **System Foundation:**
 - `BaseSystem` - Abstract base class providing event-aware functionality to all systems
@@ -102,30 +106,39 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 - **Improved Maintainability:** Changes to one system don't affect others
 - **Comprehensive Debugging:** Event flow monitoring and validation throughout
 - **Clean Code:** Eliminates complex parameter passing and state management
+- **Data-Driven Shapes:** Shape definitions loaded from JSON files for easy modification
+
+## Shape System
+
+**JSON-Based Shape Definitions**: All shapes are defined in JSON files located in `src/data/shapes/`. This allows for easy modification and addition of new shapes without changing code.
+
+**Shape Categories**:
+- **Basic**: Rectangle, Square, Circle
+- **Polygons**: Triangle, Pentagon, Hexagon, Heptagon, Octagon
+- **Paths**: Arrow, Chevron, Star, Horseshoe
+- **Composite**: Capsule
+
+**Adding New Shapes**:
+1. Create a JSON file in the appropriate category folder
+2. Define shape properties: dimensions, physics, rendering, screw placement
+3. Enable the shape in `SHAPE_CONFIG` if needed
+4. The shape will automatically be available in the game
+
+**Shape Definition Structure**:
+- `dimensions`: Size and scaling parameters
+- `physics`: How the physics body is created
+- `rendering`: Visual appearance configuration
+- `screwPlacement`: Strategy for placing screws (corners, perimeter, custom)
+
+**Polygon Vertex Alignment**: The polygon shape system ensures perfect alignment between visual rendering and physics bodies by matching Matter.js `Bodies.polygon()` vertex orientation. All polygon vertices are calculated using the formula `(i * Math.PI * 2) / sides + (Math.PI / sides)` to match Matter.js's default orientation, ensuring consistent behavior across rendering, screw placement, and physics interactions.
+- `visual`: Border width, transparency, hole support
+- `behavior`: Single screw dynamics, rotation settings
 
 ## Matter.js Integration
 
 **Physics Integration** uses collision groups to separate layers. Screws are implemented as Matter.js constraints between shapes and anchor points. The physics world includes sleep management to wake unsupported shapes and prevent floating objects.
 
 **Complex Shapes**: Path-based shapes (arrow, chevron, star, horseshoe) use `Bodies.fromVertices()` with poly-decomp-es for accurate physics simulation. Original vertices are preserved separately for rendering to maintain visual accuracy.
-
-## Recent Bug Fixes and Improvements
-
-### Physics and Rendering Fixes
-- **Shape Jump Fix**: Resolved issue where shapes would jump upward when last screw removed (fixed velocity amplification)
-- **Path Shape Alignment**: Fixed misalignment between rendered shapes and physics bodies for path-based shapes
-- **Rotation Sync**: Fixed double rotation causing drift between visual shapes and physics bodies
-- **Debug Rendering**: Added enhanced debug visualization for path-based shapes showing decomposed physics parts
-
-### UI/UX Improvements
-- **Debug Toggle Consistency**: All debug toggle methods (key, menu button, canvas button) now work identically
-- **Start Button Behavior**: Start button acts as Restart when game is over for better UX
-- **Comprehensive Restart**: Restart now properly clears all game state including:
-  - All screws and constraints
-  - All holding holes
-  - Game over countdown timer
-  - Red pulsing border effect
-  - All layers and shapes
 
 ## Documentation and References
 

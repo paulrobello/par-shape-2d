@@ -176,7 +176,8 @@ export class Shape implements IShape {
     const sides = this.sides || 5; // Default to pentagon if sides not specified
 
     for (let i = 0; i < sides; i++) {
-      const angle = (i * Math.PI * 2) / sides - Math.PI / 2; // Start from top
+      // Match Matter.js Bodies.polygon() vertex orientation - rotation is handled by ShapeRenderer canvas transforms
+      const angle = (i * Math.PI * 2) / sides + (Math.PI / sides); // Align with Matter.js polygon orientation
       const x = this.position.x + Math.cos(angle) * radius;
       const y = this.position.y + Math.sin(angle) * radius;
 
@@ -310,9 +311,9 @@ export class Shape implements IShape {
         const polygonSides = this.sides || 5; // Default to pentagon if not specified
         const polygonVertices: Vector2[] = [];
 
-        // Generate polygon vertices
+        // Generate polygon vertices with rotation applied for perimeter screw placement, matching Matter.js orientation
         for (let i = 0; i < polygonSides; i++) {
-          const angle = (i * Math.PI * 2) / polygonSides - Math.PI / 2;
+          const angle = (i * Math.PI * 2) / polygonSides + (Math.PI / polygonSides) + this.rotation;
           polygonVertices.push({
             x: this.position.x + Math.cos(angle) * polygonRadius,
             y: this.position.y + Math.sin(angle) * polygonRadius,

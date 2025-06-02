@@ -694,9 +694,22 @@ src/game/systems/
 │   ├── Collection animation system
 │   ├── Shake animation for blocked screws
 │   ├── Blocking detection algorithms
-│   └── Smart selection logic
+│   ├── Smart selection logic
+│   └── JSON-based screw placement strategies
 │
-└── ShapeFactory.ts      # Procedural shape generation with overlap prevention
+├── ShapeFactory.ts      # JSON-driven shape generation with overlap prevention
+│   ├── Shape definition loading from JSON
+│   ├── Dynamic dimension generation
+│   ├── Physics body creation based on JSON config
+│   └── Overlap prevention algorithms
+│
+├── ShapeRegistry.ts     # Shape definition management
+│   ├── Loads all shape JSON files on startup
+│   ├── Provides shape definitions to other systems
+│   ├── Filters enabled shapes based on config
+│   └── Maps shape types to definition IDs
+│
+└── ShapeLoader.ts       # Shape JSON loading and validation
     ├── Deterministic 3-phase placement algorithm
     ├── Retry system with progressive size reduction
     ├── Enhanced collision detection and separation
@@ -791,11 +804,42 @@ src/game/events/
 ### Type Definitions
 ```
 src/types/
-└── game.ts            # TypeScript interfaces and type definitions
-    ├── Core game interfaces (GameState, Shape, Screw)
-    ├── Physics integration types
-    ├── Serialization interfaces
-    └── Event callback types
+├── game.ts            # TypeScript interfaces and type definitions
+│   ├── Core game interfaces (GameState, Shape, Screw)
+│   ├── Physics integration types
+│   ├── Serialization interfaces
+│   └── Event callback types
+│
+└── shapes.ts          # Shape definition types
+    ├── ShapeDefinition interface
+    ├── Dimension configuration types
+    ├── Physics configuration types
+    └── Screw placement strategy types
+```
+
+### Data Layer
+```
+src/data/shapes/
+├── basic/             # Basic shape definitions
+│   ├── rectangle.json
+│   ├── square.json
+│   └── circle.json
+│
+├── polygons/          # Polygon shape definitions
+│   ├── triangle.json
+│   ├── pentagon.json
+│   ├── hexagon.json
+│   ├── heptagon.json
+│   └── octagon.json
+│
+├── paths/             # Path-based shape definitions
+│   ├── arrow.json
+│   ├── chevron.json
+│   ├── star.json
+│   └── horseshoe.json
+│
+└── composite/         # Composite shape definitions
+    └── capsule.json
 ```
 
 ## Technical Decisions

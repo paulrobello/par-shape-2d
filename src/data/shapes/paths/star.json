@@ -1,0 +1,36 @@
+{
+  "id": "star",
+  "name": "Star",
+  "category": "path",
+  "dimensions": {
+    "type": "random",
+    "path": "50 0 63 38 100 38 69 59 82 100 50 75 18 100 31 59 0 38 37 38",
+    "scale": { "min": 0.8, "max": 1.5 },
+    "reductionFactor": 0.15
+  },
+  "physics": {
+    "type": "fromVertices",
+    "decomposition": true
+  },
+  "rendering": {
+    "type": "path",
+    "preserveOriginalVertices": true
+  },
+  "screwPlacement": {
+    "strategy": "perimeter",
+    "perimeterPoints": 8,
+    "perimeterMargin": 30,
+    "minSeparation": 48,
+    "maxScrews": {
+      "absolute": 5
+    }
+  },
+  "visual": {
+    "supportsHoles": true
+  },
+  "behavior": {
+    "allowSingleScrew": true,
+    "singleScrewDynamic": true,
+    "rotationalInertiaMultiplier": 3
+  }
+}

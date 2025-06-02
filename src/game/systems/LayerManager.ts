@@ -263,7 +263,9 @@ export class LayerManager extends BaseSystem {
         GAME_CONFIG.shapes.maxPerLayer
       );
       
-      const shapes: Shape[] = [];
+      // Get existing shapes in the layer to avoid overlap
+      const existingShapesInLayer = layer.getAllShapes();
+      const shapes: Shape[] = [...existingShapesInLayer];
       
       for (let i = 0; i < shapeCount; i++) {
         let shapeCreated = false;

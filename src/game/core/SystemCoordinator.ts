@@ -9,6 +9,7 @@ import { GameState } from './GameState';
 import { LayerManager } from '../systems/LayerManager';
 import { ScrewManager } from '../systems/ScrewManager';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
+import { ShapeRegistry } from '../systems/ShapeRegistry';
 import { eventBus } from '../events/EventBus';
 
 export class SystemCoordinator {
@@ -38,6 +39,11 @@ export class SystemCoordinator {
 
     try {
       console.log('Initializing SystemCoordinator...');
+
+      // Initialize ShapeRegistry first
+      console.log('Initializing ShapeRegistry...');
+      await ShapeRegistry.getInstance().initialize();
+      console.log('ShapeRegistry initialized');
 
       // Create systems in dependency order
       this.createSystems();

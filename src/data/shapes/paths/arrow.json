@@ -1,0 +1,36 @@
+{
+  "id": "arrow",
+  "name": "Arrow",
+  "category": "path",
+  "dimensions": {
+    "type": "random",
+    "path": "40 0 40 20 100 20 100 80 40 80 40 100 0 50",
+    "scale": { "min": 0.8, "max": 1.5 },
+    "reductionFactor": 0.15
+  },
+  "physics": {
+    "type": "fromVertices",
+    "decomposition": true
+  },
+  "rendering": {
+    "type": "path",
+    "preserveOriginalVertices": true
+  },
+  "screwPlacement": {
+    "strategy": "perimeter",
+    "perimeterPoints": 8,
+    "perimeterMargin": 30,
+    "minSeparation": 48,
+    "maxScrews": {
+      "absolute": 5
+    }
+  },
+  "visual": {
+    "supportsHoles": true
+  },
+  "behavior": {
+    "allowSingleScrew": true,
+    "singleScrewDynamic": true,
+    "rotationalInertiaMultiplier": 3
+  }
+}

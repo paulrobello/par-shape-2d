@@ -1,0 +1,39 @@
+{
+  "id": "square",
+  "name": "Square",
+  "category": "basic",
+  "dimensions": {
+    "type": "random",
+    "width": { "min": 90, "max": 158 },
+    "reductionFactor": 0.15
+  },
+  "physics": {
+    "type": "rectangle"
+  },
+  "rendering": {
+    "type": "primitive"
+  },
+  "screwPlacement": {
+    "strategy": "corners",
+    "cornerMargin": 30,
+    "minSeparation": 48,
+    "maxScrews": {
+      "byArea": [
+        { "maxArea": 2500, "screwCount": 1 },
+        { "maxArea": 4000, "screwCount": 2 },
+        { "maxArea": 6000, "screwCount": 3 },
+        { "maxArea": 10000, "screwCount": 4 },
+        { "maxArea": 15000, "screwCount": 5 }
+      ],
+      "absolute": 6
+    }
+  },
+  "visual": {
+    "supportsHoles": true
+  },
+  "behavior": {
+    "allowSingleScrew": true,
+    "singleScrewDynamic": true,
+    "rotationalInertiaMultiplier": 3
+  }
+}

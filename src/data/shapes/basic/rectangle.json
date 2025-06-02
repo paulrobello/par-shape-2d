@@ -1,0 +1,41 @@
+{
+  "id": "rectangle",
+  "name": "Rectangle",
+  "category": "basic",
+  "dimensions": {
+    "type": "random",
+    "width": { "min": 75, "max": 150 },
+    "height": { "min": 30, "max": 120 },
+    "aspectRatio": { "min": 0.4, "max": 2.5 },
+    "reductionFactor": 0.15
+  },
+  "physics": {
+    "type": "rectangle"
+  },
+  "rendering": {
+    "type": "primitive"
+  },
+  "screwPlacement": {
+    "strategy": "corners",
+    "cornerMargin": 30,
+    "minSeparation": 48,
+    "maxScrews": {
+      "byArea": [
+        { "maxArea": 2500, "screwCount": 1 },
+        { "maxArea": 4000, "screwCount": 2 },
+        { "maxArea": 6000, "screwCount": 3 },
+        { "maxArea": 10000, "screwCount": 4 },
+        { "maxArea": 15000, "screwCount": 5 }
+      ],
+      "absolute": 6
+    }
+  },
+  "visual": {
+    "supportsHoles": true
+  },
+  "behavior": {
+    "allowSingleScrew": true,
+    "singleScrewDynamic": true,
+    "rotationalInertiaMultiplier": 3
+  }
+}

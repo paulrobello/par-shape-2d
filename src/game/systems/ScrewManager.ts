@@ -11,6 +11,8 @@ import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
 import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/game/utils/Constants';
 import { getRandomScrewColor } from '@/game/utils/Colors';
 import { randomIntBetween } from '@/game/utils/MathUtils';
+import { ShapeRegistry } from './ShapeRegistry';
+import { ShapeDefinition } from '@/types/shapes';
 import {
   ShapeCreatedEvent,
   ShapeDestroyedEvent,
@@ -625,16 +627,21 @@ export class ScrewManager extends BaseSystem {
         this.createScrewConstraint(screw, shape);
       });
 
+      // Apply physics configuration based on shape definition
+      const definition = this.getShapeDefinition(shape);
+      const behavior = definition?.behavior || {};
+      
       // Make shape static only if it has more than one screw
       if (screwPositions.length > 1) {
         Body.setStatic(shape.body, true);
         console.log(`Placed ${screwPositions.length} screws on ${shape.type} shape (requested ${screwCount}) - shape made static`);
-      } else {
+      } else if (behavior.singleScrewDynamic !== false) {
         // Single screw - keep shape dynamic so it can rotate/swing around the screw
         Body.setStatic(shape.body, false);
         
         // Ensure the shape can rotate by setting up angular properties
-        shape.body.inertia = shape.body.mass * 3; // Increase rotational inertia for better swinging
+        const inertiaMultiplier = behavior.rotationalInertiaMultiplier || 3;
+        shape.body.inertia = shape.body.mass * inertiaMultiplier;
         
         // Wake up the body and give it a small initial perturbation to start physics
         Sleeping.set(shape.body, false);
@@ -649,6 +656,10 @@ export class ScrewManager extends BaseSystem {
         });
         
         console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape kept dynamic for rotation with initial motion`);
+      } else {
+        // Single screw but configured to be static
+        Body.setStatic(shape.body, true);
+        console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape made static per configuration`);
       }
 
       // Emit event that shape's screws are ready
@@ -662,28 +673,59 @@ export class ScrewManager extends BaseSystem {
   }
 
   private calculateScrewPositions(shape: Shape, count: number): Vector2[] {
-    // Get all possible screw positions (corners + center + alternates)
+    const definition = this.getShapeDefinition(shape);
+    
+    if (!definition) {
+      // Fallback to legacy method if no definition found
+      return this.calculateScrewPositionsLegacy(shape, count);
+    }
+    
+    const placement = definition.screwPlacement;
+    const screwRadius = UI_CONSTANTS.screws.radius;
+    const minSeparation = placement.minSeparation || screwRadius * 4;
+    
+    if (count === 1 && definition.behavior.allowSingleScrew !== false) {
+      // For single screw, always use center
+      return [{ ...shape.position }];
+    }
+    
+    // Get positions based on strategy
+    const possiblePositions = this.getPositionsForStrategy(shape, definition);
+    
+    // Determine maximum screws based on configuration
+    const maxPossibleScrews = this.getMaxScrewsFromDefinition(shape, definition, possiblePositions);
+    const actualCount = Math.min(count, maxPossibleScrews);
+    
+    // Select positions without overlap
+    const selectedPositions = this.selectNonOverlappingPositions(
+      possiblePositions,
+      actualCount,
+      minSeparation
+    );
+    
+    console.log(`Placed ${selectedPositions.length} screws on ${shape.type} shape (requested ${count}, max possible: ${maxPossibleScrews})`);
+    return selectedPositions;
+  }
+
+  private calculateScrewPositionsLegacy(shape: Shape, count: number): Vector2[] {
+    // Legacy implementation for backwards compatibility
     const possiblePositions = this.getShapeScrewLocations(shape);
     const screwRadius = UI_CONSTANTS.screws.radius;
     const minSeparation = screwRadius * 4;
     
     if (count === 1) {
-      // For single screw, always use center
       return [possiblePositions.center];
     }
 
-    // Determine maximum screws based on shape size and available positions
     const maxPossibleScrews = this.getMaxScrewsForShape(shape, possiblePositions);
     const actualCount = Math.min(count, maxPossibleScrews);
     
-    // Build pool of all available positions
     const allPositions = [
       ...possiblePositions.corners,
       ...possiblePositions.alternates,
       possiblePositions.center
     ];
     
-    // Select positions without overlap
     const selectedPositions = this.selectNonOverlappingPositions(allPositions, actualCount, minSeparation);
     
     console.log(`Placed ${selectedPositions.length} screws on ${shape.type} shape (requested ${count}, max possible: ${maxPossibleScrews})`);
@@ -822,10 +864,10 @@ export class ScrewManager extends BaseSystem {
           // Small polygon - only center
           corners = [];
         } else {
-          // Generate polygon vertices
+          // Generate polygon vertices with rotation applied, matching Matter.js Bodies.polygon() orientation
           const polygonVertices: Vector2[] = [];
           for (let i = 0; i < polygonSides; i++) {
-            const angle = (i * Math.PI * 2) / polygonSides - Math.PI / 2;
+            const angle = (i * Math.PI * 2) / polygonSides + (Math.PI / polygonSides) + shape.rotation;
             polygonVertices.push({
               x: shape.position.x + Math.cos(angle) * polygonRadius,
               y: shape.position.y + Math.sin(angle) * polygonRadius,
@@ -978,6 +1020,122 @@ export class ScrewManager extends BaseSystem {
       default:
         return 3600;
     }
+  }
+
+  private getShapeDefinition(shape: Shape): ShapeDefinition | null {
+    const registry = ShapeRegistry.getInstance();
+    
+    // Map shape type to definition ID
+    const definitionId = this.getDefinitionIdFromShape(shape);
+    if (!definitionId) return null;
+    
+    return registry.getDefinition(definitionId) || null;
+  }
+
+  private getDefinitionIdFromShape(shape: Shape): string | null {
+    if (shape.type === 'polygon' && shape.sides) {
+      // Map polygon sides to specific definition IDs
+      const polygonMap: Record<number, string> = {
+        3: 'triangle',
+        5: 'pentagon',
+        6: 'hexagon',
+        7: 'heptagon',
+        8: 'octagon'
+      };
+      return polygonMap[shape.sides] || null;
+    }
+    
+    // Direct mapping for other shapes
+    return shape.type;
+  }
+
+  private getPositionsForStrategy(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const strategy = definition.screwPlacement.strategy;
+    
+    switch (strategy) {
+      case 'corners':
+        return this.getCornerPositions(shape, definition);
+      case 'perimeter':
+        return this.getPerimeterPositions(shape, definition);
+      case 'capsule':
+        return this.getCapsulePositions(shape, definition);
+      case 'custom':
+        return this.getCustomPositions(shape, definition);
+      default:
+        // Fallback to legacy positions
+        const legacy = this.getShapeScrewLocations(shape);
+        return [...legacy.corners, ...legacy.alternates, legacy.center];
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private getCornerPositions(shape: Shape, _definition: ShapeDefinition): Vector2[] {
+    const legacy = this.getShapeScrewLocations(shape);
+    return [...legacy.corners, ...legacy.alternates, legacy.center];
+  }
+
+  private getPerimeterPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const perimeterPoints = definition.screwPlacement.perimeterPoints || 8;
+    const margin = definition.screwPlacement.perimeterMargin || 30;
+    
+    if (shape.vertices && shape.vertices.length > 0) {
+      const points = shape.getPerimeterPoints(perimeterPoints);
+      
+      // Filter out points too close to edge
+      const validPoints = points.filter(point => {
+        const distToEdge = this.getDistanceToNearestEdge(point, shape);
+        return distToEdge >= margin;
+      });
+      
+      // Add center position
+      validPoints.push({ ...shape.position });
+      
+      return validPoints;
+    }
+    
+    // Fallback to corners
+    return this.getCornerPositions(shape, definition);
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private getCapsulePositions(shape: Shape, _definition: ShapeDefinition): Vector2[] {
+    const legacy = this.getShapeScrewLocations(shape);
+    return [...legacy.corners, legacy.center];
+  }
+
+  private getCustomPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const customPositions = definition.screwPlacement.customPositions || [];
+    
+    return customPositions.map(pos => ({
+      x: shape.position.x + pos.position.x,
+      y: shape.position.y + pos.position.y
+    }));
+  }
+
+  private getMaxScrewsFromDefinition(
+    shape: Shape,
+    definition: ShapeDefinition,
+    possiblePositions: Vector2[]
+  ): number {
+    const totalPositions = possiblePositions.length;
+    const placement = definition.screwPlacement;
+    
+    // Check absolute max first
+    let maxScrews = placement.maxScrews?.absolute || 6;
+    
+    // Check area-based limits
+    if (placement.maxScrews?.byArea) {
+      const shapeArea = this.getShapeArea(shape);
+      
+      for (const limit of placement.maxScrews.byArea) {
+        if (shapeArea <= limit.maxArea) {
+          maxScrews = Math.min(maxScrews, limit.screwCount);
+          break;
+        }
+      }
+    }
+    
+    return Math.min(totalPositions, maxScrews);
   }
 
   private createScrew(shapeId: string, position: Vector2, preferredColors?: ScrewColor[]): Screw {
@@ -1250,6 +1408,7 @@ export class ScrewManager extends BaseSystem {
     this.emit({
       type: 'physics:constraint:added',
       timestamp: Date.now(),
+      source: `ScrewManager-${screw.id}`,
       constraintId: constraint.id?.toString() || screw.id,
       screw,
       constraint
