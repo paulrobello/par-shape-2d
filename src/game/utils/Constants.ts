@@ -11,7 +11,7 @@ export const GAME_CONFIG: GameConfig = {
     maxVisible: 4,
   },
   shapes: {
-    minPerLayer: 3,
+    minPerLayer: 6,
     maxPerLayer: 6,
     minScrews: 1,
     maxScrews: 6,
@@ -143,9 +143,9 @@ export const DEBUG_CONFIG = {
  */
 export const SHAPE_CONFIG = {
   enabledShapes: {
-    rectangle: false,
-    square: false,
-    circle: false,
+    rectangle: true,
+    square: true,
+    circle: true,
     polygon: true,
     capsule: false,
     arrow: true,

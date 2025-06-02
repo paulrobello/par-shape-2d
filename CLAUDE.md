@@ -47,6 +47,29 @@ When debug mode is active:
 
 All three methods of toggling debug mode are synchronized and work identically.
 
+## Game Controls
+
+### Restart Functionality
+The game can be restarted using multiple methods:
+1. **'R' key** - Quick restart during gameplay
+2. **"Restart" button** in the menu overlay (hamburger menu)
+3. **"Restart" button** below the canvas (desktop only)
+4. **"Start Game" button** when game is over - acts as restart
+
+All restart methods provide comprehensive cleanup:
+- Clears all screws and physics constraints
+- Clears all layers and shapes
+- Resets containers and holding holes
+- Cancels any active game over countdown
+- Stops the red pulsing border effect
+- Provides a clean slate for the new game
+
+### Other Controls
+- **'S' key** - Save game state manually
+- **'G' key** - Trigger game over (testing)
+- **'I' key** - Show save data info
+- **'C' key** - Clear save data
+
 ## Workflow
 
 - **Important:** After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.
@@ -85,6 +108,24 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 **Physics Integration** uses collision groups to separate layers. Screws are implemented as Matter.js constraints between shapes and anchor points. The physics world includes sleep management to wake unsupported shapes and prevent floating objects.
 
 **Complex Shapes**: Path-based shapes (arrow, chevron, star, horseshoe) use `Bodies.fromVertices()` with poly-decomp-es for accurate physics simulation. Original vertices are preserved separately for rendering to maintain visual accuracy.
+
+## Recent Bug Fixes and Improvements
+
+### Physics and Rendering Fixes
+- **Shape Jump Fix**: Resolved issue where shapes would jump upward when last screw removed (fixed velocity amplification)
+- **Path Shape Alignment**: Fixed misalignment between rendered shapes and physics bodies for path-based shapes
+- **Rotation Sync**: Fixed double rotation causing drift between visual shapes and physics bodies
+- **Debug Rendering**: Added enhanced debug visualization for path-based shapes showing decomposed physics parts
+
+### UI/UX Improvements
+- **Debug Toggle Consistency**: All debug toggle methods (key, menu button, canvas button) now work identically
+- **Start Button Behavior**: Start button acts as Restart when game is over for better UX
+- **Comprehensive Restart**: Restart now properly clears all game state including:
+  - All screws and constraints
+  - All holding holes
+  - Game over countdown timer
+  - Red pulsing border effect
+  - All layers and shapes
 
 ## Documentation and References
 
