@@ -1302,7 +1302,6 @@ export class ScrewManager extends BaseSystem {
         
         // IMPORTANT: Capture velocities BEFORE changing static state
         // Matter.js might reset velocities when changing from static to dynamic
-        const wasStatic = shape.body.isStatic;
         const capturedVelocity = { ...shape.body.velocity };
         const capturedAngularVelocity = shape.body.angularVelocity;
         
@@ -1347,11 +1346,11 @@ export class ScrewManager extends BaseSystem {
         // Set the calculated velocity
         Body.setVelocity(shape.body, linearVelocity);
         
-        // Ensure minimum downward velocity for falling
-        if (Math.abs(shape.body.velocity.y) < 2.0) {
+        // Ensure minimum downward velocity for falling (but don't amplify upward velocity)
+        if (shape.body.velocity.y < 0.5) {
           Body.setVelocity(shape.body, { 
             x: shape.body.velocity.x, 
-            y: Math.sign(shape.body.velocity.y) * 2.0 || 2.0 
+            y: 0.5  // Small downward velocity to ensure falling
           });
         }
         
@@ -1407,10 +1406,11 @@ export class ScrewManager extends BaseSystem {
         // Give a small initial angular velocity to start the swing
         Body.setAngularVelocity(shape.body, 0.02);
         
-        // Apply a small perturbation force to ensure physics activation
+        // Apply a small horizontal perturbation force to ensure physics activation
+        // Avoid any upward force that could cause jumping
         Body.applyForce(shape.body, shape.body.position, {
           x: (Math.random() - 0.5) * 0.001,
-          y: 0.001
+          y: 0  // No vertical force to prevent jumping
         });
         
         if (DEBUG_CONFIG.logPhysicsStateChanges) {
