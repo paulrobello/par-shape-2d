@@ -1239,6 +1239,9 @@ export class GameManager extends BaseSystem {
             if (screwManager) {
               const screw = screwManager.getScrew(screwId);
               if (screw) {
+                if (index === 0 && i === 0) { // Log first screw for debugging
+                  console.log(`🎨 Rendering screw ${screwId} in container ${index} hole ${i}`);
+                }
                 const renderContext: RenderContext = { 
                   ctx: this.state.ctx!,
                   canvas: this.state.canvas!,
@@ -1252,6 +1255,8 @@ export class GameManager extends BaseSystem {
                 // Restore original position
                 screw.position.x = originalPosition.x;
                 screw.position.y = originalPosition.y;
+              } else {
+                console.warn(`⚠️ Screw ${screwId} not found in ScrewManager state for container ${index} hole ${i}`);
               }
             }
           }
@@ -1323,6 +1328,8 @@ export class GameManager extends BaseSystem {
             // Restore original position
             screw.position.x = originalPosition.x;
             screw.position.y = originalPosition.y;
+          } else {
+            console.warn(`⚠️ Screw ${hole.screwId} not found in ScrewManager state for holding hole ${index}`);
           }
         }
       }

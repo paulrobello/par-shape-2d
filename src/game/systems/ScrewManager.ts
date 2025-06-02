@@ -92,9 +92,6 @@ export class ScrewManager extends BaseSystem {
             // Now mark the screw as collected so it stops rendering from allScrews
             screw.collect();
             
-            // Clear the shape reference - this screw no longer belongs to any shape
-            screw.shapeId = '';
-            
             // Emit screw collected event
             this.emit({
               type: 'screw:collected',
@@ -105,11 +102,15 @@ export class ScrewManager extends BaseSystem {
             });
             
             // Remove the screw from the shape's screws array now that animation is complete
+            // Note: We need to clear shapeId AFTER removing from shape
             const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
             if (shape) {
               shape.removeScrew(screwId);
               console.log(`Removed screw ${screwId} from shape ${shape.id} after animation`);
             }
+            
+            // Clear the shape reference - this screw no longer belongs to any shape
+            screw.shapeId = '';
             
             // Keep all screws in state for rendering purposes
             // Mark their destination for game logic but don't delete them
@@ -203,6 +204,7 @@ export class ScrewManager extends BaseSystem {
       this.state.screws.forEach((screw, screwId) => {
         if (screw.shapeId === event.shape.id) {
           // Only screws still attached to the shape will match this condition
+          console.log(`🔍 Screw ${screwId} still belongs to destroyed shape ${event.shape.id} - isCollected: ${screw.isCollected}, targetType: ${screw.targetType}`);
           screwsToRemove.push(screwId);
         }
       });
@@ -1034,7 +1036,12 @@ export class ScrewManager extends BaseSystem {
   }
 
   private placeScrewInDestination(screw: Screw): void {
-    if (!screw.targetPosition || !screw.targetType) return;
+    if (!screw.targetPosition || !screw.targetType) {
+      console.error(`❌ Cannot place screw ${screw.id} - missing targetPosition or targetType`);
+      return;
+    }
+
+    console.log(`📍 Placing screw ${screw.id} in ${screw.targetType} (targetContainerId: ${screw.targetContainerId}, targetHoleIndex: ${screw.targetHoleIndex})`);
 
     if (screw.targetType === 'holding_hole') {
       // Find the holding hole by ID
@@ -1056,8 +1063,12 @@ export class ScrewManager extends BaseSystem {
           screwId: screw.id
         });
         
+        console.log(`✅ Placed screw ${screw.id} in holding hole ${holeIndex}`);
+        
         // Check if there's now a matching container available and transfer immediately
         this.checkAndTransferFromHoldingHole(screw, holeIndex);
+      } else {
+        console.error(`❌ Failed to find holding hole for screw ${screw.id} - holeIndex: ${holeIndex}`);
       }
     } else if (screw.targetType === 'container' && screw.targetHoleIndex !== undefined) {
       // Find the container by ID
@@ -1090,6 +1101,10 @@ export class ScrewManager extends BaseSystem {
             screws: [...container.holes].filter(s => s !== null) as string[]
           });
         }
+        
+        console.log(`✅ Placed screw ${screw.id} in container ${containerIndex} hole ${screw.targetHoleIndex}`);
+      } else {
+        console.error(`❌ Failed to find container for screw ${screw.id} - containerIndex: ${containerIndex}, targetHoleIndex: ${screw.targetHoleIndex}`);
       }
     }
   }
