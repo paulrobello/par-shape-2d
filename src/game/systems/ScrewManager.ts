@@ -1299,15 +1299,22 @@ export class ScrewManager extends BaseSystem {
       
       if (shapeScrews.length === 0 && shape) {
         // No screws left - make shape fully dynamic
+        
+        // IMPORTANT: Capture velocities BEFORE changing static state
+        // Matter.js might reset velocities when changing from static to dynamic
+        const wasStatic = shape.body.isStatic;
+        const capturedVelocity = { ...shape.body.velocity };
+        const capturedAngularVelocity = shape.body.angularVelocity;
+        
         if (DEBUG_CONFIG.logPhysicsStateChanges) {
-          console.log(`🔧 Shape ${shape.id} BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)}), position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+          console.log(`🔧 Shape ${shape.id} BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${capturedVelocity.x.toFixed(2)}, ${capturedVelocity.y.toFixed(2)}), angularVel=${capturedAngularVelocity.toFixed(3)}, position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
         }
         
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
         
-        // Preserve existing momentum from swinging
-        const currentAngularVelocity = shape.body.angularVelocity;
+        // Use captured angular velocity
+        const currentAngularVelocity = capturedAngularVelocity;
         
         // Calculate linear velocity from the pivot point (last screw position)
         // When swinging on a single screw, the center of mass moves with angular velocity
