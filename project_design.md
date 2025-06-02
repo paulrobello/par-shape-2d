@@ -179,8 +179,14 @@ Event-driven screw system managing all screw interactions:
 **Core Functionality**:
 - **Constraint Management**: Creating/removing Matter.js constraints
 - **Animation System**: Smooth screw collection animations
-- **Blocking Detection**: Checking if screws are blocked by shapes
+- **Rotation-Aware Blocking Detection**: Shape collision detection with proper coordinate transformation
 - **Smart Selection**: Prioritizing screws for container matching
+
+**Blocking Detection Features**:
+- **Coordinate Transformation**: Converts screw positions to shape-local coordinates using rotation matrix
+- **Shape-Specific Algorithms**: Rectangle, Circle, Polygon, and Capsule each use optimized intersection methods
+- **Polygon Support**: Point-in-polygon and line-segment intersection for precise n-sided polygon collision
+- **Capsule Rotation**: Fixed missing rotation handling for composite capsule shapes
 
 ## Event System
 
@@ -277,8 +283,9 @@ Strategic depth-based gameplay:
 - **Haptic Feedback**: Mobile devices vibrate briefly (50ms) when blocked screws are clicked
 - **Layer Transparency**: Back layers visible through front layers
 - **Depth Index**: Numerical ordering for consistent rendering
+- **Rotation-Aware Blocking**: All shapes use proper coordinate transformation for accurate collision detection
 - **Composite Shape Support**: Capsules (rectangle + 2 circles) have specialized blocking detection
-- **Precise Collision**: Each shape type uses geometry-specific intersection algorithms
+- **Precise Collision**: Each shape type uses geometry-specific intersection algorithms with rotation handling
 
 ## Rendering System
 
@@ -286,6 +293,14 @@ Strategic depth-based gameplay:
 **Files**: `src/game/rendering/ShapeRenderer.ts`, `src/game/rendering/ScrewRenderer.ts`
 
 The game uses HTML5 Canvas with sophisticated rendering features:
+
+### Screw Rendering System
+**File**: `src/game/rendering/ScrewRenderer.ts`
+
+- **Dynamic Scaling**: Screws support scale parameter for size variations
+- **Container/Holding Hole Screws**: Render at 0.75 scale (25% smaller) for visual hierarchy
+- **Visual Components**: Scaled body, border, highlight, and cross symbol
+- **Uniform Hole Sizes**: Holding holes match container hole dimensions (radius: 8px)
 
 ### Responsive Scaling
 - **Dynamic Canvas Dimensions**: Canvas adapts to viewport size on both mobile and desktop
@@ -325,7 +340,7 @@ for (let i = this.state.visibleLayers.length - 1; i >= 0; i--) {
 ### Shape Rendering
 Procedural shape generation with visual consistency:
 
-- **Supported Shapes**: Rectangle, Square, Circle, Triangle, Pentagon, Capsule
+- **Supported Shapes**: Rectangle, Square, Circle, Polygon (3-8 sides, excluding 4), Capsule
 - **Visual Style**: Solid borders with translucent fills
 - **Screw Holes**: Automatically positioned based on shape geometry
 - **Tint System**: Each layer has a unique color tint
@@ -337,8 +352,7 @@ Shapes are 87.5% larger than original design for improved visibility:
 - **Rectangle**: Base size 75-150 pixels with varied aspect ratios (0.4-2.5)
 - **Square**: Size range 90-158 pixels
 - **Circle**: Radius 45-90 pixels
-- **Triangle**: Radius 56-101 pixels
-- **Pentagon**: Radius 56-90 pixels
+- **Polygon**: Radius 56-101 pixels (3-8 sides, excluding 4-sided)
 - **Capsule**: Width based on screw count (3-8 screws), height = 2×screw radius + 10px
 
 ### Shape Placement
@@ -379,8 +393,7 @@ Advanced multi-stage placement algorithm with shape-specific positioning:
 #### Shape-Specific Placement Logic
 - **Rectangles/Squares**: Corner placement with edge-center fallbacks for narrow/short shapes
 - **Circles**: Cardinal direction placement (top, right, bottom, left)
-- **Triangles**: Vertex-based placement with inward margin adjustment
-- **Pentagons**: Vertex-based placement with proper spacing
+- **Polygons**: Vertex-based placement with inward margin adjustment (3-8 sides)
 - **Capsules**: Horizontal distribution along center line with 5px end margins
 
 #### Area-Based Screw Limits
@@ -912,9 +925,11 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ **Capsule Screw Placement**: Proper centering with 5px end margins
 - ✅ **Capsule Blocking Detection**: Specialized collision detection for composite shapes
 - ✅ **Event Loop Prevention**: Unique source identifiers prevent physics event loops
-- ✅ **Star → Pentagon Refactor**: Complete rename throughout codebase with cleanup
 - ✅ **Single-Screw Physics**: Enhanced pendulum motion with initial perturbation and wake-up control
-- ✅ **Unused Code Cleanup**: Removed obsolete createStarVertices function and updated comments
+- ✅ **Polygon System**: Unified shape system supporting 3-8 sided polygons (excluding 4-sided)
+- ✅ **Rotation-Aware Blocking**: All shapes now properly handle rotation in collision detection
+- ✅ **Screw Scaling**: Container and holding hole screws render 25% smaller for visual consistency
+- ✅ **Container Hole Position Fix**: Fixed screw transfer animations to target correct hole positions
 - ✅ Ready for production use with polished visual experience
 
 ---
