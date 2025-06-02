@@ -1,6 +1,5 @@
 import { Body } from 'matter-js';
 import { Shape as IShape, ShapeType, Vector2, Screw } from '@/types/game';
-import { createRegularPolygonVertices } from '@/game/utils/MathUtils';
 import { UI_CONSTANTS } from '@/game/utils/Constants';
 
 export class Shape implements IShape {
@@ -11,6 +10,7 @@ export class Shape implements IShape {
   public width?: number;
   public height?: number;
   public radius?: number;
+  public sides?: number;
   public vertices?: Vector2[];
   public body: Body;
   public screws: Screw[] = [];
@@ -33,6 +33,7 @@ export class Shape implements IShape {
       width?: number;
       height?: number;
       radius?: number;
+      sides?: number;
       vertices?: Vector2[];
     },
     compositeData?: {
@@ -53,6 +54,7 @@ export class Shape implements IShape {
       this.width = dimensions.width;
       this.height = dimensions.height;
       this.radius = dimensions.radius;
+      this.sides = dimensions.sides;
       this.vertices = dimensions.vertices;
     }
 
@@ -123,10 +125,8 @@ export class Shape implements IShape {
         return this.createRectanglePath();
       case 'circle':
         return this.createCirclePath();
-      case 'triangle':
-        return this.createTrianglePath();
-      case 'pentagon':
-        return this.createPentagonPath();
+      case 'polygon':
+        return this.createPolygonPath();
       case 'capsule':
         return this.createCapsulePath();
       default:
@@ -165,26 +165,10 @@ export class Shape implements IShape {
     return path;
   }
 
-  private createTrianglePath(): Path2D {
-    const path = new Path2D();
-    const r = this.radius || 30;
-    const vertices = createRegularPolygonVertices(this.position, r, 3);
-
-    if (vertices.length > 0) {
-      path.moveTo(vertices[0].x, vertices[0].y);
-      for (let i = 1; i < vertices.length; i++) {
-        path.lineTo(vertices[i].x, vertices[i].y);
-      }
-      path.closePath();
-    }
-
-    return path;
-  }
-
-  private createPentagonPath(): Path2D {
+  private createPolygonPath(): Path2D {
     const path = new Path2D();
     const radius = this.radius || 30;
-    const sides = 5; // Pentagon to match physics shape
+    const sides = this.sides || 5; // Default to pentagon if sides not specified
 
     for (let i = 0; i < sides; i++) {
       const angle = (i * Math.PI * 2) / sides - Math.PI / 2; // Start from top
@@ -280,42 +264,26 @@ export class Shape implements IShape {
         }
         break;
 
-      case 'triangle':
-        const triangleRadius = this.radius || 30;
-        const triangleVertices = createRegularPolygonVertices(this.position, triangleRadius, 3);
-        for (let i = 0; i < count; i++) {
-          const edgeIndex = Math.floor((i / count) * 3);
-          const t = ((i / count) * 3) % 1;
-          const v1 = triangleVertices[edgeIndex];
-          const v2 = triangleVertices[(edgeIndex + 1) % 3];
+      case 'polygon':
+        const polygonRadius = this.radius || 30;
+        const polygonSides = this.sides || 5; // Default to pentagon if not specified
+        const polygonVertices: Vector2[] = [];
 
-          points.push({
-            x: v1.x + (v2.x - v1.x) * t,
-            y: v1.y + (v2.y - v1.y) * t,
-          });
-        }
-        break;
-
-      case 'pentagon':
-        const pentagonRadius = this.radius || 30;
-        const sides = 5; // Pentagon vertices
-        const pentagonVertices: Vector2[] = [];
-
-        // Generate pentagon vertices
-        for (let i = 0; i < sides; i++) {
-          const angle = (i * Math.PI * 2) / sides - Math.PI / 2;
-          pentagonVertices.push({
-            x: this.position.x + Math.cos(angle) * pentagonRadius,
-            y: this.position.y + Math.sin(angle) * pentagonRadius,
+        // Generate polygon vertices
+        for (let i = 0; i < polygonSides; i++) {
+          const angle = (i * Math.PI * 2) / polygonSides - Math.PI / 2;
+          polygonVertices.push({
+            x: this.position.x + Math.cos(angle) * polygonRadius,
+            y: this.position.y + Math.sin(angle) * polygonRadius,
           });
         }
 
-        // Distribute points along pentagon edges
+        // Distribute points along polygon edges
         for (let i = 0; i < count; i++) {
-          const edgeIndex = Math.floor((i / count) * pentagonVertices.length);
-          const t = ((i / count) * pentagonVertices.length) % 1;
-          const v1 = pentagonVertices[edgeIndex];
-          const v2 = pentagonVertices[(edgeIndex + 1) % pentagonVertices.length];
+          const edgeIndex = Math.floor((i / count) * polygonVertices.length);
+          const t = ((i / count) * polygonVertices.length) % 1;
+          const v1 = polygonVertices[edgeIndex];
+          const v2 = polygonVertices[(edgeIndex + 1) % polygonVertices.length];
 
           points.push({
             x: v1.x + (v2.x - v1.x) * t,
@@ -384,6 +352,7 @@ export class Shape implements IShape {
       width: this.width,
       height: this.height,
       radius: this.radius,
+      sides: this.sides,
       vertices: this.vertices ? [...this.vertices] : undefined,
       screws: (this.screws || []).map(screw => ({
         id: screw.id,

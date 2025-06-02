@@ -1248,7 +1248,7 @@ export class GameManager extends BaseSystem {
                 const originalPosition = { ...screw.position };
                 screw.position.x = holeX;
                 screw.position.y = holeY;
-                ScrewRenderer.renderScrew(screw, renderContext, true); // forceRender=true for container screws
+                ScrewRenderer.renderScrew(screw, renderContext, true, 0.75); // forceRender=true, scale=0.75 for container screws
                 // Restore original position
                 screw.position.x = originalPosition.x;
                 screw.position.y = originalPosition.y;
@@ -1319,7 +1319,7 @@ export class GameManager extends BaseSystem {
             const originalPosition = { ...screw.position };
             screw.position.x = x;
             screw.position.y = startY;
-            ScrewRenderer.renderScrew(screw, renderContext, true); // forceRender=true for holding hole screws
+            ScrewRenderer.renderScrew(screw, renderContext, true, 0.75); // forceRender=true, scale=0.75 for holding hole screws
             // Restore original position
             screw.position.x = originalPosition.x;
             screw.position.y = originalPosition.y;

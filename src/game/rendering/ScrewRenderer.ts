@@ -3,7 +3,7 @@ import { SCREW_COLORS, UI_CONSTANTS } from '@/game/utils/Constants';
 import { hexToRgba } from '@/game/utils/Colors';
 
 export class ScrewRenderer {
-  public static renderScrew(screw: Screw, context: RenderContext, forceRender: boolean = false): void {
+  public static renderScrew(screw: Screw, context: RenderContext, forceRender: boolean = false, scale: number = 1): void {
     const { ctx } = context;
     
     // Skip rendering collected screws unless forced (e.g., when rendering in containers/holes)
@@ -15,8 +15,8 @@ export class ScrewRenderer {
     ctx.save();
 
     const { position, color } = screw;
-    const radius = UI_CONSTANTS.screws.radius;
-    const borderWidth = UI_CONSTANTS.screws.borderWidth;
+    const radius = UI_CONSTANTS.screws.radius * scale;
+    const borderWidth = UI_CONSTANTS.screws.borderWidth * scale;
     
     // Apply shake offset to position
     const renderPosition = {
@@ -51,22 +51,22 @@ export class ScrewRenderer {
     // Add inner highlight
     ctx.fillStyle = hexToRgba('#FFFFFF', 0.3);
     ctx.beginPath();
-    const highlightX = renderPosition.x - UI_CONSTANTS.screws.highlight.offsetX;
-    const highlightY = renderPosition.y - UI_CONSTANTS.screws.highlight.offsetY;
+    const highlightX = renderPosition.x - UI_CONSTANTS.screws.highlight.offsetX * scale;
+    const highlightY = renderPosition.y - UI_CONSTANTS.screws.highlight.offsetY * scale;
     const highlightRadius = radius * UI_CONSTANTS.screws.highlight.sizeRatio;
     ctx.arc(highlightX, highlightY, highlightRadius, 0, Math.PI * 2);
     ctx.fill();
 
     // Draw cross/plus symbol
     const crossSize = radius * UI_CONSTANTS.screws.cross.sizeRatio;
-    this.drawCrossSymbol(ctx, renderPosition.x, renderPosition.y, crossSize);
+    this.drawCrossSymbol(ctx, renderPosition.x, renderPosition.y, crossSize, scale);
 
     // Draw removal indication (only in debug mode)
     if (context.debugMode) {
       if (screw.isRemovable && !screw.isBeingCollected) {
-        this.drawRemovableIndicator(ctx, renderPosition.x, renderPosition.y, radius);
+        this.drawRemovableIndicator(ctx, renderPosition.x, renderPosition.y, radius, scale);
       } else if (!screw.isRemovable && !screw.isCollected) {
-        this.drawBlockedIndicator(ctx, renderPosition.x, renderPosition.y, radius);
+        this.drawBlockedIndicator(ctx, renderPosition.x, renderPosition.y, radius, scale);
       }
     }
 
@@ -82,10 +82,11 @@ export class ScrewRenderer {
     ctx: CanvasRenderingContext2D,
     centerX: number,
     centerY: number,
-    size: number
+    size: number,
+    scale: number = 1
   ): void {
     ctx.strokeStyle = '#2C3E50';
-    ctx.lineWidth = UI_CONSTANTS.screws.cross.lineWidth;
+    ctx.lineWidth = UI_CONSTANTS.screws.cross.lineWidth * scale;
     ctx.lineCap = 'round';
 
     const halfSize = size / 2;
@@ -107,7 +108,8 @@ export class ScrewRenderer {
     ctx: CanvasRenderingContext2D,
     centerX: number,
     centerY: number,
-    radius: number
+    radius: number,
+    scale: number = 1
   ): void {
     // Subtle green glow for removable screws
     ctx.shadowColor = '#27AE60';
@@ -116,9 +118,9 @@ export class ScrewRenderer {
     ctx.shadowOffsetY = 0;
 
     ctx.strokeStyle = hexToRgba('#27AE60', 0.6);
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 * scale;
     ctx.beginPath();
-    const removableRadius = radius + UI_CONSTANTS.screws.indicators.removableRadiusOffset;
+    const removableRadius = radius + UI_CONSTANTS.screws.indicators.removableRadiusOffset * scale;
     ctx.arc(centerX, centerY, removableRadius, 0, Math.PI * 2);
     ctx.stroke();
 
@@ -131,18 +133,19 @@ export class ScrewRenderer {
     ctx: CanvasRenderingContext2D,
     centerX: number,
     centerY: number,
-    radius: number
+    radius: number,
+    scale: number = 1
   ): void {
     // Red tint for blocked screws
     ctx.fillStyle = hexToRgba('#E74C3C', 0.2);
     ctx.beginPath();
-    const blockedRadius = radius + UI_CONSTANTS.screws.indicators.blockedRadiusOffset;
+    const blockedRadius = radius + UI_CONSTANTS.screws.indicators.blockedRadiusOffset * scale;
     ctx.arc(centerX, centerY, blockedRadius, 0, Math.PI * 2);
     ctx.fill();
 
     // Blocked pattern (diagonal lines)
     ctx.strokeStyle = hexToRgba('#E74C3C', 0.6);
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 * scale;
     
     const size = radius * 0.8;
     ctx.beginPath();
@@ -232,34 +235,36 @@ export class ScrewRenderer {
     position: { x: number; y: number },
     color: string,
     radius: number,
-    context: RenderContext
+    context: RenderContext,
+    scale: number = 1
   ): void {
     const { ctx } = context;
     
     ctx.save();
     
     // Draw screw body
+    const scaledRadius = radius * scale;
     ctx.fillStyle = color;
     ctx.strokeStyle = '#2C3E50'; // Dark border
-    ctx.lineWidth = UI_CONSTANTS.screws.borderWidth;
+    ctx.lineWidth = UI_CONSTANTS.screws.borderWidth * scale;
     
     ctx.beginPath();
-    ctx.arc(position.x, position.y, radius, 0, Math.PI * 2);
+    ctx.arc(position.x, position.y, scaledRadius, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
     
     // Add inner highlight (same as main screw rendering)
     ctx.fillStyle = hexToRgba('#FFFFFF', 0.3);
     ctx.beginPath();
-    const previewHighlightX = position.x - UI_CONSTANTS.screws.highlight.offsetX;
-    const previewHighlightY = position.y - UI_CONSTANTS.screws.highlight.offsetY;
-    const previewHighlightRadius = radius * UI_CONSTANTS.screws.highlight.sizeRatio;
+    const previewHighlightX = position.x - UI_CONSTANTS.screws.highlight.offsetX * scale;
+    const previewHighlightY = position.y - UI_CONSTANTS.screws.highlight.offsetY * scale;
+    const previewHighlightRadius = scaledRadius * UI_CONSTANTS.screws.highlight.sizeRatio;
     ctx.arc(previewHighlightX, previewHighlightY, previewHighlightRadius, 0, Math.PI * 2);
     ctx.fill();
     
     // Draw cross symbol
-    const previewCrossSize = radius * UI_CONSTANTS.screws.cross.sizeRatio;
-    this.drawCrossSymbol(ctx, position.x, position.y, previewCrossSize);
+    const previewCrossSize = scaledRadius * UI_CONSTANTS.screws.cross.sizeRatio;
+    this.drawCrossSymbol(ctx, position.x, position.y, previewCrossSize, scale);
     
     ctx.restore();
   }

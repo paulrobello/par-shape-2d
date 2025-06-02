@@ -12,7 +12,7 @@ export interface Rectangle {
   height: number;
 }
 
-export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'pentagon' | 'capsule';
+export type ShapeType = 'rectangle' | 'square' | 'circle' | 'polygon' | 'capsule';
 
 export type ScrewColor = 'pink' | 'red' | 'green' | 'blue' | 'lightBlue' | 'yellow' | 'purple' | 'orange' | 'brown';
 
@@ -34,6 +34,7 @@ export interface Shape {
   width?: number;
   height?: number;
   radius?: number;
+  sides?: number; // Number of sides for polygon shapes (3-8, excluding 4)
   vertices?: Vector2[];
   body: Body;
   screws: Screw[];
@@ -163,6 +164,7 @@ export interface SerializableShape {
   width?: number;
   height?: number;
   radius?: number;
+  sides?: number;
   vertices?: Vector2[];
   screws: SerializableScrew[];
   holes: Vector2[]; // Positions where screws were removed

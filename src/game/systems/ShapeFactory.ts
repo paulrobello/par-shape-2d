@@ -2,12 +2,13 @@ import { Bodies, Body } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeType, Vector2 } from '@/types/game';
 import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS } from '@/game/utils/Constants';
-import { randomBetween, createRegularPolygonVertices } from '@/game/utils/MathUtils';
+import { randomBetween } from '@/game/utils/MathUtils';
 
 type ShapeDimensions = 
-  | { width: number; height: number } // Rectangle/Square
-  | { radius: number } // Circle/Triangle/Pentagon
-  | Record<string, never>; // For pentagon or other shapes
+  | { width: number; height: number } // Rectangle/Square/Capsule
+  | { radius: number } // Circle
+  | { radius: number; sides: number } // Polygon
+  | Record<string, never>; // Fallback
 
 export class ShapeFactory {
   private static shapeCounter = 0;
@@ -24,7 +25,7 @@ export class ShapeFactory {
     const maxRetries = 5; // Try up to 5 different shape/size combinations
     
     for (let retry = 0; retry < maxRetries; retry++) {
-      const shapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'triangle', 'pentagon', 'capsule'];
+      const shapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'polygon', 'capsule'];
       const type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
       
       const shape = this.createShapeWithPlacement(type, position, layerId, layerIndex, physicsLayerGroup, colorIndex, existingShapes, layerBounds, retry);
@@ -68,11 +69,8 @@ export class ShapeFactory {
       case 'circle':
         dimensions = this.createCircleDimensions(sizeReduction);
         break;
-      case 'triangle':
-        dimensions = this.createTriangleDimensions(sizeReduction);
-        break;
-      case 'pentagon':
-        dimensions = this.createPentagonDimensions(sizeReduction);
+      case 'polygon':
+        dimensions = this.createPolygonDimensions(sizeReduction);
         break;
       case 'capsule':
         dimensions = this.createCapsuleDimensions(sizeReduction);
@@ -101,11 +99,8 @@ export class ShapeFactory {
       case 'circle':
         body = this.createCircleBody(finalPosition, dimensions as { radius: number });
         break;
-      case 'triangle':
-        body = this.createTriangleBody(finalPosition, dimensions as { radius: number });
-        break;
-      case 'pentagon':
-        body = this.createPentagonBody(finalPosition, dimensions as { radius: number });
+      case 'polygon':
+        body = this.createPolygonBody(finalPosition, dimensions as { radius: number; sides: number });
         break;
       case 'capsule':
         const capsuleResult = this.createCapsuleBody(finalPosition, dimensions as { width: number; height: number });
@@ -305,10 +300,11 @@ export class ShapeFactory {
         const rectDims = dimensions as { width: number; height: number };
         return Math.max(rectDims.width, rectDims.height) / 2;
       case 'circle':
-      case 'triangle':
-      case 'pentagon':
         const circleDims = dimensions as { radius: number };
         return circleDims.radius;
+      case 'polygon':
+        const polygonDims = dimensions as { radius: number; sides: number };
+        return polygonDims.radius;
       default:
         return 50; // Fallback radius
     }
@@ -322,10 +318,8 @@ export class ShapeFactory {
         return 88; // 87.5% increase: 42*1.875=79, rounded up for safety
       case 'circle':
         return 90; // 87.5% increase: 48*1.875=90
-      case 'triangle':
-        return 101; // 87.5% increase: 54*1.875=101
-      case 'pentagon':
-        return 90; // 87.5% increase: 48*1.875=90
+      case 'polygon':
+        return 101; // 87.5% increase: 54*1.875=101 (covers triangles up to octagons)
       case 'capsule':
         // Max width for 8 screws: 8 * 24 + 7 * 5 = 227
         return 114; // Half of max width
@@ -368,15 +362,14 @@ export class ShapeFactory {
     };
   }
 
-  private static createTriangleDimensions(sizeReduction: number = 0) {
+  private static createPolygonDimensions(sizeReduction: number = 0) {
+    // Generate polygon with 3-8 sides (excluding 4 for rectangles/squares)
+    const possibleSides = [3, 5, 6, 7, 8]; // Exclude 4 sides
+    const sides = possibleSides[Math.floor(Math.random() * possibleSides.length)];
+    
     return {
       radius: Math.round(randomBetween(56, 101) * (1 - sizeReduction)), // 87.5% increase: 30*1.875=56, 54*1.875=101
-    };
-  }
-
-  private static createPentagonDimensions(sizeReduction: number = 0) {
-    return {
-      radius: Math.round(randomBetween(56, 90) * (1 - sizeReduction)), // 87.5% increase: 30*1.875=56, 48*1.875=90
+      sides: sides
     };
   }
 
@@ -421,28 +414,12 @@ export class ShapeFactory {
     );
   }
 
-  private static createTriangleBody(position: Vector2, dimensions: { radius: number }): Body {
-    const vertices = createRegularPolygonVertices(position, dimensions.radius, 3);
-    const matterVertices = vertices.map(v => ({ x: v.x, y: v.y }));
-    
-    return Bodies.fromVertices(
-      position.x,
-      position.y,
-      [matterVertices],
-      {
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false },
-      }
-    );
-  }
-
-  private static createPentagonBody(position: Vector2, dimensions: { radius: number }): Body {
-    // Use a pentagon (5-sided polygon) 
-    // This provides a pentagon shape with stable physics
+  private static createPolygonBody(position: Vector2, dimensions: { radius: number; sides: number }): Body {
+    // Use Matter.js Bodies.polygon for consistent physics behavior
     return Bodies.polygon(
       position.x,
       position.y,
-      5, // 5 sides for pentagon
+      dimensions.sides,
       dimensions.radius,
       {
         ...PHYSICS_CONSTANTS.shape,

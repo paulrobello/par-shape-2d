@@ -10,7 +10,7 @@ import { Shape } from '@/game/entities/Shape';
 import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
 import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS } from '@/game/utils/Constants';
 import { getRandomScrewColor } from '@/game/utils/Colors';
-import { randomIntBetween, createRegularPolygonVertices } from '@/game/utils/MathUtils';
+import { randomIntBetween } from '@/game/utils/MathUtils';
 import {
   ShapeCreatedEvent,
   ShapeDestroyedEvent,
@@ -798,46 +798,26 @@ export class ScrewManager extends BaseSystem {
         }
         break;
         
-      case 'triangle':
-        const triRadius = shape.radius || 30;
+      case 'polygon':
+        const polygonRadius = shape.radius || 30;
+        const polygonSides = shape.sides || 5; // Default to pentagon if not specified
         
-        if (triRadius < minSeparation / 2 + margin) {
-          // Small triangle - only center
+        if (polygonRadius < minSeparation / 2 + margin) {
+          // Small polygon - only center
           corners = [];
         } else {
-          const vertices = createRegularPolygonVertices(shape.position, triRadius, 3);
+          // Generate polygon vertices
+          const polygonVertices: Vector2[] = [];
+          for (let i = 0; i < polygonSides; i++) {
+            const angle = (i * Math.PI * 2) / polygonSides - Math.PI / 2;
+            polygonVertices.push({
+              x: shape.position.x + Math.cos(angle) * polygonRadius,
+              y: shape.position.y + Math.sin(angle) * polygonRadius,
+            });
+          }
           
           // Calculate positions inset from each vertex
-          corners = vertices.map(vertex => {
-            const direction = {
-              x: shape.position.x - vertex.x,
-              y: shape.position.y - vertex.y
-            };
-            const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-            const normalized = {
-              x: direction.x / length,
-              y: direction.y / length
-            };
-            
-            return {
-              x: vertex.x + normalized.x * margin,
-              y: vertex.y + normalized.y * margin
-            };
-          });
-        }
-        break;
-        
-      case 'pentagon':
-        const pentagonRadius = shape.radius || 30;
-        
-        if (pentagonRadius < minSeparation / 2 + margin) {
-          // Small pentagon - only center
-          corners = [];
-        } else {
-          const pentagonVertices = createRegularPolygonVertices(shape.position, pentagonRadius, 5);
-          
-          // For pentagon, use all 5 vertices inset by margin
-          corners = pentagonVertices.map(vertex => {
+          corners = polygonVertices.map(vertex => {
             const direction = {
               x: shape.position.x - vertex.x,
               y: shape.position.y - vertex.y
@@ -924,12 +904,11 @@ export class ScrewManager extends BaseSystem {
       case 'circle':
         const radius = shape.radius || 30;
         return Math.PI * radius * radius;
-      case 'triangle':
-        const triRadius = shape.radius || 30;
-        return (Math.sqrt(3) / 4) * Math.pow(triRadius * 2, 2);
-      case 'pentagon':
-        const pentagonRadius = shape.radius || 30;
-        return 2.5 * pentagonRadius * pentagonRadius * Math.sin(Math.PI * 2 / 5);
+      case 'polygon':
+        const polygonRadius = shape.radius || 30;
+        const polygonSides = shape.sides || 5;
+        // General formula for regular polygon area: (n * r^2 * sin(2π/n)) / 2
+        return (polygonSides * polygonRadius * polygonRadius * Math.sin(2 * Math.PI / polygonSides)) / 2;
       case 'capsule':
         const capsuleWidth = shape.width || 120;
         const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
@@ -1647,8 +1626,7 @@ export class ScrewManager extends BaseSystem {
       case 'rectangle':
       case 'square':
         return this.isCircleIntersectingRectangle(center, radius, shape);
-      case 'triangle':
-      case 'pentagon':
+      case 'polygon':
         return this.isCircleIntersectingPolygon(center, radius, shape);
       case 'capsule':
         return this.isCircleIntersectingCapsule(center, radius, shape);
@@ -1688,11 +1666,78 @@ export class ScrewManager extends BaseSystem {
 
   private isCircleIntersectingPolygon(center: Vector2, radius: number, shape: Shape): boolean {
     const shapeRadius = shape.radius || 30;
-    const distance = Math.sqrt(
-      Math.pow(center.x - shape.position.x, 2) + 
-      Math.pow(center.y - shape.position.y, 2)
-    );
-    return distance < (radius + shapeRadius * 0.8);
+    const sides = shape.sides || 5; // Default to 5 sides if not specified
+    
+    // Transform screw center to local coordinates (same as rectangle method)
+    const cos = Math.cos(-shape.rotation);
+    const sin = Math.sin(-shape.rotation);
+    const dx = center.x - shape.position.x;
+    const dy = center.y - shape.position.y;
+    const localX = dx * cos - dy * sin;
+    const localY = dx * sin + dy * cos;
+    
+    // For precise polygon intersection, we need to check if the circle intersects with the polygon
+    // Generate the polygon vertices in local space
+    const vertices: Vector2[] = [];
+    for (let i = 0; i < sides; i++) {
+      const angle = (i * Math.PI * 2) / sides - Math.PI / 2; // Start from top
+      vertices.push({
+        x: Math.cos(angle) * shapeRadius,
+        y: Math.sin(angle) * shapeRadius
+      });
+    }
+    
+    // Check if circle center is inside polygon
+    if (this.isPointInPolygon({ x: localX, y: localY }, vertices)) {
+      return true;
+    }
+    
+    // Check if circle intersects any edge of the polygon
+    for (let i = 0; i < vertices.length; i++) {
+      const v1 = vertices[i];
+      const v2 = vertices[(i + 1) % vertices.length];
+      
+      if (this.isCircleIntersectingLineSegment({ x: localX, y: localY }, radius, v1, v2)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  private isPointInPolygon(point: Vector2, vertices: Vector2[]): boolean {
+    let inside = false;
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      if (((vertices[i].y > point.y) !== (vertices[j].y > point.y)) &&
+          (point.x < (vertices[j].x - vertices[i].x) * (point.y - vertices[i].y) / (vertices[j].y - vertices[i].y) + vertices[i].x)) {
+        inside = !inside;
+      }
+    }
+    return inside;
+  }
+  
+  private isCircleIntersectingLineSegment(center: Vector2, radius: number, p1: Vector2, p2: Vector2): boolean {
+    // Find the closest point on the line segment to the circle center
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    const lengthSquared = dx * dx + dy * dy;
+    
+    if (lengthSquared === 0) {
+      // Degenerate case: line segment is a point
+      const distanceSquared = Math.pow(center.x - p1.x, 2) + Math.pow(center.y - p1.y, 2);
+      return distanceSquared <= radius * radius;
+    }
+    
+    // Project center onto the line
+    const t = Math.max(0, Math.min(1, ((center.x - p1.x) * dx + (center.y - p1.y) * dy) / lengthSquared));
+    const closestPoint = {
+      x: p1.x + t * dx,
+      y: p1.y + t * dy
+    };
+    
+    // Check distance from center to closest point
+    const distanceSquared = Math.pow(center.x - closestPoint.x, 2) + Math.pow(center.y - closestPoint.y, 2);
+    return distanceSquared <= radius * radius;
   }
 
   private isCircleIntersectingCapsule(center: Vector2, radius: number, shape: Shape): boolean {
@@ -1700,36 +1745,41 @@ export class ScrewManager extends BaseSystem {
     const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
     const capsuleRadius = capsuleHeight / 2; // Radius of the semicircle ends
     
+    // Transform screw center to local coordinates (same as rectangle method)
+    const cos = Math.cos(-shape.rotation);
+    const sin = Math.sin(-shape.rotation);
+    const dx = center.x - shape.position.x;
+    const dy = center.y - shape.position.y;
+    const localX = dx * cos - dy * sin;
+    const localY = dx * sin + dy * cos;
+    
     // Capsule geometry: rectangle in the middle + two circles at the ends
     const rectWidth = capsuleWidth - (2 * capsuleRadius);
     
-    // Check intersection with the middle rectangle
-    const rectBounds = {
-      x: shape.position.x - rectWidth / 2,
-      y: shape.position.y - capsuleHeight / 2,
-      width: rectWidth,
-      height: capsuleHeight
-    };
+    // Check intersection with the middle rectangle (in local coordinates)
+    const halfRectWidth = rectWidth / 2;
+    const halfCapsuleHeight = capsuleHeight / 2;
+    const closestX = Math.max(-halfRectWidth, Math.min(halfRectWidth, localX));
+    const closestY = Math.max(-halfCapsuleHeight, Math.min(halfCapsuleHeight, localY));
     
-    if (this.isCircleIntersectingRectangleBounds(center, radius, rectBounds)) {
+    const rectDistanceSquared = Math.pow(localX - closestX, 2) + Math.pow(localY - closestY, 2);
+    if (rectDistanceSquared < (radius * radius)) {
       return true;
     }
     
-    // Check intersection with left semicircle
-    const leftCircleCenter = {
-      x: shape.position.x - rectWidth / 2,
-      y: shape.position.y
-    };
-    if (this.isCircleIntersectingCircleGeometry(center, radius, leftCircleCenter, capsuleRadius)) {
+    // Check intersection with left semicircle (in local coordinates)
+    const leftCircleLocalX = -rectWidth / 2;
+    const leftCircleLocalY = 0;
+    const leftDistanceSquared = Math.pow(localX - leftCircleLocalX, 2) + Math.pow(localY - leftCircleLocalY, 2);
+    if (leftDistanceSquared < Math.pow(radius + capsuleRadius, 2)) {
       return true;
     }
     
-    // Check intersection with right semicircle
-    const rightCircleCenter = {
-      x: shape.position.x + rectWidth / 2,
-      y: shape.position.y
-    };
-    if (this.isCircleIntersectingCircleGeometry(center, radius, rightCircleCenter, capsuleRadius)) {
+    // Check intersection with right semicircle (in local coordinates)
+    const rightCircleLocalX = rectWidth / 2;
+    const rightCircleLocalY = 0;
+    const rightDistanceSquared = Math.pow(localX - rightCircleLocalX, 2) + Math.pow(localY - rightCircleLocalY, 2);
+    if (rightDistanceSquared < Math.pow(radius + capsuleRadius, 2)) {
       return true;
     }
     
@@ -2005,16 +2055,19 @@ export class ScrewManager extends BaseSystem {
   }
 
   private calculateContainerHolePosition(containerIndex: number, holeIndex: number): Vector2 {
-    // Use actual UI constants to match the calculation logic in GameState
+    // Use actual UI constants to match the calculation logic in GameState and GameManager
     const containerWidth = UI_CONSTANTS.containers.width;
     const containerHeight = UI_CONSTANTS.containers.height;  
     const spacing = UI_CONSTANTS.containers.spacing;
     const startY = UI_CONSTANTS.containers.startY;
-    const currentWidth = GAME_CONFIG.canvas.width;
+    const virtualGameWidth = this.state.virtualGameWidth; // Use current virtual game width instead of canvas width
     const totalWidth = (this.state.containers.length * containerWidth) + ((this.state.containers.length - 1) * spacing);
-    const startX = (currentWidth - totalWidth) / 2;
+    const startX = (virtualGameWidth - totalWidth) / 2;
     const containerX = startX + (containerIndex * (containerWidth + spacing));
-    const holeSpacing = containerWidth / 4;
+    
+    // Use the same hole spacing calculation as GameManager and GameState
+    const holeCount = UI_CONSTANTS.containers.hole.count;
+    const holeSpacing = containerWidth / (holeCount + 1); // +1 for proper spacing
     const holeX = containerX + holeSpacing + (holeIndex * holeSpacing);
     const holeY = startY + containerHeight / 2;
     
