@@ -5,9 +5,9 @@
   "enabled": true,
   "dimensions": {
     "type": "random",
-    "width": { "min": 75, "max": 150 },
-    "height": { "min": 30, "max": 120 },
-    "aspectRatio": { "min": 0.4, "max": 2.5 },
+    "width": { "min": 90, "max": 180 },
+    "height": { "min": 20, "max": 40 },
+    "aspectRatio": { "min": 3.0, "max": 5.0 },
     "sides": 4,
     "reductionFactor": 0.15
   },

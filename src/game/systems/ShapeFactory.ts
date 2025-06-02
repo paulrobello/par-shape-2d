@@ -5,6 +5,7 @@ import { ShapeDefinition, ShapeDimensions } from '@/types/shapes';
 import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS } from '@/game/utils/Constants';
 import { randomBetween } from '@/game/utils/MathUtils';
 import { ShapeRegistry } from './ShapeRegistry';
+import { DEBUG_CONFIG } from '@/game/utils/Constants';
 import * as decomp from 'poly-decomp-es';
 
 export class ShapeFactory {
@@ -22,6 +23,10 @@ export class ShapeFactory {
     const registry = ShapeRegistry.getInstance();
     const enabledShapes = registry.getEnabledShapes();
     
+    if (DEBUG_CONFIG.logShapeCreation) {
+      console.log(`🎲 Creating random shape from ${enabledShapes.length} enabled shapes:`, enabledShapes.map(s => s.id));
+    }
+    
     if (enabledShapes.length === 0) {
       throw new Error('No shapes enabled in configuration');
     }
@@ -31,6 +36,10 @@ export class ShapeFactory {
     for (let retry = 0; retry < maxRetries; retry++) {
       // Select a random shape definition
       const definition = enabledShapes[Math.floor(Math.random() * enabledShapes.length)];
+      
+      if (DEBUG_CONFIG.logShapeCreation) {
+        console.log(`🎯 Attempt ${retry + 1}: Selected shape "${definition.id}" (${definition.category})`);
+      }
       
       const shape = this.createShapeWithPlacement(
         definition,
@@ -45,6 +54,9 @@ export class ShapeFactory {
       );
       
       if (shape) {
+        if (DEBUG_CONFIG.logShapeCreation) {
+          console.log(`✅ Successfully created ${definition.id} shape`);
+        }
         return shape;
       }
       
@@ -157,6 +169,10 @@ export class ShapeFactory {
     const dims = definition.dimensions;
     const reduction = 1 - sizeReduction;
     
+    if (DEBUG_CONFIG.logShapeCreation && definition.id === 'rectangle') {
+      console.log(`🔧 Generating dimensions for ${definition.id}, reduction: ${reduction}`);
+    }
+    
     switch (definition.category) {
       case 'basic':
         if (definition.id === 'rectangle') {
@@ -217,16 +233,51 @@ export class ShapeFactory {
           let width = randomBetween(widthRange.min, widthRange.max) * reduction;
           let height = randomBetween(heightRange.min, heightRange.max) * reduction;
           
+          if (DEBUG_CONFIG.logShapeCreation && definition.id === 'rectangle') {
+            console.log(`🔧 Rectangle initial dimensions: width=${width.toFixed(1)}, height=${height.toFixed(1)}`);
+          }
+          
           // Apply aspect ratio constraints if defined
           if (dims.aspectRatio) {
             const aspectRatioRange = dims.aspectRatio as { min: number; max: number };
             const targetRatio = randomBetween(aspectRatioRange.min, aspectRatioRange.max);
             const currentRatio = width / height;
             
+            if (DEBUG_CONFIG.logShapeCreation && definition.id === 'rectangle') {
+              console.log(`🔧 Rectangle aspect ratio: current=${currentRatio.toFixed(2)}, target=${targetRatio.toFixed(2)}`);
+            }
+            
+            // Try to adjust to target ratio while staying within original bounds
             if (currentRatio > targetRatio) {
-              width = height * targetRatio;
+              // Width is too large relative to height, try to reduce width first
+              const newWidth = height * targetRatio;
+              if (newWidth >= widthRange.min && newWidth <= widthRange.max) {
+                width = newWidth;
+              } else if (newWidth < widthRange.min) {
+                // Width would be too small, increase height instead
+                const newHeight = width / targetRatio;
+                if (newHeight >= heightRange.min && newHeight <= heightRange.max) {
+                  height = newHeight;
+                }
+                // If neither adjustment works, keep original dimensions
+              }
             } else {
-              height = width / targetRatio;
+              // Height is too large relative to width, try to reduce height first
+              const newHeight = width / targetRatio;
+              if (newHeight >= heightRange.min && newHeight <= heightRange.max) {
+                height = newHeight;
+              } else if (newHeight < heightRange.min) {
+                // Height would be too small, increase width instead
+                const newWidth = height * targetRatio;
+                if (newWidth >= widthRange.min && newWidth <= widthRange.max) {
+                  width = newWidth;
+                }
+                // If neither adjustment works, keep original dimensions
+              }
+            }
+            
+            if (DEBUG_CONFIG.logShapeCreation && definition.id === 'rectangle') {
+              console.log(`🔧 Rectangle final dimensions: width=${width.toFixed(1)}, height=${height.toFixed(1)}, final ratio=${(width/height).toFixed(2)}`);
             }
           }
           
@@ -273,7 +324,14 @@ export class ShapeFactory {
           return Math.max(dimensions.width!, dimensions.height!) / 2;
         }
       case 'polygon':
-        return dimensions.radius!;
+        // Handle both regular polygons (with radius) and irregular polygons (with width/height like rectangle)
+        if (dimensions.radius) {
+          return dimensions.radius;
+        } else if (dimensions.width && dimensions.height) {
+          return Math.max(dimensions.width, dimensions.height) / 2;
+        } else {
+          return 50; // fallback
+        }
       case 'path':
         // Estimate based on scale
         return 60 * (dimensions.scale || 1);
@@ -469,7 +527,7 @@ export class ShapeFactory {
     // Map definition IDs to ShapeTypes
     const typeMapping: Record<string, ShapeType> = {
       'rectangle': 'rectangle',
-      'square': 'square',
+      'square': 'polygon',
       'circle': 'circle',
       'triangle': 'polygon',
       'pentagon': 'polygon',

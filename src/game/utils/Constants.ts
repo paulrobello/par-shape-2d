@@ -114,7 +114,7 @@ export const PHYSICS_CONSTANTS = {
     friction: 0.05, // Reduced friction for more sliding
     frictionAir: 0.0005, // 10x reduced air resistance for maximum swinging motion
     restitution: 0, // Not bouncy
-    density: 0.02, // Slightly heavier for better falling motion
+    density: 0.05, // Slightly heavier for better falling motion
   },
   constraint: {
     stiffness: 1,
@@ -135,6 +135,8 @@ export const DEBUG_CONFIG = {
   logShapeDestruction: false,
   // Set to true to log physics updates (🔧 Physics Update: messages)
   logPhysicsUpdates: false,
+  // Set to true to debug shape creation issues
+  logShapeCreation: false,
 } as const;
 
 // SHAPE_CONFIG.enabledShapes removed - shapes are now controlled by the "enabled" field in individual JSON files
