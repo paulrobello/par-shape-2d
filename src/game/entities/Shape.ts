@@ -205,7 +205,7 @@ export class Shape implements IShape {
   private createCapsulePath(): Path2D {
     const path = new Path2D();
     const w = this.width || 120; // Default width
-    const h = this.height || (UI_CONSTANTS.screws.radius * 2); // Default height (2x screw radius)
+    const h = this.height || (UI_CONSTANTS.screws.radius * 2 + 10); // Default height (2x screw radius + 10px)
     const radius = h / 2; // Circle radius is half the height
 
     // Draw capsule centered at position
@@ -326,7 +326,7 @@ export class Shape implements IShape {
 
       case 'capsule':
         const capsuleW = this.width || 120;
-        const capsuleH = this.height || 24;
+        const capsuleH = this.height || (UI_CONSTANTS.screws.radius * 2 + 10);
         const capsuleRadius = capsuleH / 2;
         
         // Generate points along the capsule perimeter

@@ -844,21 +844,27 @@ export class ScrewManager extends BaseSystem {
         
       case 'capsule':
         const capsuleWidth = shape.width || 120;
-        const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2);
+        const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
+        const capsuleRadius = capsuleHeight / 2; // Radius of the semicircle ends
         
         // Calculate screw positions evenly along the capsule's top edge
-        // The capsule was designed to hold between 3 and 6 screws
+        // The capsule was designed to hold between 3 and 8 screws
         const capsuleScrewRadius = UI_CONSTANTS.screws.radius;
         const spacing = 5; // Same spacing used in dimensions calculation
         
-        // Calculate how many screws can fit
-        const maxScrews = Math.floor((capsuleWidth + spacing) / (capsuleScrewRadius * 2 + spacing));
-        const actualScrewCount = Math.min(maxScrews, 6); // Cap at 6 screws
+        // The straight part of the capsule is the width minus the two semicircle ends
+        const straightPartWidth = capsuleWidth - (2 * capsuleRadius);
         
-        // Calculate positions along the top edge
+        // Calculate how many screws can fit along the straight part
+        const maxScrews = Math.floor((straightPartWidth + spacing) / (capsuleScrewRadius * 2 + spacing));
+        const actualScrewCount = Math.min(maxScrews, 8); // Cap at 8 screws
+        
+        // Calculate positions along the top edge of the straight part
         const totalScrewWidth = actualScrewCount * capsuleScrewRadius * 2 + (actualScrewCount - 1) * spacing;
         const startX = shape.position.x - totalScrewWidth / 2 + capsuleScrewRadius;
-        const y = shape.position.y - capsuleHeight / 2; // Top edge
+        
+        // Y position should be at the top of the straight part, with margin from the edge
+        const y = shape.position.y - capsuleHeight / 2 + margin;
         
         corners = [];
         for (let i = 0; i < actualScrewCount; i++) {
@@ -898,7 +904,7 @@ export class ScrewManager extends BaseSystem {
         return 2.5 * starRadius * starRadius * Math.sin(Math.PI * 2 / 5);
       case 'capsule':
         const capsuleWidth = shape.width || 120;
-        const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2);
+        const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
         const capsuleRadius = capsuleHeight / 2;
         // Area = rectangle area + 2 semicircles (which equal one full circle)
         const rectArea = (capsuleWidth - capsuleHeight) * capsuleHeight;

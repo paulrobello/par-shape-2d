@@ -327,8 +327,8 @@ export class ShapeFactory {
       case 'star':
         return 90; // 87.5% increase: 48*1.875=90
       case 'capsule':
-        // Max width for 6 screws: 6 * 24 + 5 * 5 = 169
-        return 85; // Half of max width
+        // Max width for 8 screws: 8 * 24 + 7 * 5 = 227
+        return 114; // Half of max width
       default:
         return 90; // 87.5% increase: 48*1.875=90
     }
@@ -383,10 +383,10 @@ export class ShapeFactory {
   private static createCapsuleDimensions(sizeReduction: number = 0) {
     // Import constants properly
     const screwRadius = UI_CONSTANTS.screws.radius;
-    const height = screwRadius * 2; // Height is double the screw radius
+    const height = screwRadius * 2 + 10; // Height is double the screw radius + 10px
     
-    // Length is between 3 and 6 screws with 5 pixels between each
-    const screwCount = Math.floor(randomBetween(3, 7)); // 3 to 6 screws
+    // Length is between 3 and 8 screws with 5 pixels between each
+    const screwCount = Math.floor(randomBetween(3, 9)); // 3 to 8 screws
     const screwSpacing = 5; // Space between screws
     const width = screwCount * (screwRadius * 2) + (screwCount - 1) * screwSpacing;
     
