@@ -579,7 +579,7 @@ export class ShapeFactory {
     const vertices = Vertices.fromPath(dimensions.path);
 
     // Scale the vertices around their center
-    if (dimensions.scale !== 1) {
+    if (dimensions.scale !== 1 && dimensions.scale>0) {
       const initialBounds = Bounds.create(vertices);
       const center = {
         x: (initialBounds.min.x + initialBounds.max.x) / 2,
