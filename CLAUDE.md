@@ -15,6 +15,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Always try to use proper types or type unions
 - Try not to duplicate code, if multiple areas could benefit for some functionality reason about how it could best be shared.
 
+## Debug Logging
+
+The game includes a debug logging system controlled by `DEBUG_CONFIG` in `src/game/utils/Constants.ts`. To enable specific debug logs:
+
+```typescript
+export const DEBUG_CONFIG = {
+  enableVerboseLogging: false,      // General verbose logging
+  logContainerRendering: false,     // Container/hole rendering details
+  logScrewPlacement: false,         // Screw placement in containers/holes
+  logPhysicsStateChanges: false,    // Physics state transitions
+  logShapeDestruction: false,       // Shape destruction details
+};
+```
+
+Set any flag to `true` to enable that category of logging. This helps debug specific issues without flooding the console.
+
 ## Workflow
 
 - **Important:** After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.

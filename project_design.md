@@ -865,6 +865,19 @@ Comprehensive debugging tools accessible via keyboard shortcuts:
 - **I**: Inspect save data structure
 - **C**: Clear all save data
 
+**Debug Logging Control**:
+The game includes a configurable debug logging system in `Constants.ts`:
+```typescript
+export const DEBUG_CONFIG = {
+  enableVerboseLogging: false,      // General verbose logging
+  logContainerRendering: false,     // Container/hole rendering details
+  logScrewPlacement: false,         // Screw placement in containers/holes
+  logPhysicsStateChanges: false,    // Physics state transitions
+  logShapeDestruction: false,       // Shape destruction details
+};
+```
+This allows selective enabling of debug logs without console spam during normal gameplay.
+
 ### Save Data Inspection
 Detailed save data analysis for debugging:
 - Complete game state structure

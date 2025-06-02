@@ -122,6 +122,19 @@ export const PHYSICS_CONSTANTS = {
   },
 } as const;
 
+export const DEBUG_CONFIG = {
+  // Set to true to enable verbose debug logging
+  enableVerboseLogging: false,
+  // Set to true to log container rendering details
+  logContainerRendering: false,
+  // Set to true to log screw placement details
+  logScrewPlacement: false,
+  // Set to true to log physics state changes
+  logPhysicsStateChanges: false,
+  // Set to true to log shape destruction details
+  logShapeDestruction: false,
+} as const;
+
 /**
  * Calculate total layers for a given level
  * Levels 1-3: 10 layers

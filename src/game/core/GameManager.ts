@@ -8,7 +8,7 @@ import { BaseSystem } from './BaseSystem';
 import { GameLoop } from './GameLoop';
 import { eventBus } from '@/game/events/EventBus';
 import { ScrewManager } from '@/game/systems/ScrewManager';
-import { GAME_CONFIG, SCREW_COLORS, LAYOUT_CONSTANTS, UI_CONSTANTS, getTotalLayersForLevel } from '@/game/utils/Constants';
+import { GAME_CONFIG, SCREW_COLORS, LAYOUT_CONSTANTS, UI_CONSTANTS, getTotalLayersForLevel, DEBUG_CONFIG } from '@/game/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { Vector2, Container, HoldingHole, RenderContext, Screw } from '@/types/game';
 import { Layer } from '@/game/entities/Layer';
@@ -797,7 +797,9 @@ export class GameManager extends BaseSystem {
     // Apply identity transformation
     this.state.ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-    console.log(`Canvas scaling updated: canvas=${canvasWidth}x${canvasHeight}, virtual=${this.state.virtualGameWidth}x${this.state.virtualGameHeight}, scale=1:1, no offset`);
+    if (DEBUG_CONFIG.enableVerboseLogging) {
+      console.log(`Canvas scaling updated: canvas=${canvasWidth}x${canvasHeight}, virtual=${this.state.virtualGameWidth}x${this.state.virtualGameHeight}, scale=1:1, no offset`);
+    }
   }
 
   private transformCanvasCoordinates(clientX: number, clientY: number): Vector2 {
@@ -1190,11 +1192,13 @@ export class GameManager extends BaseSystem {
     // Center the containers horizontally
     const totalWidth = (this.state.containers.length * containerWidth) + ((this.state.containers.length - 1) * spacing);
     const startX = (this.state.virtualGameWidth - totalWidth) / 2;
-    console.log(`🎨 GameManager: virtualGameWidth=${this.state.virtualGameWidth}, totalWidth=${totalWidth}, startX=${startX}`);
+    if (DEBUG_CONFIG.logContainerRendering) {
+      console.log(`🎨 GameManager: virtualGameWidth=${this.state.virtualGameWidth}, totalWidth=${totalWidth}, startX=${startX}`);
+    }
 
     this.state.containers.forEach((container, index) => {
       const x = startX + (index * (containerWidth + spacing));
-      if (index === 0) {
+      if (DEBUG_CONFIG.logContainerRendering && index === 0) {
         console.log(`🎨 GameManager: Rendering container ${index} at leftX=${x}, storedCenterX=${container.position.x}, containerWidth=${containerWidth}`);
       }
       
@@ -1222,7 +1226,7 @@ export class GameManager extends BaseSystem {
       for (let i = 0; i < holeCount; i++) {
         const holeX = x + holeSpacing + (i * holeSpacing);
         const holeY = startY + containerHeight / 2;
-        if (index === 0) { // Log all holes for first container to see the pattern
+        if (DEBUG_CONFIG.logContainerRendering && index === 0) { // Log all holes for first container to see the pattern
           console.log(`🎨 Rendering container ${index} hole ${i}: containerX=${x}, holeSpacing=${holeSpacing}, final holeX=${holeX}, holeY=${holeY}`);
         }
         
@@ -1239,7 +1243,7 @@ export class GameManager extends BaseSystem {
             if (screwManager) {
               const screw = screwManager.getScrew(screwId);
               if (screw) {
-                if (index === 0 && i === 0) { // Log first screw for debugging
+                if (DEBUG_CONFIG.logContainerRendering && index === 0 && i === 0) { // Log first screw for debugging
                   console.log(`🎨 Rendering screw ${screwId} in container ${index} hole ${i}`);
                 }
                 const renderContext: RenderContext = { 

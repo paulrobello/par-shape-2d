@@ -8,7 +8,7 @@ import { Constraint, Bodies, Body, Sleeping } from 'matter-js';
 import { Screw } from '@/game/entities/Screw';
 import { Shape } from '@/game/entities/Shape';
 import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
-import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS } from '@/game/utils/Constants';
+import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/game/utils/Constants';
 import { getRandomScrewColor } from '@/game/utils/Colors';
 import { randomIntBetween } from '@/game/utils/MathUtils';
 import {
@@ -204,7 +204,9 @@ export class ScrewManager extends BaseSystem {
       this.state.screws.forEach((screw, screwId) => {
         if (screw.shapeId === event.shape.id) {
           // Only screws still attached to the shape will match this condition
-          console.log(`🔍 Screw ${screwId} still belongs to destroyed shape ${event.shape.id} - isCollected: ${screw.isCollected}, targetType: ${screw.targetType}`);
+          if (DEBUG_CONFIG.logShapeDestruction) {
+            console.log(`🔍 Screw ${screwId} still belongs to destroyed shape ${event.shape.id} - isCollected: ${screw.isCollected}, targetType: ${screw.targetType}`);
+          }
           screwsToRemove.push(screwId);
         }
       });
@@ -309,7 +311,8 @@ export class ScrewManager extends BaseSystem {
           shape.holes.push({ x: localX, y: localY });
         }
         
-        // Remove the constraint from physics world immediately so shape can fall
+        // IMPORTANT: Remove the constraint AFTER marking screw as being collected
+        // This ensures the count is correct when checking for single-screw shapes
         this.removeConstraintOnly(event.screw.id);
         
         // Check if this was the last active screw on the shape
@@ -318,9 +321,20 @@ export class ScrewManager extends BaseSystem {
           // Check if this screw being collected leaves no active screws
           const activeCount = remainingScrews.filter(s => s.id !== event.screw.id && !s.isBeingCollected).length;
           
+          if (DEBUG_CONFIG.logPhysicsStateChanges) {
+            console.log(`🔍 handleScrewClicked: Shape ${shape.id} has ${activeCount} active screws remaining after removing ${event.screw.id}`);
+            console.log(`🔍 Remaining screws: ${remainingScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected})`).join(', ')}`);
+          }
+          
           if (activeCount === 0) {
-            console.log(`Last screw removed from shape ${shape.id}, letting gravity take effect naturally`);
+            if (DEBUG_CONFIG.logPhysicsStateChanges) {
+              console.log(`Last screw removed from shape ${shape.id}, letting gravity take effect naturally`);
+            }
             // No manual forces - let gravity and physics handle the falling motion naturally
+          } else if (activeCount === 1) {
+            if (DEBUG_CONFIG.logPhysicsStateChanges) {
+              console.log(`📌 Shape ${shape.id} will have 1 screw remaining - should become dynamic in removeConstraintOnly`);
+            }
           }
           
           // Emit screw removed event for physics
@@ -1041,7 +1055,9 @@ export class ScrewManager extends BaseSystem {
       return;
     }
 
-    console.log(`📍 Placing screw ${screw.id} in ${screw.targetType} (targetContainerId: ${screw.targetContainerId}, targetHoleIndex: ${screw.targetHoleIndex})`);
+    if (DEBUG_CONFIG.logScrewPlacement) {
+      console.log(`📍 Placing screw ${screw.id} in ${screw.targetType} (targetContainerId: ${screw.targetContainerId}, targetHoleIndex: ${screw.targetHoleIndex})`);
+    }
 
     if (screw.targetType === 'holding_hole') {
       // Find the holding hole by ID
@@ -1063,7 +1079,9 @@ export class ScrewManager extends BaseSystem {
           screwId: screw.id
         });
         
-        console.log(`✅ Placed screw ${screw.id} in holding hole ${holeIndex}`);
+        if (DEBUG_CONFIG.logScrewPlacement) {
+          console.log(`✅ Placed screw ${screw.id} in holding hole ${holeIndex}`);
+        }
         
         // Check if there's now a matching container available and transfer immediately
         this.checkAndTransferFromHoldingHole(screw, holeIndex);
@@ -1102,7 +1120,9 @@ export class ScrewManager extends BaseSystem {
           });
         }
         
-        console.log(`✅ Placed screw ${screw.id} in container ${containerIndex} hole ${screw.targetHoleIndex}`);
+        if (DEBUG_CONFIG.logScrewPlacement) {
+          console.log(`✅ Placed screw ${screw.id} in container ${containerIndex} hole ${screw.targetHoleIndex}`);
+        }
       } else {
         console.error(`❌ Failed to find container for screw ${screw.id} - containerIndex: ${containerIndex}, targetHoleIndex: ${screw.targetHoleIndex}`);
       }
@@ -1225,17 +1245,21 @@ export class ScrewManager extends BaseSystem {
       // Check remaining screws for this shape after this one is removed
       const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
       const allShapeScrews = this.getScrewsForShape(screw.shapeId);
-      // Count screws that are still constraining the shape (not collected and not the one being removed)
+      // Count screws that are still constraining the shape (not collected, not being collected, and not the one being removed)
       const shapeScrews = allShapeScrews.filter(s => 
-        !s.isCollected && s.id !== screwId
+        !s.isCollected && !s.isBeingCollected && s.id !== screwId
       );
       
-      console.log(`Shape ${shape?.id}: Total screws=${allShapeScrews.length}, Constraining screws=${shapeScrews.length} after removing ${screwId}`);
-      console.log(`  Screws: ${allShapeScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected})`).join(', ')}`);
+      if (DEBUG_CONFIG.logPhysicsStateChanges) {
+        console.log(`Shape ${shape?.id}: Total screws=${allShapeScrews.length}, Constraining screws=${shapeScrews.length} after removing ${screwId}`);
+        console.log(`  Screws: ${allShapeScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected})`).join(', ')}`);
+      }
       
       if (shapeScrews.length === 0 && shape) {
         // No screws left - make shape fully dynamic
-        console.log(`🔧 Shape ${shape.id} BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)}), position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+          console.log(`🔧 Shape ${shape.id} BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)}), position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+        }
         
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
@@ -1257,36 +1281,70 @@ export class ScrewManager extends BaseSystem {
         // Preserve layer-based collision filtering - shapes should only interact within their layer
         // Don't modify collision filters to maintain proper layer separation
         const filter = shape.body.collisionFilter;
-        console.log(`🔧 Preserving layer collision filter for ${shape.id}: group=${filter.group}, category=${filter.category}, mask=${filter.mask}`);
-        
-        console.log(`🔧 Shape ${shape.id} AFTER: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)}), mass=${shape.body.mass}, density=${shape.body.density}`);
-        console.log(`Shape ${shape.id} now has no screws - made dynamic and given impulse to fall`);
+        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+          console.log(`🔧 Preserving layer collision filter for ${shape.id}: group=${filter.group}, category=${filter.category}, mask=${filter.mask}`);
+          console.log(`🔧 Shape ${shape.id} AFTER: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)}), mass=${shape.body.mass}, density=${shape.body.density}`);
+          console.log(`Shape ${shape.id} now has no screws - made dynamic and given impulse to fall`);
+        }
         
         // Ensure the shape entity updates its position from the physics body
         shape.updateFromBody();
         
         // Add multiple delayed checks to track falling motion
-        [100, 500, 1000].forEach(delay => {
-          setTimeout(() => {
-            shape.updateFromBody(); // Update shape position from physics body
-            console.log(`🔧 Shape ${shape.id} UPDATE (after ${delay}ms): position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)}), velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)}), isSleeping=${shape.body.isSleeping}`);
-          }, delay);
-        });
+        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+          [100, 500, 1000].forEach(delay => {
+            setTimeout(() => {
+              shape.updateFromBody(); // Update shape position from physics body
+              console.log(`🔧 Shape ${shape.id} UPDATE (after ${delay}ms): position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)}), velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)}), isSleeping=${shape.body.isSleeping}`);
+            }, delay);
+          });
+        }
       } else if (shapeScrews.length === 1 && shape) {
         // Only one screw left - make shape dynamic so it can swing/rotate
-        console.log(`🔧 Shape ${shape.id} has 1 screw - making dynamic for rotation. BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}`);
+        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+          console.log(`🔧 Shape ${shape.id} has 1 screw - making dynamic for rotation. BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}`);
+        }
         
+        const wasStatic = shape.body.isStatic;
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
         
         // Enhance rotational physics for single screw pivoting
-        shape.body.inertia = shape.body.mass * 2; // Increase rotational inertia
+        const oldInertia = shape.body.inertia;
+        shape.body.inertia = shape.body.mass * 3; // Increase rotational inertia for better swinging
         
         // Give a small initial angular velocity to start the swing
         Body.setAngularVelocity(shape.body, 0.02);
         
-        console.log(`🔧 Shape ${shape.id} AFTER: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, inertia=${shape.body.inertia}`);
-        console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with enhanced physics`);
+        // Apply a small perturbation force to ensure physics activation
+        Body.applyForce(shape.body, shape.body.position, {
+          x: (Math.random() - 0.5) * 0.001,
+          y: 0.001
+        });
+        
+        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+          console.log(`🔧 Shape ${shape.id} AFTER: isStatic=${shape.body.isStatic} (was ${wasStatic}), isSleeping=${shape.body.isSleeping}, inertia=${shape.body.inertia} (was ${oldInertia})`);
+          console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with enhanced physics`);
+        }
+        
+        // Verify the change took effect
+        if (shape.body.isStatic) {
+          console.error(`❌ ERROR: Shape ${shape.id} is still static after calling Body.setStatic(false)!`);
+        }
+        
+        // Add delayed checks to see if shape gets reset to static
+        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+          [50, 100, 200, 500].forEach(delay => {
+            setTimeout(() => {
+              if (shape.body.isStatic) {
+                console.error(`❌ ERROR: Shape ${shape.id} became static again after ${delay}ms!`);
+              } else {
+                console.log(`✅ Shape ${shape.id} is still dynamic after ${delay}ms`);
+              }
+            }, delay);
+          });
+        }
+        
         this.updateShapeConstraints(screw.shapeId);
       }
 
