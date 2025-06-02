@@ -2148,50 +2148,53 @@ export class ScrewManager extends BaseSystem {
     return this.state.screws.get(screwId) || null;
   }
 
+  // Method to clear all screws (used for restart)
   public clearAllScrews(): void {
     this.executeIfActive(() => {
-      // Emit constraint removed events
-      for (const [screwId, constraint] of this.state.constraints) {
-        const screw = this.state.screws.get(screwId);
-        if (screw) {
+      console.log(`Clearing all ${this.state.screws.size} screws and ${this.state.constraints.size} constraints`);
+      
+      // Remove all constraints from physics
+      this.state.constraints.forEach((constraint, screwId) => {
+        this.emit({
+          type: 'physics:constraint:removed',
+          timestamp: Date.now(),
+          constraintId: constraint.id?.toString() || screwId,
+          screw: this.state.screws.get(screwId)!
+        });
+      });
+      
+      // Remove all anchor bodies
+      this.state.screws.forEach(screw => {
+        if (screw.anchorBody) {
           this.emit({
-            type: 'physics:constraint:removed',
+            type: 'physics:body:removed:immediate',
             timestamp: Date.now(),
-            constraintId: constraint.id?.toString() || screwId,
-            screw
+            bodyId: screw.anchorBody.id.toString(),
+            anchorBody: screw.anchorBody,
+            shape: this.state.allShapes.find(s => s.id === screw.shapeId)!
           });
         }
-      }
-
-      // Emit physics body removed events for anchor bodies
-      for (const screw of this.state.screws.values()) {
-        const anchorBody = screw.anchorBody;
-        if (anchorBody) {
-          const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
-          if (shape) {
-            // Immediately remove anchor body from physics world to prevent rendering artifacts
-            this.emit({
-              type: 'physics:body:removed:immediate',
-              timestamp: Date.now(),
-              bodyId: anchorBody.id.toString(),
-              anchorBody: anchorBody, // Pass the actual body for immediate removal
-              shape
-            });
-          }
-          
-          // Clear the reference to prevent any further updates
-          screw.anchorBody = undefined;
+      });
+      
+      // Clear all holding holes
+      this.state.holdingHoles.forEach((hole, index) => {
+        if (hole.screwId) {
+          hole.screwId = null;
+          this.emit({
+            type: 'holding_hole:filled',
+            timestamp: Date.now(),
+            holeIndex: index,
+            screwId: null
+          });
         }
-      }
-
-      // Dispose all screws
-      for (const screw of this.state.screws.values()) {
-        screw.dispose();
-      }
-
+      });
+      
+      // Clear all collections
       this.state.screws.clear();
       this.state.constraints.clear();
       this.state.screwCounter = 0;
+      
+      console.log('All screws and holding holes cleared');
     });
   }
 

@@ -341,10 +341,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
   const handleStart = () => {
     if (coordinatorRef.current) {
       const gameState = coordinatorRef.current.getSystem('GameState') as GameState | null;
-      if (gameState) {
-        // Start the game by calling the GameState's startGame method
-        gameState.startGame();
-        console.log('Game started through event system');
+      const gameManager = coordinatorRef.current.getGameManager();
+      
+      if (gameState && gameManager) {
+        const managerState = gameManager.getState();
+        
+        // If game is over, perform restart instead
+        if (managerState.gameOver) {
+          console.log('Game is over, performing restart instead of start');
+          handleRestart();
+        } else {
+          // Start the game normally
+          gameState.startGame();
+          console.log('Game started through event system');
+        }
       }
     }
   };

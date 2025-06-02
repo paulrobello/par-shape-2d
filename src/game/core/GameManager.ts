@@ -724,7 +724,11 @@ export class GameManager extends BaseSystem {
     this.executeIfActive(() => {
       switch (action) {
         case 'start':
-          if (this.state.levelComplete) {
+          if (this.state.gameOver) {
+            // If game is over, restart instead
+            console.log('Game is over, performing restart instead of start');
+            this.handleMenuAction('restart');
+          } else if (this.state.levelComplete) {
             // If level is complete, advance to next level
             this.advanceToNextLevel();
           } else {
@@ -738,10 +742,33 @@ export class GameManager extends BaseSystem {
         case 'restart':
           // Clear save data and restart
           localStorage.removeItem('par-shape-2d-save');
-          this.emit({
-            type: 'game:started',
-            timestamp: Date.now()
-          });
+          
+          // Reset all game systems
+          if (this.state.systemCoordinator) {
+            const gameState = this.state.systemCoordinator.getSystem('GameState') as import('./GameState').GameState;
+            const screwManager = this.state.systemCoordinator.getSystem('ScrewManager') as import('../systems/ScrewManager').ScrewManager;
+            const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+            
+            // Clear all screws from ScrewManager
+            if (screwManager) {
+              // Clear all screws and constraints
+              screwManager.clearAllScrews();
+            }
+            
+            // Clear all layers
+            if (layerManager) {
+              layerManager.clearAllLayers();
+            }
+            
+            // Reset GameState to clear containers and holding holes
+            if (gameState) {
+              gameState.reset();
+              // Start the game after reset
+              setTimeout(() => {
+                gameState.startGame();
+              }, 100);
+            }
+          }
           break;
         case 'debug':
           console.log(`Debug button clicked. Current debugMode: ${this.state.debugMode}, will toggle to: ${!this.state.debugMode}`);
