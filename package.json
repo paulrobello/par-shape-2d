@@ -11,7 +11,7 @@
   "dependencies": {
     "matter-js": "^0.20.0",
     "next": "^15.3.3",
-    "poly-decomp": "^0.3.0",
+    "poly-decomp-es": "^0.4.2",
     "react": "^19.0.0",
     "react-device-detect": "^2.2.3",
     "react-dom": "^19.0.0"

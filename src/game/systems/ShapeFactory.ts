@@ -1,13 +1,15 @@
-import { Bodies, Body } from 'matter-js';
+import { Bodies, Body, Vertices, Bounds, Common } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeType, Vector2 } from '@/types/game';
-import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS } from '@/game/utils/Constants';
+import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS, SHAPE_CONFIG } from '@/game/utils/Constants';
 import { randomBetween } from '@/game/utils/MathUtils';
+import * as decomp from 'poly-decomp-es'
 
 type ShapeDimensions = 
   | { width: number; height: number } // Rectangle/Square/Capsule
   | { radius: number } // Circle
   | { radius: number; sides: number } // Polygon
+  | { path: string; scale: number; originalVertices?: Vector2[] } // Path-based shapes (arrow, chevron, star, horseshoe)
   | Record<string, never>; // Fallback
 
 export class ShapeFactory {
@@ -25,7 +27,15 @@ export class ShapeFactory {
     const maxRetries = 5; // Try up to 5 different shape/size combinations
     
     for (let retry = 0; retry < maxRetries; retry++) {
-      const shapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'polygon', 'capsule'];
+      // Filter enabled shapes based on configuration
+      const allShapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'polygon', 'capsule', 'arrow', 'chevron', 'star', 'horseshoe'];
+      const shapeTypes = allShapeTypes.filter(type => SHAPE_CONFIG.enabledShapes[type]);
+      
+      // If no shapes are enabled, default to circle
+      if (shapeTypes.length === 0) {
+        shapeTypes.push('circle');
+      }
+      
       const type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
       
       const shape = this.createShapeWithPlacement(type, position, layerId, layerIndex, physicsLayerGroup, colorIndex, existingShapes, layerBounds, retry);
@@ -75,6 +85,18 @@ export class ShapeFactory {
       case 'capsule':
         dimensions = this.createCapsuleDimensions(sizeReduction);
         break;
+      case 'arrow':
+        dimensions = this.createArrowDimensions(sizeReduction);
+        break;
+      case 'chevron':
+        dimensions = this.createChevronDimensions(sizeReduction);
+        break;
+      case 'star':
+        dimensions = this.createStarDimensions(sizeReduction);
+        break;
+      case 'horseshoe':
+        dimensions = this.createHorseshoeDimensions(sizeReduction);
+        break;
       default:
         dimensions = this.createCircleDimensions(sizeReduction);
     }
@@ -110,6 +132,15 @@ export class ShapeFactory {
           parts: capsuleResult.parts
         };
         break;
+      case 'arrow':
+      case 'chevron':
+      case 'star':
+      case 'horseshoe':
+        const pathResult = this.createPathBody(type, finalPosition, dimensions as { path: string; scale: number });
+        body = pathResult.body;
+        // Store original vertices for rendering
+        (dimensions as { path: string; scale: number; originalVertices?: Vector2[] }).originalVertices = pathResult.originalVertices;
+        break;
       default:
         body = this.createCircleBody(finalPosition, dimensions as { radius: number });
     }
@@ -132,7 +163,20 @@ export class ShapeFactory {
     const tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
     
     console.log(`Successfully placed ${type} shape at (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}) on retry ${retryCount}`);
-    return new Shape(id, type, finalPosition, body, layerId, color, tint, dimensions, compositeData);
+    
+    // Convert dimensions to Shape-compatible format
+    let shapeDimensions: { width?: number; height?: number; radius?: number; sides?: number; vertices?: Vector2[] } | undefined;
+    
+    if ('path' in dimensions && 'scale' in dimensions) {
+      // For path-based shapes, use original vertices for rendering
+      shapeDimensions = {
+        vertices: dimensions.originalVertices || (body.vertices as Vector2[])
+      };
+    } else {
+      shapeDimensions = dimensions as { width?: number; height?: number; radius?: number; sides?: number };
+    }
+    
+    return new Shape(id, type, finalPosition, body, layerId, color, tint, shapeDimensions, compositeData);
   }
 
   private static createMinimalShape(
@@ -305,6 +349,13 @@ export class ShapeFactory {
       case 'polygon':
         const polygonDims = dimensions as { radius: number; sides: number };
         return polygonDims.radius;
+      case 'arrow':
+      case 'chevron':
+      case 'star':
+      case 'horseshoe':
+        const pathDims = dimensions as { path: string; scale: number };
+        // Estimate radius based on typical path bounds and scale
+        return 60 * pathDims.scale; // Base radius of 60 multiplied by scale
       default:
         return 50; // Fallback radius
     }
@@ -323,6 +374,11 @@ export class ShapeFactory {
       case 'capsule':
         // Max width for 8 screws: 8 * 24 + 7 * 5 = 227
         return 114; // Half of max width
+      case 'arrow':
+      case 'chevron':
+      case 'star':
+      case 'horseshoe':
+        return 90; // Similar to other medium-sized shapes
       default:
         return 90; // 87.5% increase: 48*1.875=90
     }
@@ -386,6 +442,38 @@ export class ShapeFactory {
     return {
       width: Math.round(width * (1 - sizeReduction)),
       height: Math.round(height * (1 - sizeReduction)),
+    };
+  }
+
+  private static createArrowDimensions(sizeReduction: number = 0) {
+    const scale = randomBetween(0.8, 1.5) * (1 - sizeReduction);
+    return {
+      path: '40 0 40 20 100 20 100 80 40 80 40 100 0 50',
+      scale: scale
+    };
+  }
+
+  private static createChevronDimensions(sizeReduction: number = 0) {
+    const scale = randomBetween(0.8, 1.5) * (1 - sizeReduction);
+    return {
+      path: '100 0 75 50 100 100 25 100 0 50 25 0',
+      scale: scale
+    };
+  }
+
+  private static createStarDimensions(sizeReduction: number = 0) {
+    const scale = randomBetween(0.8, 1.5) * (1 - sizeReduction);
+    return {
+      path: '50 0 63 38 100 38 69 59 82 100 50 75 18 100 31 59 0 38 37 38',
+      scale: scale
+    };
+  }
+
+  private static createHorseshoeDimensions(sizeReduction: number = 0) {
+    const scale = randomBetween(0.8, 1.5) * (1 - sizeReduction);
+    return {
+      path: '35 7 19 17 14 38 14 58 25 79 45 85 65 84 65 66 46 67 34 59 30 44 33 29 45 23 66 23 66 7 53 7',
+      scale: scale
     };
   }
 
@@ -481,6 +569,54 @@ export class ShapeFactory {
       composite: capsuleComposite,
       parts: [rectangle, leftCircle, rightCircle]
     };
+  }
+
+  private static createPathBody(type: ShapeType, position: Vector2, dimensions: { path: string; scale: number }): { body: Body; originalVertices: Vector2[] } {
+
+    Common.setDecomp(decomp);
+    // Create vertices from path
+    // @ts-expect-error the @types lib is not up to date
+    const vertices = Vertices.fromPath(dimensions.path);
+
+    // Scale the vertices around their center
+    if (dimensions.scale !== 1) {
+      const initialBounds = Bounds.create(vertices);
+      const center = {
+        x: (initialBounds.min.x + initialBounds.max.x) / 2,
+        y: (initialBounds.min.y + initialBounds.max.y) / 2
+      };
+      Vertices.scale(vertices, dimensions.scale, dimensions.scale, center);
+    }
+    
+    // Center the vertices at origin
+    const bounds = Bounds.create(vertices);
+    const centerX = (bounds.min.x + bounds.max.x) / 2;
+    const centerY = (bounds.min.y + bounds.max.y) / 2;
+    Vertices.translate(vertices, { x: -centerX, y: -centerY }, 1);
+    
+    // Store original vertices for rendering (keep them in local coordinates relative to shape center)
+    const originalVertices: Vector2[] = vertices.map(v => ({
+      x: v.x, // Already centered at origin
+      y: v.y
+    }));
+    
+    // Create body using fromVertices with poly-decomp
+    const body = Bodies.fromVertices(
+      position.x,
+      position.y,
+      [vertices],
+      {
+        ...PHYSICS_CONSTANTS.shape,
+        render: { visible: false },
+      }
+    );
+    
+    // Ensure body is properly positioned
+    if (body) {
+      Body.setPosition(body, position);
+    }
+    
+    return { body, originalVertices };
   }
 
   private static getLayerColor(colorIndex: number): string {

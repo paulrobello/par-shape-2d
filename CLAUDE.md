@@ -68,6 +68,8 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 
 **Physics Integration** uses collision groups to separate layers. Screws are implemented as Matter.js constraints between shapes and anchor points. The physics world includes sleep management to wake unsupported shapes and prevent floating objects.
 
+**Complex Shapes**: Path-based shapes (arrow, chevron, star, horseshoe) use `Bodies.fromVertices()` with poly-decomp-es for accurate physics simulation. Original vertices are preserved separately for rendering to maintain visual accuracy.
+
 ## Documentation and References
 
 **Reference Images:** The `docs/` folder contains reference images (`sample.jpeg`) showing the desired mobile and desktop game appearance for UI/UX implementation guidance.

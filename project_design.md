@@ -340,11 +340,12 @@ for (let i = this.state.visibleLayers.length - 1; i >= 0; i--) {
 ### Shape Rendering
 Procedural shape generation with visual consistency:
 
-- **Supported Shapes**: Rectangle, Square, Circle, Polygon (3-8 sides, excluding 4), Capsule
+- **Supported Shapes**: Rectangle, Square, Circle, Polygon (3-8 sides, excluding 4), Capsule, Arrow, Chevron, Star, Horseshoe
 - **Visual Style**: Solid borders with translucent fills
 - **Screw Holes**: Automatically positioned based on shape geometry
 - **Tint System**: Each layer has a unique color tint
 - **Border Effects**: Consistent stroke width and styling
+- **Path-Based Shapes**: Arrow, chevron, star, and horseshoe use vertex paths with poly-decomp for physics
 
 ### Shape Sizes
 Shapes are 87.5% larger than original design for improved visibility:
@@ -354,6 +355,7 @@ Shapes are 87.5% larger than original design for improved visibility:
 - **Circle**: Radius 45-90 pixels
 - **Polygon**: Radius 56-101 pixels (3-8 sides, excluding 4-sided)
 - **Capsule**: Width based on screw count (3-8 screws), height = 2×screw radius + 10px
+- **Arrow, Chevron, Star, Horseshoe**: Random scale 0.8-1.5 applied to base vertex paths
 
 ### Shape Placement
 Advanced deterministic placement system eliminating all overlaps:
@@ -409,6 +411,32 @@ Advanced multi-stage placement algorithm with shape-specific positioning:
 2. Apply overlap detection with minimum separation distance
 3. Select non-overlapping positions up to area-based limit
 4. Fallback to center position if overlap issues occur
+
+### Shape Configuration
+**File**: `src/game/utils/Constants.ts`
+
+Dynamic shape type selection through configuration:
+
+```typescript
+export const SHAPE_CONFIG = {
+  enabledShapes: {
+    rectangle: true,
+    square: true,
+    circle: true,
+    polygon: true,
+    capsule: true,
+    arrow: true,
+    chevron: true,
+    star: true,
+    horseshoe: true,
+  },
+} as const;
+```
+
+- **Enable/Disable**: Set any shape type to `false` to exclude it from generation
+- **Runtime Control**: Shapes are filtered during generation based on configuration
+- **Fallback**: If all shapes disabled, defaults to circle shape
+- **Path-Based Shapes**: Arrow, chevron, star, and horseshoe use vertex paths
 
 ### Physics Behavior by Screw Count
 
@@ -943,6 +971,10 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ **Rotation-Aware Blocking**: All shapes now properly handle rotation in collision detection
 - ✅ **Screw Scaling**: Container and holding hole screws render 25% smaller for visual consistency
 - ✅ **Container Hole Position Fix**: Fixed screw transfer animations to target correct hole positions
+- ✅ **Path-Based Shapes**: Added support for arrow, chevron, star, and horseshoe shapes using vertex paths
+- ✅ **Shape Configuration**: Added SHAPE_CONFIG to enable/disable specific shape types
+- ✅ **Vertex Rendering Fix**: Separate rendering vertices from physics vertices for accurate shape display
+- ✅ **Poly-Decomp Integration**: Proper complex shape physics using poly-decomp-es library
 - ✅ Ready for production use with polished visual experience
 
 ---

@@ -900,12 +900,46 @@ export class ScrewManager extends BaseSystem {
         alternates = [];
         break;
         
+      case 'arrow':
+      case 'chevron':
+      case 'star':
+      case 'horseshoe':
+        // For vertex-based shapes, use perimeter points
+        if (shape.body.vertices && shape.body.vertices.length > 0) {
+          const perimeterPoints = shape.getPerimeterPoints(8); // Get 8 evenly distributed points
+          
+          // Filter out points that are too close to the edge
+          const validPoints = perimeterPoints.filter(point => {
+            // Check if the point is inside the shape with enough margin
+            const distToEdge = this.getDistanceToNearestEdge(point, shape);
+            return distToEdge >= margin;
+          });
+          
+          // Use up to 4 points as corners
+          corners = validPoints.slice(0, 4);
+          alternates = validPoints.slice(4);
+        }
+        break;
+        
       default:
         // Fallback to just center
         break;
     }
     
     return { corners, center, alternates };
+  }
+
+  private getDistanceToNearestEdge(point: Vector2, shape: Shape): number {
+    // Simple approximation - check distance to shape center and bounds
+    const bounds = shape.getBounds();
+    const centerDist = Math.sqrt(
+      Math.pow(point.x - shape.position.x, 2) + 
+      Math.pow(point.y - shape.position.y, 2)
+    );
+    
+    // Estimate based on bounds
+    const maxDimension = Math.max(bounds.width, bounds.height);
+    return (maxDimension / 2) - centerDist;
   }
 
   private getShapeArea(shape: Shape): number {
@@ -933,6 +967,14 @@ export class ScrewManager extends BaseSystem {
         const rectArea = (capsuleWidth - capsuleHeight) * capsuleHeight;
         const circleArea = Math.PI * capsuleRadius * capsuleRadius;
         return rectArea + circleArea;
+      case 'arrow':
+      case 'chevron':
+      case 'star':
+      case 'horseshoe':
+        // For vertex-based shapes, calculate area from bounds
+        const bounds = shape.getBounds();
+        // Use 70% of bounding box area as approximation
+        return bounds.width * bounds.height * 0.7;
       default:
         return 3600;
     }
@@ -1703,6 +1745,11 @@ export class ScrewManager extends BaseSystem {
         return this.isCircleIntersectingPolygon(center, radius, shape);
       case 'capsule':
         return this.isCircleIntersectingCapsule(center, radius, shape);
+      case 'arrow':
+      case 'chevron':
+      case 'star':
+      case 'horseshoe':
+        return this.isCircleIntersectingVertexShape(center, radius, shape);
       default:
         return false;
     }
@@ -1854,6 +1901,47 @@ export class ScrewManager extends BaseSystem {
     const rightDistanceSquared = Math.pow(localX - rightCircleLocalX, 2) + Math.pow(localY - rightCircleLocalY, 2);
     if (rightDistanceSquared < Math.pow(radius + capsuleRadius, 2)) {
       return true;
+    }
+    
+    return false;
+  }
+
+  private isCircleIntersectingVertexShape(center: Vector2, radius: number, shape: Shape): boolean {
+    // For shapes defined by vertices (arrow, chevron, star, horseshoe)
+    if (!shape.body.vertices || shape.body.vertices.length === 0) {
+      return false;
+    }
+    
+    const vertices = shape.body.vertices;
+    
+    // Transform screw center to local coordinates
+    const cos = Math.cos(-shape.rotation);
+    const sin = Math.sin(-shape.rotation);
+    const dx = center.x - shape.position.x;
+    const dy = center.y - shape.position.y;
+    const localX = dx * cos - dy * sin;
+    const localY = dx * sin + dy * cos;
+    const localCenter = { x: localX, y: localY };
+    
+    // Transform vertices to local coordinates relative to shape position
+    const localVertices: Vector2[] = vertices.map(v => ({
+      x: (v.x - shape.position.x) * cos - (v.y - shape.position.y) * sin,
+      y: (v.x - shape.position.x) * sin + (v.y - shape.position.y) * cos
+    }));
+    
+    // Check if circle center is inside the polygon
+    if (this.isPointInPolygon(localCenter, localVertices)) {
+      return true;
+    }
+    
+    // Check if circle intersects any edge of the polygon
+    for (let i = 0; i < localVertices.length; i++) {
+      const v1 = localVertices[i];
+      const v2 = localVertices[(i + 1) % localVertices.length];
+      
+      if (this.isCircleIntersectingLineSegment(localCenter, radius, v1, v2)) {
+        return true;
+      }
     }
     
     return false;

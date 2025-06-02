@@ -129,6 +129,11 @@ export class Shape implements IShape {
         return this.createPolygonPath();
       case 'capsule':
         return this.createCapsulePath();
+      case 'arrow':
+      case 'chevron':
+      case 'star':
+      case 'horseshoe':
+        return this.createPathFromVertices();
       default:
         return path;
     }
@@ -212,6 +217,44 @@ export class Shape implements IShape {
     path.arc(x + radius, y + radius, radius, Math.PI / 2, Math.PI * 1.5);
     
     path.closePath();
+    return path;
+  }
+
+  private createPathFromVertices(): Path2D {
+    const path = new Path2D();
+    
+    // For path-based shapes, use stored vertices for accurate rendering
+    // For other shapes, use physics body vertices
+    if (this.vertices && this.vertices.length > 0) {
+      // These are local vertices that need to be transformed to world coordinates
+      const cos = Math.cos(this.rotation);
+      const sin = Math.sin(this.rotation);
+      
+      // Transform first vertex
+      const x0 = this.position.x + (this.vertices[0].x * cos - this.vertices[0].y * sin);
+      const y0 = this.position.y + (this.vertices[0].x * sin + this.vertices[0].y * cos);
+      path.moveTo(x0, y0);
+      
+      // Transform and draw remaining vertices
+      for (let i = 1; i < this.vertices.length; i++) {
+        const x = this.position.x + (this.vertices[i].x * cos - this.vertices[i].y * sin);
+        const y = this.position.y + (this.vertices[i].x * sin + this.vertices[i].y * cos);
+        path.lineTo(x, y);
+      }
+      
+      path.closePath();
+    } else if (this.body.vertices && this.body.vertices.length > 0) {
+      // Fall back to physics body vertices (already in world coordinates)
+      const vertices = this.body.vertices;
+      path.moveTo(vertices[0].x, vertices[0].y);
+      
+      for (let i = 1; i < vertices.length; i++) {
+        path.lineTo(vertices[i].x, vertices[i].y);
+      }
+      
+      path.closePath();
+    }
+    
     return path;
   }
 
@@ -328,6 +371,23 @@ export class Shape implements IShape {
         }
         break;
 
+      case 'arrow':
+      case 'chevron':
+      case 'star':
+      case 'horseshoe':
+        // Use body vertices for path-based shapes
+        if (this.body.vertices && this.body.vertices.length > 0) {
+          const vertices = this.body.vertices;
+          const totalLength = this.calculatePerimeterLength(vertices);
+          
+          for (let i = 0; i < count; i++) {
+            const targetDistance = (i / count) * totalLength;
+            const point = this.getPointAtDistance(vertices, targetDistance);
+            points.push(point);
+          }
+        }
+        break;
+
       default:
         // Fallback to body vertices
         this.body.vertices.forEach(vertex => {
@@ -336,6 +396,39 @@ export class Shape implements IShape {
     }
 
     return points;
+  }
+
+  private calculatePerimeterLength(vertices: Matter.Vector[]): number {
+    let length = 0;
+    for (let i = 0; i < vertices.length; i++) {
+      const v1 = vertices[i];
+      const v2 = vertices[(i + 1) % vertices.length];
+      length += Math.sqrt(Math.pow(v2.x - v1.x, 2) + Math.pow(v2.y - v1.y, 2));
+    }
+    return length;
+  }
+
+  private getPointAtDistance(vertices: Matter.Vector[], targetDistance: number): Vector2 {
+    let currentDistance = 0;
+    
+    for (let i = 0; i < vertices.length; i++) {
+      const v1 = vertices[i];
+      const v2 = vertices[(i + 1) % vertices.length];
+      const edgeLength = Math.sqrt(Math.pow(v2.x - v1.x, 2) + Math.pow(v2.y - v1.y, 2));
+      
+      if (currentDistance + edgeLength >= targetDistance) {
+        const t = (targetDistance - currentDistance) / edgeLength;
+        return {
+          x: v1.x + (v2.x - v1.x) * t,
+          y: v1.y + (v2.y - v1.y) * t
+        };
+      }
+      
+      currentDistance += edgeLength;
+    }
+    
+    // Fallback to last vertex
+    return { x: vertices[vertices.length - 1].x, y: vertices[vertices.length - 1].y };
   }
 
   public dispose(): void {
