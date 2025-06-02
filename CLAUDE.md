@@ -95,6 +95,12 @@ The game uses responsive canvas scaling with virtual game dimensions that scale 
 - Always try to use proper types or type unions
 - Try not to duplicate code, if multiple areas could benefit for some functionality reason about how it could best be shared.
 
+## Workflow
+
+- After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.
+- Update any documentation effected by the changes.
+- Commit the changes to current branch with applicable commit message.
+
 ## Save System
 
 Full game state persistence using local storage, including:
