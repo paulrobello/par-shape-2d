@@ -324,6 +324,19 @@ export class LayerManager extends BaseSystem {
               shape,
               body: shape.body // Include the actual body so PhysicsWorld can add it
             });
+            
+            // For composite shapes, also emit events for parts
+            if (shape.isComposite && shape.parts) {
+              shape.parts.forEach((part) => {
+                this.emit({
+                  type: 'physics:body:added',
+                  timestamp: Date.now(),
+                  bodyId: part.id.toString(),
+                  shape,
+                  body: part
+                });
+              });
+            }
           } else {
             console.log(`Shape ${shape.id} placement attempt ${attempt + 1} failed - out of bounds`);
           }
@@ -375,6 +388,18 @@ export class LayerManager extends BaseSystem {
             shape
           });
           
+          // For composite shapes, also remove parts
+          if (shape.isComposite && shape.parts) {
+            shape.parts.forEach(part => {
+              this.emit({
+                type: 'physics:body:removed',
+                timestamp: Date.now(),
+                bodyId: part.id.toString(),
+                shape
+              });
+            });
+          }
+          
           // Emit shape destroyed event
           this.emit({
             type: 'shape:destroyed',
@@ -410,6 +435,18 @@ export class LayerManager extends BaseSystem {
           bodyId: shape.body.id.toString(),
           shape
         });
+        
+        // For composite shapes, also remove parts
+        if (shape.isComposite && shape.parts) {
+          shape.parts.forEach(part => {
+            this.emit({
+              type: 'physics:body:removed',
+              timestamp: Date.now(),
+              bodyId: part.id.toString(),
+              shape
+            });
+          });
+        }
         
         // Emit shape destroyed event
         this.emit({

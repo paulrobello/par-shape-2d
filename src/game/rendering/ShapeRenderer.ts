@@ -156,6 +156,27 @@ export class ShapeRenderer {
       }
     }
     
+    // Draw composite parts if present
+    if (shape.isComposite && shape.parts) {
+      shape.parts.forEach((part, partIndex) => {
+        if (part.vertices) {
+          ctx.strokeStyle = partIndex === 0 ? '#FF0000' : '#00FF00'; // Different colors for parts
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          
+          const vertices = part.vertices;
+          if (vertices.length > 0) {
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            for (let i = 1; i < vertices.length; i++) {
+              ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+            ctx.closePath();
+            ctx.stroke();
+          }
+        }
+      });
+    }
+    
     // Draw screw positions
     shape.screws.forEach((screw, index) => {
       ctx.fillStyle = '#FFFF00';

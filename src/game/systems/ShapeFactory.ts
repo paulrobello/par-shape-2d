@@ -1,7 +1,7 @@
 import { Bodies, Body } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeType, Vector2 } from '@/types/game';
-import { PHYSICS_CONSTANTS, SHAPE_TINTS } from '@/game/utils/Constants';
+import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS } from '@/game/utils/Constants';
 import { randomBetween, createRegularPolygonVertices } from '@/game/utils/MathUtils';
 
 type ShapeDimensions = 
@@ -24,7 +24,7 @@ export class ShapeFactory {
     const maxRetries = 5; // Try up to 5 different shape/size combinations
     
     for (let retry = 0; retry < maxRetries; retry++) {
-      const shapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'triangle', 'star'];
+      const shapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'triangle', 'star', 'capsule'];
       const type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
       
       const shape = this.createShapeWithPlacement(type, position, layerId, layerIndex, physicsLayerGroup, colorIndex, existingShapes, layerBounds, retry);
@@ -74,6 +74,9 @@ export class ShapeFactory {
       case 'star':
         dimensions = this.createStarDimensions(sizeReduction);
         break;
+      case 'capsule':
+        dimensions = this.createCapsuleDimensions(sizeReduction);
+        break;
       default:
         dimensions = this.createCircleDimensions(sizeReduction);
     }
@@ -88,6 +91,8 @@ export class ShapeFactory {
     
     // Create the physics body
     let body: Body;
+    let compositeData: { isComposite: boolean; parts: Body[] } | undefined;
+    
     switch (type) {
       case 'rectangle':
       case 'square':
@@ -102,6 +107,14 @@ export class ShapeFactory {
       case 'star':
         body = this.createStarBody(finalPosition, dimensions as { radius: number });
         break;
+      case 'capsule':
+        const capsuleResult = this.createCapsuleBody(finalPosition, dimensions as { width: number; height: number });
+        body = capsuleResult.composite;
+        compositeData = {
+          isComposite: true,
+          parts: capsuleResult.parts
+        };
+        break;
       default:
         body = this.createCircleBody(finalPosition, dimensions as { radius: number });
     }
@@ -110,12 +123,21 @@ export class ShapeFactory {
     body.collisionFilter.group = physicsLayerGroup;
     body.collisionFilter.category = 1 << (physicsLayerGroup - 1);
     body.collisionFilter.mask = 1 << (physicsLayerGroup - 1);
+    
+    // Also set collision filters for composite parts
+    if (compositeData && compositeData.parts) {
+      compositeData.parts.forEach(part => {
+        part.collisionFilter.group = physicsLayerGroup;
+        part.collisionFilter.category = 1 << (physicsLayerGroup - 1);
+        part.collisionFilter.mask = 1 << (physicsLayerGroup - 1);
+      });
+    }
 
     const color = this.getLayerColor(colorIndex);
     const tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
     
     console.log(`Successfully placed ${type} shape at (${finalPosition.x.toFixed(1)}, ${finalPosition.y.toFixed(1)}) on retry ${retryCount}`);
-    return new Shape(id, type, finalPosition, body, layerId, color, tint, dimensions);
+    return new Shape(id, type, finalPosition, body, layerId, color, tint, dimensions, compositeData);
   }
 
   private static createMinimalShape(
@@ -279,6 +301,7 @@ export class ShapeFactory {
     switch (type) {
       case 'rectangle':
       case 'square':
+      case 'capsule':
         const rectDims = dimensions as { width: number; height: number };
         return Math.max(rectDims.width, rectDims.height) / 2;
       case 'circle':
@@ -303,6 +326,9 @@ export class ShapeFactory {
         return 101; // 87.5% increase: 54*1.875=101
       case 'star':
         return 90; // 87.5% increase: 48*1.875=90
+      case 'capsule':
+        // Max width for 6 screws: 6 * 24 + 5 * 5 = 169
+        return 85; // Half of max width
       default:
         return 90; // 87.5% increase: 48*1.875=90
     }
@@ -351,6 +377,22 @@ export class ShapeFactory {
   private static createStarDimensions(sizeReduction: number = 0) {
     return {
       radius: Math.round(randomBetween(56, 90) * (1 - sizeReduction)), // 87.5% increase: 30*1.875=56, 48*1.875=90
+    };
+  }
+
+  private static createCapsuleDimensions(sizeReduction: number = 0) {
+    // Import constants properly
+    const screwRadius = UI_CONSTANTS.screws.radius;
+    const height = screwRadius * 2; // Height is double the screw radius
+    
+    // Length is between 3 and 6 screws with 5 pixels between each
+    const screwCount = Math.floor(randomBetween(3, 7)); // 3 to 6 screws
+    const screwSpacing = 5; // Space between screws
+    const width = screwCount * (screwRadius * 2) + (screwCount - 1) * screwSpacing;
+    
+    return {
+      width: Math.round(width * (1 - sizeReduction)),
+      height: Math.round(height * (1 - sizeReduction)),
     };
   }
 
@@ -407,6 +449,61 @@ export class ShapeFactory {
         render: { visible: false },
       }
     );
+  }
+
+  private static createCapsuleBody(position: Vector2, dimensions: { width: number; height: number }): { composite: Body; parts: Body[] } {
+    
+    const radius = dimensions.height / 2;
+    const rectWidth = dimensions.width - dimensions.height; // Rectangle width without the circles
+    
+    // Create the middle rectangle
+    const rectangle = Bodies.rectangle(
+      position.x,
+      position.y,
+      rectWidth,
+      dimensions.height,
+      {
+        ...PHYSICS_CONSTANTS.shape,
+        render: { visible: false },
+      }
+    );
+    
+    // Create the left circle
+    const leftCircle = Bodies.circle(
+      position.x - rectWidth / 2,
+      position.y,
+      radius,
+      {
+        ...PHYSICS_CONSTANTS.shape,
+        render: { visible: false },
+      }
+    );
+    
+    // Create the right circle
+    const rightCircle = Bodies.circle(
+      position.x + rectWidth / 2,
+      position.y,
+      radius,
+      {
+        ...PHYSICS_CONSTANTS.shape,
+        render: { visible: false },
+      }
+    );
+    
+    // Create a composite body from the parts
+    const capsuleComposite = Body.create({
+      parts: [rectangle, leftCircle, rightCircle],
+      ...PHYSICS_CONSTANTS.shape,
+      render: { visible: false },
+    });
+    
+    // Set the position to ensure the composite is centered correctly
+    Body.setPosition(capsuleComposite, position);
+    
+    return {
+      composite: capsuleComposite,
+      parts: [rectangle, leftCircle, rightCircle]
+    };
   }
 
   private static getLayerColor(colorIndex: number): string {

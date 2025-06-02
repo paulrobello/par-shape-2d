@@ -12,7 +12,7 @@ export interface Rectangle {
   height: number;
 }
 
-export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'star';
+export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'star' | 'capsule';
 
 export type ScrewColor = 'pink' | 'red' | 'green' | 'blue' | 'lightBlue' | 'yellow' | 'purple' | 'orange' | 'brown';
 
@@ -40,6 +40,8 @@ export interface Shape {
   layerId: string;
   color: string;
   tint: string;
+  isComposite?: boolean; // Flag to indicate if shape is made of multiple bodies
+  parts?: Body[]; // Additional bodies for composite shapes
 }
 
 export interface Screw {

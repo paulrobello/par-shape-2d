@@ -1,6 +1,7 @@
 import { Body } from 'matter-js';
 import { Shape as IShape, ShapeType, Vector2, Screw } from '@/types/game';
 import { createRegularPolygonVertices } from '@/game/utils/MathUtils';
+import { UI_CONSTANTS } from '@/game/utils/Constants';
 
 export class Shape implements IShape {
   public id: string;
@@ -17,6 +18,8 @@ export class Shape implements IShape {
   public layerId: string;
   public color: string;
   public tint: string;
+  public isComposite?: boolean;
+  public parts?: Body[];
 
   constructor(
     id: string,
@@ -31,6 +34,10 @@ export class Shape implements IShape {
       height?: number;
       radius?: number;
       vertices?: Vector2[];
+    },
+    compositeData?: {
+      isComposite: boolean;
+      parts: Body[];
     }
   ) {
     this.id = id;
@@ -49,9 +56,22 @@ export class Shape implements IShape {
       this.vertices = dimensions.vertices;
     }
 
+    if (compositeData) {
+      this.isComposite = compositeData.isComposite;
+      this.parts = compositeData.parts;
+    }
+
     // Store shape reference on body for easy lookup
     this.body.label = `shape-${this.id}`;
     (this.body as Body & { shapeId: string }).shapeId = this.id;
+
+    // Also label parts if composite
+    if (this.parts) {
+      this.parts.forEach((part, index) => {
+        part.label = `shape-${this.id}-part-${index}`;
+        (part as Body & { shapeId: string }).shapeId = this.id;
+      });
+    }
   }
 
   public updateFromBody(): void {
@@ -107,6 +127,8 @@ export class Shape implements IShape {
         return this.createTrianglePath();
       case 'star':
         return this.createStarPath();
+      case 'capsule':
+        return this.createCapsulePath();
       default:
         return path;
     }
@@ -176,6 +198,35 @@ export class Shape implements IShape {
       }
     }
 
+    path.closePath();
+    return path;
+  }
+
+  private createCapsulePath(): Path2D {
+    const path = new Path2D();
+    const w = this.width || 120; // Default width
+    const h = this.height || (UI_CONSTANTS.screws.radius * 2); // Default height (2x screw radius)
+    const radius = h / 2; // Circle radius is half the height
+
+    // Draw capsule centered at position
+    const x = this.position.x - w / 2;
+    const y = this.position.y - h / 2;
+
+    // Start from top-left corner of rectangle part
+    path.moveTo(x + radius, y);
+    
+    // Top line
+    path.lineTo(x + w - radius, y);
+    
+    // Right semicircle
+    path.arc(x + w - radius, y + radius, radius, -Math.PI / 2, Math.PI / 2);
+    
+    // Bottom line
+    path.lineTo(x + radius, y + h);
+    
+    // Left semicircle
+    path.arc(x + radius, y + radius, radius, Math.PI / 2, Math.PI * 1.5);
+    
     path.closePath();
     return path;
   }
@@ -270,6 +321,42 @@ export class Shape implements IShape {
             x: v1.x + (v2.x - v1.x) * t,
             y: v1.y + (v2.y - v1.y) * t,
           });
+        }
+        break;
+
+      case 'capsule':
+        const capsuleW = this.width || 120;
+        const capsuleH = this.height || 24;
+        const capsuleRadius = capsuleH / 2;
+        
+        // Generate points along the capsule perimeter
+        const capsulePerimeter = 2 * (capsuleW - 2 * capsuleRadius) + 2 * Math.PI * capsuleRadius;
+        
+        for (let i = 0; i < count; i++) {
+          const t = (i / count) * capsulePerimeter;
+          let x, y;
+          
+          if (t < capsuleW - 2 * capsuleRadius) {
+            // Top straight edge
+            x = centerX - capsuleW / 2 + capsuleRadius + t;
+            y = centerY - capsuleH / 2;
+          } else if (t < capsuleW - 2 * capsuleRadius + Math.PI * capsuleRadius) {
+            // Right semicircle
+            const angle = -Math.PI / 2 + (t - (capsuleW - 2 * capsuleRadius)) / capsuleRadius;
+            x = centerX + capsuleW / 2 - capsuleRadius + Math.cos(angle) * capsuleRadius;
+            y = centerY + Math.sin(angle) * capsuleRadius;
+          } else if (t < 2 * (capsuleW - 2 * capsuleRadius) + Math.PI * capsuleRadius) {
+            // Bottom straight edge
+            x = centerX + capsuleW / 2 - capsuleRadius - (t - (capsuleW - 2 * capsuleRadius + Math.PI * capsuleRadius));
+            y = centerY + capsuleH / 2;
+          } else {
+            // Left semicircle
+            const angle = Math.PI / 2 + (t - (2 * (capsuleW - 2 * capsuleRadius) + Math.PI * capsuleRadius)) / capsuleRadius;
+            x = centerX - capsuleW / 2 + capsuleRadius + Math.cos(angle) * capsuleRadius;
+            y = centerY + Math.sin(angle) * capsuleRadius;
+          }
+          
+          points.push({ x, y });
         }
         break;
 
