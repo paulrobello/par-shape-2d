@@ -361,14 +361,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
 
   const handleRestart = () => {
     if (coordinatorRef.current) {
-      const gameState = coordinatorRef.current.getSystem('GameState') as GameState | null;
-      if (gameState) {
-        // Reset the game state and start fresh
-        gameState.reset();
-        setTimeout(() => {
-          gameState.startGame();
-        }, 100);
-        console.log('Game restarted through event system');
+      const gameManager = coordinatorRef.current.getGameManager();
+      if (gameManager) {
+        // Use the GameManager's comprehensive restart logic
+        // This simulates clicking the restart button in the menu which has the full restart logic
+        const event = new KeyboardEvent('keydown', {
+          key: 'r',
+          code: 'KeyR',
+          bubbles: true
+        });
+        window.dispatchEvent(event);
+        console.log('Game restarted through GameManager restart logic');
       }
     }
   };
