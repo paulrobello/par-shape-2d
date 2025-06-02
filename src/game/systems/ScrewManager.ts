@@ -1306,8 +1306,50 @@ export class ScrewManager extends BaseSystem {
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
         
-        // Give the shape a much stronger initial velocity to ensure it falls
-        Body.setVelocity(shape.body, { x: 0, y: 2.0 });
+        // Preserve existing momentum from swinging
+        const currentAngularVelocity = shape.body.angularVelocity;
+        
+        // Calculate linear velocity from the pivot point (last screw position)
+        // When swinging on a single screw, the center of mass moves with angular velocity
+        let linearVelocity = shape.body.velocity;
+        
+        if (Math.abs(currentAngularVelocity) > 0.01 && screw.position) {
+          // Calculate the radius from pivot to center of mass
+          const dx = shape.body.position.x - screw.position.x;
+          const dy = shape.body.position.y - screw.position.y;
+          
+          // Linear velocity from rotation: v = ω × r
+          // For 2D: vx = -ω * dy, vy = ω * dx
+          const rotationalVelocityX = -currentAngularVelocity * dy;
+          const rotationalVelocityY = currentAngularVelocity * dx;
+          
+          linearVelocity = {
+            x: rotationalVelocityX,
+            y: rotationalVelocityY
+          };
+          
+          if (DEBUG_CONFIG.logPhysicsStateChanges) {
+            console.log(`🔧 Calculated linear velocity from rotation: pivot=(${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), radius=(${dx.toFixed(1)}, ${dy.toFixed(1)}), velocity=(${linearVelocity.x.toFixed(2)}, ${linearVelocity.y.toFixed(2)})`);
+          }
+        }
+        
+        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+          console.log(`🔧 Preserving momentum - velocity: (${linearVelocity.x.toFixed(2)}, ${linearVelocity.y.toFixed(2)}), angular: ${currentAngularVelocity.toFixed(3)}`);
+        }
+        
+        // Set the calculated velocity
+        Body.setVelocity(shape.body, linearVelocity);
+        
+        // Ensure minimum downward velocity for falling
+        if (Math.abs(shape.body.velocity.y) < 2.0) {
+          Body.setVelocity(shape.body, { 
+            x: shape.body.velocity.x, 
+            y: Math.sign(shape.body.velocity.y) * 2.0 || 2.0 
+          });
+        }
+        
+        // Preserve angular velocity
+        Body.setAngularVelocity(shape.body, currentAngularVelocity);
         
         // Ensure the shape has adequate mass for falling
         let mass = shape.body.mass || 1;
