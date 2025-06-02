@@ -616,9 +616,23 @@ export class ScrewManager extends BaseSystem {
       } else {
         // Single screw - keep shape dynamic so it can rotate/swing around the screw
         Body.setStatic(shape.body, false);
+        
         // Ensure the shape can rotate by setting up angular properties
-        shape.body.inertia = shape.body.mass * 2; // Increase rotational inertia for better swinging
-        console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape kept dynamic for rotation`);
+        shape.body.inertia = shape.body.mass * 3; // Increase rotational inertia for better swinging
+        
+        // Wake up the body and give it a small initial perturbation to start physics
+        Sleeping.set(shape.body, false);
+        
+        // Give a very small initial angular velocity to start the swing motion
+        Body.setAngularVelocity(shape.body, (Math.random() - 0.5) * 0.02);
+        
+        // Apply a tiny random force to ensure physics activation
+        Body.applyForce(shape.body, shape.body.position, {
+          x: (Math.random() - 0.5) * 0.001,
+          y: (Math.random() - 0.5) * 0.001
+        });
+        
+        console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape kept dynamic for rotation with initial motion`);
       }
 
       // Emit event that shape's screws are ready
@@ -813,17 +827,17 @@ export class ScrewManager extends BaseSystem {
         }
         break;
         
-      case 'star':
-        const starRadius = shape.radius || 30;
+      case 'pentagon':
+        const pentagonRadius = shape.radius || 30;
         
-        if (starRadius < minSeparation / 2 + margin) {
-          // Small star - only center
+        if (pentagonRadius < minSeparation / 2 + margin) {
+          // Small pentagon - only center
           corners = [];
         } else {
-          const starVertices = createRegularPolygonVertices(shape.position, starRadius, 5);
+          const pentagonVertices = createRegularPolygonVertices(shape.position, pentagonRadius, 5);
           
-          // For star (pentagon), use all 5 vertices inset by margin
-          corners = starVertices.map(vertex => {
+          // For pentagon, use all 5 vertices inset by margin
+          corners = pentagonVertices.map(vertex => {
             const direction = {
               x: shape.position.x - vertex.x,
               y: shape.position.y - vertex.y
@@ -844,32 +858,46 @@ export class ScrewManager extends BaseSystem {
         
       case 'capsule':
         const capsuleWidth = shape.width || 120;
-        const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
-        const capsuleRadius = capsuleHeight / 2; // Radius of the semicircle ends
         
-        // Calculate screw positions evenly along the capsule's top edge
-        // The capsule was designed to hold between 3 and 8 screws
+        // The capsule was designed with its width to perfectly fit screws
+        // Use the same formula as ShapeFactory: Width = screwCount * (screwRadius * 2) + (screwCount - 1) * spacing
         const capsuleScrewRadius = UI_CONSTANTS.screws.radius;
         const spacing = 5; // Same spacing used in dimensions calculation
+        const screwDiameter = capsuleScrewRadius * 2;
         
-        // The straight part of the capsule is the width minus the two semicircle ends
-        const straightPartWidth = capsuleWidth - (2 * capsuleRadius);
+        // Back-calculate how many screws this capsule was designed for
+        // Width = n * 2r + (n-1) * s = n(2r + s) - s
+        // Solving for n: n = (Width + s) / (2r + s)
+        const actualScrewCount = Math.round((capsuleWidth + spacing) / (screwDiameter + spacing));
         
-        // Calculate how many screws can fit along the straight part
-        const maxScrews = Math.floor((straightPartWidth + spacing) / (capsuleScrewRadius * 2 + spacing));
-        const actualScrewCount = Math.min(maxScrews, 8); // Cap at 8 screws
-        
-        // Calculate positions along the top edge of the straight part
-        const totalScrewWidth = actualScrewCount * capsuleScrewRadius * 2 + (actualScrewCount - 1) * spacing;
-        const startX = shape.position.x - totalScrewWidth / 2 + capsuleScrewRadius;
-        
-        // Y position should be at the top of the straight part, with margin from the edge
-        const y = shape.position.y - capsuleHeight / 2 + margin;
+        // Y position should be at the vertical midpoint of the capsule
+        const y = shape.position.y;
         
         corners = [];
-        for (let i = 0; i < actualScrewCount; i++) {
-          const x = startX + i * (capsuleScrewRadius * 2 + spacing);
-          corners.push({ x, y });
+        
+        if (actualScrewCount === 1) {
+          // Single screw goes in the center
+          corners.push({ x: shape.position.x, y });
+        } else {
+          // Add 5px margin from capsule ends
+          const endMargin = 5;
+          const availableWidth = capsuleWidth - (2 * endMargin);
+          
+          // Distribute screws evenly within the available width (excluding margins)
+          const leftEdge = shape.position.x - capsuleWidth / 2 + endMargin;
+          
+          if (actualScrewCount === 2) {
+            // For 2 screws, place them near the ends but with margin
+            corners.push({ x: leftEdge + capsuleScrewRadius, y });
+            corners.push({ x: leftEdge + availableWidth - capsuleScrewRadius, y });
+          } else {
+            // For 3+ screws, distribute evenly across available width
+            for (let i = 0; i < actualScrewCount; i++) {
+              const t = i / (actualScrewCount - 1); // 0 to 1
+              const x = leftEdge + capsuleScrewRadius + t * (availableWidth - 2 * capsuleScrewRadius);
+              corners.push({ x, y });
+            }
+          }
         }
         
         // No alternates for capsule - screws only go on top
@@ -899,9 +927,9 @@ export class ScrewManager extends BaseSystem {
       case 'triangle':
         const triRadius = shape.radius || 30;
         return (Math.sqrt(3) / 4) * Math.pow(triRadius * 2, 2);
-      case 'star':
-        const starRadius = shape.radius || 30;
-        return 2.5 * starRadius * starRadius * Math.sin(Math.PI * 2 / 5);
+      case 'pentagon':
+        const pentagonRadius = shape.radius || 30;
+        return 2.5 * pentagonRadius * pentagonRadius * Math.sin(Math.PI * 2 / 5);
       case 'capsule':
         const capsuleWidth = shape.width || 120;
         const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
@@ -1135,10 +1163,11 @@ export class ScrewManager extends BaseSystem {
       collisionFilter: { group: -1, category: 0, mask: 0 },
     });
 
-    // Emit physics body added event
+    // Emit physics body added event with unique source to avoid loop detection
     this.emit({
       type: 'physics:body:added',
       timestamp: Date.now(),
+      source: `ScrewManager-${screw.id}`,
       bodyId: screwAnchor.id.toString(),
       shape,
       body: screwAnchor
@@ -1415,10 +1444,11 @@ export class ScrewManager extends BaseSystem {
             collisionFilter: { group: -1, category: 0, mask: 0 },
           });
 
-          // Emit physics body added event
+          // Emit physics body added event with unique source to avoid loop detection
           this.emit({
             type: 'physics:body:added',
             timestamp: Date.now(),
+            source: `ScrewManager-${remainingScrew.id}-recreate`,
             bodyId: newAnchor.id.toString(),
             shape: this.state.allShapes.find(s => s.id === shapeId)!,
             body: newAnchor
@@ -1618,8 +1648,10 @@ export class ScrewManager extends BaseSystem {
       case 'square':
         return this.isCircleIntersectingRectangle(center, radius, shape);
       case 'triangle':
-      case 'star':
+      case 'pentagon':
         return this.isCircleIntersectingPolygon(center, radius, shape);
+      case 'capsule':
+        return this.isCircleIntersectingCapsule(center, radius, shape);
       default:
         return false;
     }
@@ -1661,6 +1693,69 @@ export class ScrewManager extends BaseSystem {
       Math.pow(center.y - shape.position.y, 2)
     );
     return distance < (radius + shapeRadius * 0.8);
+  }
+
+  private isCircleIntersectingCapsule(center: Vector2, radius: number, shape: Shape): boolean {
+    const capsuleWidth = shape.width || 120;
+    const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
+    const capsuleRadius = capsuleHeight / 2; // Radius of the semicircle ends
+    
+    // Capsule geometry: rectangle in the middle + two circles at the ends
+    const rectWidth = capsuleWidth - (2 * capsuleRadius);
+    
+    // Check intersection with the middle rectangle
+    const rectBounds = {
+      x: shape.position.x - rectWidth / 2,
+      y: shape.position.y - capsuleHeight / 2,
+      width: rectWidth,
+      height: capsuleHeight
+    };
+    
+    if (this.isCircleIntersectingRectangleBounds(center, radius, rectBounds)) {
+      return true;
+    }
+    
+    // Check intersection with left semicircle
+    const leftCircleCenter = {
+      x: shape.position.x - rectWidth / 2,
+      y: shape.position.y
+    };
+    if (this.isCircleIntersectingCircleGeometry(center, radius, leftCircleCenter, capsuleRadius)) {
+      return true;
+    }
+    
+    // Check intersection with right semicircle
+    const rightCircleCenter = {
+      x: shape.position.x + rectWidth / 2,
+      y: shape.position.y
+    };
+    if (this.isCircleIntersectingCircleGeometry(center, radius, rightCircleCenter, capsuleRadius)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  private isCircleIntersectingRectangleBounds(center: Vector2, radius: number, bounds: { x: number; y: number; width: number; height: number }): boolean {
+    // Find the closest point on the rectangle to the circle center
+    const closestX = Math.max(bounds.x, Math.min(center.x, bounds.x + bounds.width));
+    const closestY = Math.max(bounds.y, Math.min(center.y, bounds.y + bounds.height));
+    
+    // Calculate distance from circle center to closest point
+    const distance = Math.sqrt(
+      Math.pow(center.x - closestX, 2) + 
+      Math.pow(center.y - closestY, 2)
+    );
+    
+    return distance < radius;
+  }
+
+  private isCircleIntersectingCircleGeometry(center1: Vector2, radius1: number, center2: Vector2, radius2: number): boolean {
+    const distance = Math.sqrt(
+      Math.pow(center1.x - center2.x, 2) + 
+      Math.pow(center1.y - center2.y, 2)
+    );
+    return distance < (radius1 + radius2);
   }
 
   public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }): boolean {

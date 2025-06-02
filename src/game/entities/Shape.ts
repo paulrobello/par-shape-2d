@@ -125,8 +125,8 @@ export class Shape implements IShape {
         return this.createCirclePath();
       case 'triangle':
         return this.createTrianglePath();
-      case 'star':
-        return this.createStarPath();
+      case 'pentagon':
+        return this.createPentagonPath();
       case 'capsule':
         return this.createCapsulePath();
       default:
@@ -181,7 +181,7 @@ export class Shape implements IShape {
     return path;
   }
 
-  private createStarPath(): Path2D {
+  private createPentagonPath(): Path2D {
     const path = new Path2D();
     const radius = this.radius || 30;
     const sides = 5; // Pentagon to match physics shape
@@ -296,8 +296,8 @@ export class Shape implements IShape {
         }
         break;
 
-      case 'star':
-        const starRadius = this.radius || 30;
+      case 'pentagon':
+        const pentagonRadius = this.radius || 30;
         const sides = 5; // Pentagon vertices
         const pentagonVertices: Vector2[] = [];
 
@@ -305,8 +305,8 @@ export class Shape implements IShape {
         for (let i = 0; i < sides; i++) {
           const angle = (i * Math.PI * 2) / sides - Math.PI / 2;
           pentagonVertices.push({
-            x: this.position.x + Math.cos(angle) * starRadius,
-            y: this.position.y + Math.sin(angle) * starRadius,
+            x: this.position.x + Math.cos(angle) * pentagonRadius,
+            y: this.position.y + Math.sin(angle) * pentagonRadius,
           });
         }
 

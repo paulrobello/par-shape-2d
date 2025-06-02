@@ -113,6 +113,9 @@ Event-driven physics system that manages Matter.js independently:
 - Shape stability checking
 - Physics body lifecycle management
 - Support detection for sleeping shapes
+- **Composite Body Support**: Capsules use Matter.js composite bodies (rectangle + 2 circles)
+- **Multi-Part Physics**: Each capsule part has independent physics properties
+- **Enhanced Single-Screw Physics**: Shapes with one screw have optimized pendulum motion with initial perturbation
 
 ### Game State Management
 **File**: `src/game/core/GameState.ts`
@@ -274,6 +277,8 @@ Strategic depth-based gameplay:
 - **Haptic Feedback**: Mobile devices vibrate briefly (50ms) when blocked screws are clicked
 - **Layer Transparency**: Back layers visible through front layers
 - **Depth Index**: Numerical ordering for consistent rendering
+- **Composite Shape Support**: Capsules (rectangle + 2 circles) have specialized blocking detection
+- **Precise Collision**: Each shape type uses geometry-specific intersection algorithms
 
 ## Rendering System
 
@@ -320,7 +325,7 @@ for (let i = this.state.visibleLayers.length - 1; i >= 0; i--) {
 ### Shape Rendering
 Procedural shape generation with visual consistency:
 
-- **Supported Shapes**: Rectangle, Square, Circle, Triangle, Star (Pentagon removed)
+- **Supported Shapes**: Rectangle, Square, Circle, Triangle, Pentagon, Capsule
 - **Visual Style**: Solid borders with translucent fills
 - **Screw Holes**: Automatically positioned based on shape geometry
 - **Tint System**: Each layer has a unique color tint
@@ -333,7 +338,8 @@ Shapes are 87.5% larger than original design for improved visibility:
 - **Square**: Size range 90-158 pixels
 - **Circle**: Radius 45-90 pixels
 - **Triangle**: Radius 56-101 pixels
-- **Star**: Radius 56-90 pixels
+- **Pentagon**: Radius 56-90 pixels
+- **Capsule**: Width based on screw count (3-8 screws), height = 2×screw radius + 10px
 
 ### Shape Placement
 Advanced deterministic placement system eliminating all overlaps:
@@ -368,13 +374,14 @@ Advanced multi-stage placement algorithm with shape-specific positioning:
 #### Distance Constants
 - **Minimum Separation**: 48 pixels between screws (4x screw radius = 48px)
 - **Safety Margin**: 30 pixels from shape edges (2.5x screw radius)
-- **Single Screw**: Always centered on shape for optimal rotation mechanics
+- **Single Screw**: Always centered on shape for optimal pendulum motion with enhanced physics
 
 #### Shape-Specific Placement Logic
 - **Rectangles/Squares**: Corner placement with edge-center fallbacks for narrow/short shapes
 - **Circles**: Cardinal direction placement (top, right, bottom, left)
 - **Triangles**: Vertex-based placement with inward margin adjustment
-- **Stars**: Pentagon vertex placement with proper spacing
+- **Pentagons**: Vertex-based placement with proper spacing
+- **Capsules**: Horizontal distribution along center line with 5px end margins
 
 #### Area-Based Screw Limits
 - **Very Small** (< 2500 area): 1 screw maximum
@@ -389,6 +396,20 @@ Advanced multi-stage placement algorithm with shape-specific positioning:
 2. Apply overlap detection with minimum separation distance
 3. Select non-overlapping positions up to area-based limit
 4. Fallback to center position if overlap issues occur
+
+### Physics Behavior by Screw Count
+
+#### Single-Screw Dynamics
+- **Dynamic Bodies**: Shapes with one screw remain non-static for natural pendulum motion
+- **Enhanced Inertia**: Rotational inertia increased to `mass × 3` for better swinging
+- **Initial Perturbation**: Small random angular velocity and force applied to activate physics
+- **Wake-up Control**: Explicit sleeping prevention to ensure continuous motion
+- **Pendulum Motion**: Natural swinging behavior around the single attachment point
+
+#### Multi-Screw Statics
+- **Static Bodies**: Shapes with multiple screws become static for stability
+- **Constraint Network**: Multiple attachment points prevent rotation and translation
+- **Structural Integrity**: Multiple screws create rigid connections for puzzle mechanics
 
 ### Mobile Optimizations
 - **Touch-Friendly**: Larger tap targets for mobile
@@ -887,6 +908,13 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ Responsive canvas dimensions with proper screw animation targeting
 - ✅ All rendering uses UI_CONSTANTS for uniform appearance
 - ✅ Fixed mobile layout issues and touch coordinate transformation
+- ✅ **Capsule Shape Support**: Full implementation with composite physics bodies
+- ✅ **Capsule Screw Placement**: Proper centering with 5px end margins
+- ✅ **Capsule Blocking Detection**: Specialized collision detection for composite shapes
+- ✅ **Event Loop Prevention**: Unique source identifiers prevent physics event loops
+- ✅ **Star → Pentagon Refactor**: Complete rename throughout codebase with cleanup
+- ✅ **Single-Screw Physics**: Enhanced pendulum motion with initial perturbation and wake-up control
+- ✅ **Unused Code Cleanup**: Removed obsolete createStarVertices function and updated comments
 - ✅ Ready for production use with polished visual experience
 
 ---

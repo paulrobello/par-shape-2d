@@ -12,7 +12,7 @@ export interface Rectangle {
   height: number;
 }
 
-export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'star' | 'capsule';
+export type ShapeType = 'rectangle' | 'square' | 'circle' | 'triangle' | 'pentagon' | 'capsule';
 
 export type ScrewColor = 'pink' | 'red' | 'green' | 'blue' | 'lightBlue' | 'yellow' | 'purple' | 'orange' | 'brown';
 

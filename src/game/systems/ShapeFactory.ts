@@ -7,7 +7,7 @@ import { randomBetween, createRegularPolygonVertices } from '@/game/utils/MathUt
 type ShapeDimensions = 
   | { width: number; height: number } // Rectangle/Square
   | { radius: number } // Circle/Triangle/Pentagon
-  | Record<string, never>; // For star or other shapes
+  | Record<string, never>; // For pentagon or other shapes
 
 export class ShapeFactory {
   private static shapeCounter = 0;
@@ -24,7 +24,7 @@ export class ShapeFactory {
     const maxRetries = 5; // Try up to 5 different shape/size combinations
     
     for (let retry = 0; retry < maxRetries; retry++) {
-      const shapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'triangle', 'star', 'capsule'];
+      const shapeTypes: ShapeType[] = ['rectangle', 'square', 'circle', 'triangle', 'pentagon', 'capsule'];
       const type = shapeTypes[Math.floor(Math.random() * shapeTypes.length)];
       
       const shape = this.createShapeWithPlacement(type, position, layerId, layerIndex, physicsLayerGroup, colorIndex, existingShapes, layerBounds, retry);
@@ -71,8 +71,8 @@ export class ShapeFactory {
       case 'triangle':
         dimensions = this.createTriangleDimensions(sizeReduction);
         break;
-      case 'star':
-        dimensions = this.createStarDimensions(sizeReduction);
+      case 'pentagon':
+        dimensions = this.createPentagonDimensions(sizeReduction);
         break;
       case 'capsule':
         dimensions = this.createCapsuleDimensions(sizeReduction);
@@ -104,8 +104,8 @@ export class ShapeFactory {
       case 'triangle':
         body = this.createTriangleBody(finalPosition, dimensions as { radius: number });
         break;
-      case 'star':
-        body = this.createStarBody(finalPosition, dimensions as { radius: number });
+      case 'pentagon':
+        body = this.createPentagonBody(finalPosition, dimensions as { radius: number });
         break;
       case 'capsule':
         const capsuleResult = this.createCapsuleBody(finalPosition, dimensions as { width: number; height: number });
@@ -306,7 +306,7 @@ export class ShapeFactory {
         return Math.max(rectDims.width, rectDims.height) / 2;
       case 'circle':
       case 'triangle':
-      case 'star':
+      case 'pentagon':
         const circleDims = dimensions as { radius: number };
         return circleDims.radius;
       default:
@@ -324,7 +324,7 @@ export class ShapeFactory {
         return 90; // 87.5% increase: 48*1.875=90
       case 'triangle':
         return 101; // 87.5% increase: 54*1.875=101
-      case 'star':
+      case 'pentagon':
         return 90; // 87.5% increase: 48*1.875=90
       case 'capsule':
         // Max width for 8 screws: 8 * 24 + 7 * 5 = 227
@@ -374,7 +374,7 @@ export class ShapeFactory {
     };
   }
 
-  private static createStarDimensions(sizeReduction: number = 0) {
+  private static createPentagonDimensions(sizeReduction: number = 0) {
     return {
       radius: Math.round(randomBetween(56, 90) * (1 - sizeReduction)), // 87.5% increase: 30*1.875=56, 48*1.875=90
     };
@@ -436,13 +436,13 @@ export class ShapeFactory {
     );
   }
 
-  private static createStarBody(position: Vector2, dimensions: { radius: number }): Body {
-    // Use a pentagon (5-sided polygon) to represent the star
-    // This provides a star-like appearance with stable physics
+  private static createPentagonBody(position: Vector2, dimensions: { radius: number }): Body {
+    // Use a pentagon (5-sided polygon) 
+    // This provides a pentagon shape with stable physics
     return Bodies.polygon(
       position.x,
       position.y,
-      5, // 5 sides for pentagon star
+      5, // 5 sides for pentagon
       dimensions.radius,
       {
         ...PHYSICS_CONSTANTS.shape,

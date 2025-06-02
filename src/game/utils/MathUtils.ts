@@ -57,21 +57,6 @@ export function getRandomPointInCircle(center: Vector2, radius: number): Vector2
   };
 }
 
-export function createStarVertices(center: Vector2, outerRadius: number, innerRadius: number, points: number = 5): Vector2[] {
-  const vertices: Vector2[] = [];
-  const angleStep = (Math.PI * 2) / points;
-  
-  for (let i = 0; i < points * 2; i++) {
-    const angle = (i * angleStep) / 2 - Math.PI / 2; // Start from top
-    const radius = i % 2 === 0 ? outerRadius : innerRadius;
-    vertices.push({
-      x: center.x + Math.cos(angle) * radius,
-      y: center.y + Math.sin(angle) * radius,
-    });
-  }
-  
-  return vertices;
-}
 
 export function createRegularPolygonVertices(center: Vector2, radius: number, sides: number): Vector2[] {
   const vertices: Vector2[] = [];
