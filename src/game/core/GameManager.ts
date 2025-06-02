@@ -743,6 +743,14 @@ export class GameManager extends BaseSystem {
           // Clear save data and restart
           localStorage.removeItem('par-shape-2d-save');
           
+          // Clear any active game over countdown and holding holes full state
+          if (this.state.gameOverCountdown) {
+            clearInterval(this.state.gameOverCountdown);
+            this.state.gameOverCountdown = null;
+            console.log('🔄 Cleared game over countdown during restart');
+          }
+          this.state.holdingHolesFull = false;
+          
           // Reset all game systems
           if (this.state.systemCoordinator) {
             const gameState = this.state.systemCoordinator.getSystem('GameState') as import('./GameState').GameState;
