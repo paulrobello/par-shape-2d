@@ -9,9 +9,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `npm run dev` - Start the dev server (dont run this, it hangs)
 - `npm start` - Start the production server after building (dont run this, it hangs)
 
-**Important:** always use `npm run lint && npm run build` to check your work.
-
-
 ## Code style
 
 - Avoid using types `any` and `unknown`
@@ -20,10 +17,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Workflow
 
-- After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.
+- **Important:** After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.
 - Update any documentation effected by the changes.
-- Commit the changes to current branch with applicable commit message.
-
+- Commit the changes to current branch with an applicable commit message.
 
 ## Architecture Overview
 
@@ -52,49 +48,9 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 - **Comprehensive Debugging:** Event flow monitoring and validation throughout
 - **Clean Code:** Eliminates complex parameter passing and state management
 
-## Game Mechanics Implementation
-
-**Layer System:** Progressive layer count per level (10+ layers), 4 visible at once, with lazy generation for performance. Each layer has a unique `depthIndex` for rendering order and physics separation. Layer count increases by 1 every 3 levels (levels 1-3: 10 layers, 4-6: 11 layers, etc.). New layers fade in over 1 second with an ease-in-out animation curve using `globalAlpha` during rendering.
-
-**Screw Blocking:** Screws can only be removed if not blocked by shapes in front layers. The blocking detection uses shape geometry intersection with screw positions.
-
-**Container System:** 4 containers with 3 holes each. Containers have white backgrounds with colored borders matching their screw color. When full, containers fade out over 0.5 seconds, then replacement containers fade in over 0.5 seconds with new colors based on active screws on screen.
-
-**Holding Holes:** 5 holding holes with light grey circular backgrounds. When all are full, a pulsing red border appears around the canvas edge as a warning (1 pulse/second).
-
-**Auto-Transfer System:** Screws automatically transfer from holding holes to matching containers when:
-
-**Smart Touch Selection:** For mobile, the game prioritizes screws that match available container colors, then falls back to closest screw within touch radius (30px mobile, 15px desktop).
-
-**Blocked Screw Feedback:** When blocked screws are clicked, they play a small shake animation to provide visual feedback that they cannot be removed.
-
-**Scoring System:** 10 points per screw removed from shapes (regardless of destination). Score is based on core gameplay mechanic of removing screws, not container placement. HUD displays "Level Score" and "Grand Total" for clarity.
-
-**Shape Sizes:** Shapes are 87.5% larger than original design for improved visibility and gameplay. This includes rectangles (75-150 base size), squares (90-158), circles (45-90 radius), triangles (56-101 radius), and stars (56-90 radius).
-
-**Shape Placement:** Advanced deterministic placement system with zero overlaps:
-
-**Screw Placement:** Advanced multi-stage placement algorithm with shape-specific positioning:
-
-## Mobile Optimizations
-
-The game uses responsive canvas scaling with virtual game dimensions that scale to screen size. Touch handling prevents default browser behaviors and includes haptic feedback integration.
-
-**Smart Touch Selection**: For mobile, the game prioritizes screws that match available container colors, then falls back to closest screw within touch radius (30px mobile, 15px desktop).
-
-**Responsive Animations**: All fade animations work seamlessly across mobile and desktop with optimized performance.
-
-The game automatically resumes saved states on page load with proper physics body recreation.
-
 ## Matter.js Integration
 
 **Physics Integration** uses collision groups to separate layers. Screws are implemented as Matter.js constraints between shapes and anchor points. The physics world includes sleep management to wake unsupported shapes and prevent floating objects.
-
-## Debug Features
-
-- Debug mode (D key) shows physics outlines and performance metrics
-- Save data inspection (I key) shows complete save structure
-- Various debug commands (R: restart, G: game over, S: force save, C: clear save)
 
 ## Documentation and References
 
@@ -103,7 +59,6 @@ The game automatically resumes saved states on page load with proper physics bod
 **Matter.js Documentation:** Comprehensive Matter.js API documentation is available in `docs/MatterJs_docs/` covering all physics engine components including Bodies, Engine, World, Constraints, Collision detection, and more. Refer to these docs when implementing physics features.
 
 **Important:** Always update the documentation when changes are made to architecture, events, or logic.
-
 
 ## Technical Design Documents
 
