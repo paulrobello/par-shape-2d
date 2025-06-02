@@ -26,10 +26,26 @@ export const DEBUG_CONFIG = {
   logScrewPlacement: false,         // Screw placement in containers/holes
   logPhysicsStateChanges: false,    // Physics state transitions
   logShapeDestruction: false,       // Shape destruction details
+  logPhysicsUpdates: false,         // Physics world updates (🔧 Physics Update: messages)
 };
 ```
 
 Set any flag to `true` to enable that category of logging. This helps debug specific issues without flooding the console.
+
+## Debug Mode
+
+Debug mode can be activated in three ways:
+1. Press the 'D' key
+2. Click the "Debug Mode" button in the menu overlay (hamburger menu)
+3. Click the "Debug" button below the canvas (desktop only)
+
+When debug mode is active:
+- **Enhanced Shape Rendering**: Shows physics body outlines, decomposed parts for path-based shapes, and shape information
+- **Path-Based Shapes**: Displays each decomposed physics part in different colors with labels (P0, P1, etc.)
+- **Debug Info Panel**: Shows game statistics on the canvas
+- **Debug Info Below Canvas**: Displays detailed system information (desktop only)
+
+All three methods of toggling debug mode are synchronized and work identically.
 
 ## Workflow
 

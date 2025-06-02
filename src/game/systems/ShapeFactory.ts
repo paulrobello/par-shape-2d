@@ -611,10 +611,8 @@ export class ShapeFactory {
       }
     );
     
-    // Ensure body is properly positioned
-    if (body) {
-      Body.setPosition(body, position);
-    }
+    // Don't reset the angle - let the physics engine handle rotation naturally
+    // The vertices are already centered at origin, so they'll rotate correctly
     
     return { body, originalVertices };
   }

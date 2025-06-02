@@ -5,7 +5,7 @@
 
 import { BaseSystem } from '../core/BaseSystem';
 import { Engine, World, Bodies, Body, Events, Composite, Vertices, Sleeping, Constraint } from 'matter-js';
-import { PHYSICS_CONSTANTS, GAME_CONFIG } from '@/game/utils/Constants';
+import { PHYSICS_CONSTANTS, GAME_CONFIG, DEBUG_CONFIG } from '@/game/utils/Constants';
 import {
   PhysicsBodyAddedEvent,
   PhysicsBodyRemovedEvent,
@@ -404,7 +404,7 @@ export class PhysicsWorld extends BaseSystem {
           Engine.update(this.state.engine, deltaTime);
           
           // Debug: Log physics world status periodically
-          if (Date.now() % 1000 < 50) { // Every ~1 second
+          if (DEBUG_CONFIG.logPhysicsUpdates && Date.now() % 1000 < 50) { // Every ~1 second
             const allBodies = Composite.allBodies(this.state.world);
             const dynamicBodies = allBodies.filter(b => !b.isStatic);
             console.log(`🔧 Physics Update: ${dynamicBodies.length} dynamic bodies, ${allBodies.length} total bodies, isPaused: ${this.state.isPaused}`);

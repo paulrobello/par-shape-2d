@@ -133,14 +133,48 @@ export class ShapeRenderer {
     ctx.arc(shape.position.x, shape.position.y, 3, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw shape ID
+    // Draw shape ID and type
     ctx.fillStyle = '#FFFFFF';
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
-    ctx.fillText(shape.id, shape.position.x, shape.position.y - 20);
+    ctx.fillText(`${shape.id} (${shape.type})`, shape.position.x, shape.position.y - 20);
     
-    // Draw physics body outline
-    if (shape.body && shape.body.vertices) {
+    // Enhanced physics body debug rendering for path-based shapes
+    if (shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'star' || shape.type === 'horseshoe') {
+      // For path-based shapes using fromVertices, the body might have multiple parts
+      if (shape.body.parts && shape.body.parts.length > 1) {
+        // Draw each decomposed part with different colors
+        shape.body.parts.forEach((part, partIndex) => {
+          if (part.vertices && part.id !== shape.body.id) { // Skip the parent body
+            // Use different colors for each part
+            const colors = ['#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF'];
+            ctx.strokeStyle = colors[partIndex % colors.length];
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 3]); // Dashed line for decomposed parts
+            
+            ctx.beginPath();
+            const vertices = part.vertices;
+            if (vertices.length > 0) {
+              ctx.moveTo(vertices[0].x, vertices[0].y);
+              for (let i = 1; i < vertices.length; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+              }
+              ctx.closePath();
+              ctx.stroke();
+              
+              // Label each part
+              const centerX = vertices.reduce((sum, v) => sum + v.x, 0) / vertices.length;
+              const centerY = vertices.reduce((sum, v) => sum + v.y, 0) / vertices.length;
+              ctx.fillStyle = ctx.strokeStyle;
+              ctx.font = '10px Arial';
+              ctx.fillText(`P${partIndex}`, centerX, centerY);
+            }
+          }
+        });
+        ctx.setLineDash([]); // Reset line dash
+      }
+    } else if (shape.body && shape.body.vertices) {
+      // Regular physics body outline for non-path shapes
       ctx.strokeStyle = '#00FFFF';
       ctx.lineWidth = 1;
       ctx.beginPath();
@@ -156,7 +190,7 @@ export class ShapeRenderer {
       }
     }
     
-    // Draw composite parts if present
+    // Draw composite parts if present (for capsules)
     if (shape.isComposite && shape.parts) {
       shape.parts.forEach((part, partIndex) => {
         if (part.vertices) {
@@ -177,6 +211,28 @@ export class ShapeRenderer {
       });
     }
     
+    // Draw rendering vertices vs physics vertices comparison for path shapes
+    if ((shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'star' || shape.type === 'horseshoe') && shape.vertices) {
+      // Draw the original rendering vertices in white dots
+      ctx.save();
+      ctx.translate(shape.position.x, shape.position.y);
+      ctx.rotate(shape.rotation);
+      
+      shape.vertices.forEach((v, i) => {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(v.x, v.y, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Label vertex
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '8px Arial';
+        ctx.fillText(`V${i}`, v.x + 5, v.y - 5);
+      });
+      
+      ctx.restore();
+    }
+    
     // Draw screw positions
     shape.screws.forEach((screw, index) => {
       ctx.fillStyle = '#FFFF00';
@@ -190,6 +246,16 @@ export class ShapeRenderer {
       ctx.textAlign = 'center';
       ctx.fillText(index.toString(), screw.position.x, screw.position.y - 8);
     });
+    
+    // Draw physics body info
+    if (shape.body) {
+      ctx.fillStyle = '#00FFFF';
+      ctx.font = '10px Arial';
+      ctx.textAlign = 'left';
+      const infoY = shape.position.y + 40;
+      ctx.fillText(`Static: ${shape.body.isStatic}`, shape.position.x - 40, infoY);
+      ctx.fillText(`Parts: ${shape.body.parts ? shape.body.parts.length : 0}`, shape.position.x - 40, infoY + 12);
+    }
     
     ctx.restore();
   }

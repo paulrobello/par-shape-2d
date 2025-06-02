@@ -226,19 +226,17 @@ export class Shape implements IShape {
     // For path-based shapes, use stored vertices for accurate rendering
     // For other shapes, use physics body vertices
     if (this.vertices && this.vertices.length > 0) {
-      // These are local vertices that need to be transformed to world coordinates
-      const cos = Math.cos(this.rotation);
-      const sin = Math.sin(this.rotation);
-      
-      // Transform first vertex
-      const x0 = this.position.x + (this.vertices[0].x * cos - this.vertices[0].y * sin);
-      const y0 = this.position.y + (this.vertices[0].x * sin + this.vertices[0].y * cos);
+      // These vertices are in local space relative to shape center
+      // Don't apply rotation here - the renderer will handle it via canvas transforms
+      // Just translate to shape position
+      const x0 = this.position.x + this.vertices[0].x;
+      const y0 = this.position.y + this.vertices[0].y;
       path.moveTo(x0, y0);
       
-      // Transform and draw remaining vertices
+      // Draw remaining vertices
       for (let i = 1; i < this.vertices.length; i++) {
-        const x = this.position.x + (this.vertices[i].x * cos - this.vertices[i].y * sin);
-        const y = this.position.y + (this.vertices[i].x * sin + this.vertices[i].y * cos);
+        const x = this.position.x + this.vertices[i].x;
+        const y = this.position.y + this.vertices[i].y;
         path.lineTo(x, y);
       }
       

@@ -196,8 +196,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
       // Only handle debug mode toggle here - GameManager handles the rest
       switch (event.key.toLowerCase()) {
         case 'd':
-          event.preventDefault();
-          setDebugMode(gameManager.getDebugMode());
+          // Don't prevent default here - let GameManager handle it
+          // Update local debug state after a small delay
+          setTimeout(() => {
+            setDebugMode(gameManager.getDebugMode());
+          }, 50);
           break;
         default:
           // Other keys are handled by GameManager directly
@@ -364,7 +367,19 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     if (coordinatorRef.current) {
       const gameManager = coordinatorRef.current.getGameManager();
       if (gameManager) {
-        setDebugMode(!gameManager.getDebugMode());
+        // Simulate pressing the 'D' key by dispatching a keyboard event
+        // This ensures the debug button behaves exactly like pressing 'D'
+        const event = new KeyboardEvent('keydown', {
+          key: 'd',
+          code: 'KeyD',
+          bubbles: true
+        });
+        window.dispatchEvent(event);
+        
+        // Update local state after a small delay to allow the event to process
+        setTimeout(() => {
+          setDebugMode(gameManager.getDebugMode());
+        }, 50);
       }
     }
   };

@@ -133,6 +133,8 @@ export const DEBUG_CONFIG = {
   logPhysicsStateChanges: false,
   // Set to true to log shape destruction details
   logShapeDestruction: false,
+  // Set to true to log physics updates (🔧 Physics Update: messages)
+  logPhysicsUpdates: false,
 } as const;
 
 /**
@@ -141,11 +143,11 @@ export const DEBUG_CONFIG = {
  */
 export const SHAPE_CONFIG = {
   enabledShapes: {
-    rectangle: true,
-    square: true,
-    circle: true,
+    rectangle: false,
+    square: false,
+    circle: false,
     polygon: true,
-    capsule: true,
+    capsule: false,
     arrow: true,
     chevron: true,
     star: true,

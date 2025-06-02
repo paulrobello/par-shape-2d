@@ -180,8 +180,11 @@ export class GameManager extends BaseSystem {
 
   private handleDebugModeToggled(event: DebugModeToggledEvent): void {
     this.executeIfActive(() => {
-      this.state.debugMode = event.enabled;
-      console.log(`Debug mode ${event.enabled ? 'enabled' : 'disabled'}`);
+      // Only update if the event is from another source (not GameManager)
+      if (event.source && event.source !== 'GameManager') {
+        this.state.debugMode = event.enabled;
+        console.log(`Debug mode ${event.enabled ? 'enabled' : 'disabled'} (from ${event.source})`);
+      }
     });
   }
 
@@ -544,11 +547,16 @@ export class GameManager extends BaseSystem {
     this.executeIfActive(() => {
       switch (event.key.toLowerCase()) {
         case 'd':
+          // Toggle debug mode immediately
+          this.state.debugMode = !this.state.debugMode;
+          // Then emit the event for other systems
           this.emit({
             type: 'debug:mode:toggled',
             timestamp: Date.now(),
-            enabled: !this.state.debugMode
+            enabled: this.state.debugMode,
+            source: 'GameManager'
           });
+          console.log(`Debug mode toggled via 'D' key: ${this.state.debugMode}`);
           break;
         case 'r':
           this.handleMenuAction('restart');
@@ -694,7 +702,7 @@ export class GameManager extends BaseSystem {
       const buttons = [
         { text: 'Start Game', y: firstButtonY, action: () => this.handleMenuAction('start') },
         { text: 'Restart', y: firstButtonY + buttonSpacing, action: () => this.handleMenuAction('restart') },
-        { text: 'Debug Mode', y: firstButtonY + (buttonSpacing * 2), action: () => this.handleMenuAction('debug') },
+        { text: this.state.debugMode ? 'Debug Mode: ON' : 'Debug Mode: OFF', y: firstButtonY + (buttonSpacing * 2), action: () => this.handleMenuAction('debug') },
         { text: 'Start Fresh', y: firstButtonY + (buttonSpacing * 3), action: () => this.handleMenuAction('fresh') }
       ];
 
@@ -736,11 +744,17 @@ export class GameManager extends BaseSystem {
           });
           break;
         case 'debug':
+          console.log(`Debug button clicked. Current debugMode: ${this.state.debugMode}, will toggle to: ${!this.state.debugMode}`);
+          // Toggle debug mode immediately in our state
+          this.state.debugMode = !this.state.debugMode;
+          // Then emit the event for other systems
           this.emit({
             type: 'debug:mode:toggled',
             timestamp: Date.now(),
-            enabled: !this.state.debugMode
+            enabled: this.state.debugMode,
+            source: 'GameManager'
           });
+          console.log(`Debug mode is now: ${this.state.debugMode}`);
           break;
         case 'fresh':
           // Start completely fresh game
@@ -1073,15 +1087,25 @@ export class GameManager extends BaseSystem {
     const buttonSpacing = isMobileDevice ? 75 : 65;
     const firstButtonY = isMobileDevice ? panelY + 100 : panelY + 90;
 
-    const buttons = ['Start Game', 'Restart', 'Debug Mode', 'Start Fresh'];
+    const buttons = [
+      'Start Game',
+      'Restart',
+      this.state.debugMode ? 'Debug Mode: ON' : 'Debug Mode: OFF',
+      'Start Fresh'
+    ];
     
     buttons.forEach((text, index) => {
       if (!this.state.ctx) return;
       
       const buttonY = firstButtonY + (index * buttonSpacing);
       
-      // Button background
-      this.state.ctx.fillStyle = 'rgba(100, 149, 237, 0.8)';
+      // Button background - highlight debug button when active
+      const isDebugButton = index === 2;
+      if (isDebugButton && this.state.debugMode) {
+        this.state.ctx.fillStyle = 'rgba(50, 205, 50, 0.8)'; // Green when debug is on
+      } else {
+        this.state.ctx.fillStyle = 'rgba(100, 149, 237, 0.8)';
+      }
       this.state.ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
       this.state.ctx.strokeStyle = '#000000';
       this.state.ctx.lineWidth = 1;
