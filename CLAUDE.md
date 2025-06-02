@@ -131,7 +131,7 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 
 ## Technical Design Documents
 
-A comprehensive technical design document is available at `project_design.md` which provides:
+A comprehensive technical design document is available at `game_design.md` which provides:
 
 - Detailed architecture breakdown with system diagrams
 - Complete file structure mapping with functionality descriptions
@@ -140,9 +140,9 @@ A comprehensive technical design document is available at `project_design.md` wh
 - Performance considerations and optimizations
 - Mobile support strategies
 
-**Important:** When making architectural changes to the codebase, always update `project_design.md` to reflect the current implementation.
+**Important:** When making architectural changes to the codebase, always update `game_design.md` to reflect the current implementation.
 
-**Important:** `project_design.md` should be read in to help understand and locate the code you need to work on. It provides a high-level overview of the architecture, file structure, and key components of the game.
+**Important:** `game_design.md` should be read in to help understand and locate the code you need to work on. It provides a high-level overview of the architecture, file structure, and key components of the game.
 
 A comprehensive design document for the event system is available at `event_flow.md` which provides:
 
