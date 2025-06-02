@@ -1422,9 +1422,12 @@ export class ScrewManager extends BaseSystem {
       const screw = this.state.screws.get(screwId);
       if (!screw) return false;
 
-      // Remove both constraint and anchor body immediately and atomically
+      // Check if constraint already removed to prevent loops
       const constraint = this.state.constraints.get(screwId);
       const anchorBody = screw.anchorBody;
+      
+      // If no constraint or anchor body exists, already removed
+      if (!constraint && !anchorBody) return false;
       
       if (constraint || anchorBody) {
         // Emit a single atomic removal event for both constraint and anchor body
@@ -1628,7 +1631,7 @@ export class ScrewManager extends BaseSystem {
         shape.holes.push({ x: localX, y: localY });
       }
 
-      // Remove constraint from physics world
+      // Remove constraint from physics world (only if not already removed)
       const constraint = this.state.constraints.get(screwId);
       if (constraint) {
         this.emit({
@@ -1640,7 +1643,7 @@ export class ScrewManager extends BaseSystem {
         this.state.constraints.delete(screwId);
       }
 
-      // Remove anchor body if it exists
+      // Remove anchor body if it exists (only if not already removed)
       const anchorBody = screw.anchorBody;
       if (anchorBody) {
         // Immediately remove anchor body from physics world to prevent rendering artifacts

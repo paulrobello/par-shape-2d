@@ -200,14 +200,44 @@ export class ShapeFactory {
         break;
         
       case 'polygon':
-        const polygonRadiusRange = dims.radius as { min: number; max: number };
-        return {
-          radius: randomBetween(
-            polygonRadiusRange.min,
-            polygonRadiusRange.max
-          ) * reduction,
-          sides: dims.sides,
-        };
+        // Handle both regular polygons (with radius) and irregular polygons (with width/height like rectangle)
+        if (dims.radius) {
+          const polygonRadiusRange = dims.radius as { min: number; max: number };
+          return {
+            radius: randomBetween(
+              polygonRadiusRange.min,
+              polygonRadiusRange.max
+            ) * reduction,
+            sides: dims.sides,
+          };
+        } else if (dims.width && dims.height) {
+          // Handle irregular polygons like rectangle
+          const widthRange = dims.width as { min: number; max: number };
+          const heightRange = dims.height as { min: number; max: number };
+          let width = randomBetween(widthRange.min, widthRange.max) * reduction;
+          let height = randomBetween(heightRange.min, heightRange.max) * reduction;
+          
+          // Apply aspect ratio constraints if defined
+          if (dims.aspectRatio) {
+            const aspectRatioRange = dims.aspectRatio as { min: number; max: number };
+            const targetRatio = randomBetween(aspectRatioRange.min, aspectRatioRange.max);
+            const currentRatio = width / height;
+            
+            if (currentRatio > targetRatio) {
+              width = height * targetRatio;
+            } else {
+              height = width / targetRatio;
+            }
+          }
+          
+          return {
+            width,
+            height,
+            sides: dims.sides,
+          };
+        } else {
+          throw new Error(`Polygon shape ${definition.id} must have either radius or width/height defined`);
+        }
         
       case 'path':
         return {
@@ -288,18 +318,38 @@ export class ShapeFactory {
         };
         
       case 'polygon':
-        return {
-          body: Bodies.polygon(
-            position.x,
-            position.y,
-            dimensions.sides!,
-            dimensions.radius!,
-            {
-              ...PHYSICS_CONSTANTS.shape,
-              render: { visible: false },
-            }
-          ),
-        };
+        // Handle both regular polygons (with radius) and irregular polygons (with width/height like rectangle)
+        if (dimensions.radius) {
+          // Regular polygon (triangle, pentagon, hexagon, etc., and square)
+          return {
+            body: Bodies.polygon(
+              position.x,
+              position.y,
+              dimensions.sides!,
+              dimensions.radius,
+              {
+                ...PHYSICS_CONSTANTS.shape,
+                render: { visible: false },
+              }
+            ),
+          };
+        } else if (dimensions.width && dimensions.height) {
+          // Irregular polygon (rectangle) - use rectangle body
+          return {
+            body: Bodies.rectangle(
+              position.x,
+              position.y,
+              dimensions.width,
+              dimensions.height,
+              {
+                ...PHYSICS_CONSTANTS.shape,
+                render: { visible: false },
+              }
+            ),
+          };
+        } else {
+          throw new Error(`Polygon shape must have either radius or width/height defined for physics body creation`);
+        }
         
       case 'fromVertices':
         return this.createPathBody(position, dimensions);

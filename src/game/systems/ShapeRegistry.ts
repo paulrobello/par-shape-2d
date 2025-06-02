@@ -1,6 +1,5 @@
 import { ShapeDefinition } from '@/types/shapes';
 import { ShapeLoader } from './ShapeLoader';
-import { SHAPE_CONFIG } from '@/game/utils/Constants';
 
 export class ShapeRegistry {
   private static instance: ShapeRegistry | null = null;
@@ -51,41 +50,10 @@ export class ShapeRegistry {
     
     const enabledShapes: ShapeDefinition[] = [];
     
-    // Map old shape type names to new definition IDs
-    const shapeTypeMapping: Record<string, string> = {
-      'rectangle': 'rectangle',
-      'square': 'square',
-      'circle': 'circle',
-      'polygon': 'polygon', // This will need special handling
-      'capsule': 'capsule',
-      'arrow': 'arrow',
-      'chevron': 'chevron',
-      'star': 'star',
-      'horseshoe': 'horseshoe',
-    };
-    
-    // Get enabled shapes based on SHAPE_CONFIG
-    for (const [configKey, enabled] of Object.entries(SHAPE_CONFIG.enabledShapes)) {
-      if (!enabled) continue;
-      
-      if (configKey === 'polygon') {
-        // For polygon, add all polygon shapes
-        const polygonShapes = ['triangle', 'pentagon', 'hexagon', 'heptagon', 'octagon'];
-        for (const polygonId of polygonShapes) {
-          const definition = this.definitions.get(polygonId);
-          if (definition) {
-            enabledShapes.push(definition);
-          }
-        }
-      } else {
-        // For other shapes, use direct mapping
-        const shapeId = shapeTypeMapping[configKey];
-        if (shapeId) {
-          const definition = this.definitions.get(shapeId);
-          if (definition) {
-            enabledShapes.push(definition);
-          }
-        }
+    // Get enabled shapes based on the enabled field in each JSON definition
+    for (const definition of this.definitions.values()) {
+      if (definition.enabled) {
+        enabledShapes.push(definition);
       }
     }
     

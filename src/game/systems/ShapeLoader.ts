@@ -1,14 +1,14 @@
 import { ShapeDefinition, LoadedShapeDefinitions } from '@/types/shapes';
 
 // Import all shape JSON files
-import rectangleJson from '@/data/shapes/basic/rectangle.json';
-import squareJson from '@/data/shapes/basic/square.json';
 import circleJson from '@/data/shapes/basic/circle.json';
 import triangleJson from '@/data/shapes/polygons/triangle.json';
 import pentagonJson from '@/data/shapes/polygons/pentagon.json';
 import hexagonJson from '@/data/shapes/polygons/hexagon.json';
 import heptagonJson from '@/data/shapes/polygons/heptagon.json';
 import octagonJson from '@/data/shapes/polygons/octagon.json';
+import polygonSquareJson from '@/data/shapes/polygons/square.json';
+import polygonRectangleJson from '@/data/shapes/polygons/rectangle.json';
 import arrowJson from '@/data/shapes/paths/arrow.json';
 import chevronJson from '@/data/shapes/paths/chevron.json';
 import starJson from '@/data/shapes/paths/star.json';
@@ -17,14 +17,14 @@ import capsuleJson from '@/data/shapes/composite/capsule.json';
 
 export class ShapeLoader {
   private static readonly SHAPE_DEFINITIONS: Record<string, unknown> = {
-    rectangle: rectangleJson,
-    square: squareJson,
     circle: circleJson,
     triangle: triangleJson,
     pentagon: pentagonJson,
     hexagon: hexagonJson,
     heptagon: heptagonJson,
     octagon: octagonJson,
+    square: polygonSquareJson,
+    rectangle: polygonRectangleJson,
     arrow: arrowJson,
     chevron: chevronJson,
     star: starJson,
@@ -113,6 +113,7 @@ export class ShapeLoader {
       id: definition.id as string,
       name: definition.name as string,
       category: definition.category as 'basic' | 'polygon' | 'path' | 'composite',
+      enabled: definition.enabled as boolean,
       dimensions: {
         ...dimensions,
         reductionFactor: (dimensions.reductionFactor as number) ?? 0.15,

@@ -113,24 +113,25 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 **JSON-Based Shape Definitions**: All shapes are defined in JSON files located in `src/data/shapes/`. This allows for easy modification and addition of new shapes without changing code.
 
 **Shape Categories**:
-- **Basic**: Rectangle, Square, Circle
-- **Polygons**: Triangle, Pentagon, Hexagon, Heptagon, Octagon
+- **Basic**: Circle
+- **Polygons**: Triangle, Square, Rectangle, Pentagon, Hexagon, Heptagon, Octagon
 - **Paths**: Arrow, Chevron, Star, Horseshoe
 - **Composite**: Capsule
 
 **Adding New Shapes**:
 1. Create a JSON file in the appropriate category folder
 2. Define shape properties: dimensions, physics, rendering, screw placement
-3. Enable the shape in `SHAPE_CONFIG` if needed
+3. Set `"enabled": true` in the JSON file to enable the shape
 4. The shape will automatically be available in the game
 
 **Shape Definition Structure**:
+- `enabled`: Boolean flag to enable/disable the shape in the game
 - `dimensions`: Size and scaling parameters
 - `physics`: How the physics body is created
 - `rendering`: Visual appearance configuration
 - `screwPlacement`: Strategy for placing screws (corners, perimeter, custom)
 
-**Polygon Vertex Alignment**: The polygon shape system ensures perfect alignment between visual rendering and physics bodies by matching Matter.js `Bodies.polygon()` vertex orientation. All polygon vertices are calculated using the formula `(i * Math.PI * 2) / sides + (Math.PI / sides)` to match Matter.js's default orientation, ensuring consistent behavior across rendering, screw placement, and physics interactions.
+**Polygon System**: Unified polygon handling for all geometric shapes (3-8 sides). Square and rectangle are now implemented as 4-sided polygons, simplifying the shape logic. All polygon vertices are calculated using the formula `(i * Math.PI * 2) / sides + (Math.PI / sides)` to match Matter.js's default orientation, ensuring consistent behavior across rendering, screw placement, and physics interactions.
 - `visual`: Border width, transparency, hole support
 - `behavior`: Single screw dynamics, rotation settings
 

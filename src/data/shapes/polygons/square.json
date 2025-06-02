@@ -1,14 +1,16 @@
 {
   "id": "square",
   "name": "Square",
-  "category": "basic",
+  "category": "polygon",
+  "enabled": true,
   "dimensions": {
     "type": "random",
-    "width": { "min": 90, "max": 158 },
+    "radius": { "min": 63, "max": 112 },
+    "sides": 4,
     "reductionFactor": 0.15
   },
   "physics": {
-    "type": "rectangle"
+    "type": "polygon"
   },
   "rendering": {
     "type": "primitive"

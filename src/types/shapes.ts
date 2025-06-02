@@ -5,6 +5,7 @@ export interface ShapeDefinition {
   id: string;
   name: string;
   category: 'basic' | 'polygon' | 'path' | 'composite';
+  enabled: boolean;
   
   // Shape properties
   dimensions: {

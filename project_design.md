@@ -69,7 +69,7 @@ The application follows a **clean event-driven architecture** with complete deco
 - **Publisher-Subscriber**: EventBus manages all inter-system communication
 - **Entity-Component-System**: Game objects with modular components
 - **Coordinator Pattern**: SystemCoordinator manages system lifecycle
-- **Factory Pattern**: Procedural shape generation
+- **Factory Pattern**: JSON-driven shape generation with ShapeRegistry and ShapeLoader
 - **Strategy Pattern**: Different rendering strategies per shape type
 
 ### Architecture Benefits
@@ -338,24 +338,27 @@ for (let i = this.state.visibleLayers.length - 1; i >= 0; i--) {
 - **Purpose**: Provides smooth visual feedback for layer progression
 
 ### Shape Rendering
-Procedural shape generation with visual consistency:
+JSON-driven shape rendering with visual consistency:
 
-- **Supported Shapes**: Rectangle, Square, Circle, Polygon (3-8 sides, excluding 4), Capsule, Arrow, Chevron, Star, Horseshoe
-- **Visual Style**: Solid borders with translucent fills
-- **Screw Holes**: Automatically positioned based on shape geometry
+- **JSON-Based Definitions**: All shapes defined in JSON files with complete configuration
+- **Supported Shapes**: Circle, Polygon (3-8 sides, including 4 for square/rectangle), Capsule, Arrow, Chevron, Star, Horseshoe
+- **Visual Style**: Solid borders with translucent fills configured per shape
+- **Screw Holes**: Automatically positioned based on JSON-defined placement strategies
 - **Tint System**: Each layer has a unique color tint
-- **Border Effects**: Consistent stroke width and styling
+- **Border Effects**: Consistent stroke width and styling from JSON visual properties
 - **Path-Based Shapes**: Arrow, chevron, star, and horseshoe use vertex paths with poly-decomp for physics
+- **Individual Control**: Each shape can be enabled/disabled via JSON `enabled` field
 
 ### Shape Sizes
-Shapes are 87.5% larger than original design for improved visibility:
+JSON-configured dimensions with 87.5% scaling for improved visibility:
 
-- **Rectangle**: Base size 75-150 pixels with varied aspect ratios (0.4-2.5)
-- **Square**: Size range 90-158 pixels
-- **Circle**: Radius 45-90 pixels
-- **Polygon**: Radius 56-101 pixels (3-8 sides, excluding 4-sided)
-- **Capsule**: Width based on screw count (3-8 screws), height = 2×screw radius + 10px
-- **Arrow, Chevron, Star, Horseshoe**: Random scale 0.8-1.5 applied to base vertex paths
+- **Circle**: Radius 45-90px (from circle.json)
+- **Regular Polygons**: Radius 56-101px for triangle, pentagon, hexagon, heptagon, octagon (from polygon JSON files)
+- **Square Polygon**: Radius 63-112px for regular 4-sided polygon (from polygons/square.json)
+- **Rectangle Polygon**: Width 75-150px, height 30-120px, aspect ratio 0.4-2.5 (from polygons/rectangle.json)
+- **Capsule**: Width 77-227px, height 34px (from capsule.json)
+- **Path Shapes**: Scale 0.8-1.5 applied to vertex paths defined in arrow.json, chevron.json, star.json, horseshoe.json
+- **Size Reduction**: All shapes support 15% reduction factor during placement retries (reductionFactor: 0.15)
 
 ### Shape Placement
 Advanced deterministic placement system eliminating all overlaps:
@@ -379,24 +382,57 @@ Advanced deterministic placement system eliminating all overlaps:
 - **Grid Optimization**: Grid size = `Math.max(testRadius * 2 + minSeparation, 80)`
 
 ### Screw Placement
-Advanced multi-stage placement algorithm with shape-specific positioning:
+JSON-driven placement strategies with advanced positioning algorithms:
 
-#### Core Algorithm (ScrewManager.ts:621-648)
-- **Position Generation**: Shape-specific placement locations (corners, center, alternates)
+#### Placement Strategies (Defined in Shape JSON)
+
+**1. Corners Strategy** (`"strategy": "corners"`):
+- **Used by**: Circle, Polygons (including square and rectangle)
+- **Algorithm**: Places screws at shape corners or cardinal points
+- **Configuration**: 
+  - `cornerMargin`: Distance from edges (typically 30px)
+  - Edge-center fallbacks for narrow/short shapes
+- **Examples**: Polygon corners/vertices, Circle cardinal directions (N,E,S,W)
+
+**2. Perimeter Strategy** (`"strategy": "perimeter"`):
+- **Used by**: Path shapes (Arrow, Chevron, Star, Horseshoe)
+- **Algorithm**: Distributes screws along shape perimeter
+- **Configuration**:
+  - `perimeterPoints`: Number of potential positions (typically 8)
+  - `perimeterMargin`: Distance from perimeter edge (typically 30px)
+- **Adaptive**: Adjusts to complex shape boundaries
+
+**3. Capsule Strategy** (`"strategy": "capsule"`):
+- **Used by**: Capsule composite shapes
+- **Algorithm**: Horizontal distribution along center line
+- **Configuration**:
+  - `capsuleEndMargin`: Distance from ends (typically 5px)
+  - Even spacing based on screw count
+- **Multi-part aware**: Accounts for composite body structure
+
+**4. Grid Strategy** (`"strategy": "grid"`):
+- **Usage**: Available for custom implementations
+- **Algorithm**: Regular grid-based positioning
+- **Configuration**: `gridSpacing` for grid cell size
+
+**5. Custom Strategy** (`"strategy": "custom"`):
+- **Usage**: Predefined custom positions
+- **Algorithm**: Uses exact coordinates from JSON
+- **Configuration**: 
+  - `customPositions`: Array of {position, priority} objects
+  - Allows precise designer control
+
+#### Core Algorithm (ScrewManager.ts)
+- **JSON-Driven**: Strategy selected from shape definition
+- **Position Generation**: Strategy-specific placement locations
 - **Overlap Prevention**: Ensures minimum separation distance between screws
 - **Area-Based Constraints**: Dynamic limits based on shape size
 - **Fallback Strategy**: Graceful degradation for constrained spaces
 
-#### Distance Constants
+#### Universal Constants
 - **Minimum Separation**: 48 pixels between screws (4x screw radius = 48px)
 - **Safety Margin**: 30 pixels from shape edges (2.5x screw radius)
 - **Single Screw**: Always centered on shape for optimal pendulum motion with enhanced physics
-
-#### Shape-Specific Placement Logic
-- **Rectangles/Squares**: Corner placement with edge-center fallbacks for narrow/short shapes
-- **Circles**: Cardinal direction placement (top, right, bottom, left)
-- **Polygons**: Vertex-based placement with inward margin adjustment (3-8 sides)
-- **Capsules**: Horizontal distribution along center line with 5px end margins
 
 #### Area-Based Screw Limits
 - **Very Small** (< 2500 area): 1 screw maximum
@@ -412,31 +448,119 @@ Advanced multi-stage placement algorithm with shape-specific positioning:
 3. Select non-overlapping positions up to area-based limit
 4. Fallback to center position if overlap issues occur
 
-### Shape Configuration
-**File**: `src/game/utils/Constants.ts`
+### Shape Configuration & JSON Structure
+**Files**: Individual JSON files in `src/data/shapes/`
 
-Dynamic shape type selection through configuration:
+Complete JSON-based shape definition system with the following structure:
 
-```typescript
-export const SHAPE_CONFIG = {
-  enabledShapes: {
-    rectangle: true,
-    square: true,
-    circle: true,
-    polygon: true,
-    capsule: true,
-    arrow: true,
-    chevron: true,
-    star: true,
-    horseshoe: true,
+```json
+{
+  "id": "rectangle",
+  "name": "Rectangle",
+  "category": "basic",
+  "enabled": true,
+  "dimensions": {
+    "type": "random",
+    "width": { "min": 75, "max": 150 },
+    "height": { "min": 30, "max": 120 },
+    "aspectRatio": { "min": 0.4, "max": 2.5 },
+    "reductionFactor": 0.15
   },
-} as const;
+  "physics": {
+    "type": "rectangle"
+  },
+  "rendering": {
+    "type": "primitive"
+  },
+  "screwPlacement": {
+    "strategy": "corners",
+    "cornerMargin": 30,
+    "minSeparation": 48,
+    "maxScrews": {
+      "byArea": [
+        { "maxArea": 2500, "screwCount": 1 },
+        { "maxArea": 4000, "screwCount": 2 }
+      ],
+      "absolute": 6
+    }
+  },
+  "visual": {
+    "supportsHoles": true
+  },
+  "behavior": {
+    "allowSingleScrew": true,
+    "singleScrewDynamic": true,
+    "rotationalInertiaMultiplier": 3
+  }
+}
 ```
 
-- **Enable/Disable**: Set any shape type to `false` to exclude it from generation
-- **Runtime Control**: Shapes are filtered during generation based on configuration
+#### JSON Field Definitions
+
+**Core Properties**:
+- **`id`**: Unique identifier for the shape type
+- **`name`**: Display name for the shape
+- **`category`**: Shape category: "basic", "polygon", "path", or "composite"
+- **`enabled`**: Boolean flag to enable/disable shape in game
+
+**Dimensions Configuration**:
+- **`type`**: "fixed" or "random" - determines size generation method
+- **`width`/`height`**: Fixed number or {min, max} range for basic shapes
+- **`radius`**: Fixed number or {min, max} range for circles and polygons
+- **`sides`**: Number of sides for polygon shapes
+- **`path`**: Vertex coordinates string for path-based shapes
+- **`scale`**: {min, max} scaling range for path shapes
+- **`aspectRatio`**: {min, max} width/height ratio constraints
+- **`reductionFactor`**: Percentage reduction per retry attempt (default: 0.15)
+
+**Physics Configuration**:
+- **`type`**: Physics body type: "rectangle", "circle", "polygon", "fromVertices", "composite"
+- **`decomposition`**: Boolean for path decomposition (path shapes only)
+- **`composite`**: Multi-part physics definition for capsules
+
+**Rendering Configuration**:
+- **`type`**: Rendering method: "primitive", "path", "composite"
+- **`preserveOriginalVertices`**: Keep original vertices for visual rendering
+- **`compositeParts`**: Multi-part rendering definition
+
+**Screw Placement Configuration**:
+- **`strategy`**: Placement algorithm: "corners", "perimeter", "grid", "custom", "capsule"
+- **`cornerMargin`**: Distance from shape edges for corner placement
+- **`perimeterPoints`**: Number of points for perimeter strategy
+- **`minSeparation`**: Minimum distance between screws (48px default)
+- **`maxScrews`**: Area-based and absolute screw limits
+- **`capsuleEndMargin`**: End spacing for capsule shapes
+
+**Visual Properties**:
+- **`supportsHoles`**: Boolean for screw hole rendering support
+- **`borderWidth`**: Stroke width (optional, defaults applied)
+- **`alpha`**: Transparency level (optional, defaults applied)
+
+**Behavior Properties**:
+- **`allowSingleScrew`**: Permit shapes with only one screw
+- **`singleScrewDynamic`**: Enable pendulum physics for single-screw shapes
+- **`rotationalInertiaMultiplier`**: Physics enhancement factor (default: 3)
+
+#### Shape Categories & Examples
+
+**Basic Shapes** (`src/data/shapes/basic/`):
+- Circle - Simple geometric primitive
+
+**Polygon Shapes** (`src/data/shapes/polygons/`):
+- Triangle, Square, Rectangle, Pentagon, Hexagon, Heptagon, Octagon - Geometric polygons (3-8 sides)
+
+**Path Shapes** (`src/data/shapes/paths/`):
+- Arrow, Chevron, Star, Horseshoe - Complex vertex-defined shapes
+
+**Composite Shapes** (`src/data/shapes/composite/`):
+- Capsule - Multi-part physics bodies (rectangle + 2 circles)
+
+#### System Features
+- **Decentralized Control**: Each shape JSON file contains its own `enabled` boolean field
+- **Individual Configuration**: Shapes can be enabled/disabled in their own definition files
+- **Runtime Control**: ShapeRegistry filters shapes based on their `enabled` field during loading
 - **Fallback**: If all shapes disabled, defaults to circle shape
-- **Path-Based Shapes**: Arrow, chevron, star, and horseshoe use vertex paths
+- **Hot Reloading**: JSON changes can be applied without code modification
 
 ### Physics Behavior by Screw Count
 
@@ -706,8 +830,8 @@ src/game/systems/
 ├── ShapeRegistry.ts     # Shape definition management
 │   ├── Loads all shape JSON files on startup
 │   ├── Provides shape definitions to other systems
-│   ├── Filters enabled shapes based on config
-│   └── Maps shape types to definition IDs
+│   ├── Filters enabled shapes based on JSON enabled field
+│   └── Manages shape type registry and availability
 │
 └── ShapeLoader.ts       # Shape JSON loading and validation
     ├── Deterministic 3-phase placement algorithm
@@ -723,7 +847,7 @@ src/game/systems/
 ```
 src/game/rendering/
 ├── ShapeRenderer.ts     # Shape drawing with holes
-│   ├── Procedural shape drawing
+│   ├── JSON-driven shape drawing
 │   ├── Screw hole visualization
 │   ├── Tint and transparency effects
 │   └── Debug outline rendering
@@ -821,12 +945,14 @@ src/types/
 ```
 src/data/shapes/
 ├── basic/             # Basic shape definitions
-│   ├── rectangle.json
-│   ├── square.json
+│   ├── rectangle.json (disabled - moved to polygons)
+│   ├── square.json    (disabled - moved to polygons)
 │   └── circle.json
 │
-├── polygons/          # Polygon shape definitions
+├── polygons/          # Polygon shape definitions (3-8 sides)
 │   ├── triangle.json
+│   ├── square.json    (4-sided regular polygon)
+│   ├── rectangle.json (4-sided irregular polygon with width/height)
 │   ├── pentagon.json
 │   ├── hexagon.json
 │   ├── heptagon.json
@@ -1011,12 +1137,12 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ **Capsule Blocking Detection**: Specialized collision detection for composite shapes
 - ✅ **Event Loop Prevention**: Unique source identifiers prevent physics event loops
 - ✅ **Single-Screw Physics**: Enhanced pendulum motion with initial perturbation and wake-up control
-- ✅ **Polygon System**: Unified shape system supporting 3-8 sided polygons (excluding 4-sided)
+- ✅ **Unified Polygon System**: Complete polygon system supporting 3-8 sided polygons (including square and rectangle as 4-sided)
 - ✅ **Rotation-Aware Blocking**: All shapes now properly handle rotation in collision detection
 - ✅ **Screw Scaling**: Container and holding hole screws render 25% smaller for visual consistency
 - ✅ **Container Hole Position Fix**: Fixed screw transfer animations to target correct hole positions
 - ✅ **Path-Based Shapes**: Added support for arrow, chevron, star, and horseshoe shapes using vertex paths
-- ✅ **Shape Configuration**: Added SHAPE_CONFIG to enable/disable specific shape types
+- ✅ **Shape Configuration**: Decentralized shape enabling/disabling via JSON `enabled` field
 - ✅ **Vertex Rendering Fix**: Separate rendering vertices from physics vertices for accurate shape display
 - ✅ **Poly-Decomp Integration**: Proper complex shape physics using poly-decomp-es library
 - ✅ Ready for production use with polished visual experience

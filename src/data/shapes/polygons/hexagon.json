@@ -2,6 +2,7 @@
   "id": "hexagon",
   "name": "Hexagon",
   "category": "polygon",
+  "enabled": true,
   "dimensions": {
     "type": "random",
     "radius": { "min": 56, "max": 101 },

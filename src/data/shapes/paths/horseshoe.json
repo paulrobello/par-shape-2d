@@ -2,6 +2,7 @@
   "id": "horseshoe",
   "name": "Horseshoe",
   "category": "path",
+  "enabled": false,
   "dimensions": {
     "type": "random",
     "path": "35 7 19 17 14 38 14 58 25 79 45 85 65 84 65 66 46 67 34 59 30 44 33 29 45 23 66 23 66 7 53 7",

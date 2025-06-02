@@ -113,12 +113,12 @@ export const PHYSICS_CONSTANTS = {
   shape: {
     friction: 0.05, // Reduced friction for more sliding
     frictionAir: 0.0005, // 10x reduced air resistance for maximum swinging motion
-    restitution: 0.25, // Slightly bouncy
+    restitution: 0, // Not bouncy
     density: 0.02, // Slightly heavier for better falling motion
   },
   constraint: {
     stiffness: 1,
-    damping: 0.02, // Much reduced damping for more swinging motion
+    damping: 0.05, // Much reduced damping for more swinging motion
   },
 } as const;
 
@@ -137,23 +137,7 @@ export const DEBUG_CONFIG = {
   logPhysicsUpdates: false,
 } as const;
 
-/**
- * Configuration for which shape types can be generated in the game
- * Set to true to enable, false to disable specific shapes
- */
-export const SHAPE_CONFIG = {
-  enabledShapes: {
-    rectangle: true,
-    square: true,
-    circle: true,
-    polygon: true,
-    capsule: false,
-    arrow: true,
-    chevron: true,
-    star: true,
-    horseshoe: false,
-  },
-} as const;
+// SHAPE_CONFIG.enabledShapes removed - shapes are now controlled by the "enabled" field in individual JSON files
 
 /**
  * Calculate total layers for a given level

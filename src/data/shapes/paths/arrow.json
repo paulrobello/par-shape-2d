@@ -2,6 +2,7 @@
   "id": "arrow",
   "name": "Arrow",
   "category": "path",
+  "enabled": true,
   "dimensions": {
     "type": "random",
     "path": "40 0 40 20 100 20 100 80 40 80 40 100 0 50",

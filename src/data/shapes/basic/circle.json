@@ -2,6 +2,7 @@
   "id": "circle",
   "name": "Circle",
   "category": "basic",
+  "enabled": true,
   "dimensions": {
     "type": "random",
     "radius": { "min": 45, "max": 90 },

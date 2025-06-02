@@ -2,6 +2,7 @@
   "id": "chevron",
   "name": "Chevron",
   "category": "path",
+  "enabled": true,
   "dimensions": {
     "type": "random",
     "path": "100 0 75 50 100 100 25 100 0 50 25 0",

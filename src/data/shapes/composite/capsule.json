@@ -2,6 +2,7 @@
   "id": "capsule",
   "name": "Capsule",
   "category": "composite",
+  "enabled": false,
   "dimensions": {
     "type": "random",
     "width": { "min": 77, "max": 227 },

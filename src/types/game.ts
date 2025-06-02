@@ -34,7 +34,7 @@ export interface Shape {
   width?: number;
   height?: number;
   radius?: number;
-  sides?: number; // Number of sides for polygon shapes (3-8, excluding 4)
+  sides?: number; // Number of sides for polygon shapes (3-8, including 4 for square/rectangle)
   vertices?: Vector2[];
   body: Body;
   screws: Screw[];
