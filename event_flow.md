@@ -22,6 +22,8 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 - **Centralized EventBus**: Priority handling, loop detection, and performance monitoring
 - **Type-Safe Events**: Comprehensive TypeScript event definitions
 - **7 Core Systems**: All using event-based communication patterns
+- **Unified Polygon System**: Square and rectangle converted to polygon types (3-8 sides) for simplified shape logic
+- **Event Loop Prevention**: Robust safeguards against cascading physics events
 
 ## Event Categories
 
@@ -35,6 +37,7 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `level:started` | New level initialization | GameManager, GameState | GameManager, LayerManager, EventFlowValidator |
 | `level:complete` | Level completion | GameState | GameManager, EventFlowValidator |
 | `level:progress:updated` | Level progress tracking | GameState | GameManager |
+| `next_level:requested` | Request to advance to next level | GameManager | GameState |
 
 ### Screw System Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -76,16 +79,15 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 ### Container System Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
-| `container:filled` | Container becomes full | GameState | GameManager, GameState |
+| `container:filled` | Container becomes full | GameState, ScrewManager | GameManager, GameState |
 | `container:replaced` | Container replacement | GameState | GameManager |
 | `container:colors:updated` | Container color changes | GameState | ScrewManager, LayerManager |
 | `container:state:updated` | Container state changes | GameState | GameManager, ScrewManager |
-| `holding_hole:filled` | Holding hole occupied | GameState | GameManager, GameState |
+| `holding_hole:filled` | Holding hole occupied | GameState, ScrewManager | GameManager, GameState |
 | `holding_holes:full` | All holding holes full | GameState | GameManager |
 | `holding_holes:available` | Holding holes freed up, timer cancelled | GameState | GameManager |
 | `holding_hole:state:updated` | Holding hole state changes | GameState | GameManager, ScrewManager |
 | `screw_colors:requested` | Request for active screw colors | GameState | ScrewManager |
-| `screw:transfer:color_check` | Color validation request | GameState | ScrewManager |
 
 ### Physics Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -98,6 +100,7 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `physics:constraint:removed` | Constraint removal | ScrewManager | PhysicsWorld |
 | `physics:collision:detected` | Collision detection | PhysicsWorld | GameManager |
 | `physics:step:completed` | Physics step completion | PhysicsWorld | None |
+| `physics:error` | Physics simulation errors | PhysicsWorld | None |
 
 ### Save/Restore Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -126,14 +129,13 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
 | `system:error` | System-level errors | None | None |
-| `physics:error` | Physics simulation errors | PhysicsWorld | None |
 | `save:error` | Save/restore errors | None | None |
 
 ### Rendering Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
 | `render:requested` | Render frame request | None | None |
-| `bounds:changed` | Canvas bounds update | GameManager | PhysicsWorld, LayerManager, GameState |
+| `bounds:changed` | Canvas bounds update | GameManager | PhysicsWorld, LayerManager, GameState, ScrewManager |
 
 ### System Coordination Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -172,9 +174,11 @@ ScrewManager checks screw.isRemovable
 If REMOVABLE:
     ScrewManager → screw:removed
     ↓
-    ScrewManager → physics:constraint:removed, physics:body:removed:immediate
+    ScrewManager checks if constraint/anchor already removed (loop prevention)
     ↓
-    PhysicsWorld (removes constraint and body)
+    ScrewManager → physics:screw:removed:immediate (atomic operation)
+    ↓
+    PhysicsWorld (removes both constraint and anchor body atomically)
     ↓
     ScrewManager → screw:animation:started
     ↓
@@ -259,10 +263,12 @@ Game continues without game over threat
 ### Critical Event Chains
 1. **Game Start Chain**: `game:started` → `level:started` → `layer:created` → `layer:shapes:ready` → `shape:created` → `shape:screws:ready`
 2. **Screw Interaction Chain**: `screw:clicked` → `screw:removed` → `physics:constraint:removed` → `screw:collected` → `score:updated`
-3. **Level Progression Chain**: `layer:cleared` → `level:complete` → `level:started`
+3. **Level Progression Chain**: `layer:cleared` → `all_layers:cleared` → `level:complete` → `next_level:requested` → `level:started`
 4. **Save Chain**: `save:requested` → (multiple handlers) → `save:completed`
 5. **Container Chain**: `screw:collected` → `container:filled` → `container:replaced` → `container:colors:updated`
 6. **Holding Holes Timer Chain**: `holding_holes:full` → timer started → `holding_holes:available` → timer cancelled
+7. **Physics Cleanup Chain**: `screw:removed` → `physics:constraint:removed` + `physics:body:removed:immediate` → PhysicsWorld cleanup
+8. **Atomic Physics Removal**: `screw:removed` → `physics:screw:removed:immediate` → PhysicsWorld atomic cleanup (preferred)
 
 ### Event Priority Analysis
 - **EventFlowValidator**: Uses priority 3 (highest) for monitoring all major events
@@ -272,11 +278,18 @@ Game continues without game over threat
 ### Circular Dependency Prevention
 The EventBus includes loop detection (max 50 loops per event type/source) to prevent infinite event chains.
 
+**Event Loop Prevention Mechanisms:**
+- **Physics Event Deduplication**: ScrewManager checks if constraints/anchor bodies already removed before emitting removal events
+- **Atomic Operations**: `physics:screw:removed:immediate` provides single-event removal of both constraint and anchor body
+- **State Tracking**: Constraint and anchor body references cleared immediately to prevent double-removal
+- **Early Returns**: Methods return early if physics objects already removed
+
 ## Performance Analysis
 
 ### Event Frequency Classification
 1. **High-Frequency Events**: 
    - `physics:body:added/removed` (frequent during gameplay)
+   - `physics:screw:removed:immediate` (atomic screw removal operations)
    - `screw:clicked/removed/collected` (user-driven)
    - `bounds:changed` (responsive design)
    - `container:state:updated` (frequent state changes)
@@ -285,11 +298,13 @@ The EventBus includes loop detection (max 50 loops per event type/source) to pre
    - `save:requested/completed` (auto-save triggers)
    - `shape:created/destroyed` (level progression)
    - `layer:created/cleared` (level progression)
+   - `physics:constraint:added/removed` (shape attachment changes)
 
 3. **Low-Frequency Events**:
    - `game:started/over` (game lifecycle)
    - `level:started/complete` (level progression)
    - `debug:*` (debug operations)
+   - `physics:error` (error conditions)
 
 ### Memory Considerations
 - EventBus maintains history of 1000 events for debugging
@@ -301,6 +316,23 @@ The EventBus includes loop detection (max 50 loops per event type/source) to pre
 1. **Event Batching**: Consider batching high-frequency physics events
 2. **Selective Monitoring**: EventFlowValidator could use filtered monitoring for performance
 3. **Event Pooling**: Reuse event objects to reduce garbage collection
+
+### Recent Optimizations Implemented
+1. **Atomic Physics Operations**: `physics:screw:removed:immediate` reduces multiple events to single atomic operation
+2. **Event Loop Prevention**: Duplicate removal checks prevent cascading physics events
+3. **Unified Polygon System**: Reduced shape type complexity simplifies event patterns
+4. **State Deduplication**: Constraint/anchor body removal events only emit when state actually changes
+
+### Orphaned/Unused Events
+The following events are defined in EventTypes.ts but have no active emitters or subscribers:
+- **`shape:physics:updated`** - Defined but not implemented
+- **`shape:attachment:changed`** - Defined but not implemented  
+- **`system:error`** - Defined but no emitters or subscribers found
+- **`save:error`** - Defined but no emitters or subscribers found
+- **`render:requested`** - Defined but no emitters or subscribers found
+- **`debug:performance:test`** - Has subscriber (EventDebugger) but no emitters found
+
+These events should either be implemented with proper emitters/subscribers or removed from the type definitions to maintain clean architecture.
 
 ---
 
