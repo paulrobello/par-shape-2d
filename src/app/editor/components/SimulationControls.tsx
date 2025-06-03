@@ -91,6 +91,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
     border: '1px solid #ccc',
     borderRadius: '4px',
     backgroundColor: '#ffffff',
+    color: '#212529',
     cursor: 'pointer',
     fontSize: '12px',
     marginRight: '4px',
@@ -112,7 +113,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
 
   return (
     <div className="simulation-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{ fontSize: '12px', color: '#666', marginRight: '8px' }}>
+      <div style={{ fontSize: '12px', color: '#495057', marginRight: '8px' }}>
         Simulation:
       </div>
       

@@ -96,6 +96,7 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager }) => 
           border: '1px solid #ccc',
           borderRadius: '4px',
           backgroundColor: '#ffffff',
+          color: '#212529',
           cursor: 'pointer',
         }}
       >
@@ -109,6 +110,7 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager }) => 
           border: '1px solid #ccc',
           borderRadius: '4px',
           backgroundColor: '#ffffff',
+          color: '#212529',
           cursor: 'pointer',
         }}
       >
@@ -126,7 +128,7 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager }) => 
           backgroundColor: dragOver ? '#f0f8ff' : '#f8f9fa',
           cursor: 'pointer',
           fontSize: '12px',
-          color: '#666',
+          color: '#495057',
         }}
       >
         Drop JSON file here

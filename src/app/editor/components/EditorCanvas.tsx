@@ -85,7 +85,7 @@ export const EditorCanvas: React.FC = () => {
             alignItems: 'center',
           }}
         >
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#212529' }}>
             Shape Editor
           </h1>
           <FileControls editorManager={editorManager} />
