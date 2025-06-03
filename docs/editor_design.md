@@ -257,12 +257,14 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Canvas Background**: Light grey (#e9ecef) background for optimal shape visibility in both light and dark modes, applied programmatically during render
 - **Interaction States**: Screw manipulation is disabled during active physics simulation
 - **Theme Integration**: All UI elements adapt to system-preferred color scheme automatically
+- **UI Simplification**: Streamlined simulation controls with intuitive toggle button design
 
 ### Performance Architecture
 - **Conditional Rendering**: needsRender flag prevents unnecessary canvas updates
 - **Event Throttling**: Resize events are debounced to maintain performance
 - **Simplified Physics**: Editor uses basic rectangle physics bodies for preview rendering
 - **Spatial Optimization**: Screw click detection uses optimized coordinate calculations
+- **Unified Positioning**: Single calculation method for both screw placement and indicators reduces computational overhead
 
 ## Development Guidelines
 
@@ -288,18 +290,20 @@ The editor implements several mechanisms to prevent infinite event loops:
 ## Current Implementation Status
 
 ### ✅ Completed Features
-- **Complete Shape Editor Interface**: Fully functional editor at `/editor` route
-- **File Management**: Load/save JSON shape definitions with drag & drop support
-- **Property Editing**: Dynamic forms with validation and real-time updates
+- **Complete Shape Editor Interface**: Fully functional editor at `/editor` route with comprehensive functionality
+- **File Management**: Load/save JSON shape definitions with drag & drop support and validation
+- **Property Editing**: Dynamic forms with real-time validation and random value generation
 - **Screw Placement System**: Visual indicators and interactive screw manipulation for all placement strategies
-- **Physics Simulation**: Full Matter.js constraint-based physics with realistic screw behavior
-- **Constraint Physics**: Multi-screw stability, single-screw pivoting, no-screw falling
-- **Visual Design**: Consistent blue/red color scheme maintained throughout editor and physics
-- **Responsive Layout**: Fixed scrollbar issues, proper overflow handling
-- **Event System**: Comprehensive event-driven architecture with 70+ event types
-- **Interaction Management**: Smart interaction blocking during physics simulation
-- **Reset Functionality**: Physics simulation reset properly restores shapes to original positions
-- **Dark Mode Support**: Complete UI theming with automatic system preference detection
+- **Physics Simulation**: Full Matter.js constraint-based physics with realistic screw behavior and proper reset
+- **Constraint Physics**: Multi-screw stability, single-screw pivoting, no-screw falling with accurate positioning
+- **Visual Design**: Consistent blue/red color scheme maintained throughout editor and physics modes
+- **Responsive Layout**: Fixed scrollbar issues, proper overflow handling, and high-DPI display support
+- **Event System**: Comprehensive event-driven architecture with 70+ event types and proper error handling
+- **Interaction Management**: Smart interaction blocking during physics simulation with visual feedback
+- **Reset Functionality**: Physics simulation reset properly restores shapes to original positions with event-driven updates
+- **Dark Mode Support**: Complete UI theming with automatic system preference detection and consistent canvas backgrounds
+- **Screw Position Alignment**: Placement indicators and actual screws use identical strategy-based positioning logic
+- **Streamlined UI**: Combined start/pause controls with single toggle button interface for better usability
 
 ### 🔄 In Progress / Foundation
 - **Debug Tools**: Canvas debugging with physics body visualization (can be enhanced)
@@ -310,6 +314,26 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Advanced Shape Creation**: Direct drawing tools and vertex editing
 - **Enhanced Physics**: Full constraint testing and animation preview
 - **Collaboration Features**: Shape sharing and community integration
+
+## Recent Improvements Summary
+
+The Shape Editor has undergone significant enhancements for improved usability and consistency:
+
+### **UI/UX Improvements**
+- **Dark Mode Integration**: Automatic system preference detection with comprehensive theming
+- **Canvas Background**: Consistent light grey background for optimal shape visibility in all modes
+- **Streamlined Controls**: Combined start/pause simulation controls into intuitive toggle button
+- **Visual Consistency**: Unified color scheme across all editor components and themes
+
+### **Functional Fixes**
+- **Physics Reset**: Proper shape position restoration to original locations after simulation reset
+- **Screw Alignment**: Fixed indicator positioning to match actual screw locations using unified calculation logic
+- **Theme Application**: Immediate theme setting during initialization to prevent visual flashing
+
+### **Technical Architecture**
+- **Event-Driven Design**: Comprehensive 70+ event system with proper error handling and state management
+- **Performance Optimization**: Unified positioning calculations and conditional rendering for efficiency
+- **Code Consistency**: Single source of truth for screw positioning logic across indicators and actual placements
 
 ---
 

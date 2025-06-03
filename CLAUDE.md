@@ -28,7 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. The game follows a **clean event-driven architecture** with complete decoupling between systems for optimal maintainability and testing.
 
-It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection and proper physics simulation reset functionality.
+It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection, proper physics simulation reset functionality, aligned screw placement indicators, and streamlined UI controls.
 
 ## Matter.js Integration
 
