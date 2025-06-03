@@ -479,14 +479,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
         priority: 1,
       });
 
-      // Emit update
-      await this.emit({
-        type: 'editor:property:changed',
-        payload: {
-          path: 'screwPlacement.customPositions',
-          value: this.currentShape.definition.screwPlacement.customPositions,
-        },
-      });
+      // Note: We don't emit 'editor:property:changed' for screw placement updates
+      // to avoid triggering shape regeneration which would change dimensions.
+      // The shape definition is updated in-place for screw positions only.
     }
     
     // Emit screw placement update for UI
@@ -527,13 +522,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
         this.currentShape.definition.screwPlacement.customPositions) {
       this.currentShape.definition.screwPlacement.customPositions.splice(screwIndex, 1);
       
-      await this.emit({
-        type: 'editor:property:changed',
-        payload: {
-          path: 'screwPlacement.customPositions',
-          value: this.currentShape.definition.screwPlacement.customPositions,
-        },
-      });
+      // Note: We don't emit 'editor:property:changed' for screw placement updates
+      // to avoid triggering shape regeneration which would change dimensions.
+      // The shape definition is updated in-place for screw positions only.
     }
     
     // Emit screw placement update for UI
