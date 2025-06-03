@@ -505,17 +505,95 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
             error={undefined}
             theme={theme} // errors['screwPlacement.strategy']}
           />
-          <FormField
-            label="Corner Margin"
-            path="screwPlacement.cornerMargin"
-            value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'screwPlacement.cornerMargin')}
-            type="number"
-            min={5}
-            max={100}
-            onChange={handlePropertyChange}
-            error={undefined}
-            theme={theme} // errors['screwPlacement.cornerMargin']}
-          />
+          
+          {/* Corner Strategy Fields */}
+          {currentShape.screwPlacement?.strategy === 'corners' && (
+            <FormField
+              label="Corner Margin"
+              path="screwPlacement.cornerMargin"
+              value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'screwPlacement.cornerMargin')}
+              type="number"
+              min={5}
+              max={100}
+              onChange={handlePropertyChange}
+              error={undefined}
+              theme={theme} // errors['screwPlacement.cornerMargin']}
+            />
+          )}
+          
+          {/* Perimeter Strategy Fields */}
+          {currentShape.screwPlacement?.strategy === 'perimeter' && (
+            <>
+              <FormField
+                label="Perimeter Points"
+                path="screwPlacement.perimeterPoints"
+                value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'screwPlacement.perimeterPoints')}
+                type="number"
+                min={3}
+                max={20}
+                onChange={handlePropertyChange}
+                error={undefined}
+                theme={theme}
+              />
+              <FormField
+                label="Perimeter Margin"
+                path="screwPlacement.perimeterMargin"
+                value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'screwPlacement.perimeterMargin')}
+                type="number"
+                min={5}
+                max={50}
+                onChange={handlePropertyChange}
+                error={undefined}
+                theme={theme}
+              />
+            </>
+          )}
+          
+          {/* Grid Strategy Fields */}
+          {currentShape.screwPlacement?.strategy === 'grid' && (
+            <FormField
+              label="Grid Spacing"
+              path="screwPlacement.gridSpacing"
+              value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'screwPlacement.gridSpacing')}
+              type="number"
+              min={20}
+              max={100}
+              onChange={handlePropertyChange}
+              error={undefined}
+              theme={theme}
+            />
+          )}
+          
+          {/* Capsule Strategy Fields */}
+          {currentShape.screwPlacement?.strategy === 'capsule' && (
+            <FormField
+              label="Capsule End Margin"
+              path="screwPlacement.capsuleEndMargin"
+              value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'screwPlacement.capsuleEndMargin')}
+              type="number"
+              min={5}
+              max={50}
+              onChange={handlePropertyChange}
+              error={undefined}
+              theme={theme}
+            />
+          )}
+          
+          {/* Custom Strategy Note */}
+          {currentShape.screwPlacement?.strategy === 'custom' && (
+            <div style={{ 
+              padding: '8px', 
+              backgroundColor: theme.background.tertiary,
+              borderRadius: '4px',
+              fontSize: '12px',
+              color: theme.text.secondary,
+              marginBottom: '12px'
+            }}>
+              Custom positions are set by clicking on the canvas
+            </div>
+          )}
+          
+          {/* Min Separation - Always visible */}
           <FormField
             label="Min Separation"
             path="screwPlacement.minSeparation"

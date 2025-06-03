@@ -92,6 +92,7 @@ src/editor/
 - **Collapsible Sections**: Organized property groups for better UX
 - **High Contrast UI**: Dark gray text on white backgrounds for accessibility
 - **Smart Dimension Handling**: Width/height inputs automatically disabled for radius-based shapes (circles, polygons)
+- **Dynamic Screw Placement Controls**: Input fields shown/hidden based on selected placement strategy
 
 ### 3. Playground Area
 - **Shape Preview**: Real-time rendering using game's ShapeRenderer with blue color scheme (#007bff)
@@ -105,14 +106,15 @@ src/editor/
 ### 4. Screw Placement System
 - **Visual Indicators**: Dashed gray circles (6px radius) show valid placement positions
 - **Strategy Support**:
-  - **Corners**: Cross pattern for circles, corner positions for rectangles
-  - **Perimeter**: Evenly distributed around shape perimeter (configurable point count)
-  - **Grid**: Grid pattern inside shape boundaries with configurable spacing
-  - **Custom**: User-defined positions from JSON configuration
-  - **Capsule**: Strategic positions for capsule-shaped objects
+  - **Corners**: Cross pattern for circles, corner positions for rectangles (configurable margin)
+  - **Perimeter**: Evenly distributed around shape perimeter (configurable point count and margin)
+  - **Grid**: Grid pattern inside shape boundaries (configurable spacing)
+  - **Custom**: User-defined positions from JSON configuration (canvas-based editing)
+  - **Capsule**: Strategic positions for capsule-shaped objects (configurable end margin)
 - **Real-time Feedback**: Indicators hide when screws are placed at those positions
 - **Interactive Editing**: Click empty indicators to add screws, click existing screws to remove
 - **Position Alignment**: Screw positions and placement indicators use consistent calculation logic
+- **Smart Property Panel**: Only shows relevant configuration fields for the selected strategy
 
 ### 5. Physics Simulation
 - **Simulation Controls**: Toggle Start/Pause/Reset physics simulation with proper state management

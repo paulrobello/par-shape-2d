@@ -306,6 +306,10 @@ export class PropertyManager extends BaseEditorSystem {
       'rendering.type': 'primitive',
       'screwPlacement.strategy': 'corners',
       'screwPlacement.cornerMargin': 30,
+      'screwPlacement.perimeterPoints': 8,
+      'screwPlacement.perimeterMargin': 20,
+      'screwPlacement.gridSpacing': 40,
+      'screwPlacement.capsuleEndMargin': 15,
       'screwPlacement.minSeparation': 48,
       'visual.supportsHoles': true,
       'behavior.allowSingleScrew': true,
@@ -347,10 +351,24 @@ export class PropertyManager extends BaseEditorSystem {
       );
     }
     
+    // Add screw placement paths based on strategy
+    const strategy = this.currentShape.screwPlacement?.strategy;
+    if (strategy === 'corners') {
+      paths.push('screwPlacement.cornerMargin');
+    } else if (strategy === 'perimeter') {
+      paths.push(
+        'screwPlacement.perimeterPoints',
+        'screwPlacement.perimeterMargin'
+      );
+    } else if (strategy === 'grid') {
+      paths.push('screwPlacement.gridSpacing');
+    } else if (strategy === 'capsule') {
+      paths.push('screwPlacement.capsuleEndMargin');
+    }
+    
     // Always add these paths
     paths.push(
-      'screwPlacement.cornerMargin',
-      'screwPlacement.perimeterPoints',
+      'screwPlacement.minSeparation',
       'behavior.rotationalInertiaMultiplier'
     );
     
