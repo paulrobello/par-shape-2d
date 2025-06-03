@@ -91,6 +91,7 @@ src/editor/
 - **Real-time Updates**: Changes immediately update the playground
 - **Collapsible Sections**: Organized property groups for better UX
 - **High Contrast UI**: Dark gray text on white backgrounds for accessibility
+- **Smart Dimension Handling**: Width/height inputs automatically disabled for radius-based shapes (circles, polygons)
 
 ### 3. Playground Area
 - **Shape Preview**: Real-time rendering using game's ShapeRenderer with blue color scheme (#007bff)
@@ -179,6 +180,10 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **JSON Serialization**: Maintain compatibility with game format
 - **Simplified Shape Creation**: Editor uses simplified shape rendering for preview
 - **Consistent Color Scheme**: Blue shapes (#007bff) and red screws for visual clarity
+- **Intelligent Dimension Management**: 
+  - Radius-based shapes (circles, polygons) automatically set width/height to 0
+  - Random generation skips width/height for radius-based shapes
+  - Property inputs disabled to prevent conflicting dimension values
 
 ### Screw Placement System
 - **Strategy Pattern**: Modular algorithms for different placement strategies

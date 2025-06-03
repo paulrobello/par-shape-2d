@@ -272,19 +272,44 @@ export class PropertyManager extends BaseEditorSystem {
   }
 
   private getRandomizablePaths(): string[] {
-    return [
-      'dimensions.width.min',
-      'dimensions.width.max',
-      'dimensions.height.min',
-      'dimensions.height.max',
-      'dimensions.radius.min',
-      'dimensions.radius.max',
-      'dimensions.scale.min',
-      'dimensions.scale.max',
+    if (!this.currentShape) return [];
+    
+    const paths: string[] = [];
+    
+    // Only add width/height paths if the shape doesn't have radius
+    if (!this.currentShape.dimensions?.radius) {
+      paths.push(
+        'dimensions.width.min',
+        'dimensions.width.max',
+        'dimensions.height.min',
+        'dimensions.height.max'
+      );
+    }
+    
+    // Only add radius paths if the shape has radius
+    if (this.currentShape.dimensions?.radius) {
+      paths.push(
+        'dimensions.radius.min',
+        'dimensions.radius.max'
+      );
+    }
+    
+    // Add scale paths if applicable
+    if (this.currentShape.dimensions?.scale) {
+      paths.push(
+        'dimensions.scale.min',
+        'dimensions.scale.max'
+      );
+    }
+    
+    // Always add these paths
+    paths.push(
       'screwPlacement.cornerMargin',
       'screwPlacement.perimeterPoints',
-      'behavior.rotationalInertiaMultiplier',
-    ];
+      'behavior.rotationalInertiaMultiplier'
+    );
+    
+    return paths;
   }
 
   // Public API

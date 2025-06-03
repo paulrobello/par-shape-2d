@@ -14,6 +14,7 @@ export interface EditorTheme {
     primary: string;
     secondary: string;
     muted: string;
+    disabled: string;
   };
   // Border colors
   border: {
@@ -64,6 +65,7 @@ export const lightTheme: EditorTheme = {
     primary: '#212529',
     secondary: '#495057',
     muted: '#6c757d',
+    disabled: '#adb5bd',
   },
   border: {
     primary: '#e0e0e0',
@@ -109,6 +111,7 @@ export const darkTheme: EditorTheme = {
     primary: '#ffffff',
     secondary: '#e0e0e0',
     muted: '#a0a0a0',
+    disabled: '#606060',
   },
   border: {
     primary: '#404040',

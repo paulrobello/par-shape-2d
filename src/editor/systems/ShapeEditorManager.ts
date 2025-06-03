@@ -313,36 +313,48 @@ export class ShapeEditorManager extends BaseEditorSystem {
       // Generate random dimensions within ranges
       const result: Record<string, unknown> = {};
       
-      if (dimensions.width) {
-        if (typeof dimensions.width === 'number') {
-          result.width = dimensions.width;
-        } else {
-          result.width = this.randomInRange(dimensions.width.min, dimensions.width.max);
-        }
-      }
-      if (dimensions.height) {
-        if (typeof dimensions.height === 'number') {
-          result.height = dimensions.height;
-        } else {
-          result.height = this.randomInRange(dimensions.height.min, dimensions.height.max);
-        }
-      }
+      // If shape has radius, set width and height to 0
       if (dimensions.radius) {
         if (typeof dimensions.radius === 'number') {
           result.radius = dimensions.radius;
         } else {
           result.radius = this.randomInRange(dimensions.radius.min, dimensions.radius.max);
         }
+        result.width = 0;
+        result.height = 0;
+      } else {
+        // Only set width/height for non-radius shapes
+        if (dimensions.width) {
+          if (typeof dimensions.width === 'number') {
+            result.width = dimensions.width;
+          } else {
+            result.width = this.randomInRange(dimensions.width.min, dimensions.width.max);
+          }
+        }
+        if (dimensions.height) {
+          if (typeof dimensions.height === 'number') {
+            result.height = dimensions.height;
+          } else {
+            result.height = this.randomInRange(dimensions.height.min, dimensions.height.max);
+          }
+        }
       }
       
       return result;
     } else {
       // Use fixed dimensions
-      return {
-        width: dimensions.width as number,
-        height: dimensions.height as number,
-        radius: dimensions.radius as number,
-      };
+      const result: Record<string, unknown> = {};
+      
+      if (dimensions.radius) {
+        result.radius = dimensions.radius as number;
+        result.width = 0;
+        result.height = 0;
+      } else {
+        result.width = dimensions.width as number;
+        result.height = dimensions.height as number;
+      }
+      
+      return result;
     }
   }
 

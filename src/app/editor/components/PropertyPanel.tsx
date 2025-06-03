@@ -21,6 +21,7 @@ interface FormFieldProps {
   step?: number;
   onChange: (path: string, value: unknown) => void;
   error?: string;
+  disabled?: boolean;
   theme: EditorTheme;
 }
 
@@ -35,6 +36,7 @@ const FormField: React.FC<FormFieldProps> = ({
   step,
   onChange,
   error,
+  disabled,
   theme
 }) => {
   const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -66,14 +68,17 @@ const FormField: React.FC<FormFieldProps> = ({
         <select
           value={String(value || '')}
           onChange={handleChange}
+          disabled={disabled}
           style={{
             width: '100%',
             padding: '6px',
             border: `1px solid ${error ? theme.status.error : theme.input.border}`,
             borderRadius: '4px',
             fontSize: '12px',
-            color: theme.input.text,
-            backgroundColor: theme.input.background,
+            color: disabled ? theme.text.disabled : theme.input.text,
+            backgroundColor: disabled ? theme.background.secondary : theme.input.background,
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            opacity: disabled ? 0.6 : 1,
           }}
         >
           {options?.map(option => (
@@ -85,7 +90,12 @@ const FormField: React.FC<FormFieldProps> = ({
           type="checkbox"
           checked={Boolean(value) || false}
           onChange={handleChange}
-          style={{ marginTop: '4px' }}
+          disabled={disabled}
+          style={{ 
+            marginTop: '4px',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            opacity: disabled ? 0.6 : 1,
+          }}
         />
       ) : (
         <input
@@ -95,14 +105,17 @@ const FormField: React.FC<FormFieldProps> = ({
           max={max}
           step={step}
           onChange={handleChange}
+          disabled={disabled}
           style={{
             width: '100%',
             padding: '6px',
             border: `1px solid ${error ? theme.status.error : theme.input.border}`,
             borderRadius: '4px',
             fontSize: '12px',
-            color: theme.input.text,
-            backgroundColor: theme.input.background,
+            color: disabled ? theme.text.disabled : theme.input.text,
+            backgroundColor: disabled ? theme.background.secondary : theme.input.background,
+            cursor: disabled ? 'not-allowed' : 'text',
+            opacity: disabled ? 0.6 : 1,
           }}
         />
       )}
@@ -339,6 +352,7 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
                 max={1000}
                 onChange={handlePropertyChange}
                 error={undefined}
+                disabled={!!currentShape.dimensions?.radius}
             theme={theme} // errors['dimensions.width.min']}
               />
               <FormField
@@ -350,6 +364,7 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
                 max={1000}
                 onChange={handlePropertyChange}
                 error={undefined}
+                disabled={!!currentShape.dimensions?.radius}
             theme={theme} // errors['dimensions.width.max']}
               />
             </>
@@ -366,6 +381,7 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
                 max={1000}
                 onChange={handlePropertyChange}
                 error={undefined}
+                disabled={!!currentShape.dimensions?.radius}
             theme={theme} // errors['dimensions.height.min']}
               />
               <FormField
@@ -377,6 +393,7 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
                 max={1000}
                 onChange={handlePropertyChange}
                 error={undefined}
+                disabled={!!currentShape.dimensions?.radius}
             theme={theme} // errors['dimensions.height.max']}
               />
             </>
