@@ -2,12 +2,14 @@
 
 import React, { useRef, useState, useCallback } from 'react';
 import { EditorManager } from '@/editor/core/EditorManager';
+import { EditorTheme } from '@/editor/utils/theme';
 
 interface FileControlsProps {
   editorManager: EditorManager | null;
+  theme: EditorTheme;
 }
 
-export const FileControls: React.FC<FileControlsProps> = ({ editorManager }) => {
+export const FileControls: React.FC<FileControlsProps> = ({ editorManager, theme }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
 
@@ -93,10 +95,10 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager }) => 
         onClick={handleLoadClick}
         style={{
           padding: '8px 16px',
-          border: '1px solid #ccc',
+          border: `1px solid ${theme.button.border}`,
           borderRadius: '4px',
-          backgroundColor: '#ffffff',
-          color: '#212529',
+          backgroundColor: theme.button.background,
+          color: theme.button.text,
           cursor: 'pointer',
         }}
       >
@@ -107,10 +109,10 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager }) => 
         onClick={handleSaveClick}
         style={{
           padding: '8px 16px',
-          border: '1px solid #ccc',
+          border: `1px solid ${theme.button.border}`,
           borderRadius: '4px',
-          backgroundColor: '#ffffff',
-          color: '#212529',
+          backgroundColor: theme.button.background,
+          color: theme.button.text,
           cursor: 'pointer',
         }}
       >
@@ -123,12 +125,12 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager }) => 
         onDrop={handleDrop}
         style={{
           padding: '8px 16px',
-          border: dragOver ? '2px dashed #007bff' : '1px dashed #ccc',
+          border: dragOver ? `2px dashed ${theme.status.info}` : `1px dashed ${theme.border.secondary}`,
           borderRadius: '4px',
-          backgroundColor: dragOver ? '#f0f8ff' : '#f8f9fa',
+          backgroundColor: dragOver ? theme.background.tertiary : theme.background.secondary,
           cursor: 'pointer',
           fontSize: '12px',
-          color: '#495057',
+          color: theme.text.secondary,
         }}
       >
         Drop JSON file here

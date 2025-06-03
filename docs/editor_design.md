@@ -153,6 +153,15 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 
 ## Technical Implementation
 
+### Theme System
+- **Dark Mode Detection**: Automatic detection of system color scheme preference using `prefers-color-scheme`
+- **Theme Interface**: Comprehensive EditorTheme interface covering all UI elements
+- **Light/Dark Themes**: Complete theme definitions with consistent color palettes
+- **Dynamic Switching**: Real-time theme updates when system preference changes
+- **Canvas Integration**: Canvas background color matches selected theme
+- **Component Theming**: All editor components (buttons, inputs, panels) use theme colors
+- **Consistent Colors**: Unified color scheme across entire editor interface
+
 ### Shape Definition Editing
 - **Type-Safe Forms**: TypeScript interfaces ensure form validity
 - **Dynamic Validation**: Real-time validation based on shape type
@@ -180,6 +189,8 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **State Management**: Simulation state tracking to control interaction during physics
 - **Debug Visualization**: Custom rendering for physics debugging
 - **Performance**: Efficient physics updates for responsive editing
+- **Reset Restoration**: Original shape positions stored and restored on simulation reset
+- **Position Tracking**: Automatic restoration of shapes to pre-simulation positions
 
 ### Canvas Rendering
 - **Shared Renderer**: Use game's ShapeRenderer for consistency
@@ -190,6 +201,7 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Debug Modes**: Toggle between normal and debug rendering
 - **Render Optimization**: Conditional rendering with needsRender flag
 - **Coordinate Translation**: Proper handling of logical vs physical pixels
+- **Theme Integration**: Canvas background adapts to current theme
 
 ## File Structure Integration
 
@@ -234,11 +246,13 @@ The editor implements several mechanisms to prevent infinite event loops:
 
 ### UI/UX Design
 - **Layout Management**: Main container uses `width: 100%` with `overflow: hidden`, sidebar has `minWidth` to prevent shrinking
-- **Visual Accessibility**: Dark gray text colors (#212529, #495057) provide high contrast readability
+- **Visual Accessibility**: Theme-based text colors provide high contrast readability for both light and dark modes
 - **Canvas Interaction**: High-DPI display support with precise coordinate handling
 - **CSS Architecture**: Border properties use explicit longhand syntax to avoid conflicts
 - **Color Consistency**: Blue shapes (#007bff) and red screws maintained throughout all modes
+- **Canvas Background**: Light grey (#e9ecef) background for optimal shape visibility in both light and dark modes
 - **Interaction States**: Screw manipulation is disabled during active physics simulation
+- **Theme Integration**: All UI elements adapt to system-preferred color scheme automatically
 
 ### Performance Architecture
 - **Conditional Rendering**: needsRender flag prevents unnecessary canvas updates
@@ -280,6 +294,8 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Responsive Layout**: Fixed scrollbar issues, proper overflow handling
 - **Event System**: Comprehensive event-driven architecture with 70+ event types
 - **Interaction Management**: Smart interaction blocking during physics simulation
+- **Reset Functionality**: Physics simulation reset properly restores shapes to original positions
+- **Dark Mode Support**: Complete UI theming with automatic system preference detection
 
 ### 🔄 In Progress / Foundation
 - **Debug Tools**: Canvas debugging with physics body visualization (can be enhanced)

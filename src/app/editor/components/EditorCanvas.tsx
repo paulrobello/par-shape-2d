@@ -6,12 +6,16 @@ import { PropertyPanel } from './PropertyPanel';
 import { PlaygroundArea } from './PlaygroundArea';
 import { FileControls } from './FileControls';
 import { SimulationControls } from './SimulationControls';
+import { useDarkMode } from '@/editor/utils/useDarkMode';
+import { getTheme } from '@/editor/utils/theme';
 
 export const EditorCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [editorManager, setEditorManager] = useState<EditorManager | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const isDarkMode = useDarkMode();
+  const theme = getTheme(isDarkMode);
 
   useEffect(() => {
     let manager: EditorManager | null = null;
@@ -54,6 +58,13 @@ export const EditorCanvas: React.FC = () => {
     };
   }, []); // Empty dependency array - only run once on mount
 
+  // Update theme when it changes
+  useEffect(() => {
+    if (editorManager) {
+      editorManager.setTheme(theme);
+    }
+  }, [editorManager, theme]);
+
   return (
     <div 
       ref={containerRef}
@@ -63,7 +74,7 @@ export const EditorCanvas: React.FC = () => {
         height: '100vh',
         width: '100%',
         maxWidth: '100vw',
-        backgroundColor: '#f5f5f5',
+        backgroundColor: theme.background.secondary,
         overflow: 'hidden',
       }}
     >
@@ -80,18 +91,18 @@ export const EditorCanvas: React.FC = () => {
         <div 
           style={{
             padding: '16px',
-            backgroundColor: '#ffffff',
-            borderBottom: '1px solid #e0e0e0',
+            backgroundColor: theme.background.primary,
+            borderBottom: `1px solid ${theme.border.primary}`,
             display: 'flex',
             gap: '16px',
             alignItems: 'center',
           }}
         >
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: '#212529' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: theme.text.primary }}>
             Shape Editor
           </h1>
-          <FileControls editorManager={editorManager} />
-          <SimulationControls editorManager={editorManager} />
+          <FileControls editorManager={editorManager} theme={theme} />
+          <SimulationControls editorManager={editorManager} theme={theme} />
         </div>
 
         {/* Playground area */}
@@ -118,15 +129,15 @@ export const EditorCanvas: React.FC = () => {
         style={{
           width: '300px',
           minWidth: '300px',
-          backgroundColor: '#ffffff',
-          borderLeft: '1px solid #e0e0e0',
+          backgroundColor: theme.background.primary,
+          borderLeft: `1px solid ${theme.border.primary}`,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
         }}
       >
         {isInitialized && (
-          <PropertyPanel editorManager={editorManager} />
+          <PropertyPanel editorManager={editorManager} theme={theme} />
         )}
       </div>
     </div>

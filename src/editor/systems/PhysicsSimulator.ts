@@ -6,6 +6,7 @@ import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
 import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
 import { EditorEventPriority } from '../core/EditorEventBus';
 import { Body, Bodies, Constraint } from 'matter-js';
+import { Vector2 } from '@/types/game';
 import { 
   EditorPhysicsStartRequestedEvent, 
   EditorShapeUpdatedEvent, 
@@ -21,6 +22,7 @@ export class PhysicsSimulator extends BaseEditorSystem {
   private isSimulating = false;
   private isPaused = false;
   private simulatedShapes: Map<string, { shape: Shape; screws: Screw[] }> = new Map();
+  private originalShapePositions: Map<string, Vector2> = new Map();
 
   constructor() {
     super('PhysicsSimulator');
@@ -165,6 +167,30 @@ export class PhysicsSimulator extends BaseEditorSystem {
   }
 
   private async resetSimulation(): Promise<void> {
+    // Restore original shape positions before clearing simulation
+    for (const [shapeId, originalPosition] of this.originalShapePositions.entries()) {
+      const simulatedShape = this.simulatedShapes.get(shapeId);
+      if (simulatedShape) {
+        // Restore the shape position in the shape entity
+        simulatedShape.shape.position.x = originalPosition.x;
+        simulatedShape.shape.position.y = originalPosition.y;
+        
+        // Update the physics body position if it exists
+        if (simulatedShape.shape.body) {
+          simulatedShape.shape.body.position.x = originalPosition.x;
+          simulatedShape.shape.body.position.y = originalPosition.y;
+        }
+        
+        // Emit shape preview updated event to notify editor to re-render
+        await this.emit({
+          type: 'editor:shape:preview:updated',
+          payload: {
+            shapeId: shapeId
+          },
+        });
+      }
+    }
+    
     this.stopSimulation();
     
     if (this.physicsWorld) {
@@ -173,7 +199,8 @@ export class PhysicsSimulator extends BaseEditorSystem {
     }
     
     this.simulatedShapes.clear();
-    console.log('Physics simulation reset');
+    this.originalShapePositions.clear();
+    console.log('Physics simulation reset - shapes restored to original positions');
   }
 
   private stopSimulation(): void {
@@ -290,6 +317,12 @@ export class PhysicsSimulator extends BaseEditorSystem {
         this.physicsWorld.addConstraints(constraints);
       }
       
+      // Store original position before simulation
+      this.originalShapePositions.set(shapeData.shapeId, {
+        x: shapeData.shape.position.x,
+        y: shapeData.shape.position.y
+      });
+
       // Store for tracking and rendering
       this.simulatedShapes.set(shapeData.shapeId, {
         shape: shapeEntity,

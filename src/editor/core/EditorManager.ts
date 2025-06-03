@@ -5,6 +5,7 @@ import { PropertyManager } from '../systems/PropertyManager';
 import { ShapeEditorManager } from '../systems/ShapeEditorManager';
 import { PhysicsSimulator } from '../systems/PhysicsSimulator';
 import { EditorEventPriority } from './EditorEventBus';
+import { EditorTheme } from '../utils/theme';
 import { 
   EditorErrorValidationEvent, 
   EditorErrorPhysicsEvent, 
@@ -33,6 +34,7 @@ export class EditorManager extends BaseEditorSystem {
   private lastUpdateTime = 0;
   private isRunning = false;
   private needsRender = true;
+  private currentTheme: EditorTheme | null = null;
 
   constructor() {
     super('EditorManager');
@@ -87,8 +89,9 @@ export class EditorManager extends BaseEditorSystem {
     // Clear canvas
     context.clearRect(0, 0, this.canvas!.width, this.canvas!.height);
     
-    // Set background
-    context.fillStyle = '#f8f9fa';
+    // Set background using theme
+    const backgroundColor = this.currentTheme?.canvas.background || '#e9ecef';
+    context.fillStyle = backgroundColor;
     context.fillRect(0, 0, this.canvas!.width, this.canvas!.height);
     
     // Render all systems
@@ -150,6 +153,10 @@ export class EditorManager extends BaseEditorSystem {
     });
 
     this.subscribe('editor:physics:debug:toggled', async () => {
+      this.needsRender = true;
+    });
+
+    this.subscribe('editor:shape:preview:updated', async () => {
       this.needsRender = true;
     });
 
@@ -313,5 +320,10 @@ export class EditorManager extends BaseEditorSystem {
   async handleCanvasClick(x: number, y: number): Promise<void> {
     // Delegate to shape editor manager
     await this.shapeEditorManager.handleCanvasClick(x, y);
+  }
+
+  setTheme(theme: EditorTheme): void {
+    this.currentTheme = theme;
+    this.needsRender = true;
   }
 }

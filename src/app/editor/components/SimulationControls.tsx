@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { EditorManager } from '@/editor/core/EditorManager';
+import { EditorTheme } from '@/editor/utils/theme';
 
 interface SimulationControlsProps {
   editorManager: EditorManager | null;
+  theme: EditorTheme;
 }
 
-export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorManager }) => {
+export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorManager, theme }) => {
   const [isSimulating, setIsSimulating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
@@ -90,10 +92,10 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
     padding: '6px 12px',
     borderWidth: '1px',
     borderStyle: 'solid',
-    borderColor: '#ccc',
+    borderColor: theme.button.border,
     borderRadius: '4px',
-    backgroundColor: '#ffffff',
-    color: '#212529',
+    backgroundColor: theme.button.background,
+    color: theme.button.text,
     cursor: 'pointer',
     fontSize: '12px',
     marginRight: '4px',
@@ -101,21 +103,21 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
 
   const activeButtonStyle = {
     ...buttonStyle,
-    backgroundColor: '#007bff',
+    backgroundColor: theme.button.backgroundActive,
     color: 'white',
-    borderColor: '#007bff',
+    borderColor: theme.button.backgroundActive,
   };
 
   const disabledButtonStyle = {
     ...buttonStyle,
-    backgroundColor: '#f8f9fa',
-    color: '#6c757d',
+    backgroundColor: theme.button.backgroundDisabled,
+    color: theme.button.textDisabled,
     cursor: 'not-allowed',
   };
 
   return (
     <div className="simulation-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{ fontSize: '12px', color: '#495057', marginRight: '8px' }}>
+      <div style={{ fontSize: '12px', color: theme.text.secondary, marginRight: '8px' }}>
         Simulation:
       </div>
       
@@ -159,7 +161,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
       {isSimulating && (
         <div style={{ 
           fontSize: '11px', 
-          color: '#28a745', 
+          color: theme.status.success, 
           marginLeft: '8px',
           display: 'flex',
           alignItems: 'center',
@@ -169,7 +171,7 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
             width: '6px',
             height: '6px',
             borderRadius: '50%',
-            backgroundColor: '#28a745',
+            backgroundColor: theme.status.success,
             animation: 'pulse 1s infinite',
           }} />
           {isPaused ? 'Paused' : 'Running'}

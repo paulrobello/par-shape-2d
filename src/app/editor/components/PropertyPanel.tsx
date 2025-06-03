@@ -3,9 +3,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { EditorManager } from '@/editor/core/EditorManager';
 import { ShapeDefinition } from '@/types/shapes';
+import { EditorTheme } from '@/editor/utils/theme';
 
 interface PropertyPanelProps {
   editorManager: EditorManager | null;
+  theme: EditorTheme;
 }
 
 interface FormFieldProps {
@@ -19,6 +21,7 @@ interface FormFieldProps {
   step?: number;
   onChange: (path: string, value: unknown) => void;
   error?: string;
+  theme: EditorTheme;
 }
 
 const FormField: React.FC<FormFieldProps> = ({
@@ -31,7 +34,8 @@ const FormField: React.FC<FormFieldProps> = ({
   max,
   step,
   onChange,
-  error
+  error,
+  theme
 }) => {
   const handleChange = useCallback((event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     let newValue: unknown = event.target.value;
@@ -53,7 +57,7 @@ const FormField: React.FC<FormFieldProps> = ({
         fontSize: '12px', 
         fontWeight: 'bold', 
         marginBottom: '4px',
-        color: error ? '#dc3545' : '#495057' // Slightly darker gray for labels
+        color: error ? theme.status.error : theme.text.secondary
       }}>
         {label}
       </label>
@@ -65,11 +69,11 @@ const FormField: React.FC<FormFieldProps> = ({
           style={{
             width: '100%',
             padding: '6px',
-            border: `1px solid ${error ? '#dc3545' : '#ccc'}`,
+            border: `1px solid ${error ? theme.status.error : theme.input.border}`,
             borderRadius: '4px',
             fontSize: '12px',
-            color: '#212529', // Dark gray for better readability
-            backgroundColor: '#fff',
+            color: theme.input.text,
+            backgroundColor: theme.input.background,
           }}
         >
           {options?.map(option => (
@@ -94,11 +98,11 @@ const FormField: React.FC<FormFieldProps> = ({
           style={{
             width: '100%',
             padding: '6px',
-            border: `1px solid ${error ? '#dc3545' : '#ccc'}`,
+            border: `1px solid ${error ? theme.status.error : theme.input.border}`,
             borderRadius: '4px',
             fontSize: '12px',
-            color: '#212529', // Dark gray for better readability
-            backgroundColor: '#fff',
+            color: theme.input.text,
+            backgroundColor: theme.input.background,
           }}
         />
       )}
@@ -106,7 +110,7 @@ const FormField: React.FC<FormFieldProps> = ({
       {error && (
         <div style={{ 
           fontSize: '11px', 
-          color: '#dc3545', 
+          color: theme.status.error, 
           marginTop: '2px' 
         }}>
           {error}
@@ -116,7 +120,7 @@ const FormField: React.FC<FormFieldProps> = ({
   );
 };
 
-export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) => {
+export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, theme }) => {
   const [currentShape, setCurrentShape] = useState<ShapeDefinition | null>(null);
   const [collapsed, setCollapsed] = useState<{ [section: string]: boolean }>({});
 
@@ -187,23 +191,23 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
         onClick={() => toggleSection(sectionKey)}
         style={{
           padding: '8px',
-          backgroundColor: '#f8f9fa',
-          border: '1px solid #e0e0e0',
+          backgroundColor: theme.background.tertiary,
+          border: `1px solid ${theme.border.primary}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: 'bold',
-          color: '#212529', // Dark gray for better contrast
+          color: theme.text.primary,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
         {title}
-        <span style={{ color: '#495057' }}>{collapsed[sectionKey] ? '▼' : '▲'}</span>
+        <span style={{ color: theme.text.secondary }}>{collapsed[sectionKey] ? '▼' : '▲'}</span>
       </div>
       {!collapsed[sectionKey] && (
-        <div style={{ padding: '12px', border: '1px solid #e0e0e0', borderTop: 'none' }}>
+        <div style={{ padding: '12px', border: `1px solid ${theme.border.primary}`, borderTop: 'none' }}>
           {children}
         </div>
       )}
@@ -213,8 +217,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
   if (!currentShape) {
     return (
       <div style={{ padding: '16px' }}>
-        <h3 style={{ margin: '0 0 16px 0', color: '#212529' }}>Properties</h3>
-        <p style={{ color: '#495057', fontSize: '14px' }}>
+        <h3 style={{ margin: '0 0 16px 0', color: theme.text.primary }}>Properties</h3>
+        <p style={{ color: theme.text.secondary, fontSize: '14px' }}>
           No shape selected. Load a shape file to begin editing.
         </p>
       </div>
@@ -234,15 +238,15 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
         alignItems: 'center',
         marginBottom: '16px'
       }}>
-        <h3 style={{ margin: 0, color: '#212529' }}>Properties</h3>
+        <h3 style={{ margin: 0, color: theme.text.primary }}>Properties</h3>
         <div style={{ display: 'flex', gap: '4px' }}>
           <button
             onClick={handleRandomizeAll}
             style={{
               padding: '4px 8px',
-              border: '1px solid #007bff',
+              border: `1px solid ${theme.button.backgroundActive}`,
               borderRadius: '4px',
-              backgroundColor: '#007bff',
+              backgroundColor: theme.button.backgroundActive,
               color: 'white',
               cursor: 'pointer',
               fontSize: '10px',
@@ -277,6 +281,7 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             type="text"
             onChange={handlePropertyChange}
             error={undefined}
+            theme={theme}
           />
           <FormField
             label="Name"
@@ -284,7 +289,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             value={currentShape.name}
             type="text"
             onChange={handlePropertyChange}
-            error={undefined} // errors['name']}
+            error={undefined}
+            theme={theme} // errors['name']}
           />
           <FormField
             label="Category"
@@ -293,7 +299,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             type="select"
             options={['basic', 'polygon', 'path', 'composite']}
             onChange={handlePropertyChange}
-            error={undefined} // errors['category']}
+            error={undefined}
+            theme={theme} // errors['category']}
           />
           <FormField
             label="Enabled"
@@ -301,7 +308,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             value={currentShape.enabled}
             type="boolean"
             onChange={handlePropertyChange}
-            error={undefined} // errors['enabled']}
+            error={undefined}
+            theme={theme} // errors['enabled']}
           />
         </>
       ))}
@@ -316,7 +324,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             type="select"
             options={['fixed', 'random']}
             onChange={handlePropertyChange}
-            error={undefined} // errors['dimensions.type']}
+            error={undefined}
+            theme={theme} // errors['dimensions.type']}
           />
           
           {currentShape.dimensions?.width && (
@@ -329,7 +338,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
                 min={10}
                 max={1000}
                 onChange={handlePropertyChange}
-                error={undefined} // errors['dimensions.width.min']}
+                error={undefined}
+            theme={theme} // errors['dimensions.width.min']}
               />
               <FormField
                 label="Width Max"
@@ -339,7 +349,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
                 min={10}
                 max={1000}
                 onChange={handlePropertyChange}
-                error={undefined} // errors['dimensions.width.max']}
+                error={undefined}
+            theme={theme} // errors['dimensions.width.max']}
               />
             </>
           )}
@@ -354,7 +365,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
                 min={10}
                 max={1000}
                 onChange={handlePropertyChange}
-                error={undefined} // errors['dimensions.height.min']}
+                error={undefined}
+            theme={theme} // errors['dimensions.height.min']}
               />
               <FormField
                 label="Height Max"
@@ -364,7 +376,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
                 min={10}
                 max={1000}
                 onChange={handlePropertyChange}
-                error={undefined} // errors['dimensions.height.max']}
+                error={undefined}
+            theme={theme} // errors['dimensions.height.max']}
               />
             </>
           )}
@@ -379,7 +392,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
                 min={5}
                 max={500}
                 onChange={handlePropertyChange}
-                error={undefined} // errors['dimensions.radius.min']}
+                error={undefined}
+            theme={theme} // errors['dimensions.radius.min']}
               />
               <FormField
                 label="Radius Max"
@@ -389,7 +403,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
                 min={5}
                 max={500}
                 onChange={handlePropertyChange}
-                error={undefined} // errors['dimensions.radius.max']}
+                error={undefined}
+            theme={theme} // errors['dimensions.radius.max']}
               />
             </>
           )}
@@ -403,7 +418,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
               min={3}
               max={8}
               onChange={handlePropertyChange}
-              error={undefined} // errors['dimensions.sides']}
+              error={undefined}
+            theme={theme} // errors['dimensions.sides']}
             />
           )}
         </>
@@ -419,7 +435,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             type="select"
             options={['rectangle', 'circle', 'polygon', 'fromVertices', 'composite']}
             onChange={handlePropertyChange}
-            error={undefined} // errors['physics.type']}
+            error={undefined}
+            theme={theme} // errors['physics.type']}
           />
           <FormField
             label="Decomposition"
@@ -427,7 +444,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'physics.decomposition')}
             type="boolean"
             onChange={handlePropertyChange}
-            error={undefined} // errors['physics.decomposition']}
+            error={undefined}
+            theme={theme} // errors['physics.decomposition']}
           />
         </>
       ))}
@@ -442,7 +460,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             type="select"
             options={['primitive', 'path', 'composite']}
             onChange={handlePropertyChange}
-            error={undefined} // errors['rendering.type']}
+            error={undefined}
+            theme={theme} // errors['rendering.type']}
           />
           <FormField
             label="Preserve Original Vertices"
@@ -450,7 +469,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'rendering.preserveOriginalVertices')}
             type="boolean"
             onChange={handlePropertyChange}
-            error={undefined} // errors['rendering.preserveOriginalVertices']}
+            error={undefined}
+            theme={theme} // errors['rendering.preserveOriginalVertices']}
           />
         </>
       ))}
@@ -465,7 +485,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             type="select"
             options={['corners', 'perimeter', 'grid', 'custom', 'capsule']}
             onChange={handlePropertyChange}
-            error={undefined} // errors['screwPlacement.strategy']}
+            error={undefined}
+            theme={theme} // errors['screwPlacement.strategy']}
           />
           <FormField
             label="Corner Margin"
@@ -475,7 +496,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             min={5}
             max={100}
             onChange={handlePropertyChange}
-            error={undefined} // errors['screwPlacement.cornerMargin']}
+            error={undefined}
+            theme={theme} // errors['screwPlacement.cornerMargin']}
           />
           <FormField
             label="Min Separation"
@@ -485,7 +507,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             min={20}
             max={200}
             onChange={handlePropertyChange}
-            error={undefined} // errors['screwPlacement.minSeparation']}
+            error={undefined}
+            theme={theme} // errors['screwPlacement.minSeparation']}
           />
         </>
       ))}
@@ -499,7 +522,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'visual.supportsHoles')}
             type="boolean"
             onChange={handlePropertyChange}
-            error={undefined} // errors['visual.supportsHoles']}
+            error={undefined}
+            theme={theme} // errors['visual.supportsHoles']}
           />
         </>
       ))}
@@ -513,7 +537,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'behavior.allowSingleScrew')}
             type="boolean"
             onChange={handlePropertyChange}
-            error={undefined} // errors['behavior.allowSingleScrew']}
+            error={undefined}
+            theme={theme} // errors['behavior.allowSingleScrew']}
           />
           <FormField
             label="Single Screw Dynamic"
@@ -521,7 +546,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'behavior.singleScrewDynamic')}
             type="boolean"
             onChange={handlePropertyChange}
-            error={undefined} // errors['behavior.singleScrewDynamic']}
+            error={undefined}
+            theme={theme} // errors['behavior.singleScrewDynamic']}
           />
           <FormField
             label="Rotational Inertia Multiplier"
@@ -532,7 +558,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
             max={10}
             step={0.1}
             onChange={handlePropertyChange}
-            error={undefined} // errors['behavior.rotationalInertiaMultiplier']}
+            error={undefined}
+            theme={theme} // errors['behavior.rotationalInertiaMultiplier']}
           />
         </>
       ))}
