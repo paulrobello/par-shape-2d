@@ -1,6 +1,6 @@
 import { BaseEditorSystem } from '../core/BaseEditorSystem';
 import { ShapeDefinition } from '@/types/shapes';
-import { Bodies } from 'matter-js';
+import { Bodies, Body } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
@@ -16,6 +16,7 @@ import {
   EditorScrewAddedEvent,
   EditorScrewRemovedEvent
 } from '../events/EditorEventTypes';
+import { Vector2, ShapeType } from '@/types/game';
 
 interface EditorShape {
   shape: Shape;
@@ -126,26 +127,42 @@ export class ShapeEditorManager extends BaseEditorSystem {
     
     try {
       // For the editor, create a simplified shape for preview
-      const { width, height } = this.generateDimensions(definition);
-      console.log('ShapeEditorManager: Generated dimensions:', { width, height });
-      const finalWidth = width || 100;
-      const finalHeight = height || 100;
+      const dimensions = this.generateDimensions(definition);
+      console.log('ShapeEditorManager: Generated dimensions:', dimensions);
+      
       const centerX = this.canvasWidth / 2;
       const centerY = this.canvasHeight / 2;
       
-      // Create a basic physics body for the shape (simplified for editor)
-      const body = Bodies.rectangle(centerX, centerY, finalWidth, finalHeight);
+      // Create appropriate physics body based on shape type
+      let body: Body;
+      let shapeType: string;
+      let shapeDimensions: { width?: number; height?: number; radius?: number } = {};
+      
+      if (definition.physics.type === 'circle' || dimensions.radius) {
+        // Circle shape
+        const radius = dimensions.radius || 50;
+        body = Bodies.circle(centerX, centerY, radius);
+        shapeType = 'circle';
+        shapeDimensions = { radius };
+      } else {
+        // Rectangle/other shapes
+        const finalWidth = dimensions.width || 100;
+        const finalHeight = dimensions.height || 100;
+        body = Bodies.rectangle(centerX, centerY, finalWidth, finalHeight);
+        shapeType = 'rectangle';
+        shapeDimensions = { width: finalWidth, height: finalHeight };
+      }
       
       // Create the shape entity with basic properties
       const shape = new Shape(
         shapeId,
-        'rectangle', // Simplified for editor preview
+        shapeType as ShapeType,
         { x: centerX, y: centerY },
         body,
         'editor-layer',
         '#4a90e2', // Default blue color
         '#4a90e2', // Default tint
-        { width: finalWidth, height: finalHeight, radius: Math.min(finalWidth, finalHeight) / 2 }
+        shapeDimensions
       );
       
       if (!shape) {
@@ -195,24 +212,39 @@ export class ShapeEditorManager extends BaseEditorSystem {
 
     try {
       // Recreate shape with new definition  
-      const { width, height } = this.generateDimensions(definition);
-      const finalWidth = width || 100;
-      const finalHeight = height || 100;
+      const dimensions = this.generateDimensions(definition);
       const centerX = this.canvasWidth / 2;
       const centerY = this.canvasHeight / 2;
       
-      // Create a basic physics body for the updated shape
-      const body = Bodies.rectangle(centerX, centerY, finalWidth, finalHeight);
+      // Create appropriate physics body based on shape type
+      let body: Body;
+      let shapeType: string;
+      let shapeDimensions: { width?: number; height?: number; radius?: number } = {};
+      
+      if (definition.physics.type === 'circle' || dimensions.radius) {
+        // Circle shape
+        const radius = dimensions.radius || 50;
+        body = Bodies.circle(centerX, centerY, radius);
+        shapeType = 'circle';
+        shapeDimensions = { radius };
+      } else {
+        // Rectangle/other shapes
+        const finalWidth = dimensions.width || 100;
+        const finalHeight = dimensions.height || 100;
+        body = Bodies.rectangle(centerX, centerY, finalWidth, finalHeight);
+        shapeType = 'rectangle';
+        shapeDimensions = { width: finalWidth, height: finalHeight };
+      }
       
       const newShape = new Shape(
         shapeId,
-        'rectangle', // Simplified for editor preview
+        shapeType as ShapeType,
         { x: centerX, y: centerY },
         body,
         'editor-layer',
         '#4a90e2', // Default blue color
         '#4a90e2', // Default tint
-        { width: finalWidth, height: finalHeight, radius: Math.min(finalWidth, finalHeight) / 2 }
+        shapeDimensions
       );
       
       if (!newShape) {
@@ -315,24 +347,39 @@ export class ShapeEditorManager extends BaseEditorSystem {
     const screws: Screw[] = [];
     const screwColor = getRandomScrewColor();
     
-    // Simple screw placement - just corners for now
-    if (shape.width && shape.height) {
-      const positions = [
-        { x: shape.position.x - shape.width/2 + 20, y: shape.position.y - shape.height/2 + 20 },
-        { x: shape.position.x + shape.width/2 - 20, y: shape.position.y - shape.height/2 + 20 },
-        { x: shape.position.x - shape.width/2 + 20, y: shape.position.y + shape.height/2 - 20 },
-        { x: shape.position.x + shape.width/2 - 20, y: shape.position.y + shape.height/2 - 20 },
+    // Simple screw placement
+    let positions: Vector2[] = [];
+    
+    if (shape.radius) {
+      // Circle - place screws in a cross pattern
+      const margin = Math.min(20, shape.radius * 0.3);
+      const offset = shape.radius - margin;
+      positions = [
+        { x: shape.position.x + offset, y: shape.position.y },
+        { x: shape.position.x - offset, y: shape.position.y },
+        { x: shape.position.x, y: shape.position.y + offset },
+        { x: shape.position.x, y: shape.position.y - offset },
       ];
-      
-      for (let i = 0; i < positions.length; i++) {
-        const screw = new Screw(
-          `${shape.id}-screw-${i}`,
-          shape.id,
-          positions[i],
-          screwColor
-        );
-        screws.push(screw);
-      }
+    } else if (shape.width && shape.height) {
+      // Rectangle - place at corners
+      const marginX = Math.min(20, shape.width * 0.2);
+      const marginY = Math.min(20, shape.height * 0.2);
+      positions = [
+        { x: shape.position.x - shape.width/2 + marginX, y: shape.position.y - shape.height/2 + marginY },
+        { x: shape.position.x + shape.width/2 - marginX, y: shape.position.y - shape.height/2 + marginY },
+        { x: shape.position.x - shape.width/2 + marginX, y: shape.position.y + shape.height/2 - marginY },
+        { x: shape.position.x + shape.width/2 - marginX, y: shape.position.y + shape.height/2 - marginY },
+      ];
+    }
+    
+    for (let i = 0; i < positions.length; i++) {
+      const screw = new Screw(
+        `${shape.id}-screw-${i}`,
+        shape.id,
+        positions[i],
+        screwColor
+      );
+      screws.push(screw);
     }
     
     return screws;
