@@ -193,13 +193,14 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
           cursor: 'pointer',
           fontSize: '14px',
           fontWeight: 'bold',
+          color: '#212529', // Dark gray for better contrast
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
         }}
       >
         {title}
-        <span>{collapsed[sectionKey] ? '▼' : '▲'}</span>
+        <span style={{ color: '#495057' }}>{collapsed[sectionKey] ? '▼' : '▲'}</span>
       </div>
       {!collapsed[sectionKey] && (
         <div style={{ padding: '12px', border: '1px solid #e0e0e0', borderTop: 'none' }}>
@@ -212,8 +213,8 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
   if (!currentShape) {
     return (
       <div style={{ padding: '16px' }}>
-        <h3 style={{ margin: '0 0 16px 0' }}>Properties</h3>
-        <p style={{ color: '#666', fontSize: '14px' }}>
+        <h3 style={{ margin: '0 0 16px 0', color: '#212529' }}>Properties</h3>
+        <p style={{ color: '#495057', fontSize: '14px' }}>
           No shape selected. Load a shape file to begin editing.
         </p>
       </div>
@@ -233,7 +234,7 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager }) =
         alignItems: 'center',
         marginBottom: '16px'
       }}>
-        <h3 style={{ margin: 0 }}>Properties</h3>
+        <h3 style={{ margin: 0, color: '#212529' }}>Properties</h3>
         <div style={{ display: 'flex', gap: '4px' }}>
           <button
             onClick={handleRandomizeAll}
