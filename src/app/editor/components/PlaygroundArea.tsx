@@ -17,11 +17,10 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
 
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const dpr = window.devicePixelRatio || 1;
     
-    // Convert to canvas coordinates
-    const x = (event.clientX - rect.left) * dpr;
-    const y = (event.clientY - rect.top) * dpr;
+    // Convert to canvas coordinates (logical pixels, not physical)
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
     
     editorManager.handleCanvasClick(x, y);
   }, [editorManager, canvasRef]);
@@ -87,7 +86,7 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
           pointerEvents: 'auto',
         }}
       >
-        <div>Click to add/remove screws (custom strategy only)</div>
+        <div>Click to add/remove screws at placement indicators</div>
         <div>Double-click to toggle debug mode</div>
       </div>
     </div>

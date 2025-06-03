@@ -61,8 +61,10 @@ export const EditorCanvas: React.FC = () => {
       style={{
         display: 'flex',
         height: '100vh',
-        width: '100vw',
+        width: '100%',
+        maxWidth: '100vw',
         backgroundColor: '#f5f5f5',
+        overflow: 'hidden',
       }}
     >
       {/* Main content area */}
@@ -115,10 +117,12 @@ export const EditorCanvas: React.FC = () => {
       <div 
         style={{
           width: '300px',
+          minWidth: '300px',
           backgroundColor: '#ffffff',
           borderLeft: '1px solid #e0e0e0',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
         }}
       >
         {isInitialized && (

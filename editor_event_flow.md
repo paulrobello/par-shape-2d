@@ -36,9 +36,9 @@ The Shape Editor follows the same event-driven architecture pattern as the main 
 ### Screw Management Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
-| `editor:screw:placement:updated` | Screw positions recalculated | ShapeEditorManager | PlaygroundArea |
-| `editor:screw:added` | Screw added (custom strategy) | PlaygroundArea | ShapeEditorManager |
-| `editor:screw:removed` | Screw removed (custom strategy) | PlaygroundArea | ShapeEditorManager |
+| `editor:screw:placement:updated` | Screw positions recalculated | ShapeEditorManager | PlaygroundArea, EditorManager |
+| `editor:screw:added` | Screw added at clicked position | ShapeEditorManager | ShapeEditorManager, EditorManager |
+| `editor:screw:removed` | Screw removed from clicked position | ShapeEditorManager | ShapeEditorManager, EditorManager |
 | `editor:screw:strategy:changed` | Screw placement strategy modified | PropertyManager | ShapeEditorManager |
 
 ### Physics Simulation Events
@@ -47,8 +47,10 @@ The Shape Editor follows the same event-driven architecture pattern as the main 
 | `editor:physics:start:requested` | Start physics simulation | SimulationControls | PhysicsSimulator |
 | `editor:physics:pause:requested` | Pause physics simulation | SimulationControls | PhysicsSimulator |
 | `editor:physics:reset:requested` | Reset physics simulation | SimulationControls | PhysicsSimulator |
-| `editor:physics:step:completed` | Physics step completed | PhysicsSimulator | PlaygroundArea |
-| `editor:physics:debug:toggled` | Debug view toggle | SimulationControls | PlaygroundArea |
+| `editor:physics:step:completed` | Physics step completed | PhysicsSimulator | EditorManager |
+| `editor:physics:debug:toggled` | Debug view toggle | PlaygroundArea | ShapeEditorManager, PhysicsSimulator |
+| `editor:physics:simulation:shape:requested` | Request shape data for simulation | PhysicsSimulator | ShapeEditorManager |
+| `editor:physics:simulation:shape:provided` | Provide shape data for simulation | ShapeEditorManager | PhysicsSimulator |
 
 ### UI State Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -100,34 +102,43 @@ PlaygroundArea → editor:shape:preview:updated
 Canvas re-renders with updated shape
 ```
 
-### Screw Interaction Flow (Custom Strategy)
+### Screw Interaction Flow (All Strategies)
 ```
-User clicks on shape → PlaygroundArea calculates click position
+User clicks on canvas → PlaygroundArea captures coordinates (logical pixels)
     ↓
-PlaygroundArea → editor:screw:added/removed
+PlaygroundArea → EditorManager.handleCanvasClick
     ↓
-ShapeEditorManager updates screw positions in shape definition
+ShapeEditorManager calculates hit detection (15px radius)
+    ↓
+If clicking existing screw: ShapeEditorManager → editor:screw:removed
+If clicking empty space: ShapeEditorManager → editor:screw:added
+    ↓
+ShapeEditorManager updates screw array and emits placement update
     ↓
 ShapeEditorManager → editor:screw:placement:updated
     ↓
-PlaygroundArea re-renders screws at new positions
+EditorManager → needsRender = true (triggers canvas re-render)
     ↓
-PropertyManager updates form to reflect new screw configuration
+Canvas re-renders with updated screws and placement indicators
 ```
 
 ### Physics Simulation Flow
 ```
-User clicks Play → SimulationControls → editor:physics:start:requested
+User clicks Start → SimulationControls → editor:physics:start:requested
     ↓
-PhysicsSimulator creates physics world and bodies
+PhysicsSimulator → editor:physics:simulation:shape:requested
     ↓
-PhysicsSimulator starts animation loop
+ShapeEditorManager → editor:physics:simulation:shape:provided (shape + screw data)
     ↓
-Each frame: PhysicsSimulator → editor:physics:step:completed
+PhysicsSimulator creates physics entities and starts simulation
     ↓
-PlaygroundArea updates shape positions based on physics
+Each frame: PhysicsSimulator updates and renders physics shapes
     ↓
-Canvas re-renders with physics-updated positions
+PhysicsSimulator → editor:physics:step:completed
+    ↓
+EditorManager → needsRender = true (triggers canvas re-render)
+    ↓
+Canvas shows physics simulation with shape movement
 ```
 
 ### Random Value Generation Flow
@@ -144,6 +155,35 @@ PlaygroundArea → editor:shape:preview:updated
     ↓
 PropertyPanel updates form fields with new values
 ```
+
+## Event System Summary
+
+### Total Events: 70+ event types
+- **File Events**: 6 events for loading, saving, and validation
+- **Property Events**: 8 events for form management and validation
+- **Shape Events**: 10 events for shape lifecycle and preview updates
+- **Screw Events**: 8 events for placement indicators and interactive manipulation
+- **Physics Events**: 12 events for simulation control and data transfer
+- **UI Events**: 6 events for panel states and canvas interactions
+- **Error Events**: 6 events for comprehensive error handling
+
+### Key Architecture Benefits
+1. **Complete Decoupling**: No direct system dependencies
+2. **Type Safety**: All events have TypeScript interfaces
+3. **Event Priority**: Critical events (errors) have higher priority
+4. **Loop Prevention**: Event loop detection and prevention mechanisms
+5. **Real-time Updates**: Immediate visual feedback through event-driven rendering
+6. **Extensibility**: Easy to add new events and systems
+
+### Performance Considerations
+- **Conditional Rendering**: Events trigger needsRender flag only when necessary
+- **Event Debouncing**: Canvas resize events are debounced to prevent performance issues
+- **Efficient Hit Detection**: Screw interaction uses optimized coordinate calculations
+- **Memory Management**: Proper event subscription cleanup on system destruction
+
+---
+
+*Last updated: January 2025 - Phase 1 Complete with full screw manipulation and physics integration*
 
 ## Event Dependencies
 

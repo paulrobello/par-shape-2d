@@ -84,18 +84,47 @@ src/editor/
 - **Value Ranges**: Input validation based on shape constraints
 - **Random Generation**: Generate random values within valid ranges
 - **Real-time Updates**: Changes immediately update the playground
+- **Collapsible Sections**: Organized property groups for better UX
+- **High Contrast UI**: Dark gray text on white backgrounds for accessibility
 
 ### 3. Playground Area
-- **Shape Preview**: Real-time rendering using game's ShapeRenderer
-- **Screw Visualization**: Show screw placement based on strategy
-- **Interactive Screws**: Click to add/remove screws (custom strategy only)
+- **Shape Preview**: Real-time rendering using game's ShapeRenderer with blue color scheme (#007bff)
+- **Screw Visualization**: Show actual screws in red for clear identification
+- **Screw Placement Indicators**: Visual indicators showing potential screw positions based on placement strategy
+- **Interactive Screw Manipulation**: Click to add/remove screws at any valid position (all shapes, not just custom strategy)
+- **Strategy-Based Positioning**: Supports corners, perimeter, grid, custom, and capsule placement strategies
 - **Debug View**: Toggle physics body and constraint visualization
+- **Canvas Interaction**: 15-pixel click radius for easy screw interaction
 
-### 4. Physics Simulation
+### 4. Screw Placement System
+- **Visual Indicators**: Dashed gray circles (6px radius) show valid placement positions
+- **Strategy Support**:
+  - **Corners**: Cross pattern for circles, corner positions for rectangles
+  - **Perimeter**: Evenly distributed around shape perimeter (configurable point count)
+  - **Grid**: Grid pattern inside shape boundaries with configurable spacing
+  - **Custom**: User-defined positions from JSON configuration
+  - **Capsule**: Strategic positions for capsule-shaped objects
+- **Real-time Feedback**: Indicators hide when screws are placed at those positions
+- **Interactive Editing**: Click empty indicators to add screws, click existing screws to remove
+
+### 5. Physics Simulation
 - **Simulation Controls**: Play/Pause/Reset physics simulation
-- **Constraint Testing**: Test screw constraints and shape behavior
-- **Real-time Physics**: Live physics updates using game's PhysicsWorld
+- **Event-Driven Integration**: Proper communication between editor and physics systems
+- **Shape Data Transfer**: Complete shape and screw data provided to physics simulator
+- **Foundation Framework**: Extensible foundation for full physics implementation
 - **Debug Physics**: Visualize physics bodies, constraints, and forces
+
+### 6. User Interface & Controls
+- **Layout**: Three-panel layout with toolbar, main canvas, and property sidebar
+- **File Controls**: Drag & drop file loading with clear feedback
+- **Simulation Controls**: Start/Pause/Reset buttons for physics testing
+- **Canvas Interaction**: 
+  - Click to add/remove screws at placement indicators
+  - Double-click to toggle debug mode
+  - Visual help text for user guidance
+- **Property Panel**: Collapsible sections with form controls for all shape properties
+- **Responsive Design**: Fixed horizontal scrollbar issues, proper overflow handling
+- **Accessibility**: High contrast text and clear visual indicators
 
 ## Event System
 
@@ -103,8 +132,9 @@ src/editor/
 1. **File Events**: Load, save, validation
 2. **Property Events**: Form changes, value updates
 3. **Shape Events**: Creation, modification, preview updates
-4. **Simulation Events**: Physics start/stop/reset
-5. **UI Events**: Panel toggles, mode changes
+4. **Screw Events**: Add, remove, placement updates
+5. **Simulation Events**: Physics start/stop/reset
+6. **UI Events**: Panel toggles, mode changes, canvas interactions
 
 ### Event Flow Pattern
 ```
@@ -119,19 +149,33 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Constraint Enforcement**: Min/max values, aspect ratios, etc.
 - **JSON Serialization**: Maintain compatibility with game format
 - **Simplified Shape Creation**: Editor uses simplified shape rendering for preview
+- **Consistent Color Scheme**: Blue shapes (#007bff) and red screws for visual clarity
+
+### Screw Placement System
+- **Strategy Pattern**: Modular algorithms for different placement strategies
+- **Visual Feedback**: Dashed gray indicators show valid positions in real-time
+- **Coordinate System**: Logical pixel coordinates for high-DPI display support
+- **Interactive Tools**: Click-based add/remove with precise hit detection (15px radius)
+- **Event-Driven Updates**: All screw changes trigger re-render events for immediate feedback
+- **Strategy Calculations**: Algorithm implementations for corners, perimeter, grid, custom, and capsule strategies
 
 ### Physics Integration
 - **Isolated PhysicsWorld**: Editor has its own PhysicsWorld instance
 - **On-Demand Simulation**: Physics only runs when user starts simulation
+- **Event Communication**: Proper event-driven data transfer between editor and physics systems
+- **Shape Data Provider**: Complete shape and screw configuration passed to simulation
 - **Debug Visualization**: Custom rendering for physics debugging
 - **Performance**: Efficient physics updates for responsive editing
 
 ### Canvas Rendering
 - **Shared Renderer**: Use game's ShapeRenderer for consistency
+- **Multi-Layer Rendering**: Shape → Screws → Indicators → Debug overlays
+- **High-DPI Support**: Proper scaling for retina displays
 - **Editor Overlays**: Additional UI elements for editing context
 - **Responsive Design**: Adaptive canvas sizing with debounced resize handling
 - **Debug Modes**: Toggle between normal and debug rendering
 - **Render Optimization**: Conditional rendering with needsRender flag
+- **Coordinate Translation**: Proper handling of logical vs physical pixels
 
 ## File Structure Integration
 
@@ -168,20 +212,36 @@ User Action → UI Component → Event Emission → System Handler → State Upd
    - Checking if dimensions actually changed before resizing
    - Debouncing ResizeObserver callbacks (100ms delay)
    - Not modifying canvas in resize event handlers
+   - Using logical pixels instead of physical pixels for coordinate calculations
 
 2. **React useEffect Loop**: Fixed by:
    - Removing editorManager from dependency array
    - Using local variable to track manager instance
    - Ensuring single initialization on mount
 
+3. **Screw Event Re-rendering**: Fixed by:
+   - Adding screw event subscriptions to EditorManager
+   - Triggering needsRender flag on screw add/remove/update events
+   - Immediate visual feedback for all screw operations
+
 ### System Lifecycle
 - **Verbose Logging**: Controlled by DEBUG_SYSTEM_LIFECYCLE flag in BaseSystem
 - **Physics Initialization**: PhysicsWorld created but not actively updating until simulation starts
+- **Clean Shutdown**: Proper cleanup of event subscriptions and physics bodies
+
+### UI/UX Fixes
+- **Horizontal Scrollbar**: Fixed by:
+  - Using `width: 100%` instead of `100vw` for main container
+  - Adding `overflow: hidden` to prevent layout overflow
+  - Setting `minWidth` on sidebar to prevent shrinking
+- **Text Contrast**: Improved readability with explicit dark gray colors (#212529, #495057)
+- **Canvas Interaction**: Precise coordinate handling for high-DPI displays
 
 ### Performance Optimizations
 - **Conditional Rendering**: needsRender flag prevents unnecessary canvas updates
 - **Event Debouncing**: Resize events throttled to prevent performance issues
 - **Simplified Shapes**: Editor uses basic rectangle physics bodies for preview
+- **Efficient Hit Detection**: Optimized screw click detection with spatial algorithms
 
 ## Development Guidelines
 
@@ -204,6 +264,28 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Code Comments**: Comprehensive documentation of editor-specific logic
 - **User Guide**: Eventually create user-facing documentation
 
+## Current Implementation Status
+
+### ✅ Completed Features
+- **Complete Shape Editor Interface**: Fully functional editor at `/editor` route
+- **File Management**: Load/save JSON shape definitions with drag & drop support
+- **Property Editing**: Dynamic forms with validation and real-time updates
+- **Screw Placement System**: Visual indicators and interactive screw manipulation for all placement strategies
+- **Physics Integration**: Event-driven communication with basic simulation framework
+- **Visual Design**: Consistent blue/red color scheme with high contrast UI
+- **Responsive Layout**: Fixed scrollbar issues, proper overflow handling
+- **Event System**: Comprehensive event-driven architecture with 70+ event types
+
+### 🔄 In Progress / Foundation
+- **Physics Simulation**: Basic framework implemented, ready for full physics integration
+- **Debug Tools**: Canvas debugging with physics body visualization
+- **Performance**: Optimized rendering with conditional updates
+
+### 📋 Phase 2 Roadmap
+- **Advanced Shape Creation**: Direct drawing tools and vertex editing
+- **Enhanced Physics**: Full constraint testing and animation preview
+- **Collaboration Features**: Shape sharing and community integration
+
 ---
 
-*This design document serves as the technical blueprint for the Shape Editor. It should be updated as the implementation evolves and new features are added.*
+*This design document serves as the technical blueprint for the Shape Editor. Last updated: January 2025 - Phase 1 Complete*

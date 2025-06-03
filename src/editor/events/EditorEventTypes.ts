@@ -184,6 +184,33 @@ export interface EditorPhysicsDebugToggledEvent {
   };
 }
 
+export interface EditorPhysicsSimulationShapeRequestedEvent {
+  type: 'editor:physics:simulation:shape:requested';
+  payload: {
+    shapeId: string;
+  };
+}
+
+export interface EditorPhysicsSimulationShapeProvidedEvent {
+  type: 'editor:physics:simulation:shape:provided';
+  payload: {
+    shapeId: string;
+    shape: {
+      id: string;
+      type: string;
+      position: { x: number; y: number };
+      body: unknown; // Matter.js Body
+      radius?: number;
+      width?: number;
+      height?: number;
+    };
+    screws: Array<{
+      id: string;
+      position: { x: number; y: number };
+    }>;
+  };
+}
+
 // UI State Events
 export interface EditorPanelToggledEvent {
   type: 'editor:panel:toggled';
@@ -260,6 +287,8 @@ export type EditorEvent =
   | EditorPhysicsResetRequestedEvent
   | EditorPhysicsStepCompletedEvent
   | EditorPhysicsDebugToggledEvent
+  | EditorPhysicsSimulationShapeRequestedEvent
+  | EditorPhysicsSimulationShapeProvidedEvent
   | EditorPanelToggledEvent
   | EditorModeChangedEvent
   | EditorCanvasResizedEvent

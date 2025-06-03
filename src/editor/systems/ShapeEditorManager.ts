@@ -5,7 +5,6 @@ import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
 import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
-import { getRandomScrewColor } from '@/game/utils/Colors';
 import { EditorEventPriority } from '../core/EditorEventBus';
 import { 
   EditorShapeCreatedEvent, 
@@ -14,7 +13,8 @@ import {
   EditorCanvasResizedEvent, 
   EditorPhysicsDebugToggledEvent,
   EditorScrewAddedEvent,
-  EditorScrewRemovedEvent
+  EditorScrewRemovedEvent,
+  EditorPhysicsSimulationShapeRequestedEvent
 } from '../events/EditorEventTypes';
 import { Vector2, ShapeType } from '@/types/game';
 
@@ -60,6 +60,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
     // Render screws
     this.renderScrews(context, this.currentShape.screws);
 
+    // Render screw placement indicators
+    this.renderScrewPlacementIndicators(context, this.currentShape);
+
     // Render debug info if enabled
     if (this.debugMode) {
       this.renderDebugInfo(context, this.currentShape.shape);
@@ -104,6 +107,11 @@ export class ShapeEditorManager extends BaseEditorSystem {
 
     this.subscribe('editor:screw:removed', async (event: EditorScrewRemovedEvent) => {
       await this.removeCustomScrew(event.payload.shapeId, event.payload.screwId);
+    });
+
+    // Handle physics simulation shape requests
+    this.subscribe('editor:physics:simulation:shape:requested', async (event: EditorPhysicsSimulationShapeRequestedEvent) => {
+      await this.provideShapeForSimulation(event.payload.shapeId);
     });
   }
 
@@ -151,8 +159,8 @@ export class ShapeEditorManager extends BaseEditorSystem {
         { x: centerX, y: centerY },
         body,
         'editor-layer',
-        '#4a90e2', // Default blue color
-        '#4a90e2', // Default tint
+        '#007bff', // Blue color
+        '#007bff', // Blue tint
         shapeDimensions
       );
       
@@ -233,8 +241,8 @@ export class ShapeEditorManager extends BaseEditorSystem {
         { x: centerX, y: centerY },
         body,
         'editor-layer',
-        '#4a90e2', // Default blue color
-        '#4a90e2', // Default tint
+        '#007bff', // Blue color
+        '#007bff', // Blue tint
         shapeDimensions
       );
       
@@ -336,7 +344,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
     // For the editor, create basic screw positions (simplified)
     void _definition;
     const screws: Screw[] = [];
-    const screwColor = getRandomScrewColor();
+    const screwColor = 'red'; // Always use red for screws
     
     // Simple screw placement
     let positions: Vector2[] = [];
@@ -396,7 +404,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
     };
 
     // Set a nice tint color for the editor
-    shape.tint = '#4a90e2';
+    shape.tint = '#007bff';
     
     ShapeRenderer.renderShape(shape, renderContext);
   }
@@ -443,9 +451,10 @@ export class ShapeEditorManager extends BaseEditorSystem {
 
   private async addCustomScrew(shapeId: string, position: { x: number; y: number }, screwId: string): Promise<void> {
     if (!this.currentShape || this.currentShape.id !== shapeId) return;
-    if (this.currentShape.definition.screwPlacement.strategy !== 'custom') return;
+    
+    // In editor, allow adding screws to any shape for testing
 
-    const screwColor = getRandomScrewColor();
+    const screwColor = 'red'; // Always use red for screws
     const screw = new Screw(
       screwId,
       this.currentShape.shape.id,
@@ -455,37 +464,63 @@ export class ShapeEditorManager extends BaseEditorSystem {
 
     this.currentShape.screws.push(screw);
 
-    // Update custom positions in definition
-    if (!this.currentShape.definition.screwPlacement.customPositions) {
-      this.currentShape.definition.screwPlacement.customPositions = [];
+    // Update custom positions in definition if it's a custom strategy
+    if (this.currentShape.definition.screwPlacement.strategy === 'custom') {
+      if (!this.currentShape.definition.screwPlacement.customPositions) {
+        this.currentShape.definition.screwPlacement.customPositions = [];
+      }
+      
+      this.currentShape.definition.screwPlacement.customPositions.push({
+        position,
+        priority: 1,
+      });
+
+      // Emit update
+      await this.emit({
+        type: 'editor:property:changed',
+        payload: {
+          path: 'screwPlacement.customPositions',
+          value: this.currentShape.definition.screwPlacement.customPositions,
+        },
+      });
     }
     
-    this.currentShape.definition.screwPlacement.customPositions.push({
-      position,
-      priority: 1,
-    });
-
-    // Emit update
+    // Emit screw placement update for UI
     await this.emit({
-      type: 'editor:property:changed',
+      type: 'editor:screw:placement:updated',
       payload: {
-        path: 'screwPlacement.customPositions',
-        value: this.currentShape.definition.screwPlacement.customPositions,
+        shapeId: this.currentShape.id,
+        screwPositions: this.currentShape.screws.map((s, index) => ({
+          x: s.position.x,
+          y: s.position.y,
+          id: s.id || `screw_${index}`,
+        })),
       },
     });
   }
 
   private async removeCustomScrew(shapeId: string, screwId: string): Promise<void> {
-    if (!this.currentShape || this.currentShape.id !== shapeId) return;
-    if (this.currentShape.definition.screwPlacement.strategy !== 'custom') return;
+    console.log('ShapeEditorManager: removeCustomScrew called with', { shapeId, screwId });
+    if (!this.currentShape || this.currentShape.id !== shapeId) {
+      console.log('ShapeEditorManager: No current shape or ID mismatch');
+      return;
+    }
+    
+    // In editor, allow removing screws from any shape for testing
 
     const screwIndex = this.currentShape.screws.findIndex(s => s.id === screwId);
-    if (screwIndex === -1) return;
+    console.log('ShapeEditorManager: Found screw at index', screwIndex);
+    if (screwIndex === -1) {
+      console.log('ShapeEditorManager: Screw not found');
+      return;
+    }
 
+    console.log('ShapeEditorManager: Removing screw from array');
     this.currentShape.screws.splice(screwIndex, 1);
 
-    // Update custom positions in definition
-    if (this.currentShape.definition.screwPlacement.customPositions) {
+    // Update custom positions in definition if it's a custom strategy
+    if (this.currentShape.definition.screwPlacement.strategy === 'custom' && 
+        this.currentShape.definition.screwPlacement.customPositions) {
       this.currentShape.definition.screwPlacement.customPositions.splice(screwIndex, 1);
       
       await this.emit({
@@ -496,22 +531,37 @@ export class ShapeEditorManager extends BaseEditorSystem {
         },
       });
     }
+    
+    // Emit screw placement update for UI
+    await this.emit({
+      type: 'editor:screw:placement:updated',
+      payload: {
+        shapeId: this.currentShape.id,
+        screwPositions: this.currentShape.screws.map((s, index) => ({
+          x: s.position.x,
+          y: s.position.y,
+          id: s.id || `screw_${index}`,
+        })),
+      },
+    });
+
+    console.log('ShapeEditorManager: Screw removed, remaining screws:', this.currentShape.screws.length);
   }
 
   // Public API for canvas interactions
   async handleCanvasClick(x: number, y: number): Promise<void> {
     if (!this.currentShape) return;
-    if (this.currentShape.definition.screwPlacement.strategy !== 'custom') return;
-
-    // Convert to shape-relative coordinates
-    const relativeX = x - this.canvasWidth / 2;
-    const relativeY = y - this.canvasHeight / 2;
+    
+    // For editor, allow screw manipulation for all shapes
+    const clickX = x;
+    const clickY = y;
 
     // Check if clicking on existing screw to remove it
     const clickedScrewIndex = this.currentShape.screws.findIndex(screw => {
-      const dx = screw.position.x - relativeX;
-      const dy = screw.position.y - relativeY;
-      return Math.sqrt(dx * dx + dy * dy) < 15; // 15px click radius
+      const dx = screw.position.x - clickX;
+      const dy = screw.position.y - clickY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      return distance < 15; // 15px click radius
     });
 
     if (clickedScrewIndex !== -1) {
@@ -531,7 +581,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
         type: 'editor:screw:added',
         payload: {
           shapeId: this.currentShape.id,
-          position: { x: relativeX, y: relativeY },
+          position: { x: clickX, y: clickY },
           screwId: newScrewId,
         },
       });
@@ -540,5 +590,252 @@ export class ShapeEditorManager extends BaseEditorSystem {
 
   getCurrentShape(): EditorShape | null {
     return this.currentShape;
+  }
+
+  private async provideShapeForSimulation(shapeId: string): Promise<void> {
+    if (!this.currentShape || this.currentShape.id !== shapeId) {
+      console.log('ShapeEditorManager: Cannot provide shape for simulation - shape not found');
+      return;
+    }
+
+    console.log('ShapeEditorManager: Providing shape for simulation', shapeId);
+
+    await this.emit({
+      type: 'editor:physics:simulation:shape:provided',
+      payload: {
+        shapeId,
+        shape: {
+          id: this.currentShape.shape.id,
+          type: this.currentShape.shape.type,
+          position: this.currentShape.shape.position,
+          body: this.currentShape.shape.body,
+          radius: this.currentShape.shape.radius,
+          width: this.currentShape.shape.width,
+          height: this.currentShape.shape.height,
+        },
+        screws: this.currentShape.screws.map(screw => ({
+          id: screw.id,
+          position: screw.position,
+        })),
+      },
+    });
+  }
+
+  private renderScrewPlacementIndicators(context: CanvasRenderingContext2D, editorShape: EditorShape): void {
+    const { shape, definition } = editorShape;
+    
+    // Calculate potential screw positions based on strategy
+    const potentialPositions = this.calculatePotentialScrewPositions(shape, definition);
+    
+    // Render indicators for potential positions
+    context.save();
+    context.strokeStyle = '#888888';
+    context.fillStyle = 'rgba(136, 136, 136, 0.3)';
+    context.lineWidth = 1;
+    context.setLineDash([3, 3]);
+    
+    for (const position of potentialPositions) {
+      // Check if this position already has a screw
+      const hasScrew = editorShape.screws.some(screw => {
+        const dx = screw.position.x - position.x;
+        const dy = screw.position.y - position.y;
+        return Math.sqrt(dx * dx + dy * dy) < 10;
+      });
+      
+      if (!hasScrew) {
+        // Draw indicator circle
+        context.beginPath();
+        context.arc(position.x, position.y, 6, 0, Math.PI * 2);
+        context.fill();
+        context.stroke();
+      }
+    }
+    
+    context.restore();
+  }
+
+  private calculatePotentialScrewPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const positions: Vector2[] = [];
+    const strategy = definition.screwPlacement.strategy;
+    
+    switch (strategy) {
+      case 'corners':
+        positions.push(...this.calculateCornerPositions(shape, definition));
+        break;
+      case 'perimeter':
+        positions.push(...this.calculatePerimeterPositions(shape, definition));
+        break;
+      case 'grid':
+        positions.push(...this.calculateGridPositions(shape, definition));
+        break;
+      case 'custom':
+        positions.push(...this.calculateCustomPositions(shape, definition));
+        break;
+      case 'capsule':
+        positions.push(...this.calculateCapsulePositions(shape, definition));
+        break;
+    }
+    
+    return positions;
+  }
+
+  private calculateCornerPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const positions: Vector2[] = [];
+    const margin = definition.screwPlacement.cornerMargin || 20;
+    
+    if (shape.radius) {
+      // Circle - use cross pattern
+      const offset = shape.radius - margin;
+      positions.push(
+        { x: shape.position.x + offset, y: shape.position.y },
+        { x: shape.position.x - offset, y: shape.position.y },
+        { x: shape.position.x, y: shape.position.y + offset },
+        { x: shape.position.x, y: shape.position.y - offset }
+      );
+    } else if (shape.width && shape.height) {
+      // Rectangle - use corners
+      const marginX = Math.min(margin, shape.width * 0.2);
+      const marginY = Math.min(margin, shape.height * 0.2);
+      positions.push(
+        { x: shape.position.x - shape.width/2 + marginX, y: shape.position.y - shape.height/2 + marginY },
+        { x: shape.position.x + shape.width/2 - marginX, y: shape.position.y - shape.height/2 + marginY },
+        { x: shape.position.x - shape.width/2 + marginX, y: shape.position.y + shape.height/2 - marginY },
+        { x: shape.position.x + shape.width/2 - marginX, y: shape.position.y + shape.height/2 - marginY }
+      );
+    }
+    
+    return positions;
+  }
+
+  private calculatePerimeterPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const positions: Vector2[] = [];
+    const points = definition.screwPlacement.perimeterPoints || 8;
+    const margin = definition.screwPlacement.perimeterMargin || 20;
+    
+    if (shape.radius) {
+      // Circle perimeter
+      const radius = shape.radius - margin;
+      for (let i = 0; i < points; i++) {
+        const angle = (i / points) * Math.PI * 2;
+        positions.push({
+          x: shape.position.x + Math.cos(angle) * radius,
+          y: shape.position.y + Math.sin(angle) * radius
+        });
+      }
+    } else if (shape.width && shape.height) {
+      // Rectangle perimeter
+      const w = shape.width - margin * 2;
+      const h = shape.height - margin * 2;
+      const perimeter = 2 * (w + h);
+      const spacing = perimeter / points;
+      
+      for (let i = 0; i < points; i++) {
+        const distance = i * spacing;
+        let x, y;
+        
+        if (distance < w) {
+          // Top edge
+          x = shape.position.x - w/2 + distance;
+          y = shape.position.y - h/2;
+        } else if (distance < w + h) {
+          // Right edge
+          x = shape.position.x + w/2;
+          y = shape.position.y - h/2 + (distance - w);
+        } else if (distance < 2*w + h) {
+          // Bottom edge
+          x = shape.position.x + w/2 - (distance - w - h);
+          y = shape.position.y + h/2;
+        } else {
+          // Left edge
+          x = shape.position.x - w/2;
+          y = shape.position.y + h/2 - (distance - 2*w - h);
+        }
+        
+        positions.push({ x, y });
+      }
+    }
+    
+    return positions;
+  }
+
+  private calculateGridPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const positions: Vector2[] = [];
+    const spacing = definition.screwPlacement.gridSpacing || 40;
+    
+    if (shape.width && shape.height) {
+      const margin = 20;
+      const startX = shape.position.x - shape.width/2 + margin;
+      const endX = shape.position.x + shape.width/2 - margin;
+      const startY = shape.position.y - shape.height/2 + margin;
+      const endY = shape.position.y + shape.height/2 - margin;
+      
+      for (let x = startX; x <= endX; x += spacing) {
+        for (let y = startY; y <= endY; y += spacing) {
+          positions.push({ x, y });
+        }
+      }
+    } else if (shape.radius) {
+      // Grid inside circle
+      const margin = 20;
+      const radius = shape.radius - margin;
+      const size = radius * 2;
+      const startX = shape.position.x - radius;
+      const startY = shape.position.y - radius;
+      
+      for (let x = startX; x <= startX + size; x += spacing) {
+        for (let y = startY; y <= startY + size; y += spacing) {
+          // Check if point is inside circle
+          const dx = x - shape.position.x;
+          const dy = y - shape.position.y;
+          if (Math.sqrt(dx * dx + dy * dy) <= radius) {
+            positions.push({ x, y });
+          }
+        }
+      }
+    }
+    
+    return positions;
+  }
+
+  private calculateCustomPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const positions: Vector2[] = [];
+    
+    if (definition.screwPlacement.customPositions) {
+      for (const customPos of definition.screwPlacement.customPositions) {
+        positions.push({
+          x: shape.position.x + customPos.position.x,
+          y: shape.position.y + customPos.position.y
+        });
+      }
+    }
+    
+    return positions;
+  }
+
+  private calculateCapsulePositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+    const positions: Vector2[] = [];
+    const margin = definition.screwPlacement.capsuleEndMargin || 20;
+    
+    if (shape.width && shape.height) {
+      // Capsule is typically a rectangle with rounded ends
+      // Place screws at strategic positions
+      const endRadius = Math.min(shape.width, shape.height) / 2;
+      
+      // End positions
+      positions.push(
+        { x: shape.position.x - shape.width/2 + endRadius, y: shape.position.y },
+        { x: shape.position.x + shape.width/2 - endRadius, y: shape.position.y }
+      );
+      
+      // Side positions if large enough
+      if (shape.height > endRadius * 2 + margin * 2) {
+        positions.push(
+          { x: shape.position.x, y: shape.position.y - shape.height/2 + margin },
+          { x: shape.position.x, y: shape.position.y + shape.height/2 - margin }
+        );
+      }
+    }
+    
+    return positions;
   }
 }

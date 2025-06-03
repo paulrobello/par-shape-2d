@@ -153,6 +153,19 @@ export class EditorManager extends BaseEditorSystem {
       this.needsRender = true;
     });
 
+    // Screw changes
+    this.subscribe('editor:screw:added', async () => {
+      this.needsRender = true;
+    });
+
+    this.subscribe('editor:screw:removed', async () => {
+      this.needsRender = true;
+    });
+
+    this.subscribe('editor:screw:placement:updated', async () => {
+      this.needsRender = true;
+    });
+
     // Canvas resize - just mark for re-render, don't resize canvas
     // (canvas is already resized by resizeCanvas function)
     this.subscribe('editor:canvas:resized', async (event: EditorCanvasResizedEvent) => {
