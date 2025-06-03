@@ -192,7 +192,51 @@ export class PropertyManager extends BaseEditorSystem {
 
     const targetPaths = paths || this.getRandomizablePaths();
     
+    // Group min/max pairs together
+    const processedPaths = new Set<string>();
+    
     for (const path of targetPaths) {
+      if (processedPaths.has(path)) continue;
+      
+      // Check if this is a min path with a corresponding max
+      if (path.endsWith('.min')) {
+        const basePath = path.substring(0, path.length - 4);
+        const maxPath = basePath + '.max';
+        
+        if (targetPaths.includes(maxPath)) {
+          // Generate min/max pair together
+          const minRule = this.validationSchema[path];
+          const maxRule = this.validationSchema[maxPath];
+          
+          if (minRule && maxRule && minRule.type === 'number' && maxRule.type === 'number') {
+            // Generate min value
+            const absoluteMin = minRule.min ?? 0;
+            const absoluteMax = minRule.max ?? 100;
+            const minValue = Math.random() * (absoluteMax - absoluteMin) + absoluteMin;
+            
+            // Generate max value that's >= min value
+            const maxMin = Math.max(minValue, maxRule.min ?? minValue);
+            const maxMax = maxRule.max ?? Math.max(maxMin + 100, 200);
+            const maxValue = Math.random() * (maxMax - maxMin) + maxMin;
+            
+            // Emit both values
+            await this.emit({
+              type: 'editor:property:changed',
+              payload: { path, value: minValue },
+            });
+            await this.emit({
+              type: 'editor:property:changed',
+              payload: { path: maxPath, value: maxValue },
+            });
+            
+            processedPaths.add(path);
+            processedPaths.add(maxPath);
+            continue;
+          }
+        }
+      }
+      
+      // Handle standalone values or max values without min
       const randomValue = this.generateRandomValue(path);
       if (randomValue !== null) {
         await this.emit({
@@ -203,6 +247,7 @@ export class PropertyManager extends BaseEditorSystem {
           },
         });
       }
+      processedPaths.add(path);
     }
   }
 
