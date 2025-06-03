@@ -89,13 +89,18 @@ export class EditorManager extends BaseEditorSystem {
   }
 
   protected onRender(context: CanvasRenderingContext2D): void {
-    // Clear canvas
-    context.clearRect(0, 0, this.canvas!.width, this.canvas!.height);
+    // When using a scaled context, we need to use logical dimensions, not buffer dimensions
+    const dpr = window.devicePixelRatio || 1;
+    const logicalWidth = this.canvas!.width / dpr;
+    const logicalHeight = this.canvas!.height / dpr;
+    
+    // Clear canvas using logical dimensions
+    context.clearRect(0, 0, logicalWidth, logicalHeight);
     
     // Set background using theme
     const backgroundColor = this.currentTheme?.canvas.background || '#e9ecef';
     context.fillStyle = backgroundColor;
-    context.fillRect(0, 0, this.canvas!.width, this.canvas!.height);
+    context.fillRect(0, 0, logicalWidth, logicalHeight);
     
     // Render all systems
     this.shapeEditorManager.render(context);
