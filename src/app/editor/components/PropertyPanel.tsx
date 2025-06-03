@@ -53,7 +53,7 @@ const FormField: React.FC<FormFieldProps> = ({
         fontSize: '12px', 
         fontWeight: 'bold', 
         marginBottom: '4px',
-        color: error ? '#dc3545' : '#333'
+        color: error ? '#dc3545' : '#495057' // Slightly darker gray for labels
       }}>
         {label}
       </label>
@@ -68,6 +68,8 @@ const FormField: React.FC<FormFieldProps> = ({
             border: `1px solid ${error ? '#dc3545' : '#ccc'}`,
             borderRadius: '4px',
             fontSize: '12px',
+            color: '#212529', // Dark gray for better readability
+            backgroundColor: '#fff',
           }}
         >
           {options?.map(option => (
@@ -95,6 +97,8 @@ const FormField: React.FC<FormFieldProps> = ({
             border: `1px solid ${error ? '#dc3545' : '#ccc'}`,
             borderRadius: '4px',
             fontSize: '12px',
+            color: '#212529', // Dark gray for better readability
+            backgroundColor: '#fff',
           }}
         />
       )}
