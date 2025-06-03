@@ -468,8 +468,14 @@ export class ShapeEditorManager extends BaseEditorSystem {
         this.currentShape.definition.screwPlacement.customPositions = [];
       }
       
+      // Convert absolute canvas coordinates to relative coordinates (offset from shape center)
+      const relativePosition = {
+        x: position.x - this.currentShape.shape.position.x,
+        y: position.y - this.currentShape.shape.position.y
+      };
+      
       this.currentShape.definition.screwPlacement.customPositions.push({
-        position,
+        position: relativePosition,
         priority: 1,
       });
 
