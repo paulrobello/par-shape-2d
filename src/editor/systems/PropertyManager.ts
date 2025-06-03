@@ -71,6 +71,11 @@ export class PropertyManager extends BaseEditorSystem {
     this.subscribe('editor:property:changed', async (event: EditorPropertyChangedEvent) => {
       const validationResult = this.validateProperty(event.payload.path, event.payload.value);
       
+      // Check if this is a strategy change and populate missing defaults
+      if (event.payload.path === 'screwPlacement.strategy') {
+        await this.populateStrategyDefaults(event.payload.value as string);
+      }
+      
       await this.emit({
         type: 'editor:property:validated',
         payload: {
@@ -185,6 +190,58 @@ export class PropertyManager extends BaseEditorSystem {
     }
 
     return { isValid: true };
+  }
+
+  private async populateStrategyDefaults(strategy: string): Promise<void> {
+    if (!this.currentShape) return;
+
+    // Define strategy-specific defaults based on existing shape files
+    const strategyDefaults: { [strategy: string]: { [path: string]: unknown } } = {
+      corners: {
+        'screwPlacement.cornerMargin': 30,
+      },
+      perimeter: {
+        'screwPlacement.perimeterPoints': 8,
+        'screwPlacement.perimeterMargin': 30, // Based on arrow.json
+      },
+      grid: {
+        'screwPlacement.gridSpacing': 40,
+      },
+      capsule: {
+        'screwPlacement.capsuleEndMargin': 5, // Based on capsule.json
+      },
+      custom: {
+        // Custom strategy doesn't need defaults - positions are set via canvas
+      },
+    };
+
+    const defaults = strategyDefaults[strategy];
+    if (!defaults) return;
+
+    // Populate missing values with defaults
+    for (const [path, defaultValue] of Object.entries(defaults)) {
+      const currentValue = this.getNestedValue(this.currentShape as unknown as Record<string, unknown>, path);
+      
+      // Only set default if current value is undefined/null
+      if (currentValue === undefined || currentValue === null) {
+        await this.emit({
+          type: 'editor:property:changed',
+          payload: {
+            path,
+            value: defaultValue,
+          },
+        });
+      }
+    }
+  }
+
+  private getNestedValue(obj: Record<string, unknown>, path: string): unknown {
+    return path.split('.').reduce((current: unknown, key) => {
+      if (current && typeof current === 'object' && !Array.isArray(current)) {
+        return (current as Record<string, unknown>)[key];
+      }
+      return undefined;
+    }, obj as unknown);
   }
 
   private async generateRandomValues(paths?: string[]): Promise<void> {
@@ -307,9 +364,9 @@ export class PropertyManager extends BaseEditorSystem {
       'screwPlacement.strategy': 'corners',
       'screwPlacement.cornerMargin': 30,
       'screwPlacement.perimeterPoints': 8,
-      'screwPlacement.perimeterMargin': 20,
+      'screwPlacement.perimeterMargin': 30,
       'screwPlacement.gridSpacing': 40,
-      'screwPlacement.capsuleEndMargin': 15,
+      'screwPlacement.capsuleEndMargin': 5,
       'screwPlacement.minSeparation': 48,
       'visual.supportsHoles': true,
       'behavior.allowSingleScrew': true,
