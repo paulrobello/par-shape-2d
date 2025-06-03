@@ -35,34 +35,34 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
     return unsubscribe;
   }, [editorManager]);
 
-  const handleStartSimulation = useCallback(async () => {
+  const handleToggleSimulation = useCallback(async () => {
     if (!editorManager || !hasShape) return;
 
-    const editorState = editorManager.getEditorState();
-    const currentShapeId = editorState.getCurrentShapeId();
-    
-    if (!currentShapeId) return;
+    if (!isSimulating) {
+      // Start simulation
+      const editorState = editorManager.getEditorState();
+      const currentShapeId = editorState.getCurrentShapeId();
+      
+      if (!currentShapeId) return;
 
-    const physicsSimulator = editorManager.getPhysicsSimulator();
-    const eventBus = physicsSimulator['eventBus']; // Access protected eventBus
-    await eventBus.emit({
-      type: 'editor:physics:start:requested',
-      payload: { shapeId: currentShapeId },
-    });
-  }, [editorManager, hasShape]);
-
-  const handlePauseSimulation = useCallback(async () => {
-    if (!editorManager) return;
-
-    const physicsSimulator = editorManager.getPhysicsSimulator();
-    const eventBus = physicsSimulator['eventBus']; // Access protected eventBus
-    await eventBus.emit({
-      type: 'editor:physics:pause:requested',
-      payload: {},
-    });
-    
-    setIsPaused(!isPaused);
-  }, [editorManager, isPaused]);
+      const physicsSimulator = editorManager.getPhysicsSimulator();
+      const eventBus = physicsSimulator['eventBus']; // Access protected eventBus
+      await eventBus.emit({
+        type: 'editor:physics:start:requested',
+        payload: { shapeId: currentShapeId },
+      });
+    } else {
+      // Pause/resume simulation
+      const physicsSimulator = editorManager.getPhysicsSimulator();
+      const eventBus = physicsSimulator['eventBus']; // Access protected eventBus
+      await eventBus.emit({
+        type: 'editor:physics:pause:requested',
+        payload: {},
+      });
+      
+      setIsPaused(!isPaused);
+    }
+  }, [editorManager, hasShape, isSimulating, isPaused]);
 
   const handleResetSimulation = useCallback(async () => {
     if (!editorManager) return;
@@ -122,21 +122,20 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
       </div>
       
       <button
-        onClick={handleStartSimulation}
-        disabled={!hasShape || isSimulating}
-        style={!hasShape || isSimulating ? disabledButtonStyle : buttonStyle}
-        title={!hasShape ? 'Load a shape first' : isSimulating ? 'Simulation already running' : 'Start physics simulation'}
+        onClick={handleToggleSimulation}
+        disabled={!hasShape}
+        style={!hasShape ? disabledButtonStyle : (isSimulating && !isPaused ? activeButtonStyle : buttonStyle)}
+        title={
+          !hasShape 
+            ? 'Load a shape first' 
+            : !isSimulating 
+              ? 'Start physics simulation' 
+              : isPaused 
+                ? 'Resume simulation' 
+                : 'Pause simulation'
+        }
       >
-        Start
-      </button>
-      
-      <button
-        onClick={handlePauseSimulation}
-        disabled={!isSimulating}
-        style={!isSimulating ? disabledButtonStyle : (isPaused ? activeButtonStyle : buttonStyle)}
-        title={!isSimulating ? 'Start simulation first' : isPaused ? 'Resume simulation' : 'Pause simulation'}
-      >
-        {isPaused ? 'Resume' : 'Pause'}
+        {!isSimulating ? 'Start' : isPaused ? 'Resume' : 'Pause'}
       </button>
       
       <button

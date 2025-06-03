@@ -113,7 +113,7 @@ src/editor/
 - **Position Alignment**: Screw positions and placement indicators use consistent calculation logic
 
 ### 5. Physics Simulation
-- **Simulation Controls**: Start/Pause/Reset physics simulation with proper state management
+- **Simulation Controls**: Toggle Start/Pause/Reset physics simulation with proper state management
 - **Matter.js Constraints**: Real physics constraints between screws and shapes for realistic behavior
 - **Constraint Physics**: 
   - Multiple screws: Shape held stable by multiple constraint points
@@ -128,7 +128,7 @@ src/editor/
 ### 6. User Interface & Controls
 - **Layout**: Three-panel layout with toolbar, main canvas, and property sidebar
 - **File Controls**: Drag & drop file loading with clear feedback
-- **Simulation Controls**: Start/Pause/Reset buttons for physics testing
+- **Simulation Controls**: Single toggle button for Start/Pause and separate Reset button for physics testing
 - **Canvas Interaction**: 
   - Click to add/remove screws at placement indicators
   - Double-click to toggle debug mode
