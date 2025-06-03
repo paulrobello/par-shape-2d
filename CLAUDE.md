@@ -110,3 +110,10 @@ When implementing new drawing tools:
 - Grid snapping is applied through `GridManager.snapToGrid()`
 - High-DPI displays are properly handled with coordinate transformation
 - Preview rendering uses consistent coordinate system across all tools
+
+### Dimension Handling
+- **Dual Format Support**: Dimensions can be either `number` (fixed) or `{min, max}` (random)
+- **PropertyPanel Logic**: Automatically adapts form fields based on dimension type and data format
+- **Type Conversion**: Switching between fixed/random automatically converts values with sensible defaults
+- **Form Field Behavior**: Fixed dimensions show single input, random dimensions show min/max inputs
+- **Value Validation**: All dimension changes respect min/max constraints and shape-specific rules

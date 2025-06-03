@@ -104,7 +104,12 @@ src/editor/
 - **Real-time Updates**: Changes immediately update the playground
 - **Collapsible Sections**: Organized property groups for better UX
 - **High Contrast UI**: Dark gray text on white backgrounds for accessibility
-- **Smart Dimension Handling**: Width/height inputs automatically disabled for radius-based shapes (circles, polygons)
+- **Smart Dimension Handling**: 
+  - Width/height inputs automatically disabled for radius-based shapes (circles, polygons)
+  - Adaptive form fields based on dimension type (fixed vs random)
+  - For fixed dimensions: Single input field that syncs min/max values
+  - For random dimensions: Separate min/max input fields
+  - Automatic type conversion with sensible value ranges
 - **Dynamic Screw Placement Controls**: Input fields shown/hidden based on selected placement strategy
 - **Auto-Population of Defaults**: Strategy-specific fields automatically populated with appropriate defaults when strategy changes
 - **Intelligent Random Generation**: Random values respect min/max relationships and strategy-specific relevance
@@ -203,6 +208,8 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   - Radius-based shapes (circles, polygons) automatically set width/height to 0
   - Random generation skips width/height for radius-based shapes
   - Property inputs disabled to prevent conflicting dimension values
+  - Dynamic form adaptation for both number and {min,max} dimension formats
+  - Smart type conversion: fixed↔random with automatic value expansion/averaging
 - **Event System Optimization**:
   - Screw placement updates bypass property change events to prevent shape regeneration
   - Selective event emission prevents unwanted dimension changes during screw manipulation
