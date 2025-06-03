@@ -69,78 +69,95 @@ export const EditorCanvas: React.FC = () => {
 
   return (
     <div 
-      ref={containerRef}
       className="editor-container"
       style={{
         display: 'flex',
+        flexDirection: 'column',
         height: '100vh',
         width: '100%',
-        maxWidth: '100vw',
         backgroundColor: theme.background.secondary,
         overflow: 'hidden',
       }}
     >
-      {/* Main content area */}
+      {/* Top toolbar - full width */}
+      <div 
+        className="editor-toolbar"
+        style={{
+          padding: '16px',
+          backgroundColor: theme.background.primary,
+          borderBottom: `1px solid ${theme.border.primary}`,
+          display: 'flex',
+          gap: '16px',
+          alignItems: 'center',
+        }}
+      >
+        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: theme.text.primary }}>
+          Shape Editor
+        </h1>
+        <FileControls editorManager={editorManager} theme={theme} />
+        <SimulationControls editorManager={editorManager} theme={theme} />
+      </div>
+
+      {/* Main content area - canvas and property panel side by side */}
       <div 
         style={{
           flex: 1,
           display: 'flex',
-          flexDirection: 'column',
           overflow: 'hidden',
         }}
       >
-        {/* Top toolbar */}
+        {/* Canvas area */}
         <div 
-          style={{
-            padding: '16px',
-            backgroundColor: theme.background.primary,
-            borderBottom: `1px solid ${theme.border.primary}`,
-            display: 'flex',
-            gap: '16px',
-            alignItems: 'center',
+          ref={containerRef}
+          style={{ 
+            flex: 1, 
+            position: 'relative',
+            padding: '8px',
+            backgroundColor: theme.background.secondary,
           }}
         >
-          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: theme.text.primary }}>
-            Shape Editor
-          </h1>
-          <FileControls editorManager={editorManager} theme={theme} />
-          <SimulationControls editorManager={editorManager} theme={theme} />
+          <div style={{
+            width: '100%',
+            height: '100%',
+            position: 'relative',
+            boxShadow: 'inset 0 0 0 1px rgba(0, 0, 0, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.05)',
+            borderRadius: '4px',
+            overflow: 'hidden',
+            backgroundColor: theme.canvas.background || '#e9ecef',
+          }}>
+            <canvas
+              ref={canvasRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                display: 'block',
+              }}
+            />
+            {isInitialized && (
+              <PlaygroundArea 
+                editorManager={editorManager}
+                canvasRef={canvasRef}
+              />
+            )}
+          </div>
         </div>
 
-        {/* Playground area */}
-        <div style={{ flex: 1, position: 'relative' }}>
-          <canvas
-            ref={canvasRef}
-            style={{
-              width: '100%',
-              height: '100%',
-              display: 'block',
-            }}
-          />
+        {/* Right sidebar - property panel */}
+        <div 
+          style={{
+            width: '300px',
+            minWidth: '300px',
+            backgroundColor: theme.background.primary,
+            borderLeft: `1px solid ${theme.border.primary}`,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
           {isInitialized && (
-            <PlaygroundArea 
-              editorManager={editorManager}
-              canvasRef={canvasRef}
-            />
+            <PropertyPanel editorManager={editorManager} theme={theme} />
           )}
         </div>
-      </div>
-
-      {/* Right sidebar */}
-      <div 
-        style={{
-          width: '300px',
-          minWidth: '300px',
-          backgroundColor: theme.background.primary,
-          borderLeft: `1px solid ${theme.border.primary}`,
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
-        {isInitialized && (
-          <PropertyPanel editorManager={editorManager} theme={theme} />
-        )}
       </div>
     </div>
   );

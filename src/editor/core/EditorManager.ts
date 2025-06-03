@@ -200,12 +200,16 @@ export class EditorManager extends BaseEditorSystem {
       const rect = this.container.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
       
-      // Get the toolbar height
-      const toolbar = this.container.querySelector('.editor-toolbar');
-      const toolbarHeight = toolbar ? toolbar.getBoundingClientRect().height : 0;
+      // In the new layout, the container is just the canvas area
+      // Subtract padding from the container
+      const containerStyle = window.getComputedStyle(this.container);
+      const paddingLeft = parseFloat(containerStyle.paddingLeft) || 0;
+      const paddingRight = parseFloat(containerStyle.paddingRight) || 0;
+      const paddingTop = parseFloat(containerStyle.paddingTop) || 0;
+      const paddingBottom = parseFloat(containerStyle.paddingBottom) || 0;
       
-      const width = rect.width;
-      const height = rect.height - toolbarHeight;
+      const width = rect.width - paddingLeft - paddingRight;
+      const height = rect.height - paddingTop - paddingBottom;
       
       // Only resize if dimensions actually changed
       const newWidth = width * dpr;

@@ -126,7 +126,11 @@ src/editor/
 - **Physics Bodies**: Dynamic bodies with proper mass, friction, and restitution properties
 
 ### 6. User Interface & Controls
-- **Layout**: Three-panel layout with toolbar, main canvas, and property sidebar
+- **Layout**: 
+  - Full-width toolbar spanning entire editor width
+  - Main content area split between canvas (left) and property panel (right)
+  - Canvas area with inset border effect for visual definition
+  - Property panel with fixed 300px width, no overlap with canvas
 - **File Controls**: Drag & drop file loading with clear feedback
 - **Simulation Controls**: Single toggle button for Start/Pause and separate Reset button for physics testing
 - **Canvas Interaction**: 
@@ -134,7 +138,10 @@ src/editor/
   - Double-click to toggle debug mode
   - Visual help text for user guidance
 - **Property Panel**: Collapsible sections with form controls for all shape properties
-- **Responsive Design**: Fixed horizontal scrollbar issues, proper overflow handling
+- **Responsive Design**: 
+  - Fixed horizontal scrollbar issues, proper overflow handling
+  - Canvas properly sized within its container accounting for padding
+  - High-DPI display support with correct coordinate transformations
 - **Accessibility**: High contrast text and clear visual indicators
 
 ## Event System
@@ -243,13 +250,24 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **React Components**: EditorManager is excluded from dependency arrays, local variables track manager instances, and single initialization is enforced on mount
 - **Screw Interactions**: Event subscriptions in EditorManager trigger needsRender flags for immediate visual feedback
 
+### Coordinate System Management
+- **Canvas Scaling**: Context is scaled by device pixel ratio (DPR) for high-DPI displays
+- **Logical vs Physical Pixels**: Canvas buffer uses physical pixels while all drawing operations use logical pixels
+- **Debug Rendering**: Physics body vertices are transformed to account for canvas scaling
+- **Proper Clearing**: Canvas clearing and background filling use logical dimensions to match viewport
+- **Container Sizing**: Canvas container accounts for padding when calculating available space
+
 ### System Lifecycle
 - **Debug Logging**: Controlled by DEBUG_SYSTEM_LIFECYCLE flag in BaseSystem
 - **Physics Initialization**: PhysicsWorld is created but remains inactive until simulation starts
 - **Resource Cleanup**: Event subscriptions and physics bodies are properly disposed on system destruction
 
 ### UI/UX Design
-- **Layout Management**: Main container uses `width: 100%` with `overflow: hidden`, sidebar has `minWidth` to prevent shrinking
+- **Layout Management**: 
+  - Full-width toolbar at top of editor
+  - Canvas area and property panel side-by-side below toolbar
+  - Canvas area has 8px padding with inset border effect
+  - Property panel fixed at 300px width with no overlap
 - **Visual Accessibility**: Theme-based text colors provide high contrast readability for both light and dark modes
 - **Canvas Interaction**: High-DPI display support with precise coordinate handling
 - **CSS Architecture**: Border properties use explicit longhand syntax to avoid conflicts
@@ -258,6 +276,7 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Interaction States**: Screw manipulation is disabled during active physics simulation
 - **Theme Integration**: All UI elements adapt to system-preferred color scheme automatically
 - **UI Simplification**: Streamlined simulation controls with intuitive toggle button design
+- **Visual Definition**: Inset box shadow on canvas area provides subtle depth and separation
 
 ### Performance Architecture
 - **Conditional Rendering**: needsRender flag prevents unnecessary canvas updates
@@ -265,6 +284,7 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Simplified Physics**: Editor uses basic rectangle physics bodies for preview rendering
 - **Spatial Optimization**: Screw click detection uses optimized coordinate calculations
 - **Unified Positioning**: Single calculation method for both screw placement and indicators reduces computational overhead
+- **High-DPI Support**: Proper handling of device pixel ratio for canvas scaling and coordinate transformations
 
 ## Development Guidelines
 
@@ -324,16 +344,22 @@ The Shape Editor has undergone significant enhancements for improved usability a
 - **Canvas Background**: Consistent light grey background for optimal shape visibility in all modes
 - **Streamlined Controls**: Combined start/pause simulation controls into intuitive toggle button
 - **Visual Consistency**: Unified color scheme across all editor components and themes
+- **Layout Redesign**: Full-width toolbar with side-by-side canvas and property panel layout
+- **Visual Polish**: Added inset border effect around canvas area for better visual definition
 
 ### **Functional Fixes**
 - **Physics Reset**: Proper shape position restoration to original locations after simulation reset
 - **Screw Alignment**: Fixed indicator positioning to match actual screw locations using unified calculation logic
 - **Theme Application**: Immediate theme setting during initialization to prevent visual flashing
+- **Debug Rendering**: Fixed physics body debug outlines to properly align with shapes on high-DPI displays
+- **Coordinate Systems**: Corrected canvas coordinate transformations for proper shape positioning
 
 ### **Technical Architecture**
 - **Event-Driven Design**: Comprehensive 70+ event system with proper error handling and state management
 - **Performance Optimization**: Unified positioning calculations and conditional rendering for efficiency
 - **Code Consistency**: Single source of truth for screw positioning logic across indicators and actual placements
+- **High-DPI Support**: Proper handling of device pixel ratio throughout rendering pipeline
+- **Container Management**: Canvas sizing properly accounts for container padding and layout structure
 
 ---
 
