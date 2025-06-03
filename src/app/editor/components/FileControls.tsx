@@ -12,6 +12,7 @@ interface FileControlsProps {
 export const FileControls: React.FC<FileControlsProps> = ({ editorManager, theme }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [hover, setHover] = useState(false);
 
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0 || !editorManager) return;
@@ -91,19 +92,26 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager, theme
         style={{ display: 'none' }}
       />
       
-      <button
+      <div
         onClick={handleLoadClick}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
         style={{
           padding: '8px 16px',
-          border: `1px solid ${theme.button.border}`,
+          border: dragOver || hover ? `2px dashed ${theme.status.info}` : `1px dashed ${theme.border.secondary}`,
           borderRadius: '4px',
-          backgroundColor: theme.button.background,
-          color: theme.button.text,
+          backgroundColor: dragOver || hover ? theme.background.tertiary : theme.background.secondary,
           cursor: 'pointer',
+          fontSize: '14px',
+          color: dragOver || hover ? theme.text.primary : theme.text.secondary,
+          transition: 'all 0.2s ease',
         }}
       >
-        Load Shape
-      </button>
+        Drop JSON file or click
+      </div>
       
       <button
         onClick={handleSaveClick}
@@ -118,23 +126,6 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager, theme
       >
         Save Shape
       </button>
-
-      <div
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        style={{
-          padding: '8px 16px',
-          border: dragOver ? `2px dashed ${theme.status.info}` : `1px dashed ${theme.border.secondary}`,
-          borderRadius: '4px',
-          backgroundColor: dragOver ? theme.background.tertiary : theme.background.secondary,
-          cursor: 'pointer',
-          fontSize: '12px',
-          color: theme.text.secondary,
-        }}
-      >
-        Drop JSON file here
-      </div>
     </div>
   );
 };

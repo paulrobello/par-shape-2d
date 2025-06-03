@@ -77,11 +77,12 @@ src/editor/
 ## Phase 1 Features (Implemented)
 
 ### 1. Shape File Management
-- **Load**: Drag & drop JSON files or file picker
+- **Load**: Unified loading interface - click or drag & drop JSON files
 - **Save**: Download edited shapes as JSON files
 - **Validation**: Comprehensive shape definition validation
 - **Error Handling**: Clear feedback for invalid files
 - **Global Drag Prevention**: Window-level drag & drop handling to prevent browser default behavior
+- **Streamlined UI**: Single interactive drop zone replaces separate load button
 
 ### 2. Property Editing Panel
 - **Dynamic Forms**: Form fields adapt to selected shape type
@@ -131,7 +132,7 @@ src/editor/
   - Main content area split between canvas (left) and property panel (right)
   - Canvas area with inset border effect for visual definition
   - Property panel with fixed 300px width, no overlap with canvas
-- **File Controls**: Drag & drop file loading with clear feedback
+- **File Controls**: Combined drag & drop and click-to-browse interface with hover feedback
 - **Simulation Controls**: Single toggle button for Start/Pause and separate Reset button for physics testing
 - **Canvas Interaction**: 
   - Click to add/remove screws at placement indicators
@@ -342,10 +343,13 @@ The Shape Editor has undergone significant enhancements for improved usability a
 ### **UI/UX Improvements**
 - **Dark Mode Integration**: Automatic system preference detection with comprehensive theming
 - **Canvas Background**: Consistent light grey background for optimal shape visibility in all modes
-- **Streamlined Controls**: Combined start/pause simulation controls into intuitive toggle button
+- **Streamlined Controls**: 
+  - Combined start/pause simulation controls into intuitive toggle button
+  - Unified file loading interface - drop zone serves as both drag target and clickable button
 - **Visual Consistency**: Unified color scheme across all editor components and themes
 - **Layout Redesign**: Full-width toolbar with side-by-side canvas and property panel layout
 - **Visual Polish**: Added inset border effect around canvas area for better visual definition
+- **Interactive Feedback**: Drop zone highlights on hover with smooth transitions
 
 ### **Functional Fixes**
 - **Physics Reset**: Proper shape position restoration to original locations after simulation reset
