@@ -158,11 +158,93 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
 
     const propertyManager = editorManager.getPropertyManager();
     const eventBus = propertyManager['eventBus']; // Access protected eventBus
+    
+    // Handle dimension type changes - sync min/max for fixed dimensions
+    if (path === 'dimensions.type' && value === 'fixed') {
+      const state = editorManager.getEditorState().getState();
+      const shape = state.currentShape;
+      
+      if (shape) {
+        // Sync min/max values for fixed dimensions
+        if (shape.dimensions?.radius && typeof shape.dimensions.radius === 'object') {
+          const avgRadius = (shape.dimensions.radius.min + shape.dimensions.radius.max) / 2;
+          await eventBus.emit({
+            type: 'editor:property:changed',
+            payload: { path: 'dimensions.radius', value: Math.round(avgRadius) },
+          });
+        }
+        if (shape.dimensions?.width && typeof shape.dimensions.width === 'object') {
+          const avgWidth = (shape.dimensions.width.min + shape.dimensions.width.max) / 2;
+          await eventBus.emit({
+            type: 'editor:property:changed',
+            payload: { path: 'dimensions.width', value: Math.round(avgWidth) },
+          });
+        }
+        if (shape.dimensions?.height && typeof shape.dimensions.height === 'object') {
+          const avgHeight = (shape.dimensions.height.min + shape.dimensions.height.max) / 2;
+          await eventBus.emit({
+            type: 'editor:property:changed',
+            payload: { path: 'dimensions.height', value: Math.round(avgHeight) },
+          });
+        }
+      }
+    }
+    // Handle dimension type changes - expand single values to min/max for random dimensions
+    else if (path === 'dimensions.type' && value === 'random') {
+      const state = editorManager.getEditorState().getState();
+      const shape = state.currentShape;
+      
+      if (shape) {
+        // Expand single values to min/max for random dimensions
+        if (shape.dimensions?.radius && typeof shape.dimensions.radius === 'number') {
+          const radius = shape.dimensions.radius;
+          await eventBus.emit({
+            type: 'editor:property:changed',
+            payload: { path: 'dimensions.radius', value: {
+              min: Math.max(5, Math.round(radius * 0.8)),
+              max: Math.round(radius * 1.2)
+            }},
+          });
+        }
+        if (shape.dimensions?.width && typeof shape.dimensions.width === 'number') {
+          const width = shape.dimensions.width;
+          await eventBus.emit({
+            type: 'editor:property:changed',
+            payload: { path: 'dimensions.width', value: {
+              min: Math.max(10, Math.round(width * 0.8)),
+              max: Math.round(width * 1.2)
+            }},
+          });
+        }
+        if (shape.dimensions?.height && typeof shape.dimensions.height === 'number') {
+          const height = shape.dimensions.height;
+          await eventBus.emit({
+            type: 'editor:property:changed',
+            payload: { path: 'dimensions.height', value: {
+              min: Math.max(10, Math.round(height * 0.8)),
+              max: Math.round(height * 1.2)
+            }},
+          });
+        }
+      }
+    }
+    // Handle fixed dimension changes - sync min and max
+    else if (currentShape?.dimensions?.type === 'fixed') {
+      if (path.includes('.min') || path.includes('.max')) {
+        const basePath = path.replace(/\.(min|max)$/, '');
+        await eventBus.emit({
+          type: 'editor:property:changed',
+          payload: { path: basePath, value },
+        });
+        return;
+      }
+    }
+    
     await eventBus.emit({
       type: 'editor:property:changed',
       payload: { path, value },
     });
-  }, [editorManager]);
+  }, [editorManager, currentShape]);
 
   const handleRandomizeAll = useCallback(async () => {
     if (!editorManager) return;
@@ -342,88 +424,147 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
             theme={theme} // errors['dimensions.type']}
           />
           
-          {currentShape.dimensions?.width && (
+          {currentShape.dimensions?.width !== undefined && (
             <>
-              <FormField
-                label="Width Min"
-                path="dimensions.width.min"
-                value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.width.min')}
-                type="number"
-                min={10}
-                max={1000}
-                onChange={handlePropertyChange}
-                error={undefined}
-                disabled={!!currentShape.dimensions?.radius}
-            theme={theme} // errors['dimensions.width.min']}
-              />
-              <FormField
-                label="Width Max"
-                path="dimensions.width.max"
-                value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.width.max')}
-                type="number"
-                min={10}
-                max={1000}
-                onChange={handlePropertyChange}
-                error={undefined}
-                disabled={!!currentShape.dimensions?.radius}
-            theme={theme} // errors['dimensions.width.max']}
-              />
+              {currentShape.dimensions.type === 'fixed' ? (
+                <FormField
+                  label="Width"
+                  path="dimensions.width"
+                  value={typeof currentShape.dimensions.width === 'number' 
+                    ? currentShape.dimensions.width 
+                    : getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.width.min')
+                  }
+                  type="number"
+                  min={10}
+                  max={1000}
+                  onChange={handlePropertyChange}
+                  error={undefined}
+                  disabled={!!currentShape.dimensions?.radius}
+                  theme={theme}
+                />
+              ) : (
+                <>
+                  <FormField
+                    label="Width Min"
+                    path="dimensions.width.min"
+                    value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.width.min')}
+                    type="number"
+                    min={10}
+                    max={1000}
+                    onChange={handlePropertyChange}
+                    error={undefined}
+                    disabled={!!currentShape.dimensions?.radius}
+                    theme={theme}
+                  />
+                  <FormField
+                    label="Width Max"
+                    path="dimensions.width.max"
+                    value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.width.max')}
+                    type="number"
+                    min={10}
+                    max={1000}
+                    onChange={handlePropertyChange}
+                    error={undefined}
+                    disabled={!!currentShape.dimensions?.radius}
+                    theme={theme}
+                  />
+                </>
+              )}
             </>
           )}
           
-          {currentShape.dimensions?.height && (
+          {currentShape.dimensions?.height !== undefined && (
             <>
-              <FormField
-                label="Height Min"
-                path="dimensions.height.min"
-                value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.height.min')}
-                type="number"
-                min={10}
-                max={1000}
-                onChange={handlePropertyChange}
-                error={undefined}
-                disabled={!!currentShape.dimensions?.radius}
-            theme={theme} // errors['dimensions.height.min']}
-              />
-              <FormField
-                label="Height Max"
-                path="dimensions.height.max"
-                value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.height.max')}
-                type="number"
-                min={10}
-                max={1000}
-                onChange={handlePropertyChange}
-                error={undefined}
-                disabled={!!currentShape.dimensions?.radius}
-            theme={theme} // errors['dimensions.height.max']}
-              />
+              {currentShape.dimensions.type === 'fixed' ? (
+                <FormField
+                  label="Height"
+                  path="dimensions.height"
+                  value={typeof currentShape.dimensions.height === 'number' 
+                    ? currentShape.dimensions.height 
+                    : getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.height.min')
+                  }
+                  type="number"
+                  min={10}
+                  max={1000}
+                  onChange={handlePropertyChange}
+                  error={undefined}
+                  disabled={!!currentShape.dimensions?.radius}
+                  theme={theme}
+                />
+              ) : (
+                <>
+                  <FormField
+                    label="Height Min"
+                    path="dimensions.height.min"
+                    value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.height.min')}
+                    type="number"
+                    min={10}
+                    max={1000}
+                    onChange={handlePropertyChange}
+                    error={undefined}
+                    disabled={!!currentShape.dimensions?.radius}
+                    theme={theme}
+                  />
+                  <FormField
+                    label="Height Max"
+                    path="dimensions.height.max"
+                    value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.height.max')}
+                    type="number"
+                    min={10}
+                    max={1000}
+                    onChange={handlePropertyChange}
+                    error={undefined}
+                    disabled={!!currentShape.dimensions?.radius}
+                    theme={theme}
+                  />
+                </>
+              )}
             </>
           )}
           
-          {currentShape.dimensions?.radius && (
+          {currentShape.dimensions?.radius !== undefined && (
             <>
-              <FormField
-                label="Radius Min"
-                path="dimensions.radius.min"
-                value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.radius.min')}
-                type="number"
-                min={5}
-                max={500}
-                onChange={handlePropertyChange}
-                error={undefined}
-            theme={theme} // errors['dimensions.radius.min']}
-              />
-              <FormField
-                label="Radius Max"
-                path="dimensions.radius.max"
-                value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.radius.max')}
-                type="number"
-                min={5}
-                max={500}
-                onChange={handlePropertyChange}
-                error={undefined}
-            theme={theme} // errors['dimensions.radius.max']}
-              />
+              {currentShape.dimensions.type === 'fixed' ? (
+                <FormField
+                  label="Radius"
+                  path="dimensions.radius"
+                  value={typeof currentShape.dimensions.radius === 'number' 
+                    ? currentShape.dimensions.radius 
+                    : getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.radius.min')
+                  }
+                  type="number"
+                  min={5}
+                  max={500}
+                  onChange={handlePropertyChange}
+                  error={undefined}
+                  theme={theme}
+                />
+              ) : (
+                <>
+                  <FormField
+                    label="Radius Min"
+                    path="dimensions.radius.min"
+                    value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.radius.min')}
+                    type="number"
+                    min={5}
+                    max={500}
+                    onChange={handlePropertyChange}
+                    error={undefined}
+                    theme={theme}
+                  />
+                  <FormField
+                    label="Radius Max"
+                    path="dimensions.radius.max"
+                    value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.radius.max')}
+                    type="number"
+                    min={5}
+                    max={500}
+                    onChange={handlePropertyChange}
+                    error={undefined}
+                    theme={theme}
+                  />
+                </>
+              )}
             </>
           )}
           

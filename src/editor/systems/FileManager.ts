@@ -235,4 +235,41 @@ export class FileManager extends BaseEditorSystem {
   getAcceptedFileTypes(): string {
     return '.json,application/json';
   }
+
+  /**
+   * Load a shape definition directly (used for shapes created by drawing tools)
+   */
+  async loadShapeFromDefinition(shapeDefinition: ShapeDefinition): Promise<void> {
+    try {
+      // Validate the shape definition
+      const validationErrors = this.validateShapeDefinition(shapeDefinition as unknown as Record<string, unknown>);
+      if (validationErrors.length > 0) {
+        await this.emit({
+          type: 'editor:file:validation:failed',
+          payload: {
+            errors: validationErrors,
+            filename: shapeDefinition.name || 'Created Shape',
+          },
+        });
+        return;
+      }
+
+      // Emit successful load
+      await this.emit({
+        type: 'editor:file:load:completed',
+        payload: {
+          shapeDefinition,
+          filename: shapeDefinition.name || 'Created Shape',
+        },
+      });
+    } catch (error) {
+      await this.emit({
+        type: 'editor:file:load:failed',
+        payload: {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          filename: shapeDefinition.name || 'Created Shape',
+        },
+      });
+    }
+  }
 }

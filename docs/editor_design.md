@@ -272,6 +272,7 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   - DrawingToolManager for tool selection and coordination
   - Tool-based workflow with consistent interaction patterns
   - Mode switching between "edit" (Phase 1) and "create" (Phase 2) modes
+  - Automatic mode switching: starts in create mode, switches to edit when file loaded
   - ToolPalette UI component in toolbar with visual tool selection and aligned mode display
   
 - **State Management**:
@@ -290,19 +291,21 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **SelectTool**: 
   - Maintains all Phase 1 functionality (screw manipulation, property editing)
   - Activates "edit" mode when selected
-  - Acts as default tool on editor load
+  - Default tool when file is loaded (switches to edit mode)
   
 - **CircleTool**: 
   - Center → radius workflow (2 clicks)
   - Real-time preview with dashed outline
   - Grid snapping support
   - Creates proper ShapeDefinition with physics and screw placement
+  - Automatic shape loading and mode switching on completion
   
 - **RectangleTool**: 
   - Corner → corner workflow (2 clicks)
   - Preview rectangle with translucent fill
   - Minimum size validation (10x10)
   - Full grid integration
+  - Automatic shape loading and mode switching on completion
   
 - **Preview System**:
   - PreviewRenderer utility class with consistent styling
@@ -443,7 +446,10 @@ The drawing tool architecture follows a modular, extensible design:
 Clean separation between editing and creation modes:
 - **Edit Mode**: Phase 1 functionality - screw manipulation, property editing, physics simulation
 - **Create Mode**: Phase 2 functionality - shape drawing with selected tool
-- **Mode Switching**: Automatic based on tool selection (SelectTool → edit, others → create)
+- **Mode Switching**: 
+  - Automatic based on tool selection (SelectTool → edit, others → create)
+  - Editor starts in create mode with CircleTool selected
+  - Switches to edit mode when file is loaded or shape is created
 - **UI Adaptation**: Interface elements enable/disable based on current mode
 
 ### Coordinate System Integration

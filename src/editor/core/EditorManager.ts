@@ -185,6 +185,9 @@ export class EditorManager extends BaseEditorSystem {
       console.log('Shape loaded:', event.payload.filename);
       this.showMessage(`Shape loaded: ${event.payload.filename}`);
       this.needsRender = true;
+      
+      // Switch to edit mode when a file is loaded
+      this.drawingToolManager.selectTool('select');
     });
 
     this.subscribe('editor:file:save:completed', async (event: EditorFileSaveCompletedEvent) => {
@@ -238,9 +241,17 @@ export class EditorManager extends BaseEditorSystem {
     });
 
     this.subscribe('editor:drawing:completed', async (event: EditorDrawingCompletedEvent) => {
-      // A shape was created via drawing tool, process it like a loaded shape
+      // A shape was created via drawing tool, load it into the editor
+      console.log('Shape created via drawing tool:', event.payload.shapeDefinition.name);
+      this.showMessage(`Shape created: ${event.payload.shapeDefinition.name}`);
+      
+      // Load the created shape into the editor state
+      await this.fileManager.loadShapeFromDefinition(event.payload.shapeDefinition);
+      
+      // Switch to edit mode after creating a shape
+      this.drawingToolManager.selectTool('select');
+      
       this.needsRender = true;
-      void event; // Using event to avoid unused parameter warning
     });
 
     this.subscribe('editor:drawing:cancelled', async (event: EditorDrawingCancelledEvent) => {
@@ -476,7 +487,7 @@ export class EditorManager extends BaseEditorSystem {
     this.drawingToolManager.registerTool(circleTool);
     this.drawingToolManager.registerTool(rectangleTool);
 
-    // Select the default tool (select tool)
-    this.drawingToolManager.selectTool('select');
+    // Select the default tool (circle tool for create mode)
+    this.drawingToolManager.selectTool('circle');
   }
 }
