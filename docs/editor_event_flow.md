@@ -10,65 +10,65 @@ The Shape Editor follows the same event-driven architecture pattern as the main 
 
 ## Event Categories
 
-### File Management Events
-| Event Type | Purpose | Emitters | Subscribers |
-|------------|---------|----------|-------------|
-| `editor:file:load:requested` | Request to load shape file | FileControls | FileManager |
-| `editor:file:load:completed` | File load successful | FileManager | EditorState, PropertyManager |
-| `editor:file:load:failed` | File load error | FileManager | EditorManager |
-| `editor:file:save:requested` | Request to save shape file | FileControls | FileManager |
-| `editor:file:save:completed` | File save successful | FileManager | EditorManager |
-| `editor:file:validation:failed` | Shape validation error | FileManager | EditorManager |
+### File Management Events (6 events)
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:file:load:requested` | Request to load shape file | FileManager | FileManager | ✅ Active |
+| `editor:file:load:completed` | File load successful | FileManager | EditorState, EditorManager | ✅ Active |
+| `editor:file:load:failed` | File load error | FileManager | None | ✅ Active |
+| `editor:file:save:requested` | Request to save shape file | FileManager | FileManager | ✅ Active |
+| `editor:file:save:completed` | File save successful | FileManager | EditorManager | ✅ Active |
+| `editor:file:validation:failed` | Shape validation error | FileManager | None | ✅ Active |
 
-### Property Management Events
-| Event Type | Purpose | Emitters | Subscribers |
-|------------|---------|----------|-------------|
-| `editor:property:changed` | Property value updated | PropertyPanel | PropertyManager, ShapeEditorManager |
-| `editor:property:validated` | Property validation result | PropertyManager | PropertyPanel |
-| `editor:property:random:requested` | Generate random values | PropertyPanel | PropertyManager |
-| `editor:property:reset:requested` | Reset to default values | PropertyPanel | PropertyManager |
+### Property Management Events (4 events)
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:property:changed` | Property value updated | PropertyPanel, PropertyManager, ShapeEditorManager | PropertyManager, EditorState | ✅ Active |
+| `editor:property:validated` | Property validation result | PropertyManager | None | ✅ Active |
+| `editor:property:random:requested` | Generate random values | PropertyPanel | PropertyManager | ✅ Active |
+| `editor:property:reset:requested` | Reset to default values | PropertyPanel | PropertyManager | ✅ Active |
 
-### Shape Management Events
-| Event Type | Purpose | Emitters | Subscribers |
-|------------|---------|----------|-------------|
-| `editor:shape:created` | New shape instance created | ShapeEditorManager | PlaygroundArea, PhysicsSimulator |
-| `editor:shape:updated` | Shape properties modified | ShapeEditorManager | PlaygroundArea, PhysicsSimulator |
-| `editor:shape:destroyed` | Shape instance removed | ShapeEditorManager | PlaygroundArea, PhysicsSimulator |
-| `editor:shape:selected` | Shape selected for editing | PlaygroundArea | PropertyManager |
-| `editor:shape:preview:updated` | Shape preview refresh needed | ShapeEditorManager | PlaygroundArea |
+### Shape Management Events (5 events)
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:shape:created` | New shape instance created | EditorState | ShapeEditorManager, EditorManager, PropertyManager | ✅ Active |
+| `editor:shape:updated` | Shape properties modified | EditorState | ShapeEditorManager, EditorManager, PropertyManager, PhysicsSimulator | ✅ Active |
+| `editor:shape:destroyed` | Shape instance removed | EditorState | ShapeEditorManager, EditorManager, PropertyManager | ✅ Active |
+| `editor:shape:selected` | Shape selected for editing | None | None | ⚠️ Defined but unused |
+| `editor:shape:preview:updated` | Shape preview refresh needed | PhysicsSimulator | EditorManager | ✅ Active |
 
-### Screw Management Events
-| Event Type | Purpose | Emitters | Subscribers |
-|------------|---------|----------|-------------|
-| `editor:screw:placement:updated` | Screw positions recalculated | ShapeEditorManager | PlaygroundArea, EditorManager |
-| `editor:screw:added` | Screw added at clicked position | ShapeEditorManager | ShapeEditorManager, EditorManager |
-| `editor:screw:removed` | Screw removed from clicked position | ShapeEditorManager | ShapeEditorManager, EditorManager |
-| `editor:screw:strategy:changed` | Screw placement strategy modified | PropertyManager | ShapeEditorManager |
+### Screw Management Events (4 events)
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:screw:placement:updated` | Screw positions recalculated | ShapeEditorManager | EditorManager | ✅ Active |
+| `editor:screw:added` | Screw added at clicked position | ShapeEditorManager | ShapeEditorManager, EditorManager | ✅ Active |
+| `editor:screw:removed` | Screw removed from clicked position | ShapeEditorManager | ShapeEditorManager, EditorManager | ✅ Active |
+| `editor:screw:strategy:changed` | Screw placement strategy modified | None | None | ⚠️ Defined but unused |
 
-### Physics Simulation Events
-| Event Type | Purpose | Emitters | Subscribers |
-|------------|---------|----------|-------------|
-| `editor:physics:start:requested` | Start physics simulation | SimulationControls | PhysicsSimulator |
-| `editor:physics:pause:requested` | Pause physics simulation | SimulationControls | PhysicsSimulator |
-| `editor:physics:reset:requested` | Reset physics simulation | SimulationControls | PhysicsSimulator |
-| `editor:physics:step:completed` | Physics step completed | PhysicsSimulator | EditorManager |
-| `editor:physics:debug:toggled` | Debug view toggle | PlaygroundArea | ShapeEditorManager, PhysicsSimulator |
-| `editor:physics:simulation:shape:requested` | Request shape data for simulation | PhysicsSimulator | ShapeEditorManager |
-| `editor:physics:simulation:shape:provided` | Provide shape data for simulation | ShapeEditorManager | PhysicsSimulator |
+### Physics Simulation Events (7 events)
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:physics:start:requested` | Start physics simulation | SimulationControls | PhysicsSimulator, EditorState, ShapeEditorManager | ✅ Active |
+| `editor:physics:pause:requested` | Pause physics simulation | SimulationControls | PhysicsSimulator, EditorState | ✅ Active |
+| `editor:physics:reset:requested` | Reset physics simulation | SimulationControls | PhysicsSimulator, EditorState, ShapeEditorManager | ✅ Active |
+| `editor:physics:step:completed` | Physics step completed | PhysicsSimulator | None | ✅ Active |
+| `editor:physics:debug:toggled` | Debug view toggle | PlaygroundArea, SimulationControls | ShapeEditorManager, EditorManager, EditorState | ✅ Active |
+| `editor:physics:simulation:shape:requested` | Request shape data for simulation | PhysicsSimulator | ShapeEditorManager | ✅ Active |
+| `editor:physics:simulation:shape:provided` | Provide shape data for simulation | ShapeEditorManager | PhysicsSimulator | ✅ Active |
 
-### UI State Events
-| Event Type | Purpose | Emitters | Subscribers |
-|------------|---------|----------|-------------|
-| `editor:panel:toggled` | Panel visibility changed | EditorManager | PropertyPanel |
-| `editor:mode:changed` | Editor mode switched | EditorManager | All systems |
-| `editor:canvas:resized` | Canvas dimensions changed | PlaygroundArea | ShapeEditorManager |
+### UI State Events (3 events)
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:panel:toggled` | Panel visibility changed | None | None | ⚠️ Defined but unused |
+| `editor:mode:changed` | Editor mode switched | None | EditorState | ⚠️ Defined but unused |
+| `editor:canvas:resized` | Canvas dimensions changed | EditorManager | ShapeEditorManager, PhysicsSimulator | ✅ Active |
 
-### Error Events
-| Event Type | Purpose | Emitters | Subscribers |
-|------------|---------|----------|-------------|
-| `editor:error:validation` | Shape validation error | PropertyManager, FileManager | EditorManager |
-| `editor:error:physics` | Physics simulation error | PhysicsSimulator | EditorManager |
-| `editor:error:file` | File operation error | FileManager | EditorManager |
+### Error Events (3 events)
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:error:validation` | Shape validation error | ShapeEditorManager | EditorManager | ✅ Active |
+| `editor:error:physics` | Physics simulation error | PhysicsSimulator | EditorManager | ✅ Active |
+| `editor:error:file` | File operation error | FileManager | EditorManager | ✅ Active |
 
 ## Event Flow Diagrams
 
@@ -170,16 +170,30 @@ PlaygroundArea → editor:shape:preview:updated
 PropertyPanel updates form fields with new values
 ```
 
-## Event System Summary
+## Comprehensive Event System Audit
 
-### Total Events: 70+ event types
+### Total Event Definitions: 27 event types
 - **File Events**: 6 events for loading, saving, and validation
-- **Property Events**: 8 events for form management and validation
-- **Shape Events**: 10 events for shape lifecycle and preview updates
-- **Screw Events**: 8 events for placement indicators and interactive manipulation
-- **Physics Events**: 12 events for simulation control and data transfer
-- **UI Events**: 6 events for panel states and canvas interactions
-- **Error Events**: 6 events for comprehensive error handling
+- **Property Events**: 4 events for form management and validation
+- **Shape Events**: 5 events for shape lifecycle and preview updates
+- **Screw Events**: 4 events for placement indicators and interactive manipulation
+- **Physics Events**: 7 events for simulation control and data transfer
+- **UI Events**: 3 events for panel states and canvas interactions
+- **Error Events**: 3 events for comprehensive error handling
+
+### Event Implementation Analysis
+**✅ Active Events (23/27)**: Events that are both emitted and subscribed to
+**⚠️ Unused Events (4/27)**: Events defined in types but never emitted:
+- `editor:shape:selected`
+- `editor:screw:strategy:changed`
+- `editor:panel:toggled`
+- `editor:mode:changed`
+
+### Event Usage Statistics
+- **Total Event Emissions Found**: 41 instances across 9 files
+- **Total Event Subscriptions Found**: 33 instances across 6 systems
+- **Most Emitted Events**: `editor:property:changed` (4x), `editor:error:physics` (4x), `editor:screw:placement:updated` (3x)
+- **Most Subscribed Events**: File operations, shape lifecycle, physics control
 
 ### Key Architecture Benefits
 1. **Complete Decoupling**: No direct system dependencies
@@ -212,14 +226,22 @@ PropertyPanel updates form fields with new values
 
 ## System Communication Matrix
 
-| System | Emits | Subscribes |
+| System | Events Emitted (Count) | Events Subscribed (Count) |
 |--------|-------|------------|
-| **EditorManager** | UI state, error handling | All error events, system status |
-| **FileManager** | File operations, validation | File requests |
-| **PropertyManager** | Property validation, random generation | Property changes, reset requests |
-| **ShapeEditorManager** | Shape lifecycle, screw placement | Property changes, screw interactions |
-| **PhysicsSimulator** | Physics steps, simulation state | Physics control requests |
-| **PlaygroundArea** | Screw interactions, canvas events | Shape updates, physics steps |
+| **EditorManager** | `editor:canvas:resized` (1) | 14 events: All error events, file operations, shape lifecycle, physics control, screw manipulation |
+| **EditorState** | `editor:shape:created`, `editor:shape:updated`, `editor:shape:destroyed` (4) | 7 events: File load, property changes, physics control, mode changes |
+| **FileManager** | File operations, validation (7) | `editor:file:load:requested`, `editor:file:save:requested` (2) |
+| **PropertyManager** | `editor:property:validated`, `editor:property:changed` (3) | 6 events: Shape lifecycle, property changes, random/reset requests |
+| **ShapeEditorManager** | Shape lifecycle, screw placement, physics data (12) | 10 events: Shape lifecycle, canvas resize, debug toggle, screw interactions, physics control |
+| **PhysicsSimulator** | Physics steps, simulation state, errors (7) | 6 events: Physics control, shape updates, canvas resize, shape data provision |
+| **PlaygroundArea** | `editor:physics:debug:toggled` (1) | None |
+| **SimulationControls** | Physics control events (3) | None |
+| **PropertyPanel** | Property change events (3) | None |
+
+### Event Flow Patterns
+- **One-way Communication**: UI components (PropertyPanel, SimulationControls, PlaygroundArea) only emit events
+- **Bidirectional Communication**: Core systems (EditorManager, EditorState, FileManager, PropertyManager, ShapeEditorManager, PhysicsSimulator) both emit and subscribe
+- **Event Aggregation**: EditorManager subscribes to most events for centralized coordination
 
 ## Performance Considerations
 
@@ -268,6 +290,39 @@ System Error → Specific Error Event → EditorManager → User Notification
 - `editor:debug:performance:measured` - Performance metrics
 - `editor:debug:state:dumped` - System state snapshots
 
+## Event Implementation Details
+
+### File Locations
+**Event Definitions**: `/src/editor/events/EditorEventTypes.ts` (27 interfaces)
+**Event Bus**: `/src/editor/core/EditorEventBus.ts` (Singleton pattern)
+**Base System**: `/src/editor/core/BaseEditorSystem.ts` (Subscribe/emit methods)
+
+### Event Emitters by File
+- **PropertyManager.ts**: 3 events (property validation, random generation, reset)
+- **PhysicsSimulator.ts**: 7 events (physics simulation, errors, shape requests)
+- **FileManager.ts**: 7 events (file operations, validation)
+- **ShapeEditorManager.ts**: 12 events (shape lifecycle, screw management)
+- **EditorState.ts**: 4 events (shape state changes)
+- **EditorManager.ts**: 1 event (canvas resize)
+- **PlaygroundArea.tsx**: 1 event (debug toggle)
+- **SimulationControls.tsx**: 3 events (physics control)
+- **PropertyPanel.tsx**: 3 events (property changes)
+
+### Event Subscribers by System
+- **EditorManager**: 14 subscriptions (centralized error handling, UI coordination)
+- **ShapeEditorManager**: 10 subscriptions (shape management, screw interaction)
+- **EditorState**: 7 subscriptions (state management, mode changes)
+- **PhysicsSimulator**: 6 subscriptions (physics control, shape updates)
+- **PropertyManager**: 6 subscriptions (property management)
+- **FileManager**: 2 subscriptions (file operations)
+
+### Unused Event Types
+The following 4 events are defined in `EditorEventTypes.ts` but never emitted:
+1. `editor:shape:selected` - Shape selection functionality not implemented
+2. `editor:screw:strategy:changed` - Strategy changes handled via property system
+3. `editor:panel:toggled` - Panel visibility not dynamically controlled
+4. `editor:mode:changed` - Mode changes not implemented in current version
+
 ---
 
-*This document describes the event-driven architecture of the Shape Editor and should be updated when event flows or system communication patterns change.*
+*This document describes the event-driven architecture of the Shape Editor based on comprehensive codebase analysis. Last updated: December 2025*
