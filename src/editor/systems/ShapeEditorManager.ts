@@ -33,6 +33,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
   private canvasWidth = 800;
   private canvasHeight = 600;
   private debugMode = false;
+  private isSimulationRunning = false;
 
   constructor() {
     super('ShapeEditorManager');
@@ -112,6 +113,15 @@ export class ShapeEditorManager extends BaseEditorSystem {
     // Handle physics simulation shape requests
     this.subscribe('editor:physics:simulation:shape:requested', async (event: EditorPhysicsSimulationShapeRequestedEvent) => {
       await this.provideShapeForSimulation(event.payload.shapeId);
+    });
+
+    // Track simulation state to disable screw manipulation during physics
+    this.subscribe('editor:physics:start:requested', async () => {
+      this.isSimulationRunning = true;
+    });
+
+    this.subscribe('editor:physics:reset:requested', async () => {
+      this.isSimulationRunning = false;
     });
   }
 
@@ -552,6 +562,14 @@ export class ShapeEditorManager extends BaseEditorSystem {
   async handleCanvasClick(x: number, y: number): Promise<void> {
     if (!this.currentShape) return;
     
+    // Check if physics simulation is running - if so, disable screw manipulation
+    // We need to access the editor state to check simulation status
+    const simulationRunning = await this.checkSimulationStatus();
+    if (simulationRunning) {
+      console.log('ShapeEditorManager: Screw manipulation disabled during physics simulation');
+      return;
+    }
+    
     // For editor, allow screw manipulation for all shapes
     const clickX = x;
     const clickY = y;
@@ -837,5 +855,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
     }
     
     return positions;
+  }
+
+  private async checkSimulationStatus(): Promise<boolean> {
+    return this.isSimulationRunning;
   }
 }

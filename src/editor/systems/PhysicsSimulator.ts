@@ -5,7 +5,7 @@ import { Screw } from '@/game/entities/Screw';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
 import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
 import { EditorEventPriority } from '../core/EditorEventBus';
-import { Body } from 'matter-js';
+import { Body, Bodies, Constraint } from 'matter-js';
 import { 
   EditorPhysicsStartRequestedEvent, 
   EditorShapeUpdatedEvent, 
@@ -129,8 +129,16 @@ export class PhysicsSimulator extends BaseEditorSystem {
     }
 
     try {
+      // Clear any previous simulation
+      await this.resetSimulation();
+      
       this.isSimulating = true;
       this.isPaused = false;
+
+      // Ensure physics world is not paused
+      if (this.physicsWorld.isPausedState()) {
+        this.physicsWorld.resume();
+      }
 
       // Request the current shape data from ShapeEditorManager
       await this.emit({
@@ -199,15 +207,46 @@ export class PhysicsSimulator extends BaseEditorSystem {
     try {
       console.log('PhysicsSimulator: Adding shape to physics world', shapeData.shapeId);
       
+      // Create new physics body for simulation (don't reuse editor body)
+      let physicsBody: Body;
+      if (shapeData.shape.radius) {
+        physicsBody = Bodies.circle(
+          shapeData.shape.position.x,
+          shapeData.shape.position.y,
+          shapeData.shape.radius,
+          {
+            isStatic: false, // Make sure it's dynamic
+            density: 0.001,
+            friction: 0.3,
+            frictionAir: 0.01,
+            restitution: 0.6,
+          }
+        );
+      } else {
+        physicsBody = Bodies.rectangle(
+          shapeData.shape.position.x,
+          shapeData.shape.position.y,
+          shapeData.shape.width || 100,
+          shapeData.shape.height || 100,
+          {
+            isStatic: false, // Make sure it's dynamic
+            density: 0.001,
+            friction: 0.3,
+            frictionAir: 0.01,
+            restitution: 0.6,
+          }
+        );
+      }
+
       // Create shape entity from data
       const shapeEntity = new Shape(
         shapeData.shape.id,
         shapeData.shape.type as 'circle' | 'rectangle',
         shapeData.shape.position,
-        shapeData.shape.body as Body,
+        physicsBody,
         'physics-layer',
-        '#ff6b6b', // Red color for physics simulation
-        '#ff6b6b',
+        '#007bff', // Keep blue color consistent with editor
+        '#007bff', // Keep blue tint consistent with editor
         {
           radius: shapeData.shape.radius,
           width: shapeData.shape.width,
@@ -222,24 +261,42 @@ export class PhysicsSimulator extends BaseEditorSystem {
           screwData.id,
           shapeData.shape.id,
           screwData.position,
-          'brown' // Dark color for physics screws
+          'red' // Keep red color consistent with editor
         );
         screwEntities.push(screw);
       }
 
-      // For the editor physics simulation, we'll just track the shapes
-      // and let the physics world handle them through its internal methods
-      // In a production environment, we'd use proper event emission
+      // Add shape body to physics world using the proper game event system
+      // Note: We need to emit to the game's event bus, not the editor's event bus
+      // For now, we'll use the PhysicsWorld's public API directly
+      
+      this.physicsWorld.addBodies([physicsBody]);
+      
+      // Create constraints between screws and shape
+      const constraints: Constraint[] = [];
+      const anchorBodies: Body[] = [];
+      
+      for (const screw of screwEntities) {
+        const { constraint, anchorBody } = this.createScrewConstraint(screw, shapeEntity);
+        constraints.push(constraint);
+        anchorBodies.push(anchorBody);
+      }
+      
+      // Add anchor bodies and constraints to physics world
+      if (anchorBodies.length > 0) {
+        this.physicsWorld.addBodies(anchorBodies);
+      }
+      if (constraints.length > 0) {
+        this.physicsWorld.addConstraints(constraints);
+      }
       
       // Store for tracking and rendering
-
-      // Store for tracking
       this.simulatedShapes.set(shapeData.shapeId, {
         shape: shapeEntity,
         screws: screwEntities,
       });
 
-      console.log('PhysicsSimulator: Shape added to physics world with', screwEntities.length, 'screws');
+      console.log('PhysicsSimulator: Shape added to physics world with', screwEntities.length, 'screws and', constraints.length, 'constraints');
       
     } catch (error) {
       console.error('PhysicsSimulator: Error adding shape to physics world:', error);
@@ -264,5 +321,37 @@ export class PhysicsSimulator extends BaseEditorSystem {
 
   getPhysicsWorld(): PhysicsWorld | null {
     return this.physicsWorld;
+  }
+
+  private createScrewConstraint(screw: Screw, shape: Shape): { constraint: Constraint; anchorBody: Body } {
+    console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
+    
+    // Calculate offset from shape center to screw position
+    const offsetX = screw.position.x - shape.position.x;
+    const offsetY = screw.position.y - shape.position.y;
+
+    // Create anchor body at screw position (small invisible circle)
+    const screwAnchor = Bodies.circle(screw.position.x, screw.position.y, 1, {
+      isStatic: true,
+      isSensor: true,
+      render: { visible: false },
+      collisionFilter: { group: -1, category: 0, mask: 0 }
+    });
+
+    // Create constraint between shape and anchor
+    const constraint = Constraint.create({
+      bodyA: shape.body,
+      bodyB: screwAnchor,
+      pointA: { x: offsetX, y: offsetY },
+      pointB: { x: 0, y: 0 },
+      length: 0,
+      stiffness: 1,
+      damping: 0.1,
+      render: { visible: false },
+    });
+
+    console.log(`Constraint created for screw ${screw.id}: offset (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+    
+    return { constraint, anchorBody: screwAnchor };
   }
 }

@@ -88,7 +88,9 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
 
   const buttonStyle = {
     padding: '6px 12px',
-    border: '1px solid #ccc',
+    borderWidth: '1px',
+    borderStyle: 'solid',
+    borderColor: '#ccc',
     borderRadius: '4px',
     backgroundColor: '#ffffff',
     color: '#212529',
