@@ -57,20 +57,6 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
     editorManager.handleCanvasKeyDown(event.key);
   }, [editorManager]);
 
-  const handleCanvasDoubleClick = useCallback(() => {
-    if (!editorManager) return;
-    
-    // Toggle debug mode on double click
-    const physicsSimulator = editorManager.getPhysicsSimulator();
-    const eventBus = physicsSimulator['eventBus']; // Access protected eventBus
-    const editorState = editorManager.getEditorState();
-    const currentDebugMode = editorState.isDebugMode();
-    
-    eventBus.emit({
-      type: 'editor:physics:debug:toggled',
-      payload: { enabled: !currentDebugMode },
-    });
-  }, [editorManager]);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -81,12 +67,10 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
     const clickHandler = (e: Event) => handleCanvasClick(e as unknown as React.MouseEvent<HTMLCanvasElement>);
     const mouseMoveHandler = (e: Event) => handleCanvasMouseMove(e as unknown as React.MouseEvent<HTMLCanvasElement>);
     const mouseUpHandler = (e: Event) => handleCanvasMouseUp(e as unknown as React.MouseEvent<HTMLCanvasElement>);
-    const doubleClickHandler = () => handleCanvasDoubleClick();
     
     canvas.addEventListener('click', clickHandler);
     canvas.addEventListener('mousemove', mouseMoveHandler);
     canvas.addEventListener('mouseup', mouseUpHandler);
-    canvas.addEventListener('dblclick', doubleClickHandler);
     
     // Add keyboard listener to window (canvas can't capture key events)
     window.addEventListener('keydown', handleKeyDown);
@@ -101,10 +85,9 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
       canvas.removeEventListener('click', clickHandler);
       canvas.removeEventListener('mousemove', mouseMoveHandler);
       canvas.removeEventListener('mouseup', mouseUpHandler);
-      canvas.removeEventListener('dblclick', doubleClickHandler);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleCanvasClick, handleCanvasMouseMove, handleCanvasMouseUp, handleCanvasDoubleClick, handleKeyDown, canvasRef, editorManager]);
+  }, [handleCanvasClick, handleCanvasMouseMove, handleCanvasMouseUp, handleKeyDown, canvasRef, editorManager]);
 
   return (
     <div 
@@ -133,7 +116,6 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
       >
         <div>Select Tool: Click to add/remove screws</div>
         <div>Drawing Tools: Click to create shapes</div>
-        <div>Double-click to toggle debug mode</div>
         <div>ESC to cancel drawing</div>
       </div>
     </div>

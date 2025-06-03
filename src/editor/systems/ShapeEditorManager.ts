@@ -555,9 +555,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
       return;
     }
     
-    // For editor, allow screw manipulation for all shapes
     const clickX = x;
     const clickY = y;
+    const strategy = this.currentShape.definition.screwPlacement.strategy;
 
     // Check if clicking on existing screw to remove it
     const clickedScrewIndex = this.currentShape.screws.findIndex(screw => {
@@ -579,12 +579,58 @@ export class ShapeEditorManager extends BaseEditorSystem {
       });
     } else {
       // Add new screw
+      let targetPosition = { x: clickX, y: clickY };
+      
+      // For non-custom strategies, snap to nearest indicator position
+      if (strategy !== 'custom') {
+        const potentialPositions = this.calculatePotentialScrewPositions(
+          this.currentShape.shape,
+          this.currentShape.definition
+        );
+        
+        // Find nearest indicator position within threshold
+        let nearestPosition: Vector2 | null = null;
+        let nearestDistance = Infinity;
+        const threshold = 15; // pixels
+        
+        for (const position of potentialPositions) {
+          const dx = position.x - clickX;
+          const dy = position.y - clickY;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance < nearestDistance && distance <= threshold) {
+            nearestDistance = distance;
+            nearestPosition = position;
+          }
+        }
+        
+        // Only proceed if we found a valid position within threshold
+        if (!nearestPosition) {
+          console.log('ShapeEditorManager: Click not near any valid screw position for', strategy, 'strategy');
+          return;
+        }
+        
+        // Check if there's already a screw at this position
+        const hasScrew = this.currentShape.screws.some(screw => {
+          const dx = screw.position.x - nearestPosition.x;
+          const dy = screw.position.y - nearestPosition.y;
+          return Math.sqrt(dx * dx + dy * dy) < 10;
+        });
+        
+        if (hasScrew) {
+          console.log('ShapeEditorManager: Screw already exists at this position');
+          return;
+        }
+        
+        targetPosition = nearestPosition;
+      }
+      
       const newScrewId = `custom_screw_${Date.now()}`;
       await this.emit({
         type: 'editor:screw:added',
         payload: {
           shapeId: this.currentShape.id,
-          position: { x: clickX, y: clickY },
+          position: targetPosition,
           screwId: newScrewId,
         },
       });

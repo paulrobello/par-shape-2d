@@ -156,8 +156,8 @@ src/editor/
 - **Simulation Controls**: Single toggle button for Start/Pause and separate Reset button for physics testing
 - **Canvas Interaction**: 
   - Click to add/remove screws at placement indicators
-  - Double-click to toggle debug mode
   - Visual help text for user guidance
+  - ESC key cancellation for drawing operations
 - **Property Panel**: Collapsible sections with form controls for all shape properties
 - **Responsive Design**: 
   - Fixed horizontal scrollbar issues, proper overflow handling
@@ -272,7 +272,7 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   - DrawingToolManager for tool selection and coordination
   - Tool-based workflow with consistent interaction patterns
   - Mode switching between "edit" (Phase 1) and "create" (Phase 2) modes
-  - ToolPalette UI component in toolbar with visual tool selection
+  - ToolPalette UI component in toolbar with visual tool selection and aligned mode display
   
 - **State Management**:
   - DrawingStateManager for tracking drawing sessions and progress
@@ -310,6 +310,8 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   - Translucent fills (0.1 opacity blue)
   - Point markers for click positions
   - Real-time coordinate transformation
+  - Dimension display (radius for circles, width×height for rectangles)
+  - Proper ESC key cancellation with preview clearing
 
 ### 🔄 Phase 2C - Advanced Tools (Not Yet Implemented)
 - **PolygonTool**: Configurable sides with center → radius workflow

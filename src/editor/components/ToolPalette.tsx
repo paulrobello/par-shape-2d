@@ -63,7 +63,7 @@ export function ToolPalette({ drawingToolManager, className = '' }: ToolPaletteP
   };
 
   return (
-    <div className={`tool-palette ${className}`}>
+    <div className={`tool-palette flex items-center ${className}`}>
       <div className="flex items-center space-x-1">
         <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-3">
           Tools:
@@ -90,10 +90,12 @@ export function ToolPalette({ drawingToolManager, className = '' }: ToolPaletteP
       </div>
 
       {/* Drawing mode indicator */}
-      <div className="ml-4 text-xs text-gray-500 dark:text-gray-400">
-        Mode: {drawingToolManager.getCurrentMode() === 'create' ? 'Create' : 'Edit'}
+      <div className="ml-6 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded border border-gray-300 dark:border-gray-600 flex items-center">
+        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          Mode: <span className="font-semibold">{drawingToolManager.getCurrentMode() === 'create' ? 'Create' : 'Edit'}</span>
+        </span>
         {drawingToolManager.isDrawing() && (
-          <span className="ml-2 text-blue-600 dark:text-blue-400">
+          <span className="ml-3 text-sm text-blue-600 dark:text-blue-400">
             (Drawing... Press ESC to cancel)
           </span>
         )}
