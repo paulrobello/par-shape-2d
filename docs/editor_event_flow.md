@@ -316,6 +316,19 @@ System Error → Specific Error Event → EditorManager → User Notification
 - **PropertyManager**: 6 subscriptions (property management)
 - **FileManager**: 2 subscriptions (file operations)
 
+### Event System Optimizations
+
+**Screw Placement Event Optimization**: Custom screw placement operations bypass the standard property change event chain to prevent unwanted shape regeneration:
+
+- **Standard Flow**: Property changes → `editor:property:changed` → `EditorState` → `editor:shape:updated` → Shape regeneration
+- **Optimized Flow**: Screw placement → Direct shape definition update → `editor:screw:placement:updated` → UI refresh only
+
+This prevents shape dimension changes when adding/removing screws, maintaining stable geometry during screw manipulation.
+
+**Strategy Default Population**: When strategy changes occur, missing parameters are automatically populated with appropriate defaults based on existing shape file configurations without triggering full shape regeneration.
+
+**Coordinate System Handling**: Custom strategy screw placement properly converts between canvas coordinates and shape-relative coordinates to ensure accurate positioning.
+
 ### Unused Event Types
 The following 4 events are defined in `EditorEventTypes.ts` but never emitted:
 1. `editor:shape:selected` - Shape selection functionality not implemented

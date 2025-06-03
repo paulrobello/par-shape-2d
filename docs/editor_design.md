@@ -93,6 +93,8 @@ src/editor/
 - **High Contrast UI**: Dark gray text on white backgrounds for accessibility
 - **Smart Dimension Handling**: Width/height inputs automatically disabled for radius-based shapes (circles, polygons)
 - **Dynamic Screw Placement Controls**: Input fields shown/hidden based on selected placement strategy
+- **Auto-Population of Defaults**: Strategy-specific fields automatically populated with appropriate defaults when strategy changes
+- **Intelligent Random Generation**: Random values respect min/max relationships and strategy-specific relevance
 
 ### 3. Playground Area
 - **Shape Preview**: Real-time rendering using game's ShapeRenderer with blue color scheme (#007bff)
@@ -115,6 +117,8 @@ src/editor/
 - **Interactive Editing**: Click empty indicators to add screws, click existing screws to remove
 - **Position Alignment**: Screw positions and placement indicators use consistent calculation logic
 - **Smart Property Panel**: Only shows relevant configuration fields for the selected strategy
+- **Coordinate System Handling**: Custom strategy properly converts canvas coordinates to shape-relative positions
+- **Stable Shape Geometry**: Screw placement operations don't trigger shape regeneration or dimension changes
 
 ### 5. Physics Simulation
 - **Simulation Controls**: Toggle Start/Pause/Reset physics simulation with proper state management
@@ -186,6 +190,10 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   - Radius-based shapes (circles, polygons) automatically set width/height to 0
   - Random generation skips width/height for radius-based shapes
   - Property inputs disabled to prevent conflicting dimension values
+- **Event System Optimization**:
+  - Screw placement updates bypass property change events to prevent shape regeneration
+  - Selective event emission prevents unwanted dimension changes during screw manipulation
+  - Coordinate transformations handle canvas-to-shape-relative position conversion properly
 
 ### Screw Placement System
 - **Strategy Pattern**: Modular algorithms for different placement strategies
