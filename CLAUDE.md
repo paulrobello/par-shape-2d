@@ -2,7 +2,7 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**Important:** This file is for guidance not for change logs or implementation details. Keep update high level.
+**Important:** This file is for guidance not for change logs or implementation details. Keep updates high level.
 
 ## Development Commands
 
@@ -17,103 +17,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Always try to use proper types or type unions
 - Try not to duplicate code, if multiple areas could benefit for some functionality reason about how it could best be shared.
 
-## Debug Logging
-
-The game includes a debug logging system controlled by `DEBUG_CONFIG` in `src/game/utils/Constants.ts`. To enable specific debug logs:
-
-```typescript
-export const DEBUG_CONFIG = {
-  enableVerboseLogging: false,      // General verbose logging
-  logContainerRendering: false,     // Container/hole rendering details
-  logScrewPlacement: false,         // Screw placement in containers/holes
-  logPhysicsStateChanges: false,    // Physics state transitions
-  logShapeDestruction: false,       // Shape destruction details
-  logPhysicsUpdates: false,         // Physics world updates (🔧 Physics Update: messages)
-};
-```
-
-Set any flag to `true` to enable that category of logging. This helps debug specific issues without flooding the console.
-
-## Debug Mode
-
-Debug mode can be activated in three ways:
-1. Press the 'D' key
-2. Click the "Debug Mode" button in the menu overlay (hamburger menu)
-3. Click the "Debug" button below the canvas (desktop only)
-
-When debug mode is active:
-- **Enhanced Shape Rendering**: Shows physics body outlines, decomposed parts for path-based shapes, and shape information
-- **Path-Based Shapes**: Displays each decomposed physics part in different colors with labels (P0, P1, etc.)
-- **Debug Info Panel**: Shows game statistics on the canvas
-- **Debug Info Below Canvas**: Displays detailed system information (desktop only)
-
-## Game Controls
-
-### Restart Functionality
-The game can be restarted using multiple methods:
-1. **'R' key** - Quick restart during gameplay
-2. **"Restart" button** in the menu overlay (hamburger menu)
-3. **"Restart" button** below the canvas (desktop only)
-4. **"Start Game" button** when game is over - acts as restart
-
-All restart methods provide comprehensive cleanup.
-
-### Other Controls
-- **'S' key** - Save game state manually
-- **'G' key** - Trigger game over (testing)
-- **'I' key** - Show save data info
-- **'C' key** - Clear save data
-
 ## Workflow
 
 - **Important:** After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.
-- Update any documentation effected by the changes.
-- Commit the changes to current branch with an applicable commit message.
+- Update any documentation affected by the changes.
+- Commit the changes to the current branch with an applicable commit message.
 
 ## Architecture Overview
 
 This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. The game follows a **clean event-driven architecture** with complete decoupling between systems for optimal maintainability and testing.
 
-**Event-Driven Communication:**
-
-**Core Systems (All Event-Driven):**
-- `GameManager` - Input handling and rendering coordination
-- `GameState` - State management, scoring, and persistence
-- `PhysicsWorld` - Matter.js wrapper with autonomous physics management
-- `LayerManager` - Layer system with depth-based rendering
-- `ScrewManager` - Screw logic, constraints, and animations
-- `SystemCoordinator` - System lifecycle management
-- `EventFlowValidator` - Debug monitoring and performance tracking
-- `ShapeRegistry` - Manages JSON-based shape definitions
-- `ShapeLoader` - Loads and validates shape configurations
-
-**System Foundation:**
-- `BaseSystem` - Abstract base class providing event-aware functionality to all systems
-- `EventBus` - Singleton event system with priority handling and comprehensive debugging
-- All systems extend BaseSystem and communicate exclusively through events
-
-**Key Architecture Benefits:**
-- **Complete Decoupling:** No direct system dependencies or circular references
-- **Enhanced Testability:** Systems can be tested in complete isolation
-- **Improved Maintainability:** Changes to one system don't affect others
-- **Comprehensive Debugging:** Event flow monitoring and validation throughout
-- **Clean Code:** Eliminates complex parameter passing and state management
-- **Data-Driven Shapes:** Shape definitions loaded from JSON files for easy modification
-
-## Shape System
-
-**JSON-Based Shape Definitions**: All shapes are defined in JSON files located in `src/data/shapes/`. This allows for easy modification and addition of new shapes without changing code.
-
-**Shape Categories**:
-- **Basic**: Circle
-- **Polygons**: Triangle, Square, Rectangle, Pentagon, Hexagon, Heptagon, Octagon
-- **Paths**: Arrow, Chevron, Star, Horseshoe
-- **Composite**: Capsule
-
-**Recent Changes**:
-- **Rectangle Shapes**: Now require minimum 3:1 aspect ratio (width to height)
-- **Square Size Variation**: Fixed square rendering to use proper radius-based dimensions for size variation
-- **Unified Polygon System**: All geometric shapes now use consistent polygon rendering for better performance
+It has 2 parts, the game itself and a shape editor.
 
 ## Matter.js Integration
 
@@ -123,15 +37,13 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 
 ## Documentation and References
 
-**Reference Images:** The `docs/` folder contains reference images (`sample.jpeg`) showing the desired mobile and desktop game appearance for UI/UX implementation guidance.
-
 **Matter.js Documentation:** Comprehensive Matter.js API documentation is available in `docs/MatterJs_docs/` covering all physics engine components including Bodies, Engine, World, Constraints, Collision detection, and more. Refer to these docs when implementing physics features.
 
 **Important:** Always update the documentation when changes are made to architecture, events, or logic.
 
 ## Technical Design Documents
 
-A comprehensive technical design document is available at `game_design.md` which provides:
+A comprehensive technical design documents are available in the `docs` docs which provide:
 
 - Detailed architecture breakdown with system diagrams
 - Complete file structure mapping with functionality descriptions
@@ -140,42 +52,9 @@ A comprehensive technical design document is available at `game_design.md` which
 - Performance considerations and optimizations
 - Mobile support strategies
 
-**Important:** When making architectural changes to the codebase, always update `game_design.md` to reflect the current implementation.
+**Important:** When making architectural changes to the codebase, always update the design documents to reflect the current implementation.
 
-**Important:** `game_design.md` should be read in to help understand and locate the code you need to work on. It provides a high-level overview of the architecture, file structure, and key components of the game.
-
-A comprehensive design document for the event system is available at `event_flow.md` which provides:
-
-- A full breakdown of all events their emitters and subscribers
-
-**Important:** When making changes to the event system, always update `event_flow.md` to reflect the current implementation.
-
-**Important:** `event_flow.md` should be read in to help understand and locate the code you need to work on related to eventing.
-
-## Shape Editor (Phase 1 - Implemented)
-
-A comprehensive shape editor is available at `/editor` route. The editor allows for creating, modifying, and testing shape definitions.
-
-**Features:**
-- **File Management**: Load and save shape definitions as JSON files with drag & drop support
-- **Property Editing**: Dynamic forms for editing shape properties with validation
-- **Playground Area**: Real-time shape preview with screw visualization
-- **Physics Simulation**: Test shapes with physics simulation (play/pause/reset)
-- **Debug Mode**: Toggle physics body and constraint visualization
-
-**Documentation:**
-- `editor_design.md` - Technical design document for the shape editor architecture
-- `editor_event_flow.md` - Complete mapping of editor event system
-- `shape_editor_feature.md` - Original feature specification
-
-**Key Implementation Notes:**
-- Uses event-driven architecture matching the main game
-- Has its own isolated PhysicsWorld instance
-- Implements proper event loop prevention (canvas resize debouncing, React lifecycle management)
-- System lifecycle logging controlled by DEBUG_SYSTEM_LIFECYCLE flag
-
-**Testing:**
-- A test shape file `test-editor-shape.json` is available in the project root for testing the editor
+**Important:** When making changes to event systems, always update the event_flow document to reflect the current implementation.
 
 ## Webserver
 

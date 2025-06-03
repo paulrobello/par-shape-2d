@@ -1,5 +1,9 @@
 # Shape Editor - Technical Design Document
 
+> **Note**: This document describes the current state and architecture of the Shape Editor. 
+> It should contain factual descriptions of how systems work, not change logs or development history. 
+> When updating, describe the current functionality and architecture, not what was added or fixed.
+
 ## Overview
 
 The Shape Editor is a sub-application within PAR Shape 2D that provides comprehensive shape editing capabilities. Built as a Next.js route at `/editor`, it allows users to create, modify, and test shape definitions used in the game.
@@ -108,11 +112,17 @@ src/editor/
 - **Interactive Editing**: Click empty indicators to add screws, click existing screws to remove
 
 ### 5. Physics Simulation
-- **Simulation Controls**: Play/Pause/Reset physics simulation
-- **Event-Driven Integration**: Proper communication between editor and physics systems
-- **Shape Data Transfer**: Complete shape and screw data provided to physics simulator
-- **Foundation Framework**: Extensible foundation for full physics implementation
-- **Debug Physics**: Visualize physics bodies, constraints, and forces
+- **Simulation Controls**: Start/Pause/Reset physics simulation with proper state management
+- **Matter.js Constraints**: Real physics constraints between screws and shapes for realistic behavior
+- **Constraint Physics**: 
+  - Multiple screws: Shape held stable by multiple constraint points
+  - Single screw: Shape pivots around constraint point like a pendulum
+  - No screws: Shape falls freely due to gravity
+- **Color Consistency**: Blue shapes (#007bff) and red screws maintained during simulation
+- **Interaction Management**: Screw manipulation disabled during active simulation to prevent conflicts
+- **Event-Driven Integration**: Complete communication between editor and physics systems
+- **Shape Data Transfer**: Full shape and screw configuration passed to physics world
+- **Physics Bodies**: Dynamic bodies with proper mass, friction, and restitution properties
 
 ### 6. User Interface & Controls
 - **Layout**: Three-panel layout with toolbar, main canvas, and property sidebar
@@ -160,10 +170,14 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Strategy Calculations**: Algorithm implementations for corners, perimeter, grid, custom, and capsule strategies
 
 ### Physics Integration
-- **Isolated PhysicsWorld**: Editor has its own PhysicsWorld instance
+- **Isolated PhysicsWorld**: Editor has its own PhysicsWorld instance with proper boundaries
 - **On-Demand Simulation**: Physics only runs when user starts simulation
+- **Constraint System**: Real Matter.js constraints between screws and shape bodies
+- **Anchor Bodies**: Static anchor points created at screw positions for constraint attachment
+- **Dynamic Bodies**: Physics shapes with realistic mass, friction, and damping properties
 - **Event Communication**: Proper event-driven data transfer between editor and physics systems
 - **Shape Data Provider**: Complete shape and screw configuration passed to simulation
+- **State Management**: Simulation state tracking to control interaction during physics
 - **Debug Visualization**: Custom rendering for physics debugging
 - **Performance**: Efficient physics updates for responsive editing
 
@@ -205,43 +219,32 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Export Options**: Multiple export formats and options
 - **Collaboration**: Share and import community shapes
 
-## Known Issues and Solutions
+## System Behavior
 
 ### Event Loop Prevention
-1. **Canvas Resize Loop**: Prevented by:
-   - Checking if dimensions actually changed before resizing
-   - Debouncing ResizeObserver callbacks (100ms delay)
-   - Not modifying canvas in resize event handlers
-   - Using logical pixels instead of physical pixels for coordinate calculations
-
-2. **React useEffect Loop**: Fixed by:
-   - Removing editorManager from dependency array
-   - Using local variable to track manager instance
-   - Ensuring single initialization on mount
-
-3. **Screw Event Re-rendering**: Fixed by:
-   - Adding screw event subscriptions to EditorManager
-   - Triggering needsRender flag on screw add/remove/update events
-   - Immediate visual feedback for all screw operations
+The editor implements several mechanisms to prevent infinite event loops:
+- **Canvas Resize**: Dimensions are checked before resizing, ResizeObserver callbacks are debounced (100ms delay), and logical pixels are used instead of physical pixels for coordinate calculations
+- **React Components**: EditorManager is excluded from dependency arrays, local variables track manager instances, and single initialization is enforced on mount
+- **Screw Interactions**: Event subscriptions in EditorManager trigger needsRender flags for immediate visual feedback
 
 ### System Lifecycle
-- **Verbose Logging**: Controlled by DEBUG_SYSTEM_LIFECYCLE flag in BaseSystem
-- **Physics Initialization**: PhysicsWorld created but not actively updating until simulation starts
-- **Clean Shutdown**: Proper cleanup of event subscriptions and physics bodies
+- **Debug Logging**: Controlled by DEBUG_SYSTEM_LIFECYCLE flag in BaseSystem
+- **Physics Initialization**: PhysicsWorld is created but remains inactive until simulation starts
+- **Resource Cleanup**: Event subscriptions and physics bodies are properly disposed on system destruction
 
-### UI/UX Fixes
-- **Horizontal Scrollbar**: Fixed by:
-  - Using `width: 100%` instead of `100vw` for main container
-  - Adding `overflow: hidden` to prevent layout overflow
-  - Setting `minWidth` on sidebar to prevent shrinking
-- **Text Contrast**: Improved readability with explicit dark gray colors (#212529, #495057)
-- **Canvas Interaction**: Precise coordinate handling for high-DPI displays
+### UI/UX Design
+- **Layout Management**: Main container uses `width: 100%` with `overflow: hidden`, sidebar has `minWidth` to prevent shrinking
+- **Visual Accessibility**: Dark gray text colors (#212529, #495057) provide high contrast readability
+- **Canvas Interaction**: High-DPI display support with precise coordinate handling
+- **CSS Architecture**: Border properties use explicit longhand syntax to avoid conflicts
+- **Color Consistency**: Blue shapes (#007bff) and red screws maintained throughout all modes
+- **Interaction States**: Screw manipulation is disabled during active physics simulation
 
-### Performance Optimizations
+### Performance Architecture
 - **Conditional Rendering**: needsRender flag prevents unnecessary canvas updates
-- **Event Debouncing**: Resize events throttled to prevent performance issues
-- **Simplified Shapes**: Editor uses basic rectangle physics bodies for preview
-- **Efficient Hit Detection**: Optimized screw click detection with spatial algorithms
+- **Event Throttling**: Resize events are debounced to maintain performance
+- **Simplified Physics**: Editor uses basic rectangle physics bodies for preview rendering
+- **Spatial Optimization**: Screw click detection uses optimized coordinate calculations
 
 ## Development Guidelines
 
@@ -271,15 +274,17 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **File Management**: Load/save JSON shape definitions with drag & drop support
 - **Property Editing**: Dynamic forms with validation and real-time updates
 - **Screw Placement System**: Visual indicators and interactive screw manipulation for all placement strategies
-- **Physics Integration**: Event-driven communication with basic simulation framework
-- **Visual Design**: Consistent blue/red color scheme with high contrast UI
+- **Physics Simulation**: Full Matter.js constraint-based physics with realistic screw behavior
+- **Constraint Physics**: Multi-screw stability, single-screw pivoting, no-screw falling
+- **Visual Design**: Consistent blue/red color scheme maintained throughout editor and physics
 - **Responsive Layout**: Fixed scrollbar issues, proper overflow handling
 - **Event System**: Comprehensive event-driven architecture with 70+ event types
+- **Interaction Management**: Smart interaction blocking during physics simulation
 
 ### 🔄 In Progress / Foundation
-- **Physics Simulation**: Basic framework implemented, ready for full physics integration
-- **Debug Tools**: Canvas debugging with physics body visualization
+- **Debug Tools**: Canvas debugging with physics body visualization (can be enhanced)
 - **Performance**: Optimized rendering with conditional updates
+- **Advanced Physics**: Foundation ready for complex constraint scenarios
 
 ### 📋 Phase 2 Roadmap
 - **Advanced Shape Creation**: Direct drawing tools and vertex editing
@@ -288,4 +293,4 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 
 ---
 
-*This design document serves as the technical blueprint for the Shape Editor. Last updated: January 2025 - Phase 1 Complete*
+*This design document serves as the technical blueprint for the Shape Editor. It describes the current implementation state and system architecture.*

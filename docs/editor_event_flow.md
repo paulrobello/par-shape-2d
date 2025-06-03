@@ -1,5 +1,9 @@
 # Shape Editor - Event Flow Documentation
 
+> **Note**: This document describes the current event-driven architecture of the Shape Editor. 
+> It should contain factual descriptions of event flows and system communication, not change logs or development history. 
+> When updating, describe the current event behavior and architecture, not what was added or modified.
+
 ## Overview
 
 The Shape Editor follows the same event-driven architecture pattern as the main game, ensuring consistency and maintainability. All editor systems communicate through a centralized EventBus with type-safe event definitions.
@@ -126,19 +130,29 @@ Canvas re-renders with updated screws and placement indicators
 ```
 User clicks Start → SimulationControls → editor:physics:start:requested
     ↓
+ShapeEditorManager tracks simulation state (disables screw interaction)
+    ↓
 PhysicsSimulator → editor:physics:simulation:shape:requested
     ↓
 ShapeEditorManager → editor:physics:simulation:shape:provided (shape + screw data)
     ↓
-PhysicsSimulator creates physics entities and starts simulation
+PhysicsSimulator creates:
+  - Dynamic physics body for shape (with proper mass/friction)
+  - Static anchor bodies at screw positions
+  - Matter.js constraints between shape and anchors
     ↓
-Each frame: PhysicsSimulator updates and renders physics shapes
+All bodies and constraints added to PhysicsWorld
     ↓
-PhysicsSimulator → editor:physics:step:completed
+Each frame: PhysicsSimulator updates physics simulation
+  - Multiple screws: Shape held stable by constraints
+  - Single screw: Shape pivots around constraint point
+  - No screws: Shape falls due to gravity
+    ↓
+PhysicsSimulator renders physics shapes with consistent colors (blue/red)
     ↓
 EditorManager → needsRender = true (triggers canvas re-render)
     ↓
-Canvas shows physics simulation with shape movement
+Canvas shows realistic physics behavior based on screw configuration
 ```
 
 ### Random Value Generation Flow
@@ -181,9 +195,6 @@ PropertyPanel updates form fields with new values
 - **Efficient Hit Detection**: Screw interaction uses optimized coordinate calculations
 - **Memory Management**: Proper event subscription cleanup on system destruction
 
----
-
-*Last updated: January 2025 - Phase 1 Complete with full screw manipulation and physics integration*
 
 ## Event Dependencies
 
@@ -259,4 +270,4 @@ System Error → Specific Error Event → EditorManager → User Notification
 
 ---
 
-*This document tracks the event-driven architecture of the Shape Editor. It should be updated as new events are added or event flows are modified.*
+*This document describes the event-driven architecture of the Shape Editor and should be updated when event flows or system communication patterns change.*
