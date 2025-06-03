@@ -158,6 +158,7 @@ src/editor/
   - Canvas area with inset border effect for visual definition
   - Property panel with fixed 300px width, no overlap with canvas
 - **File Controls**: Combined drag & drop and click-to-browse interface with hover feedback
+- **New Button**: Reload window to start fresh in Create mode for new shape creation
 - **Simulation Controls**: Single toggle button for Start/Pause and separate Reset button for physics testing
 - **Canvas Interaction**: 
   - Click to add/remove screws at placement indicators

@@ -103,6 +103,22 @@ export const EditorCanvas: React.FC = () => {
           />
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <button
+            onClick={() => window.location.reload()}
+            style={{
+              padding: '8px 16px',
+              border: `1px solid ${theme.button.border}`,
+              borderRadius: '4px',
+              backgroundColor: theme.button.background,
+              color: theme.button.text,
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '500',
+            }}
+            title="Start fresh with a new shape"
+          >
+            New
+          </button>
           <FileControls editorManager={editorManager} theme={theme} />
           <SimulationControls editorManager={editorManager} theme={theme} />
         </div>
