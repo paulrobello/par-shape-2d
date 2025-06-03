@@ -42,8 +42,10 @@ export class FileManager extends BaseEditorSystem {
   }
 
   private async loadFile(file: File): Promise<void> {
+    console.log('FileManager: Loading file:', file.name, 'size:', file.size);
     try {
       const text = await this.readFileAsText(file);
+      console.log('FileManager: File read successfully, parsing JSON...');
       const shapeDefinition = this.parseShapeDefinition(text);
       
       // Validate the shape definition

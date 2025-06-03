@@ -152,6 +152,31 @@ A comprehensive design document for the event system is available at `event_flow
 
 **Important:** `event_flow.md` should be read in to help understand and locate the code you need to work on related to eventing.
 
+## Shape Editor (Phase 1 - Implemented)
+
+A comprehensive shape editor is available at `/editor` route. The editor allows for creating, modifying, and testing shape definitions.
+
+**Features:**
+- **File Management**: Load and save shape definitions as JSON files with drag & drop support
+- **Property Editing**: Dynamic forms for editing shape properties with validation
+- **Playground Area**: Real-time shape preview with screw visualization
+- **Physics Simulation**: Test shapes with physics simulation (play/pause/reset)
+- **Debug Mode**: Toggle physics body and constraint visualization
+
+**Documentation:**
+- `editor_design.md` - Technical design document for the shape editor architecture
+- `editor_event_flow.md` - Complete mapping of editor event system
+- `shape_editor_feature.md` - Original feature specification
+
+**Key Implementation Notes:**
+- Uses event-driven architecture matching the main game
+- Has its own isolated PhysicsWorld instance
+- Implements proper event loop prevention (canvas resize debouncing, React lifecycle management)
+- System lifecycle logging controlled by DEBUG_SYSTEM_LIFECYCLE flag
+
+**Testing:**
+- A test shape file `test-editor-shape.json` is available in the project root for testing the editor
+
 ## Webserver
 
 * The app is running in a dev server at url http://localhost:3000/

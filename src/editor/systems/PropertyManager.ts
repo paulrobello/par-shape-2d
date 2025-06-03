@@ -292,7 +292,7 @@ export class PropertyManager extends BaseEditorSystem {
     const errors: string[] = [];
     
     // Validate all paths in the shape
-    this.validateObjectRecursively(shape, '', errors);
+    this.validateObjectRecursively(shape as unknown as Record<string, unknown>, '', errors);
     
     return {
       isValid: errors.length === 0,
@@ -305,7 +305,7 @@ export class PropertyManager extends BaseEditorSystem {
       const fullPath = basePath ? `${basePath}.${key}` : key;
       
       if (value && typeof value === 'object' && !Array.isArray(value)) {
-        this.validateObjectRecursively(value, fullPath, errors);
+        this.validateObjectRecursively(value as Record<string, unknown>, fullPath, errors);
       } else {
         const result = this.validateProperty(fullPath, value);
         if (!result.isValid && result.error) {

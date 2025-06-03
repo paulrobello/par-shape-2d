@@ -1,0 +1,30 @@
+{
+  "id": "test_rectangle",
+  "name": "Test Rectangle",
+  "category": "basic",
+  "enabled": true,
+  "dimensions": {
+    "type": "fixed",
+    "width": 200,
+    "height": 100
+  },
+  "physics": {
+    "type": "rectangle"
+  },
+  "rendering": {
+    "type": "primitive"
+  },
+  "screwPlacement": {
+    "strategy": "corners",
+    "cornerMargin": 20
+  },
+  "visual": {
+    "supportsHoles": true,
+    "borderWidth": 2
+  },
+  "behavior": {
+    "allowSingleScrew": true,
+    "singleScrewDynamic": true,
+    "rotationalInertiaMultiplier": 3
+  }
+}

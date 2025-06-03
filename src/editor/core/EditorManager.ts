@@ -153,19 +153,19 @@ export class EditorManager extends BaseEditorSystem {
       this.needsRender = true;
     });
 
-    // Canvas resize
+    // Canvas resize - just mark for re-render, don't resize canvas
+    // (canvas is already resized by resizeCanvas function)
     this.subscribe('editor:canvas:resized', async (event: EditorCanvasResizedEvent) => {
-      if (this.canvas) {
-        this.canvas.width = event.payload.width;
-        this.canvas.height = event.payload.height;
-        this.needsRender = true;
-      }
+      this.needsRender = true;
+      void event; // Using event to avoid unused parameter warning
     });
   }
 
   private setupCanvas(): void {
     if (!this.canvas || !this.container) return;
 
+    let resizeTimeout: number | null = null;
+    
     const resizeCanvas = () => {
       if (!this.canvas || !this.container) return;
       
@@ -179,8 +179,16 @@ export class EditorManager extends BaseEditorSystem {
       const width = rect.width;
       const height = rect.height - toolbarHeight;
       
-      this.canvas.width = width * dpr;
-      this.canvas.height = height * dpr;
+      // Only resize if dimensions actually changed
+      const newWidth = width * dpr;
+      const newHeight = height * dpr;
+      
+      if (this.canvas.width === newWidth && this.canvas.height === newHeight) {
+        return;
+      }
+      
+      this.canvas.width = newWidth;
+      this.canvas.height = newHeight;
       this.canvas.style.width = `${width}px`;
       this.canvas.style.height = `${height}px`;
       
@@ -191,15 +199,22 @@ export class EditorManager extends BaseEditorSystem {
       // Emit resize event
       this.emit({
         type: 'editor:canvas:resized',
-        payload: { width: width * dpr, height: height * dpr },
+        payload: { width: newWidth, height: newHeight },
       });
+    };
+    
+    const debouncedResize = () => {
+      if (resizeTimeout !== null) {
+        clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = window.setTimeout(resizeCanvas, 100);
     };
 
     // Initial resize
     resizeCanvas();
 
-    // Listen for container resize
-    const resizeObserver = new ResizeObserver(resizeCanvas);
+    // Listen for container resize with debouncing
+    const resizeObserver = new ResizeObserver(debouncedResize);
     resizeObserver.observe(this.container);
   }
 

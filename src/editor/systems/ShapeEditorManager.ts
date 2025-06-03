@@ -1,13 +1,21 @@
 import { BaseEditorSystem } from '../core/BaseEditorSystem';
 import { ShapeDefinition } from '@/types/shapes';
-import { ShapeFactory } from '@/game/systems/ShapeFactory';
-import { ScrewManager } from '@/game/systems/ScrewManager';
+import { Bodies } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
 import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
 import { getRandomScrewColor } from '@/game/utils/Colors';
 import { EditorEventPriority } from '../core/EditorEventBus';
+import { 
+  EditorShapeCreatedEvent, 
+  EditorShapeUpdatedEvent, 
+  EditorShapeDestroyedEvent, 
+  EditorCanvasResizedEvent, 
+  EditorPhysicsDebugToggledEvent,
+  EditorScrewAddedEvent,
+  EditorScrewRemovedEvent
+} from '../events/EditorEventTypes';
 
 interface EditorShape {
   shape: Shape;
@@ -34,12 +42,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
   }
 
   protected onUpdate(_deltaTime: number): void {
-    // Update screws if needed
-    if (this.currentShape) {
-      this.currentShape.screws.forEach(screw => {
-        screw.update(_deltaTime);
-      });
-    }
+    // Shape editor doesn't need frame updates for shapes/screws
+    // Animation updates would be handled by physics simulator if needed
+    void _deltaTime;
   }
 
   protected onRender(context: CanvasRenderingContext2D): void {
@@ -75,46 +80,73 @@ export class ShapeEditorManager extends BaseEditorSystem {
 
   private setupEventSubscriptions(): void {
     // Handle shape creation
-    this.subscribe('editor:shape:created', async (event) => {
+    this.subscribe('editor:shape:created', async (event: EditorShapeCreatedEvent) => {
       await this.createShape(event.payload.shapeDefinition, event.payload.shapeId);
     }, EditorEventPriority.HIGH);
 
     // Handle shape updates
-    this.subscribe('editor:shape:updated', async (event) => {
+    this.subscribe('editor:shape:updated', async (event: EditorShapeUpdatedEvent) => {
       await this.updateShape(event.payload.shapeDefinition, event.payload.shapeId);
     }, EditorEventPriority.HIGH);
 
     // Handle shape destruction
-    this.subscribe('editor:shape:destroyed', async (event) => {
+    this.subscribe('editor:shape:destroyed', async (event: EditorShapeDestroyedEvent) => {
       this.destroyShape(event.payload.shapeId);
     });
 
     // Handle canvas resize
-    this.subscribe('editor:canvas:resized', async (event) => {
+    this.subscribe('editor:canvas:resized', async (event: EditorCanvasResizedEvent) => {
       this.canvasWidth = event.payload.width;
       this.canvasHeight = event.payload.height;
     });
 
     // Handle debug toggle
-    this.subscribe('editor:physics:debug:toggled', async (event) => {
+    this.subscribe('editor:physics:debug:toggled', async (event: EditorPhysicsDebugToggledEvent) => {
       this.debugMode = event.payload.enabled;
     });
 
     // Handle screw interactions
-    this.subscribe('editor:screw:added', async (event) => {
+    this.subscribe('editor:screw:added', async (event: EditorScrewAddedEvent) => {
       await this.addCustomScrew(event.payload.shapeId, event.payload.position, event.payload.screwId);
     });
 
-    this.subscribe('editor:screw:removed', async (event) => {
+    this.subscribe('editor:screw:removed', async (event: EditorScrewRemovedEvent) => {
       await this.removeCustomScrew(event.payload.shapeId, event.payload.screwId);
     });
   }
 
   private async createShape(definition: ShapeDefinition, shapeId: string): Promise<void> {
+    console.log('ShapeEditorManager: Creating shape', shapeId);
+    
+    // Prevent duplicate creation
+    if (this.currentShape && this.currentShape.id === shapeId) {
+      console.log('ShapeEditorManager: Shape already exists, skipping creation');
+      return;
+    }
+    
     try {
-      // Create shape using game's ShapeFactory
+      // For the editor, create a simplified shape for preview
       const { width, height } = this.generateDimensions(definition);
-      const shape = await ShapeFactory.createShape(definition, 0, 0, { width, height });
+      console.log('ShapeEditorManager: Generated dimensions:', { width, height });
+      const finalWidth = width || 100;
+      const finalHeight = height || 100;
+      const centerX = this.canvasWidth / 2;
+      const centerY = this.canvasHeight / 2;
+      
+      // Create a basic physics body for the shape (simplified for editor)
+      const body = Bodies.rectangle(centerX, centerY, finalWidth, finalHeight);
+      
+      // Create the shape entity with basic properties
+      const shape = new Shape(
+        shapeId,
+        'rectangle', // Simplified for editor preview
+        { x: centerX, y: centerY },
+        body,
+        'editor-layer',
+        '#4a90e2', // Default blue color
+        '#4a90e2', // Default tint
+        { width: finalWidth, height: finalHeight, radius: Math.min(finalWidth, finalHeight) / 2 }
+      );
       
       if (!shape) {
         throw new Error('Failed to create shape');
@@ -162,9 +194,26 @@ export class ShapeEditorManager extends BaseEditorSystem {
     }
 
     try {
-      // Recreate shape with new definition
+      // Recreate shape with new definition  
       const { width, height } = this.generateDimensions(definition);
-      const newShape = await ShapeFactory.createShape(definition, 0, 0, { width, height });
+      const finalWidth = width || 100;
+      const finalHeight = height || 100;
+      const centerX = this.canvasWidth / 2;
+      const centerY = this.canvasHeight / 2;
+      
+      // Create a basic physics body for the updated shape
+      const body = Bodies.rectangle(centerX, centerY, finalWidth, finalHeight);
+      
+      const newShape = new Shape(
+        shapeId,
+        'rectangle', // Simplified for editor preview
+        { x: centerX, y: centerY },
+        body,
+        'editor-layer',
+        '#4a90e2', // Default blue color
+        '#4a90e2', // Default tint
+        { width: finalWidth, height: finalHeight, radius: Math.min(finalWidth, finalHeight) / 2 }
+      );
       
       if (!newShape) {
         throw new Error('Failed to update shape');
@@ -224,13 +273,25 @@ export class ShapeEditorManager extends BaseEditorSystem {
       const result: Record<string, unknown> = {};
       
       if (dimensions.width) {
-        result.width = this.randomInRange(dimensions.width.min, dimensions.width.max);
+        if (typeof dimensions.width === 'number') {
+          result.width = dimensions.width;
+        } else {
+          result.width = this.randomInRange(dimensions.width.min, dimensions.width.max);
+        }
       }
       if (dimensions.height) {
-        result.height = this.randomInRange(dimensions.height.min, dimensions.height.max);
+        if (typeof dimensions.height === 'number') {
+          result.height = dimensions.height;
+        } else {
+          result.height = this.randomInRange(dimensions.height.min, dimensions.height.max);
+        }
       }
       if (dimensions.radius) {
-        result.radius = this.randomInRange(dimensions.radius.min, dimensions.radius.max);
+        if (typeof dimensions.radius === 'number') {
+          result.radius = dimensions.radius;
+        } else {
+          result.radius = this.randomInRange(dimensions.radius.min, dimensions.radius.max);
+        }
       }
       
       return result;
@@ -248,23 +309,30 @@ export class ShapeEditorManager extends BaseEditorSystem {
     return Math.random() * (max - min) + min;
   }
 
-  private async createScrews(shape: Shape, definition: ShapeDefinition): Promise<Screw[]> {
-    // Use game's screw placement logic
-    const screwPositions = ScrewManager.prototype.placeScrews(shape, definition.screwPlacement);
-    
+  private async createScrews(shape: Shape, _definition: ShapeDefinition): Promise<Screw[]> {
+    // For the editor, create basic screw positions (simplified)
+    void _definition;
     const screws: Screw[] = [];
     const screwColor = getRandomScrewColor();
     
-    for (let i = 0; i < screwPositions.length; i++) {
-      const position = screwPositions[i];
-      const screw = new Screw(
-        `editor_screw_${i}`,
-        position,
-        screwColor,
-        shape,
-        null // No anchor body in editor
-      );
-      screws.push(screw);
+    // Simple screw placement - just corners for now
+    if (shape.width && shape.height) {
+      const positions = [
+        { x: shape.position.x - shape.width/2 + 20, y: shape.position.y - shape.height/2 + 20 },
+        { x: shape.position.x + shape.width/2 - 20, y: shape.position.y - shape.height/2 + 20 },
+        { x: shape.position.x - shape.width/2 + 20, y: shape.position.y + shape.height/2 - 20 },
+        { x: shape.position.x + shape.width/2 - 20, y: shape.position.y + shape.height/2 - 20 },
+      ];
+      
+      for (let i = 0; i < positions.length; i++) {
+        const screw = new Screw(
+          `${shape.id}-screw-${i}`,
+          shape.id,
+          positions[i],
+          screwColor
+        );
+        screws.push(screw);
+      }
     }
     
     return screws;
@@ -283,8 +351,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
   private renderShape(context: CanvasRenderingContext2D, shape: Shape): void {
     const renderContext = {
       ctx: context,
-      virtualWidth: this.canvasWidth,
-      virtualHeight: this.canvasHeight,
+      canvas: context.canvas,
       debugMode: this.debugMode,
     };
 
@@ -297,8 +364,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
   private renderScrews(context: CanvasRenderingContext2D, screws: Screw[]): void {
     const renderContext = {
       ctx: context,
-      virtualWidth: this.canvasWidth,
-      virtualHeight: this.canvasHeight,
+      canvas: context.canvas,
       debugMode: this.debugMode,
     };
 
@@ -309,12 +375,12 @@ export class ShapeEditorManager extends BaseEditorSystem {
 
   private renderDebugInfo(context: CanvasRenderingContext2D, shape: Shape): void {
     // Render physics body outline
-    if (shape.physicsBody) {
+    if (shape.body) {
       context.strokeStyle = '#ff0000';
       context.lineWidth = 2;
       context.setLineDash([5, 5]);
       
-      const vertices = shape.physicsBody.vertices;
+      const vertices = shape.body.vertices;
       if (vertices && vertices.length > 0) {
         context.beginPath();
         context.moveTo(vertices[0].x - shape.position.x, vertices[0].y - shape.position.y);
@@ -342,10 +408,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
     const screwColor = getRandomScrewColor();
     const screw = new Screw(
       screwId,
+      this.currentShape.shape.id,
       position,
-      screwColor,
-      this.currentShape.shape,
-      null
+      screwColor
     );
 
     this.currentShape.screws.push(screw);

@@ -14,11 +14,13 @@ export const EditorCanvas: React.FC = () => {
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
+    let manager: EditorManager | null = null;
+    
     const initializeEditor = async () => {
       if (!canvasRef.current || !containerRef.current) return;
 
       try {
-        const manager = new EditorManager();
+        manager = new EditorManager();
         await manager.initializeEditor(canvasRef.current, containerRef.current);
         setEditorManager(manager);
         setIsInitialized(true);
@@ -44,13 +46,13 @@ export const EditorCanvas: React.FC = () => {
     initializeEditor();
 
     return () => {
-      if (editorManager) {
-        editorManager.destroy();
+      if (manager) {
+        manager.destroy();
       }
       window.removeEventListener('dragover', handleWindowDragOver);
       window.removeEventListener('drop', handleWindowDrop);
     };
-  }, [editorManager]);
+  }, []); // Empty dependency array - only run once on mount
 
   return (
     <div 

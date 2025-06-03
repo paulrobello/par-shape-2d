@@ -59,11 +59,23 @@ export class EditorState extends BaseEditorSystem {
   private setupEventSubscriptions(): void {
     // File loading
     this.subscribe('editor:file:load:completed', async (event: EditorFileLoadCompletedEvent) => {
+      console.log('EditorState: File load completed, setting shape');
+      const shapeId = `shape_${Date.now()}`;
+      
       this.setState({
         currentShape: event.payload.shapeDefinition,
-        currentShapeId: `shape_${Date.now()}`,
+        currentShapeId: shapeId,
         filename: event.payload.filename,
         isDirty: false,
+      });
+      
+      // Emit shape created event
+      await this.emit({
+        type: 'editor:shape:created',
+        payload: {
+          shapeDefinition: event.payload.shapeDefinition,
+          shapeId: shapeId,
+        },
       });
     }, EditorEventPriority.HIGH);
 

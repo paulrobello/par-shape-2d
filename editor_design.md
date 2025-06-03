@@ -70,13 +70,14 @@ src/editor/
     └── EditorConstants.ts       # Editor configuration
 ```
 
-## Phase 1 Features
+## Phase 1 Features (Implemented)
 
 ### 1. Shape File Management
 - **Load**: Drag & drop JSON files or file picker
 - **Save**: Download edited shapes as JSON files
 - **Validation**: Comprehensive shape definition validation
 - **Error Handling**: Clear feedback for invalid files
+- **Global Drag Prevention**: Window-level drag & drop handling to prevent browser default behavior
 
 ### 2. Property Editing Panel
 - **Dynamic Forms**: Form fields adapt to selected shape type
@@ -117,18 +118,20 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Dynamic Validation**: Real-time validation based on shape type
 - **Constraint Enforcement**: Min/max values, aspect ratios, etc.
 - **JSON Serialization**: Maintain compatibility with game format
+- **Simplified Shape Creation**: Editor uses simplified shape rendering for preview
 
 ### Physics Integration
-- **Shared Systems**: Use game's PhysicsWorld and constraint system
-- **Isolated Testing**: Physics simulation in controlled environment
+- **Isolated PhysicsWorld**: Editor has its own PhysicsWorld instance
+- **On-Demand Simulation**: Physics only runs when user starts simulation
 - **Debug Visualization**: Custom rendering for physics debugging
 - **Performance**: Efficient physics updates for responsive editing
 
 ### Canvas Rendering
 - **Shared Renderer**: Use game's ShapeRenderer for consistency
 - **Editor Overlays**: Additional UI elements for editing context
-- **Responsive Design**: Adaptive canvas sizing for editor layout
+- **Responsive Design**: Adaptive canvas sizing with debounced resize handling
 - **Debug Modes**: Toggle between normal and debug rendering
+- **Render Optimization**: Conditional rendering with needsRender flag
 
 ## File Structure Integration
 
@@ -158,11 +161,33 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Export Options**: Multiple export formats and options
 - **Collaboration**: Share and import community shapes
 
+## Known Issues and Solutions
+
+### Event Loop Prevention
+1. **Canvas Resize Loop**: Prevented by:
+   - Checking if dimensions actually changed before resizing
+   - Debouncing ResizeObserver callbacks (100ms delay)
+   - Not modifying canvas in resize event handlers
+
+2. **React useEffect Loop**: Fixed by:
+   - Removing editorManager from dependency array
+   - Using local variable to track manager instance
+   - Ensuring single initialization on mount
+
+### System Lifecycle
+- **Verbose Logging**: Controlled by DEBUG_SYSTEM_LIFECYCLE flag in BaseSystem
+- **Physics Initialization**: PhysicsWorld created but not actively updating until simulation starts
+
+### Performance Optimizations
+- **Conditional Rendering**: needsRender flag prevents unnecessary canvas updates
+- **Event Debouncing**: Resize events throttled to prevent performance issues
+- **Simplified Shapes**: Editor uses basic rectangle physics bodies for preview
+
 ## Development Guidelines
 
 ### Code Organization
 - **Event-Driven**: All systems communicate via events
-- **Type Safety**: Comprehensive TypeScript typing
+- **Type Safety**: Comprehensive TypeScript typing with proper event type annotations
 - **Error Handling**: Robust error handling and user feedback
 - **Testing**: Unit tests for critical editor functionality
 
@@ -171,6 +196,7 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Memory Management**: Proper cleanup of physics bodies and constraints
 - **Responsive UI**: Maintain 60fps during active editing
 - **File Operations**: Async file operations with progress feedback
+- **Event Loop Prevention**: Careful management of event subscriptions to prevent infinite loops
 
 ### Documentation
 - **Keep Updated**: Maintain this document as features evolve

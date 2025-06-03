@@ -5,6 +5,9 @@
 import { eventBus } from '../events/EventBus';
 import { GameEvent, EventHandler, EventSubscriptionOptions } from '../events/EventTypes';
 
+// Set to true to enable system lifecycle logging
+const DEBUG_SYSTEM_LIFECYCLE = false;
+
 export abstract class BaseSystem {
   protected systemName: string;
   private subscriptionIds: string[] = [];
@@ -27,7 +30,9 @@ export abstract class BaseSystem {
     try {
       await this.onInitialize();
       this.isInitialized = true;
-      console.log(`System ${this.systemName} initialized successfully`);
+      if (DEBUG_SYSTEM_LIFECYCLE) {
+        console.log(`System ${this.systemName} initialized successfully`);
+      }
     } catch (error) {
       console.error(`Failed to initialize system ${this.systemName}:`, error);
       throw error;
@@ -47,7 +52,9 @@ export abstract class BaseSystem {
       this.onDestroy();
       this.unsubscribeAll();
       this.isDestroyed = true;
-      console.log(`System ${this.systemName} destroyed successfully`);
+      if (DEBUG_SYSTEM_LIFECYCLE) {
+        console.log(`System ${this.systemName} destroyed successfully`);
+      }
     } catch (error) {
       console.error(`Error destroying system ${this.systemName}:`, error);
     }
