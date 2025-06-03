@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { EditorManager } from '@/editor/core/EditorManager';
 import { ShapeDefinition } from '@/types/shapes';
 import { EditorTheme } from '@/editor/utils/theme';
+import { GridControls } from '@/editor/components/GridControls';
 
 interface PropertyPanelProps {
   editorManager: EditorManager | null;
@@ -658,6 +659,16 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
           />
         </>
       ))}
+
+      {/* Grid Settings */}
+      {editorManager && (
+        <div className="border-t pt-4">
+          <GridControls
+            gridManager={editorManager.getGridManager()}
+            className="mt-2"
+          />
+        </div>
+      )}
     </div>
   );
 };

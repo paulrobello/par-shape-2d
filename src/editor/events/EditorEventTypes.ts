@@ -235,6 +235,105 @@ export interface EditorCanvasResizedEvent {
   };
 }
 
+// Drawing Tool Events (Phase 2)
+export interface EditorToolSelectedEvent {
+  type: 'editor:tool:selected';
+  payload: {
+    toolName: string;
+    previousTool?: string;
+  };
+}
+
+export interface EditorDrawingStartedEvent {
+  type: 'editor:drawing:started';
+  payload: {
+    toolName: string;
+    startPoint: { x: number; y: number };
+  };
+}
+
+export interface EditorDrawingProgressEvent {
+  type: 'editor:drawing:progress';
+  payload: {
+    toolName: string;
+    step: number;
+    point: { x: number; y: number };
+    data?: unknown;
+  };
+}
+
+export interface EditorDrawingPreviewUpdatedEvent {
+  type: 'editor:drawing:preview:updated';
+  payload: {
+    toolName: string;
+    previewData: unknown;
+  };
+}
+
+export interface EditorDrawingCompletedEvent {
+  type: 'editor:drawing:completed';
+  payload: {
+    toolName: string;
+    shapeDefinition: ShapeDefinition;
+  };
+}
+
+export interface EditorDrawingCancelledEvent {
+  type: 'editor:drawing:cancelled';
+  payload: {
+    toolName: string;
+    reason: 'escape' | 'tool_change' | 'user_action';
+  };
+}
+
+export interface EditorDrawingModeChangedEvent {
+  type: 'editor:drawing:mode:changed';
+  payload: {
+    mode: 'edit' | 'create';
+    previousMode: 'edit' | 'create';
+  };
+}
+
+export interface EditorDrawingStateChangedEvent {
+  type: 'editor:drawing:state:changed';
+  payload: {
+    toolName: string;
+    state: string;
+    previousState?: string;
+  };
+}
+
+// Grid System Events (Phase 2)
+export interface EditorGridToggledEvent {
+  type: 'editor:grid:toggled';
+  payload: {
+    enabled: boolean;
+  };
+}
+
+export interface EditorGridSizeChangedEvent {
+  type: 'editor:grid:size:changed';
+  payload: {
+    size: number;
+    previousSize: number;
+  };
+}
+
+export interface EditorGridSnapToggledEvent {
+  type: 'editor:grid:snap:toggled';
+  payload: {
+    enabled: boolean;
+  };
+}
+
+export interface EditorGridCoordinateSnappedEvent {
+  type: 'editor:grid:coordinate:snapped';
+  payload: {
+    original: { x: number; y: number };
+    snapped: { x: number; y: number };
+  };
+}
+
 // Error Events
 export interface EditorErrorValidationEvent {
   type: 'editor:error:validation';
@@ -292,6 +391,18 @@ export type EditorEvent =
   | EditorPanelToggledEvent
   | EditorModeChangedEvent
   | EditorCanvasResizedEvent
+  | EditorToolSelectedEvent
+  | EditorDrawingStartedEvent
+  | EditorDrawingProgressEvent
+  | EditorDrawingPreviewUpdatedEvent
+  | EditorDrawingCompletedEvent
+  | EditorDrawingCancelledEvent
+  | EditorDrawingModeChangedEvent
+  | EditorDrawingStateChangedEvent
+  | EditorGridToggledEvent
+  | EditorGridSizeChangedEvent
+  | EditorGridSnapToggledEvent
+  | EditorGridCoordinateSnappedEvent
   | EditorErrorValidationEvent
   | EditorErrorPhysicsEvent
   | EditorErrorFileEvent;

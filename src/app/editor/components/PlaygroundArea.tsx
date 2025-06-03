@@ -25,6 +25,38 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
     editorManager.handleCanvasClick(x, y);
   }, [editorManager, canvasRef]);
 
+  const handleCanvasMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!editorManager || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Convert to canvas coordinates (logical pixels, not physical)
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    editorManager.handleCanvasMouseMove(x, y);
+  }, [editorManager, canvasRef]);
+
+  const handleCanvasMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!editorManager || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Convert to canvas coordinates (logical pixels, not physical)
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    
+    editorManager.handleCanvasMouseUp(x, y);
+  }, [editorManager, canvasRef]);
+
+  const handleKeyDown = useCallback((event: KeyboardEvent) => {
+    if (!editorManager) return;
+    
+    editorManager.handleCanvasKeyDown(event.key);
+  }, [editorManager]);
+
   const handleCanvasDoubleClick = useCallback(() => {
     if (!editorManager) return;
     
@@ -47,19 +79,32 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
     
     // Add event listeners
     const clickHandler = (e: Event) => handleCanvasClick(e as unknown as React.MouseEvent<HTMLCanvasElement>);
+    const mouseMoveHandler = (e: Event) => handleCanvasMouseMove(e as unknown as React.MouseEvent<HTMLCanvasElement>);
+    const mouseUpHandler = (e: Event) => handleCanvasMouseUp(e as unknown as React.MouseEvent<HTMLCanvasElement>);
     const doubleClickHandler = () => handleCanvasDoubleClick();
     
     canvas.addEventListener('click', clickHandler);
+    canvas.addEventListener('mousemove', mouseMoveHandler);
+    canvas.addEventListener('mouseup', mouseUpHandler);
     canvas.addEventListener('dblclick', doubleClickHandler);
     
-    // Set cursor style based on mode
-    canvas.style.cursor = 'crosshair';
+    // Add keyboard listener to window (canvas can't capture key events)
+    window.addEventListener('keydown', handleKeyDown);
+    
+    // Set cursor style based on current tool
+    if (editorManager) {
+      const activeTool = editorManager.getDrawingToolManager().getActiveTool();
+      canvas.style.cursor = activeTool?.getConfig().cursor || 'default';
+    }
     
     return () => {
       canvas.removeEventListener('click', clickHandler);
+      canvas.removeEventListener('mousemove', mouseMoveHandler);
+      canvas.removeEventListener('mouseup', mouseUpHandler);
       canvas.removeEventListener('dblclick', doubleClickHandler);
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleCanvasClick, handleCanvasDoubleClick, canvasRef]);
+  }, [handleCanvasClick, handleCanvasMouseMove, handleCanvasMouseUp, handleCanvasDoubleClick, handleKeyDown, canvasRef, editorManager]);
 
   return (
     <div 
@@ -86,8 +131,10 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
           pointerEvents: 'auto',
         }}
       >
-        <div>Click to add/remove screws at placement indicators</div>
+        <div>Select Tool: Click to add/remove screws</div>
+        <div>Drawing Tools: Click to create shapes</div>
         <div>Double-click to toggle debug mode</div>
+        <div>ESC to cancel drawing</div>
       </div>
     </div>
   );

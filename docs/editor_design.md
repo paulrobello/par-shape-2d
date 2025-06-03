@@ -53,25 +53,38 @@ src/app/editor/
 ```
 src/editor/
 ├── core/
-│   ├── EditorManager.ts     # Main editor orchestrator
-│   ├── EditorState.ts       # Editor state management
-│   └── EditorEventBus.ts    # Editor-specific event bus
+│   ├── EditorManager.ts         # Main editor orchestrator (extended for Phase 2)
+│   ├── EditorState.ts           # Editor state management
+│   ├── EditorEventBus.ts        # Editor-specific event bus
+│   └── BaseEditorSystem.ts      # Base class for all editor systems
 ├── systems/
 │   ├── ShapeEditorManager.ts    # Shape creation and modification
 │   ├── PropertyManager.ts       # Form property management
 │   ├── FileManager.ts           # File I/O operations
-│   └── PhysicsSimulator.ts      # Physics testing system
+│   ├── PhysicsSimulator.ts      # Physics testing system
+│   ├── DrawingToolManager.ts    # Drawing tool coordination (Phase 2)
+│   ├── GridManager.ts           # Grid system management (Phase 2)
+│   └── DrawingStateManager.ts   # Drawing state tracking (Phase 2)
+├── drawing/                     # Phase 2 drawing system
+│   ├── tools/
+│   │   ├── BaseTool.ts          # Abstract base for all drawing tools
+│   │   ├── SelectTool.ts        # Default selection tool (Phase 1 mode)
+│   │   ├── CircleTool.ts        # Circle drawing tool
+│   │   └── RectangleTool.ts     # Rectangle drawing tool
+│   └── utils/
+│       └── PreviewRenderer.ts   # Drawing preview utilities
 ├── events/
-│   ├── EditorEventTypes.ts      # Editor event definitions
+│   ├── EditorEventTypes.ts      # 39 editor event definitions
 │   └── EditorEventFlow.md       # Event flow documentation
 ├── components/
-│   ├── forms/                   # Property editing forms
-│   ├── canvas/                  # Canvas-related components
-│   └── controls/                # UI control components
+│   ├── ToolPalette.tsx          # Tool selection UI (Phase 2)
+│   ├── GridControls.tsx         # Grid settings UI (Phase 2)
+│   └── DrawingOverlay.tsx       # Drawing feedback UI (Phase 2)
 └── utils/
     ├── FileUtils.ts             # File operation utilities
     ├── ValidationUtils.ts       # Shape validation
-    └── EditorConstants.ts       # Editor configuration
+    ├── EditorConstants.ts       # Editor configuration
+    └── theme.ts                 # Theme system definitions
 ```
 
 ## Phase 1 Features (Implemented)
@@ -244,19 +257,66 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **File I/O**: Shape file loading and saving
 - **Editor State**: Separate state management for editor functionality
 
-## Phase 2 Considerations
+## Phase 2 Implementation (Partially Complete)
 
-### Shape Creation Tools
-- **Drawing Tools**: Direct shape creation and editing
-- **Grid System**: Snap-to-grid with configurable size
-- **Vertex Editing**: Manual vertex manipulation for path shapes
-- **Shape Templates**: Pre-built shape starting points
+### ✅ Phase 2A - Foundation (Implemented)
+- **Grid System**: 
+  - Configurable grid with dot rendering (5px, 10px, 20px, 50px sizes)
+  - Toggle visibility and snap-to-grid functionality
+  - Efficient rendering with only visible grid points drawn
+  - GridManager system with event-driven state updates
+  - GridControls UI component in property panel
+  
+- **Drawing Tool Architecture**:
+  - Modular BaseTool abstract class for all drawing tools
+  - DrawingToolManager for tool selection and coordination
+  - Tool-based workflow with consistent interaction patterns
+  - Mode switching between "edit" (Phase 1) and "create" (Phase 2) modes
+  - ToolPalette UI component in toolbar with visual tool selection
+  
+- **State Management**:
+  - DrawingStateManager for tracking drawing sessions and progress
+  - Multi-step drawing workflow support with state machines
+  - Real-time instruction display and user feedback
+  - Session history tracking with statistics
+  
+- **Event System Extension**:
+  - Extended from 27 to 39 events (12 new events added)
+  - 8 Drawing Tool Events for creation workflows
+  - 4 Grid System Events for grid management
+  - Maintained backward compatibility with Phase 1 events
 
-### Advanced Features
-- **Multi-shape Testing**: Test multiple shapes simultaneously
-- **Animation Preview**: Preview shape animations and physics
-- **Export Options**: Multiple export formats and options
-- **Collaboration**: Share and import community shapes
+### ✅ Phase 2B - Basic Tools (Implemented)
+- **SelectTool**: 
+  - Maintains all Phase 1 functionality (screw manipulation, property editing)
+  - Activates "edit" mode when selected
+  - Acts as default tool on editor load
+  
+- **CircleTool**: 
+  - Center → radius workflow (2 clicks)
+  - Real-time preview with dashed outline
+  - Grid snapping support
+  - Creates proper ShapeDefinition with physics and screw placement
+  
+- **RectangleTool**: 
+  - Corner → corner workflow (2 clicks)
+  - Preview rectangle with translucent fill
+  - Minimum size validation (10x10)
+  - Full grid integration
+  
+- **Preview System**:
+  - PreviewRenderer utility class with consistent styling
+  - Dashed lines (5px dash, 5px gap)
+  - Translucent fills (0.1 opacity blue)
+  - Point markers for click positions
+  - Real-time coordinate transformation
+
+### 🔄 Phase 2C - Advanced Tools (Not Yet Implemented)
+- **PolygonTool**: Configurable sides with center → radius workflow
+- **CapsuleTool**: Three-step workflow (end → end → thickness)
+- **PathTool**: Multi-point workflow with path closing
+- **SquareTool**: Specialized rectangle tool with aspect ratio lock
+- **Visual Polish**: Enhanced cursors, tooltips, and feedback
 
 ## System Behavior
 
@@ -325,7 +385,7 @@ The editor implements several mechanisms to prevent infinite event loops:
 
 ## Current Implementation Status
 
-### ✅ Completed Features
+### ✅ Phase 1 - Complete Shape Editor (Fully Implemented)
 - **Complete Shape Editor Interface**: Fully functional editor at `/editor` route with comprehensive functionality
 - **File Management**: Load/save JSON shape definitions with drag & drop support and validation
 - **Property Editing**: Dynamic forms with real-time validation and random value generation
@@ -334,51 +394,62 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Constraint Physics**: Multi-screw stability, single-screw pivoting, no-screw falling with accurate positioning
 - **Visual Design**: Consistent blue/red color scheme maintained throughout editor and physics modes
 - **Responsive Layout**: Fixed scrollbar issues, proper overflow handling, and high-DPI display support
-- **Event System**: Comprehensive event-driven architecture with 70+ event types and proper error handling
+- **Event System**: Started with 27 events, proper error handling and state management
 - **Interaction Management**: Smart interaction blocking during physics simulation with visual feedback
 - **Reset Functionality**: Physics simulation reset properly restores shapes to original positions with event-driven updates
 - **Dark Mode Support**: Complete UI theming with automatic system preference detection and consistent canvas backgrounds
 - **Screw Position Alignment**: Placement indicators and actual screws use identical strategy-based positioning logic
 - **Streamlined UI**: Combined start/pause controls with single toggle button interface for better usability
 
-### 🔄 In Progress / Foundation
-- **Debug Tools**: Canvas debugging with physics body visualization (can be enhanced)
-- **Performance**: Optimized rendering with conditional updates
-- **Advanced Physics**: Foundation ready for complex constraint scenarios
+### ✅ Phase 2A & 2B - Shape Creation Foundation (Implemented)
+- **Extended Event System**: Grown from 27 to 39 events with 12 new Phase 2 events
+- **Grid System**: Fully functional grid with configurable size, visibility toggle, and snap-to-grid
+- **Drawing Tool Architecture**: Modular tool system with BaseTool abstract class and tool manager
+- **Drawing State Management**: Complete session tracking and multi-step workflow support
+- **Mode Switching**: Clean separation between "edit" mode (Phase 1) and "create" mode (Phase 2)
+- **Basic Drawing Tools**: SelectTool (Phase 1 mode), CircleTool, and RectangleTool implemented
+- **Preview System**: Real-time preview rendering with consistent styling across all tools
+- **UI Integration**: ToolPalette in toolbar, GridControls in property panel, DrawingOverlay for feedback
+- **Coordinate System**: Proper grid snapping and high-DPI coordinate transformation
 
-### 📋 Phase 2 Roadmap
-- **Advanced Shape Creation**: Direct drawing tools and vertex editing
-- **Enhanced Physics**: Full constraint testing and animation preview
-- **Collaboration Features**: Shape sharing and community integration
+### 🔄 Phase 2C - Advanced Tools (Pending)
+- **PolygonTool**: Configurable sides with center → radius workflow
+- **CapsuleTool**: Three-step workflow (end → end → thickness)
+- **PathTool**: Multi-point workflow with path closing detection
+- **Visual Polish**: Enhanced cursors, tooltips, and advanced user feedback
+- **Advanced Shape Creation**: Vertex editing and shape modification tools
+- **Export Enhancements**: Multiple format support and batch operations
 
-## Recent Improvements Summary
+## Phase 2 Architecture Details
 
-The Shape Editor has undergone significant enhancements for improved usability and consistency:
+### Grid System Architecture
+The grid system provides visual guidance and coordinate snapping for precise shape creation:
+- **GridManager**: Central system managing grid state, rendering, and coordinate transformation
+- **GridControls**: React component providing UI for grid configuration in property panel
+- **Event Integration**: Grid events seamlessly integrate with drawing tools for real-time updates
+- **Performance**: Efficient dot rendering only draws visible grid points within canvas bounds
 
-### **UI/UX Improvements**
-- **Dark Mode Integration**: Automatic system preference detection with comprehensive theming
-- **Canvas Background**: Consistent light grey background for optimal shape visibility in all modes
-- **Streamlined Controls**: 
-  - Combined start/pause simulation controls into intuitive toggle button
-  - Unified file loading interface - drop zone serves as both drag target and clickable button
-- **Visual Consistency**: Unified color scheme across all editor components and themes
-- **Layout Redesign**: Full-width toolbar with side-by-side canvas and property panel layout
-- **Visual Polish**: Added inset border effect around canvas area for better visual definition
-- **Interactive Feedback**: Drop zone highlights on hover with smooth transitions
+### Drawing Tool System
+The drawing tool architecture follows a modular, extensible design:
+- **BaseTool**: Abstract class providing common functionality for all drawing tools
+- **Tool Lifecycle**: activate → drawing states → complete/cancel → deactivate
+- **State Machine**: Each tool implements its own state machine for multi-step workflows
+- **Preview System**: Real-time visual feedback during drawing operations
+- **Event Flow**: Tools emit events at each stage for proper system coordination
 
-### **Functional Fixes**
-- **Physics Reset**: Proper shape position restoration to original locations after simulation reset
-- **Screw Alignment**: Fixed indicator positioning to match actual screw locations using unified calculation logic
-- **Theme Application**: Immediate theme setting during initialization to prevent visual flashing
-- **Debug Rendering**: Fixed physics body debug outlines to properly align with shapes on high-DPI displays
-- **Coordinate Systems**: Corrected canvas coordinate transformations for proper shape positioning
+### Mode Management
+Clean separation between editing and creation modes:
+- **Edit Mode**: Phase 1 functionality - screw manipulation, property editing, physics simulation
+- **Create Mode**: Phase 2 functionality - shape drawing with selected tool
+- **Mode Switching**: Automatic based on tool selection (SelectTool → edit, others → create)
+- **UI Adaptation**: Interface elements enable/disable based on current mode
 
-### **Technical Architecture**
-- **Event-Driven Design**: Comprehensive 70+ event system with proper error handling and state management
-- **Performance Optimization**: Unified positioning calculations and conditional rendering for efficiency
-- **Code Consistency**: Single source of truth for screw positioning logic across indicators and actual placements
-- **High-DPI Support**: Proper handling of device pixel ratio throughout rendering pipeline
-- **Container Management**: Canvas sizing properly accounts for container padding and layout structure
+### Coordinate System Integration
+Proper coordinate handling across all systems:
+- **Grid Snapping**: Optional coordinate transformation through GridManager
+- **High-DPI Support**: Canvas scaling properly handled in all drawing operations
+- **Event Coordinates**: All mouse events transformed to logical canvas coordinates
+- **Preview Rendering**: Consistent coordinate system for preview overlays
 
 ---
 

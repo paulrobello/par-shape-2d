@@ -63,6 +63,26 @@ The Shape Editor follows the same event-driven architecture pattern as the main 
 | `editor:mode:changed` | Editor mode switched | None | EditorState | ⚠️ Defined but unused |
 | `editor:canvas:resized` | Canvas dimensions changed | EditorManager | ShapeEditorManager, PhysicsSimulator | ✅ Active |
 
+### Drawing Tool Events (8 events) - Phase 2
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:tool:selected` | Drawing tool changed | ToolPalette, DrawingToolManager, BaseTool | DrawingToolManager, EditorManager, DrawingOverlay, ToolPalette | ✅ Active |
+| `editor:drawing:started` | Drawing operation began | BaseTool | DrawingStateManager, EditorManager | ✅ Active |
+| `editor:drawing:progress` | Drawing step completed | BaseTool | DrawingStateManager, EditorManager | ✅ Active |
+| `editor:drawing:preview:updated` | Preview needs update | BaseTool | EditorManager | ✅ Active |
+| `editor:drawing:completed` | Shape creation finished | BaseTool | DrawingStateManager, EditorManager | ✅ Active |
+| `editor:drawing:cancelled` | Drawing cancelled | BaseTool | DrawingStateManager, EditorManager | ✅ Active |
+| `editor:drawing:mode:changed` | Edit/create mode switch | DrawingToolManager, SelectTool | EditorManager | ✅ Active |
+| `editor:drawing:state:changed` | Drawing state updated | BaseTool | DrawingStateManager, DrawingOverlay | ✅ Active |
+
+### Grid System Events (4 events) - Phase 2
+| Event Type | Purpose | Emitters | Subscribers | Status |
+|------------|---------|----------|-------------|--------|
+| `editor:grid:toggled` | Grid visibility changed | GridControls, GridManager | GridManager, EditorManager, GridControls | ✅ Active |
+| `editor:grid:size:changed` | Grid size modified | GridControls, GridManager | GridManager, EditorManager, GridControls | ✅ Active |
+| `editor:grid:snap:toggled` | Grid snapping toggled | GridControls, GridManager | GridManager, GridControls | ✅ Active |
+| `editor:grid:coordinate:snapped` | Coordinate was snapped | GridManager | None (informational) | ✅ Active |
+
 ### Error Events (3 events)
 | Event Type | Purpose | Emitters | Subscribers | Status |
 |------------|---------|----------|-------------|--------|
@@ -172,42 +192,55 @@ PropertyPanel updates form fields with new values
 
 ## Comprehensive Event System Audit
 
-### Total Event Definitions: 27 event types
+### Total Event Definitions: 39 event types (Extended from 27 in Phase 1)
 - **File Events**: 6 events for loading, saving, and validation
 - **Property Events**: 4 events for form management and validation
 - **Shape Events**: 5 events for shape lifecycle and preview updates
 - **Screw Events**: 4 events for placement indicators and interactive manipulation
 - **Physics Events**: 7 events for simulation control and data transfer
 - **UI Events**: 3 events for panel states and canvas interactions
+- **Drawing Tool Events**: 8 events for shape creation workflows (Phase 2)
+- **Grid System Events**: 4 events for grid management (Phase 2)
 - **Error Events**: 3 events for comprehensive error handling
 
+### Phase 2 Event Implementation
+**✅ Active Phase 2 Events (12/12)**: All new events are actively used
+- Drawing events coordinate tool selection, drawing progress, and shape creation
+- Grid events manage visibility, size, snapping, and coordinate transformation
+- Mode switching events handle transitions between edit and create modes
+
 ### Event Implementation Analysis
-**✅ Active Events (23/27)**: Events that are both emitted and subscribed to
-**⚠️ Unused Events (4/27)**: Events defined in types but never emitted:
-- `editor:shape:selected`
-- `editor:screw:strategy:changed`
-- `editor:panel:toggled`
-- `editor:mode:changed`
+**✅ Active Events (35/39)**: Events that are both emitted and subscribed to
+**⚠️ Unused Events (4/39)**: Events defined in types but never emitted:
+- `editor:shape:selected` (reserved for future multi-shape selection)
+- `editor:screw:strategy:changed` (handled through property system)
+- `editor:panel:toggled` (UI panels always visible)
+- `editor:mode:changed` (replaced by `editor:drawing:mode:changed` in Phase 2)
 
 ### Event Usage Statistics
-- **Total Event Emissions Found**: 41 instances across 9 files
-- **Total Event Subscriptions Found**: 33 instances across 6 systems
-- **Most Emitted Events**: `editor:property:changed` (4x), `editor:error:physics` (4x), `editor:screw:placement:updated` (3x)
-- **Most Subscribed Events**: File operations, shape lifecycle, physics control
+- **Total Event Emissions**: 60+ instances across 15 files
+- **Total Event Subscriptions**: 50+ instances across 9 systems
+- **Most Active Phase 2 Events**: 
+  - `editor:drawing:preview:updated` (continuous during drawing)
+  - `editor:tool:selected` (mode and UI updates)
+  - `editor:grid:coordinate:snapped` (every mouse move with grid snap)
 
 ### Key Architecture Benefits
 1. **Complete Decoupling**: No direct system dependencies
-2. **Type Safety**: All events have TypeScript interfaces
+2. **Type Safety**: All 39 events have TypeScript interfaces
 3. **Event Priority**: Critical events (errors) have higher priority
 4. **Loop Prevention**: Event loop detection and prevention mechanisms
 5. **Real-time Updates**: Immediate visual feedback through event-driven rendering
-6. **Extensibility**: Easy to add new events and systems
+6. **Extensibility**: Easy to add new events and systems (proven by Phase 2)
+7. **Mode Isolation**: Clean separation between Phase 1 and Phase 2 functionality
 
 ### Performance Considerations
 - **Conditional Rendering**: Events trigger needsRender flag only when necessary
 - **Event Debouncing**: Canvas resize events are debounced to prevent performance issues
 - **Efficient Hit Detection**: Screw interaction uses optimized coordinate calculations
 - **Memory Management**: Proper event subscription cleanup on system destruction
+- **Grid Optimization**: Grid renders only visible dots within canvas bounds
+- **Preview Throttling**: Drawing preview updates are optimized for smooth performance
 
 
 ## Event Dependencies

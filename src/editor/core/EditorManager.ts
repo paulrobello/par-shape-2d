@@ -4,6 +4,12 @@ import { FileManager } from '../systems/FileManager';
 import { PropertyManager } from '../systems/PropertyManager';
 import { ShapeEditorManager } from '../systems/ShapeEditorManager';
 import { PhysicsSimulator } from '../systems/PhysicsSimulator';
+import { DrawingToolManager } from '../systems/DrawingToolManager';
+import { GridManager } from '../systems/GridManager';
+import { DrawingStateManager } from '../systems/DrawingStateManager';
+import { SelectTool } from '../drawing/tools/SelectTool';
+import { CircleTool } from '../drawing/tools/CircleTool';
+import { RectangleTool } from '../drawing/tools/RectangleTool';
 import { EditorEventPriority } from './EditorEventBus';
 import { EditorTheme } from '../utils/theme';
 import { 
@@ -12,7 +18,12 @@ import {
   EditorErrorFileEvent,
   EditorFileLoadCompletedEvent,
   EditorFileSaveCompletedEvent,
-  EditorCanvasResizedEvent
+  EditorCanvasResizedEvent,
+  EditorDrawingModeChangedEvent,
+  EditorDrawingPreviewUpdatedEvent,
+  EditorDrawingCompletedEvent,
+  EditorDrawingCancelledEvent,
+  EditorToolSelectedEvent
 } from '../events/EditorEventTypes';
 
 /**
@@ -30,6 +41,11 @@ export class EditorManager extends BaseEditorSystem {
   private shapeEditorManager: ShapeEditorManager;
   private physicsSimulator: PhysicsSimulator;
   
+  // Phase 2 systems
+  private drawingToolManager: DrawingToolManager;
+  private gridManager: GridManager;
+  private drawingStateManager: DrawingStateManager;
+  
   private animationFrameId: number | null = null;
   private lastUpdateTime = 0;
   private isRunning = false;
@@ -45,6 +61,11 @@ export class EditorManager extends BaseEditorSystem {
     this.propertyManager = new PropertyManager();
     this.shapeEditorManager = new ShapeEditorManager();
     this.physicsSimulator = new PhysicsSimulator();
+    
+    // Initialize Phase 2 systems
+    this.drawingToolManager = new DrawingToolManager();
+    this.gridManager = new GridManager();
+    this.drawingStateManager = new DrawingStateManager();
     
     // Initialize with default theme to ensure canvas has proper background
     this.currentTheme = null; // Will be set properly via setTheme
@@ -67,6 +88,14 @@ export class EditorManager extends BaseEditorSystem {
     await this.propertyManager.initialize();
     await this.shapeEditorManager.initialize();
     await this.physicsSimulator.initialize();
+    
+    // Initialize Phase 2 systems
+    await this.drawingToolManager.initialize();
+    await this.gridManager.initialize();
+    await this.drawingStateManager.initialize();
+    
+    // Register drawing tools
+    this.registerDrawingTools();
 
     this.setupCanvas();
     this.startRenderLoop();
@@ -86,6 +115,11 @@ export class EditorManager extends BaseEditorSystem {
     this.propertyManager.update(deltaTime);
     this.shapeEditorManager.update(deltaTime);
     this.physicsSimulator.update(deltaTime);
+    
+    // Update Phase 2 systems
+    this.drawingToolManager.update(deltaTime);
+    this.gridManager.update(deltaTime);
+    this.drawingStateManager.update(deltaTime);
   }
 
   protected onRender(context: CanvasRenderingContext2D): void {
@@ -102,13 +136,24 @@ export class EditorManager extends BaseEditorSystem {
     context.fillStyle = backgroundColor;
     context.fillRect(0, 0, logicalWidth, logicalHeight);
     
+    // Render grid first (behind everything)
+    this.gridManager.renderGrid(context, logicalWidth, logicalHeight);
+    
     // Render all systems
     this.shapeEditorManager.render(context);
     this.physicsSimulator.render(context);
+    
+    // Render drawing tool previews (on top)
+    this.drawingToolManager.render(context);
   }
 
   protected onDestroy(): void {
     this.stopRenderLoop();
+    
+    // Destroy Phase 2 systems first
+    this.drawingStateManager.destroy();
+    this.gridManager.destroy();
+    this.drawingToolManager.destroy();
     
     // Destroy all systems
     this.physicsSimulator.destroy();
@@ -178,6 +223,44 @@ export class EditorManager extends BaseEditorSystem {
     });
 
     this.subscribe('editor:screw:placement:updated', async () => {
+      this.needsRender = true;
+    });
+
+    // Phase 2 drawing events
+    this.subscribe('editor:drawing:mode:changed', async (event: EditorDrawingModeChangedEvent) => {
+      this.needsRender = true;
+      console.log(`Drawing mode changed: ${event.payload.mode}`);
+    });
+
+    this.subscribe('editor:drawing:preview:updated', async (event: EditorDrawingPreviewUpdatedEvent) => {
+      this.needsRender = true;
+      void event; // Using event to avoid unused parameter warning
+    });
+
+    this.subscribe('editor:drawing:completed', async (event: EditorDrawingCompletedEvent) => {
+      // A shape was created via drawing tool, process it like a loaded shape
+      this.needsRender = true;
+      void event; // Using event to avoid unused parameter warning
+    });
+
+    this.subscribe('editor:drawing:cancelled', async (event: EditorDrawingCancelledEvent) => {
+      // Clear the preview when drawing is cancelled
+      this.needsRender = true;
+      void event; // Using event to avoid unused parameter warning
+    });
+
+    this.subscribe('editor:tool:selected', async (event: EditorToolSelectedEvent) => {
+      this.needsRender = true;
+      console.log(`Tool selected: ${event.payload.toolName}`);
+      void event; // Using event to avoid unused parameter warning
+    });
+
+    // Grid events
+    this.subscribe('editor:grid:toggled', async () => {
+      this.needsRender = true;
+    });
+
+    this.subscribe('editor:grid:size:changed', async () => {
       this.needsRender = true;
     });
 
@@ -329,13 +412,71 @@ export class EditorManager extends BaseEditorSystem {
     return this.physicsSimulator;
   }
 
+  getDrawingToolManager(): DrawingToolManager {
+    return this.drawingToolManager;
+  }
+
+  getGridManager(): GridManager {
+    return this.gridManager;
+  }
+
+  getDrawingStateManager(): DrawingStateManager {
+    return this.drawingStateManager;
+  }
+
   async handleCanvasClick(x: number, y: number): Promise<void> {
-    // Delegate to shape editor manager
-    await this.shapeEditorManager.handleCanvasClick(x, y);
+    // Apply grid snapping if enabled
+    const point = this.gridManager.snapToGrid({ x, y });
+    
+    // Check current drawing mode
+    const currentMode = this.drawingToolManager.getCurrentMode();
+    
+    if (currentMode === 'create') {
+      // Phase 2: Drawing mode - delegate to drawing tool manager
+      this.drawingToolManager.handleMouseDown(point);
+    } else {
+      // Phase 1: Edit mode - delegate to shape editor manager for screw interaction
+      await this.shapeEditorManager.handleCanvasClick(point.x, point.y);
+    }
+  }
+
+  handleCanvasMouseMove(x: number, y: number): void {
+    // Apply grid snapping if enabled
+    const point = this.gridManager.snapToGrid({ x, y });
+    
+    // Always update drawing tool manager for preview updates
+    this.drawingToolManager.handleMouseMove(point);
+  }
+
+  handleCanvasMouseUp(x: number, y: number): void {
+    // Apply grid snapping if enabled
+    const point = this.gridManager.snapToGrid({ x, y });
+    
+    // Delegate to drawing tool manager
+    this.drawingToolManager.handleMouseUp(point);
+  }
+
+  handleCanvasKeyDown(key: string): void {
+    // Delegate to drawing tool manager for ESC handling and other keys
+    this.drawingToolManager.handleKeyDown(key);
   }
 
   setTheme(theme: EditorTheme): void {
     this.currentTheme = theme;
     this.needsRender = true;
+  }
+
+  private registerDrawingTools(): void {
+    // Register all drawing tools
+    const selectTool = new SelectTool();
+    const circleTool = new CircleTool();
+    const rectangleTool = new RectangleTool();
+
+    this.drawingToolManager.registerTool(selectTool);
+    this.drawingToolManager.registerTool(circleTool);
+    this.drawingToolManager.registerTool(rectangleTool);
+
+    // Select the default tool (select tool)
+    this.drawingToolManager.selectTool('select');
   }
 }

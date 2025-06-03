@@ -28,7 +28,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. The game follows a **clean event-driven architecture** with complete decoupling between systems for optimal maintainability and testing.
 
-It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection, proper physics simulation reset functionality, aligned screw placement indicators, and streamlined UI controls.
+It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection, proper physics simulation reset functionality, aligned screw placement indicators, streamlined UI controls, and a complete shape creation system with drawing tools.
 
 ## Matter.js Integration
 
@@ -74,3 +74,39 @@ Example workflow:
 1. mcp__selenium__take_screenshot with outputPath: "/path/to/screenshot.png"
 2. Read file_path: "/path/to/screenshot.png"
 ```
+
+## Shape Editor - Phase 2 Drawing System
+
+The Shape Editor now includes a comprehensive drawing system for creating new shapes:
+
+### Drawing Architecture
+- **Tool-based System**: Modular architecture with `BaseTool` abstract class for all drawing tools
+- **State Management**: Multi-step drawing workflows managed by tool-specific state machines
+- **Grid System**: Configurable grid with visibility toggle and snap-to-grid functionality
+- **Preview System**: Real-time preview rendering with consistent styling across all tools
+- **Mode Switching**: Clean separation between "edit" mode (Phase 1) and "create" mode (Phase 2)
+
+### Event System Extension
+The editor event system has been extended from 27 to 39 events to support drawing operations:
+- **Drawing Tool Events**: Tool selection, drawing state changes, preview updates
+- **Grid System Events**: Grid visibility, size changes, snap toggle, coordinate snapping
+
+### Implemented Drawing Tools
+- **SelectTool**: Default tool that activates "edit" mode for Phase 1 functionality
+- **CircleTool**: Center → radius workflow with real-time preview
+- **RectangleTool**: Corner → corner workflow with minimum size validation
+
+### Working with Drawing Tools
+When implementing new drawing tools:
+1. Extend `BaseTool` abstract class and implement all required methods
+2. Use the tool's state machine to manage multi-step workflows
+3. Emit appropriate events at each drawing stage
+4. Leverage `PreviewRenderer` utility for consistent visual feedback
+5. Integrate with `GridManager` for coordinate snapping
+6. Register the tool with `DrawingToolManager`
+
+### Coordinate System
+- All drawing operations use logical canvas coordinates
+- Grid snapping is applied through `GridManager.snapToGrid()`
+- High-DPI displays are properly handled with coordinate transformation
+- Preview rendering uses consistent coordinate system across all tools

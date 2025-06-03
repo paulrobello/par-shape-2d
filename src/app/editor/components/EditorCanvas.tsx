@@ -8,6 +8,8 @@ import { FileControls } from './FileControls';
 import { SimulationControls } from './SimulationControls';
 import { useDarkMode } from '@/editor/utils/useDarkMode';
 import { getTheme } from '@/editor/utils/theme';
+import { ToolPalette } from '@/editor/components/ToolPalette';
+import { DrawingOverlay } from '@/editor/components/DrawingOverlay';
 
 export const EditorCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -94,8 +96,16 @@ export const EditorCanvas: React.FC = () => {
         <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: theme.text.primary }}>
           Shape Editor
         </h1>
-        <FileControls editorManager={editorManager} theme={theme} />
-        <SimulationControls editorManager={editorManager} theme={theme} />
+        {isInitialized && (
+          <ToolPalette 
+            drawingToolManager={editorManager!.getDrawingToolManager()} 
+            className="mx-4"
+          />
+        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <FileControls editorManager={editorManager} theme={theme} />
+          <SimulationControls editorManager={editorManager} theme={theme} />
+        </div>
       </div>
 
       {/* Main content area - canvas and property panel side by side */}
@@ -134,10 +144,16 @@ export const EditorCanvas: React.FC = () => {
               }}
             />
             {isInitialized && (
-              <PlaygroundArea 
-                editorManager={editorManager}
-                canvasRef={canvasRef}
-              />
+              <>
+                <PlaygroundArea 
+                  editorManager={editorManager}
+                  canvasRef={canvasRef}
+                />
+                <DrawingOverlay
+                  drawingStateManager={editorManager!.getDrawingStateManager()}
+                  drawingToolManager={editorManager!.getDrawingToolManager()}
+                />
+              </>
             )}
           </div>
         </div>
