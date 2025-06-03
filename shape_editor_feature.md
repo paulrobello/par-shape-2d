@@ -28,5 +28,22 @@ This route will be a sub app that will provide shape editing capabilities.
 ## Phase 2
 ### Functionality
 - Allow for creating and editing shapes
-- Depending on shape mode circle, polygon, etc provide shapes and tools to draw / build shapes for the game.
 - Allow enabling snap to grid with configurable grid size (use small dots to render grid rather than lines)
+- Depending on shape mode circle, polygon, etc provide shapes and tools to draw / build shapes for the game.
+- A visual of the current shape being created should be dynamically updated as the user moves mouse after the 1st click.
+- If the user presses the ESC key during creation of a shape, the creation of that shape should be canceled.
+- if grid mode is enabled mouse positions should snap to grid locations 
+- Drawing radius based shapes such as circles and polygons should have the following workflow:
+  - user clicks where the center should be placed
+  - move mouse without having to keep mouse button down and click again to set the radius
+- Drawing corner based shapes such as squares and rectangles should have the following workflow:
+  - user clicks where one corner should be placed
+  - move mouse without having to keep mouse button down and click again to set location of other corner
+- Drawing capsule based shapes should have the following workflow:
+  - user clicks where one end should be placed
+  - move mouse without having to keep mouse button down and click again to set location of other end
+  - move mouse again to set the thickness and click to confirm
+- Drawing path based shapes should have the following workflow:
+  - user clicks where start of path begins
+  - each click after adds a segment from previous click to current click
+  - when 1st point is clicked to close the shape, the path and shape are complete
