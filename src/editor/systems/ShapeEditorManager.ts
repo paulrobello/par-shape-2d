@@ -54,14 +54,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
       return;
     }
 
-    // Center the shape on canvas
-    const centerX = this.canvasWidth / 2;
-    const centerY = this.canvasHeight / 2;
-
-    context.save();
-    context.translate(centerX, centerY);
-
-    // Render shape
+    // Render shape (shape is already positioned at center)
     this.renderShape(context, this.currentShape.shape);
 
     // Render screws
@@ -71,8 +64,6 @@ export class ShapeEditorManager extends BaseEditorSystem {
     if (this.debugMode) {
       this.renderDebugInfo(context, this.currentShape.shape);
     }
-
-    context.restore();
   }
 
   protected onDestroy(): void {
@@ -396,6 +387,8 @@ export class ShapeEditorManager extends BaseEditorSystem {
   }
 
   private renderShape(context: CanvasRenderingContext2D, shape: Shape): void {
+    console.log('ShapeEditorManager: Rendering shape at', shape.position, 'type:', shape.type, 'radius:', shape.radius);
+    
     const renderContext = {
       ctx: context,
       canvas: context.canvas,

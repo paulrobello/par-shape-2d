@@ -196,10 +196,10 @@ export class EditorManager extends BaseEditorSystem {
         this.context.scale(dpr, dpr);
       }
 
-      // Emit resize event
+      // Emit resize event with logical dimensions (not scaled by dpr)
       this.emit({
         type: 'editor:canvas:resized',
-        payload: { width: newWidth, height: newHeight },
+        payload: { width: width, height: height },
       });
     };
     
