@@ -45,6 +45,9 @@ export class EditorManager extends BaseEditorSystem {
     this.propertyManager = new PropertyManager();
     this.shapeEditorManager = new ShapeEditorManager();
     this.physicsSimulator = new PhysicsSimulator();
+    
+    // Initialize with default theme to ensure canvas has proper background
+    this.currentTheme = null; // Will be set properly via setTheme
   }
 
   async initializeEditor(canvas: HTMLCanvasElement, container: HTMLElement): Promise<void> {

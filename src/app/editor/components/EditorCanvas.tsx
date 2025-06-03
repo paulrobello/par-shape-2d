@@ -26,6 +26,8 @@ export const EditorCanvas: React.FC = () => {
       try {
         manager = new EditorManager();
         await manager.initializeEditor(canvasRef.current, containerRef.current);
+        // Set theme immediately after initialization
+        manager.setTheme(theme);
         setEditorManager(manager);
         setIsInitialized(true);
       } catch (error) {
