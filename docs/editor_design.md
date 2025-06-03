@@ -158,9 +158,10 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Theme Interface**: Comprehensive EditorTheme interface covering all UI elements
 - **Light/Dark Themes**: Complete theme definitions with consistent color palettes
 - **Dynamic Switching**: Real-time theme updates when system preference changes
-- **Canvas Integration**: Canvas background color matches selected theme
+- **Canvas Integration**: Canvas background color matches selected theme with immediate initialization
 - **Component Theming**: All editor components (buttons, inputs, panels) use theme colors
 - **Consistent Colors**: Unified color scheme across entire editor interface
+- **Initialization Timing**: Theme applied immediately after EditorManager creation to prevent white background flash
 
 ### Shape Definition Editing
 - **Type-Safe Forms**: TypeScript interfaces ensure form validity
@@ -201,7 +202,8 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Debug Modes**: Toggle between normal and debug rendering
 - **Render Optimization**: Conditional rendering with needsRender flag
 - **Coordinate Translation**: Proper handling of logical vs physical pixels
-- **Theme Integration**: Canvas background adapts to current theme
+- **Theme Integration**: Canvas background adapts to current theme with immediate theme application during initialization
+- **Background Rendering**: Programmatic canvas background rendering using theme colors instead of CSS
 
 ## File Structure Integration
 
@@ -250,7 +252,7 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Canvas Interaction**: High-DPI display support with precise coordinate handling
 - **CSS Architecture**: Border properties use explicit longhand syntax to avoid conflicts
 - **Color Consistency**: Blue shapes (#007bff) and red screws maintained throughout all modes
-- **Canvas Background**: Light grey (#e9ecef) background for optimal shape visibility in both light and dark modes
+- **Canvas Background**: Light grey (#e9ecef) background for optimal shape visibility in both light and dark modes, applied programmatically during render
 - **Interaction States**: Screw manipulation is disabled during active physics simulation
 - **Theme Integration**: All UI elements adapt to system-preferred color scheme automatically
 

@@ -22,12 +22,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **Important:** After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.
 - Update any documentation affected by the changes.
 - Commit the changes to the current branch with an applicable commit message.
+- Always update documentation after lint and build passes and before commiting changes
 
 ## Architecture Overview
 
 This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. The game follows a **clean event-driven architecture** with complete decoupling between systems for optimal maintainability and testing.
 
-It has 2 parts, the game itself and a shape editor.
+It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection and proper physics simulation reset functionality.
 
 ## Matter.js Integration
 
