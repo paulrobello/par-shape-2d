@@ -92,7 +92,7 @@ export const lightTheme: EditorTheme = {
     info: '#007bff',
   },
   canvas: {
-    background: '#e9ecef',
+    background: '#1A252F',
     shape: '#007bff',
     screw: '#dc3545',
     indicator: '#6c757d',
@@ -137,7 +137,7 @@ export const darkTheme: EditorTheme = {
     info: '#0d6efd',
   },
   canvas: {
-    background: '#e9ecef',
+    background: '#1A252F',
     shape: '#0d6efd',
     screw: '#dc3545',
     indicator: '#a0a0a0',

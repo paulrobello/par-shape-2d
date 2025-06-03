@@ -350,36 +350,12 @@ export class ShapeEditorManager extends BaseEditorSystem {
     return Math.random() * (max - min) + min;
   }
 
-  private async createScrews(shape: Shape, _definition: ShapeDefinition): Promise<Screw[]> {
-    // For the editor, create basic screw positions (simplified)
-    void _definition;
+  private async createScrews(shape: Shape, definition: ShapeDefinition): Promise<Screw[]> {
     const screws: Screw[] = [];
     const screwColor = 'red'; // Always use red for screws
     
-    // Simple screw placement
-    let positions: Vector2[] = [];
-    
-    if (shape.radius) {
-      // Circle - place screws in a cross pattern
-      const margin = Math.min(20, shape.radius * 0.3);
-      const offset = shape.radius - margin;
-      positions = [
-        { x: shape.position.x + offset, y: shape.position.y },
-        { x: shape.position.x - offset, y: shape.position.y },
-        { x: shape.position.x, y: shape.position.y + offset },
-        { x: shape.position.x, y: shape.position.y - offset },
-      ];
-    } else if (shape.width && shape.height) {
-      // Rectangle - place at corners
-      const marginX = Math.min(20, shape.width * 0.2);
-      const marginY = Math.min(20, shape.height * 0.2);
-      positions = [
-        { x: shape.position.x - shape.width/2 + marginX, y: shape.position.y - shape.height/2 + marginY },
-        { x: shape.position.x + shape.width/2 - marginX, y: shape.position.y - shape.height/2 + marginY },
-        { x: shape.position.x - shape.width/2 + marginX, y: shape.position.y + shape.height/2 - marginY },
-        { x: shape.position.x + shape.width/2 - marginX, y: shape.position.y + shape.height/2 - marginY },
-      ];
-    }
+    // Use the same positioning logic as the indicators
+    const positions = this.calculatePotentialScrewPositions(shape, definition);
     
     for (let i = 0; i < positions.length; i++) {
       const screw = new Screw(

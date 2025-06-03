@@ -110,6 +110,7 @@ src/editor/
   - **Capsule**: Strategic positions for capsule-shaped objects
 - **Real-time Feedback**: Indicators hide when screws are placed at those positions
 - **Interactive Editing**: Click empty indicators to add screws, click existing screws to remove
+- **Position Alignment**: Screw positions and placement indicators use consistent calculation logic
 
 ### 5. Physics Simulation
 - **Simulation Controls**: Start/Pause/Reset physics simulation with proper state management
@@ -178,6 +179,7 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Interactive Tools**: Click-based add/remove with precise hit detection (15px radius)
 - **Event-Driven Updates**: All screw changes trigger re-render events for immediate feedback
 - **Strategy Calculations**: Algorithm implementations for corners, perimeter, grid, custom, and capsule strategies
+- **Positioning Consistency**: Screw positions and indicators use identical strategy-based calculation logic
 
 ### Physics Integration
 - **Isolated PhysicsWorld**: Editor has its own PhysicsWorld instance with proper boundaries
