@@ -74,6 +74,11 @@ export class RectangleTool extends BaseTool {
     void key; // Using key to avoid unused parameter warning
   }
 
+  protected onWheel(deltaY: number): void {
+    // RectangleTool doesn't use mouse wheel
+    void deltaY; // Using deltaY to avoid unused parameter warning
+  }
+
   protected onDrawingStart(point: Point): void {
     // First click sets the first corner
     this.drawingData = {

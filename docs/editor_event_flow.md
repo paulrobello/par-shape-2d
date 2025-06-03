@@ -204,10 +204,11 @@ PropertyPanel updates form fields with new values
 - **Error Events**: 3 events for comprehensive error handling
 
 ### Phase 2 Event Implementation
-**✅ Active Phase 2 Events (12/12)**: All new events are actively used
-- Drawing events coordinate tool selection, drawing progress, and shape creation
+**✅ Active Phase 2 Events (12/12)**: All new events are actively used across all drawing tools
+- Drawing events coordinate tool selection, drawing progress, and shape creation for all 6 tools
 - Grid events manage visibility, size, snapping, and coordinate transformation
 - Mode switching events handle transitions between edit and create modes
+- All Phase 2C tools (PolygonTool, CapsuleTool, PathTool) fully integrated with event system
 
 ### Event Implementation Analysis
 **✅ Active Events (35/39)**: Events that are both emitted and subscribed to
@@ -218,12 +219,14 @@ PropertyPanel updates form fields with new values
 - `editor:mode:changed` (replaced by `editor:drawing:mode:changed` in Phase 2)
 
 ### Event Usage Statistics
-- **Total Event Emissions**: 60+ instances across 15 files
+- **Total Event Emissions**: 75+ instances across 18 files (increased with Phase 2C tools)
 - **Total Event Subscriptions**: 50+ instances across 9 systems
 - **Most Active Phase 2 Events**: 
-  - `editor:drawing:preview:updated` (continuous during drawing)
+  - `editor:drawing:preview:updated` (continuous during drawing for all 6 tools)
   - `editor:tool:selected` (mode and UI updates)
   - `editor:grid:coordinate:snapped` (every mouse move with grid snap)
+  - `editor:drawing:progress` (multi-step tools like CapsuleTool and PathTool)
+  - `editor:drawing:state:changed` (state machine updates for complex workflows)
 
 ### Key Architecture Benefits
 1. **Complete Decoupling**: No direct system dependencies

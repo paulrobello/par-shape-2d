@@ -145,14 +145,21 @@ export class ShapeEditorManager extends BaseEditorSystem {
       // Create appropriate physics body based on shape type
       let body: Body;
       let shapeType: string;
-      let shapeDimensions: { width?: number; height?: number; radius?: number } = {};
+      let shapeDimensions: { width?: number; height?: number; radius?: number; sides?: number } = {};
       
-      if (definition.physics.type === 'circle' || dimensions.radius) {
+      if (definition.physics.type === 'circle') {
         // Circle shape
         const radius = dimensions.radius || 50;
         body = Bodies.circle(centerX, centerY, radius);
         shapeType = 'circle';
         shapeDimensions = { radius };
+      } else if (definition.physics.type === 'polygon' && dimensions.radius && dimensions.sides) {
+        // Polygon shape
+        const radius = dimensions.radius;
+        const sides = dimensions.sides;
+        body = Bodies.polygon(centerX, centerY, sides, radius);
+        shapeType = 'polygon';
+        shapeDimensions = { radius, sides };
       } else {
         // Rectangle/other shapes
         const finalWidth = dimensions.width || 100;
@@ -228,14 +235,21 @@ export class ShapeEditorManager extends BaseEditorSystem {
       // Create appropriate physics body based on shape type
       let body: Body;
       let shapeType: string;
-      let shapeDimensions: { width?: number; height?: number; radius?: number } = {};
+      let shapeDimensions: { width?: number; height?: number; radius?: number; sides?: number } = {};
       
-      if (definition.physics.type === 'circle' || dimensions.radius) {
+      if (definition.physics.type === 'circle') {
         // Circle shape
         const radius = dimensions.radius || 50;
         body = Bodies.circle(centerX, centerY, radius);
         shapeType = 'circle';
         shapeDimensions = { radius };
+      } else if (definition.physics.type === 'polygon' && dimensions.radius && dimensions.sides) {
+        // Polygon shape
+        const radius = dimensions.radius;
+        const sides = dimensions.sides;
+        body = Bodies.polygon(centerX, centerY, sides, radius);
+        shapeType = 'polygon';
+        shapeDimensions = { radius, sides };
       } else {
         // Rectangle/other shapes
         const finalWidth = dimensions.width || 100;
@@ -306,7 +320,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
     }
   }
 
-  private generateDimensions(definition: ShapeDefinition): { width?: number; height?: number; radius?: number } {
+  private generateDimensions(definition: ShapeDefinition): { width?: number; height?: number; radius?: number; sides?: number } {
     const dimensions = definition.dimensions;
     
     if (dimensions.type === 'random') {
@@ -319,6 +333,10 @@ export class ShapeEditorManager extends BaseEditorSystem {
           result.radius = dimensions.radius;
         } else {
           result.radius = this.randomInRange(dimensions.radius.min, dimensions.radius.max);
+        }
+        // Include sides for polygons
+        if (dimensions.sides) {
+          result.sides = dimensions.sides as number;
         }
         result.width = 0;
         result.height = 0;
@@ -347,6 +365,10 @@ export class ShapeEditorManager extends BaseEditorSystem {
       
       if (dimensions.radius) {
         result.radius = dimensions.radius as number;
+        // Include sides for polygons
+        if (dimensions.sides) {
+          result.sides = dimensions.sides as number;
+        }
         result.width = 0;
         result.height = 0;
       } else {
@@ -732,7 +754,23 @@ export class ShapeEditorManager extends BaseEditorSystem {
     const positions: Vector2[] = [];
     const margin = definition.screwPlacement.cornerMargin || 20;
     
-    if (shape.radius) {
+    if (shape.radius && shape.sides) {
+      // Polygon - calculate actual corner positions using the SAME formula as Shape.createPolygonPath()
+      const radius = shape.radius;
+      const sides = shape.sides;
+      
+      for (let i = 0; i < sides; i++) {
+        // Use the exact same angle calculation as in Shape.createPolygonPath()
+        // This ensures screws are positioned at the actual polygon vertices
+        const angle = (i * Math.PI * 2) / sides + (Math.PI / sides);
+        // Position screws slightly inward from the actual vertices
+        const screwRadius = radius - margin;
+        positions.push({
+          x: shape.position.x + Math.cos(angle) * screwRadius,
+          y: shape.position.y + Math.sin(angle) * screwRadius
+        });
+      }
+    } else if (shape.radius && !shape.sides) {
       // Circle - use cross pattern
       const offset = shape.radius - margin;
       positions.push(
@@ -762,10 +800,20 @@ export class ShapeEditorManager extends BaseEditorSystem {
     const margin = definition.screwPlacement.perimeterMargin || 20;
     
     if (shape.radius) {
-      // Circle perimeter
+      // Circle or Polygon perimeter - both use circular distribution
       const radius = shape.radius - margin;
+      
       for (let i = 0; i < points; i++) {
-        const angle = (i / points) * Math.PI * 2;
+        let angle;
+        if (shape.sides) {
+          // For polygons, use the same orientation as the polygon vertices
+          // But distribute points evenly around the perimeter
+          angle = (i * Math.PI * 2) / points + (Math.PI / shape.sides);
+        } else {
+          // For circles, start from the right (0 radians)
+          angle = (i * Math.PI * 2) / points;
+        }
+        
         positions.push({
           x: shape.position.x + Math.cos(angle) * radius,
           y: shape.position.y + Math.sin(angle) * radius

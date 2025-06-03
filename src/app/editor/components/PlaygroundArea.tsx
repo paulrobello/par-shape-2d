@@ -57,6 +57,16 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
     editorManager.handleCanvasKeyDown(event.key);
   }, [editorManager]);
 
+  const handleCanvasWheel = useCallback((event: React.WheelEvent<HTMLCanvasElement>) => {
+    if (!editorManager) return;
+    
+    // Prevent default scroll behavior
+    event.preventDefault();
+    
+    // Pass the deltaY value to the editor manager
+    editorManager.handleCanvasWheel(event.deltaY);
+  }, [editorManager]);
+
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -67,10 +77,15 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
     const clickHandler = (e: Event) => handleCanvasClick(e as unknown as React.MouseEvent<HTMLCanvasElement>);
     const mouseMoveHandler = (e: Event) => handleCanvasMouseMove(e as unknown as React.MouseEvent<HTMLCanvasElement>);
     const mouseUpHandler = (e: Event) => handleCanvasMouseUp(e as unknown as React.MouseEvent<HTMLCanvasElement>);
+    const wheelHandler = (e: WheelEvent) => {
+      e.preventDefault(); // Prevent page scroll
+      handleCanvasWheel(e as unknown as React.WheelEvent<HTMLCanvasElement>);
+    };
     
     canvas.addEventListener('click', clickHandler);
     canvas.addEventListener('mousemove', mouseMoveHandler);
     canvas.addEventListener('mouseup', mouseUpHandler);
+    canvas.addEventListener('wheel', wheelHandler, { passive: false }); // passive: false allows preventDefault
     
     // Add keyboard listener to window (canvas can't capture key events)
     window.addEventListener('keydown', handleKeyDown);
@@ -85,9 +100,10 @@ export const PlaygroundArea: React.FC<PlaygroundAreaProps> = ({
       canvas.removeEventListener('click', clickHandler);
       canvas.removeEventListener('mousemove', mouseMoveHandler);
       canvas.removeEventListener('mouseup', mouseUpHandler);
+      canvas.removeEventListener('wheel', wheelHandler);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [handleCanvasClick, handleCanvasMouseMove, handleCanvasMouseUp, handleKeyDown, canvasRef, editorManager]);
+  }, [handleCanvasClick, handleCanvasMouseMove, handleCanvasMouseUp, handleKeyDown, handleCanvasWheel, canvasRef, editorManager]);
 
   return (
     <div 

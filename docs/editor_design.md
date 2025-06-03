@@ -70,7 +70,10 @@ src/editor/
 │   │   ├── BaseTool.ts          # Abstract base for all drawing tools
 │   │   ├── SelectTool.ts        # Default selection tool (Phase 1 mode)
 │   │   ├── CircleTool.ts        # Circle drawing tool
-│   │   └── RectangleTool.ts     # Rectangle drawing tool
+│   │   ├── RectangleTool.ts     # Rectangle drawing tool
+│   │   ├── PolygonTool.ts       # Polygon drawing tool (Phase 2C)
+│   │   ├── CapsuleTool.ts       # Capsule drawing tool (Phase 2C)
+│   │   └── PathTool.ts          # Path drawing tool (Phase 2C)
 │   └── utils/
 │       └── PreviewRenderer.ts   # Drawing preview utilities
 ├── events/
@@ -324,12 +327,28 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   - Dimension display (radius for circles, width×height for rectangles)
   - Proper ESC key cancellation with preview clearing
 
-### 🔄 Phase 2C - Advanced Tools (Not Yet Implemented)
-- **PolygonTool**: Configurable sides with center → radius workflow
-- **CapsuleTool**: Three-step workflow (end → end → thickness)
-- **PathTool**: Multi-point workflow with path closing
-- **SquareTool**: Specialized rectangle tool with aspect ratio lock
-- **Visual Polish**: Enhanced cursors, tooltips, and feedback
+### ✅ Phase 2C - Advanced Tools (Implemented)
+- **PolygonTool**: 
+  - Center → radius workflow with configurable sides (3-12 range, defaults to 6)
+  - **Interactive Mouse Wheel Control**: Scroll to change sides during creation (scroll up = more sides, scroll down = fewer sides)
+  - Real-time preview with proper polygon geometry calculation and visual feedback
+  - Creates polygon category shapes with primitive rendering
+  - Integrated with grid snapping and ESC cancellation
+  
+- **CapsuleTool**: 
+  - Three-step workflow (end → end → thickness)
+  - Complex preview rendering showing capsule evolution
+  - Creates composite category shapes with simplified positioning
+  - Thickness calculation based on perpendicular distance from center line
+  
+- **PathTool**: 
+  - Multi-point workflow with dynamic point addition
+  - Path closing detection (click first point when ≥3 points)
+  - Visual feedback for closing opportunity with red highlight
+  - Automatic path string generation for fromVertices physics
+  - Creates path category shapes with decomposition support
+  
+- **Visual Polish**: Enhanced drawing state feedback and dimension displays
 
 ## System Behavior
 
@@ -414,24 +433,35 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Screw Position Alignment**: Placement indicators and actual screws use identical strategy-based positioning logic
 - **Streamlined UI**: Combined start/pause controls with single toggle button interface for better usability
 
-### ✅ Phase 2A & 2B - Shape Creation Foundation (Implemented)
+### ✅ Phase 2A, 2B & 2C - Complete Shape Creation System (Fully Implemented)
 - **Extended Event System**: Grown from 27 to 39 events with 12 new Phase 2 events
 - **Grid System**: Fully functional grid with configurable size, visibility toggle, and snap-to-grid
 - **Drawing Tool Architecture**: Modular tool system with BaseTool abstract class and tool manager
 - **Drawing State Management**: Complete session tracking and multi-step workflow support
 - **Mode Switching**: Clean separation between "edit" mode (Phase 1) and "create" mode (Phase 2)
-- **Basic Drawing Tools**: SelectTool (Phase 1 mode), CircleTool, and RectangleTool implemented
+- **Complete Drawing Tools**: All 6 tools implemented and functional:
+  - **SelectTool** (Phase 1 mode): Edit mode for screw manipulation and property editing
+  - **CircleTool**: Center → radius workflow with real-time preview
+  - **RectangleTool**: Corner → corner workflow with dimension validation
+  - **PolygonTool**: Center → radius workflow with interactive mouse wheel control for sides (3-12)
+  - **CapsuleTool**: Three-step workflow (end → end → thickness)
+  - **PathTool**: Multi-point workflow with path closing detection
 - **Preview System**: Real-time preview rendering with consistent styling across all tools
 - **UI Integration**: ToolPalette in toolbar, GridControls in property panel, DrawingOverlay for feedback
 - **Coordinate System**: Proper grid snapping and high-DPI coordinate transformation
+- **Shape Generation**: All tools create proper ShapeDefinition objects for seamless integration
 
-### 🔄 Phase 2C - Advanced Tools (Pending)
-- **PolygonTool**: Configurable sides with center → radius workflow
-- **CapsuleTool**: Three-step workflow (end → end → thickness)
-- **PathTool**: Multi-point workflow with path closing detection
-- **Visual Polish**: Enhanced cursors, tooltips, and advanced user feedback
+### ✅ Phase 2C - Advanced Tools (Completed)
+- **PolygonTool**: Configurable sides with center → radius workflow - fully implemented
+- **CapsuleTool**: Three-step workflow (end → end → thickness) - fully implemented
+- **PathTool**: Multi-point workflow with path closing detection - fully implemented
+- **Visual Polish**: Enhanced drawing state feedback and dimension displays - implemented
+- **Tool Integration**: All tools registered and working with existing event system
+
+### 🔄 Future Enhancements (Optional)
 - **Advanced Shape Creation**: Vertex editing and shape modification tools
 - **Export Enhancements**: Multiple format support and batch operations
+- **PolygonTool UI**: Property panel control for configuring polygon sides count
 
 ## Phase 2 Architecture Details
 
@@ -466,6 +496,13 @@ Proper coordinate handling across all systems:
 - **High-DPI Support**: Canvas scaling properly handled in all drawing operations
 - **Event Coordinates**: All mouse events transformed to logical canvas coordinates
 - **Preview Rendering**: Consistent coordinate system for preview overlays
+
+### Interactive Input Handling
+Enhanced user interaction across all drawing tools:
+- **Mouse Wheel Support**: PolygonTool responds to scroll events for dynamic sides adjustment (3-12 range)
+- **Keyboard Controls**: ESC cancellation support for all drawing operations
+- **Click Workflows**: Multi-step drawing processes with visual state feedback
+- **Real-time Preview**: Immediate visual response to all user input including wheel events
 
 ---
 

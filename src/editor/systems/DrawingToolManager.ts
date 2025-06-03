@@ -204,6 +204,15 @@ export class DrawingToolManager extends BaseEditorSystem {
   }
 
   /**
+   * Handle mouse wheel event for the active tool
+   */
+  public handleWheel(deltaY: number): void {
+    if (this.activeTool) {
+      this.activeTool.handleWheel(deltaY);
+    }
+  }
+
+  /**
    * Render the active tool's preview
    */
   public render(ctx: CanvasRenderingContext2D): void {

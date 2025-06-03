@@ -75,9 +75,9 @@ Example workflow:
 2. Read file_path: "/path/to/screenshot.png"
 ```
 
-## Shape Editor - Phase 2 Drawing System
+## Shape Editor - Complete Phase 2 Drawing System
 
-The Shape Editor now includes a comprehensive drawing system for creating new shapes:
+The Shape Editor includes a fully implemented drawing system for creating new shapes with all advanced tools:
 
 ### Drawing Architecture
 - **Tool-based System**: Modular architecture with `BaseTool` abstract class for all drawing tools
@@ -91,10 +91,13 @@ The editor event system has been extended from 27 to 39 events to support drawin
 - **Drawing Tool Events**: Tool selection, drawing state changes, preview updates
 - **Grid System Events**: Grid visibility, size changes, snap toggle, coordinate snapping
 
-### Implemented Drawing Tools
+### Implemented Drawing Tools (Complete)
 - **SelectTool**: Default tool that activates "edit" mode for Phase 1 functionality
 - **CircleTool**: Center → radius workflow with real-time preview
 - **RectangleTool**: Corner → corner workflow with minimum size validation
+- **PolygonTool**: Center → radius workflow with configurable sides (3-12 range)
+- **CapsuleTool**: Three-step workflow (end → end → thickness) with complex preview
+- **PathTool**: Multi-point workflow with path closing detection and visual feedback
 
 ### Working with Drawing Tools
 When implementing new drawing tools:

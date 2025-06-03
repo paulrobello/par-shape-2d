@@ -524,7 +524,35 @@ export class ShapeFactory {
   }
 
   private static getShapeType(definition: ShapeDefinition): ShapeType {
-    // Map definition IDs to ShapeTypes
+    // First try to map based on physics type for better accuracy
+    if (definition.physics.type === 'polygon') {
+      return 'polygon';
+    }
+    if (definition.physics.type === 'circle') {
+      return 'circle';
+    }
+    if (definition.physics.type === 'rectangle') {
+      return 'rectangle';
+    }
+    if (definition.physics.type === 'composite') {
+      return 'capsule'; // Assuming composites are capsules for now
+    }
+    if (definition.physics.type === 'fromVertices') {
+      // Map based on definition ID for path-based shapes
+      if (definition.id.includes('arrow')) return 'arrow';
+      if (definition.id.includes('chevron')) return 'chevron';
+      if (definition.id.includes('star')) return 'star';
+      if (definition.id.includes('horseshoe')) return 'horseshoe';
+      // For custom path shapes created in editor, check the name too
+      if (definition.name && definition.name.toLowerCase().includes('arrow')) return 'arrow';
+      if (definition.name && definition.name.toLowerCase().includes('chevron')) return 'chevron';
+      if (definition.name && definition.name.toLowerCase().includes('star')) return 'star';
+      if (definition.name && definition.name.toLowerCase().includes('horseshoe')) return 'horseshoe';
+      // For generic custom path shapes, use star as fallback since it has good path rendering
+      return 'star'; // Fallback for path-based shapes
+    }
+    
+    // Fallback: Map definition IDs to ShapeTypes for backwards compatibility
     const typeMapping: Record<string, ShapeType> = {
       'rectangle': 'rectangle',
       'square': 'polygon',

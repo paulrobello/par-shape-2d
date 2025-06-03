@@ -10,6 +10,9 @@ import { DrawingStateManager } from '../systems/DrawingStateManager';
 import { SelectTool } from '../drawing/tools/SelectTool';
 import { CircleTool } from '../drawing/tools/CircleTool';
 import { RectangleTool } from '../drawing/tools/RectangleTool';
+import { PolygonTool } from '../drawing/tools/PolygonTool';
+import { CapsuleTool } from '../drawing/tools/CapsuleTool';
+import { PathTool } from '../drawing/tools/PathTool';
 import { EditorEventPriority } from './EditorEventBus';
 import { EditorTheme } from '../utils/theme';
 import { 
@@ -472,6 +475,11 @@ export class EditorManager extends BaseEditorSystem {
     this.drawingToolManager.handleKeyDown(key);
   }
 
+  handleCanvasWheel(deltaY: number): void {
+    // Delegate to drawing tool manager for mouse wheel events
+    this.drawingToolManager.handleWheel(deltaY);
+  }
+
   setTheme(theme: EditorTheme): void {
     this.currentTheme = theme;
     this.needsRender = true;
@@ -482,10 +490,16 @@ export class EditorManager extends BaseEditorSystem {
     const selectTool = new SelectTool();
     const circleTool = new CircleTool();
     const rectangleTool = new RectangleTool();
+    const polygonTool = new PolygonTool();
+    const capsuleTool = new CapsuleTool();
+    const pathTool = new PathTool();
 
     this.drawingToolManager.registerTool(selectTool);
     this.drawingToolManager.registerTool(circleTool);
     this.drawingToolManager.registerTool(rectangleTool);
+    this.drawingToolManager.registerTool(polygonTool);
+    this.drawingToolManager.registerTool(capsuleTool);
+    this.drawingToolManager.registerTool(pathTool);
 
     // Select the default tool (circle tool for create mode)
     this.drawingToolManager.selectTool('circle');

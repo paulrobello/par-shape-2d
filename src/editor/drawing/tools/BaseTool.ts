@@ -141,6 +141,15 @@ export abstract class BaseTool extends BaseEditorSystem {
   }
 
   /**
+   * Handle mouse wheel event
+   */
+  public handleWheel(deltaY: number): void {
+    if (!this.isActive) return;
+
+    this.onWheel(deltaY);
+  }
+
+  /**
    * Start a new drawing operation
    */
   protected startDrawing(point: Point): void {
@@ -274,6 +283,7 @@ export abstract class BaseTool extends BaseEditorSystem {
   protected abstract onDeactivate(): void;
   protected abstract onMouseUp(point: Point): void;
   protected abstract onKeyDown(key: string): void;
+  protected abstract onWheel(deltaY: number): void;
   protected abstract onDrawingStart(point: Point): void;
   protected abstract onDrawingProgress(point: Point): { 
     completed?: boolean; 
