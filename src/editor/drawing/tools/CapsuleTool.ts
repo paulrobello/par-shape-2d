@@ -490,22 +490,34 @@ export class CapsuleTool extends BaseTool {
           // Top line
           ctx.lineTo(p2.x, p2.y);
           
-          // Right semicircle - draw it using a simple approach
-          // We know we want to go from the top point around the outside to the bottom point
-          // Since we're at the right end, we want to arc from top to bottom going clockwise
-          ctx.arc(secondEnd.x, secondEnd.y, radius, 
-            Math.atan2(perpY, perpX),      // Start at top (perpendicular angle)
-            Math.atan2(-perpY, -perpX),     // End at bottom (opposite perpendicular)
-            false);                         // Clockwise
+          // Draw the capsule using a manual approach with multiple arc segments
+          // Right end - draw semicircle in segments to ensure it goes outward
+          const segments = 10;
+          for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * Math.PI; // 0 to PI
+            const x = secondEnd.x + Math.cos(Math.atan2(perpY, perpX) - angle) * radius;
+            const y = secondEnd.y + Math.sin(Math.atan2(perpY, perpX) - angle) * radius;
+            if (i === 0) {
+              // Already at p2, just continue
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
           
           // Bottom line
           ctx.lineTo(p4.x, p4.y);
           
-          // Left semicircle - from bottom to top going clockwise
-          ctx.arc(firstEnd.x, firstEnd.y, radius,
-            Math.atan2(-perpY, -perpX),     // Start at bottom
-            Math.atan2(perpY, perpX),       // End at top
-            false);                         // Clockwise
+          // Left end - draw semicircle in segments
+          for (let i = 0; i <= segments; i++) {
+            const angle = (i / segments) * Math.PI; // 0 to PI
+            const x = firstEnd.x + Math.cos(Math.atan2(-perpY, -perpX) - angle) * radius;
+            const y = firstEnd.y + Math.sin(Math.atan2(-perpY, -perpX) - angle) * radius;
+            if (i === 0) {
+              // Already at p4, just continue
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
           
           ctx.closePath();
           ctx.fill();
