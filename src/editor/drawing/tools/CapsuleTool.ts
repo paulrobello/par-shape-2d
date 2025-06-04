@@ -479,10 +479,9 @@ export class CapsuleTool extends BaseTool {
           const perpX = -unitY;
           const perpY = unitX;
           
-          // Calculate all four corner points explicitly
+          // Calculate the four corner points we need
           const p1 = { x: firstEnd.x + perpX * radius, y: firstEnd.y + perpY * radius };      // top-left
           const p2 = { x: secondEnd.x + perpX * radius, y: secondEnd.y + perpY * radius };    // top-right
-          const p3 = { x: secondEnd.x - perpX * radius, y: secondEnd.y - perpY * radius };    // bottom-right
           const p4 = { x: firstEnd.x - perpX * radius, y: firstEnd.y - perpY * radius };      // bottom-left
           
           // Start at top-left
@@ -491,18 +490,22 @@ export class CapsuleTool extends BaseTool {
           // Top line
           ctx.lineTo(p2.x, p2.y);
           
-          // Right semicircle
-          const rightStartAngle = Math.atan2(p2.y - secondEnd.y, p2.x - secondEnd.x);
-          const rightEndAngle = Math.atan2(p3.y - secondEnd.y, p3.x - secondEnd.x);
-          ctx.arc(secondEnd.x, secondEnd.y, radius, rightStartAngle, rightEndAngle, false);
+          // Right semicircle - draw it using a simple approach
+          // We know we want to go from the top point around the outside to the bottom point
+          // Since we're at the right end, we want to arc from top to bottom going clockwise
+          ctx.arc(secondEnd.x, secondEnd.y, radius, 
+            Math.atan2(perpY, perpX),      // Start at top (perpendicular angle)
+            Math.atan2(-perpY, -perpX),     // End at bottom (opposite perpendicular)
+            false);                         // Clockwise
           
           // Bottom line
           ctx.lineTo(p4.x, p4.y);
           
-          // Left semicircle
-          const leftStartAngle = Math.atan2(p4.y - firstEnd.y, p4.x - firstEnd.x);
-          const leftEndAngle = Math.atan2(p1.y - firstEnd.y, p1.x - firstEnd.x);
-          ctx.arc(firstEnd.x, firstEnd.y, radius, leftStartAngle, leftEndAngle, false);
+          // Left semicircle - from bottom to top going clockwise
+          ctx.arc(firstEnd.x, firstEnd.y, radius,
+            Math.atan2(-perpY, -perpX),     // Start at bottom
+            Math.atan2(perpY, perpX),       // End at top
+            false);                         // Clockwise
           
           ctx.closePath();
           ctx.fill();
