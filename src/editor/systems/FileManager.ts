@@ -2,6 +2,7 @@ import { BaseEditorSystem } from '../core/BaseEditorSystem';
 import { ShapeDefinition } from '@/types/shapes';
 import { EditorEventPriority } from '../core/EditorEventBus';
 import { EditorFileLoadRequestedEvent, EditorFileSaveRequestedEvent } from '../events/EditorEventTypes';
+import { ShapeValidator } from '@/shared/validation';
 
 /**
  * Manages file operations for shape definitions
@@ -46,20 +47,8 @@ export class FileManager extends BaseEditorSystem {
     try {
       const text = await this.readFileAsText(file);
       console.log('FileManager: File read successfully, parsing JSON...');
+      // parseShapeDefinition now handles validation internally
       const shapeDefinition = this.parseShapeDefinition(text);
-      
-      // Validate the shape definition
-      const validationErrors = this.validateShapeDefinition(shapeDefinition as unknown as Record<string, unknown>);
-      if (validationErrors.length > 0) {
-        await this.emit({
-          type: 'editor:file:validation:failed',
-          payload: {
-            errors: validationErrors,
-            filename: file.name,
-          },
-        });
-        return;
-      }
 
       // Emit successful load
       await this.emit({
@@ -115,85 +104,30 @@ export class FileManager extends BaseEditorSystem {
   }
 
   private parseShapeDefinition(text: string): ShapeDefinition {
-    try {
-      const parsed = JSON.parse(text);
-      return parsed as ShapeDefinition;
-    } catch {
-      throw new Error('Invalid JSON format');
-    }
-  }
-
-  private validateShapeDefinition(shape: Record<string, unknown>): string[] {
-    const errors: string[] = [];
-
-    // Required fields
-    if (!shape.id || typeof shape.id !== 'string') {
-      errors.push('Missing or invalid "id" field');
-    }
-    if (!shape.name || typeof shape.name !== 'string') {
-      errors.push('Missing or invalid "name" field');
-    }
-    if (!shape.category || typeof shape.category !== 'string') {
-      errors.push('Missing or invalid "category" field');
-    }
-    if (typeof shape.enabled !== 'boolean') {
-      errors.push('Missing or invalid "enabled" field');
+    const validationResult = ShapeValidator.validateFromJson(text);
+    
+    if (!validationResult.isValid) {
+      const errorMessage = validationResult.errors.length > 0 
+        ? validationResult.errors.join('; ') 
+        : 'Unknown validation error';
+      throw new Error(`Shape validation failed: ${errorMessage}`);
     }
 
-    // Dimensions
-    if (!shape.dimensions || typeof shape.dimensions !== 'object') {
-      errors.push('Missing or invalid "dimensions" field');
-    } else {
-      const dimensions = shape.dimensions as Record<string, unknown>;
-      if (!dimensions.type || !['fixed', 'random'].includes(dimensions.type as string)) {
-        errors.push('Invalid dimensions.type - must be "fixed" or "random"');
-      }
+    if (!validationResult.validatedShape) {
+      throw new Error('Failed to parse shape definition');
     }
 
-    // Physics
-    if (!shape.physics || typeof shape.physics !== 'object') {
-      errors.push('Missing or invalid "physics" field');
-    } else {
-      const physics = shape.physics as Record<string, unknown>;
-      const validPhysicsTypes = ['rectangle', 'circle', 'polygon', 'fromVertices', 'composite'];
-      if (!physics.type || !validPhysicsTypes.includes(physics.type as string)) {
-        errors.push(`Invalid physics.type - must be one of: ${validPhysicsTypes.join(', ')}`);
-      }
+    // Log applied defaults for user awareness
+    if (validationResult.appliedDefaults && validationResult.appliedDefaults.length > 0) {
+      console.log('Applied defaults to shape:', validationResult.appliedDefaults);
     }
 
-    // Rendering
-    if (!shape.rendering || typeof shape.rendering !== 'object') {
-      errors.push('Missing or invalid "rendering" field');
-    } else {
-      const rendering = shape.rendering as Record<string, unknown>;
-      const validRenderingTypes = ['primitive', 'path', 'composite'];
-      if (!rendering.type || !validRenderingTypes.includes(rendering.type as string)) {
-        errors.push(`Invalid rendering.type - must be one of: ${validRenderingTypes.join(', ')}`);
-      }
+    // Log warnings if any
+    if (validationResult.warnings && validationResult.warnings.length > 0) {
+      console.warn('Shape validation warnings:', validationResult.warnings.join('; '));
     }
 
-    // Screw placement
-    if (!shape.screwPlacement || typeof shape.screwPlacement !== 'object') {
-      errors.push('Missing or invalid "screwPlacement" field');
-    } else {
-      const screwPlacement = shape.screwPlacement as Record<string, unknown>;
-      const validStrategies = ['corners', 'perimeter', 'grid', 'custom', 'capsule'];
-      if (!screwPlacement.strategy || !validStrategies.includes(screwPlacement.strategy as string)) {
-        errors.push(`Invalid screwPlacement.strategy - must be one of: ${validStrategies.join(', ')}`);
-      }
-    }
-
-    // Visual
-    if (!shape.visual || typeof shape.visual !== 'object') {
-      errors.push('Missing or invalid "visual" field');
-    }
-
-    // Behavior
-    if (!shape.behavior || typeof shape.behavior !== 'object') {
-      errors.push('Missing or invalid "behavior" field');
-    }
-
-    return errors;
+    return validationResult.validatedShape;
   }
 
   private async downloadFile(content: string, filename: string, mimeType: string): Promise<void> {
@@ -241,13 +175,13 @@ export class FileManager extends BaseEditorSystem {
    */
   async loadShapeFromDefinition(shapeDefinition: ShapeDefinition): Promise<void> {
     try {
-      // Validate the shape definition
-      const validationErrors = this.validateShapeDefinition(shapeDefinition as unknown as Record<string, unknown>);
-      if (validationErrors.length > 0) {
+      // Validate the shape definition using shared validator
+      const validationResult = ShapeValidator.validateWithDefaults(shapeDefinition);
+      if (!validationResult.isValid) {
         await this.emit({
           type: 'editor:file:validation:failed',
           payload: {
-            errors: validationErrors,
+            errors: validationResult.errors,
             filename: shapeDefinition.name || 'Created Shape',
           },
         });

@@ -8,6 +8,7 @@ import {
   EditorPropertyRandomRequestedEvent,
   EditorPropertyResetRequestedEvent
 } from '../events/EditorEventTypes';
+import { ShapeValidator } from '@/shared/validation';
 
 interface PropertyValidationRule {
   required?: boolean;
@@ -433,7 +434,18 @@ export class PropertyManager extends BaseEditorSystem {
   }
 
   // Public API
-  validateShape(shape: ShapeDefinition): { isValid: boolean; errors: string[] } {
+  validateShape(shape: ShapeDefinition, useSharedValidator: boolean = false): { isValid: boolean; errors: string[] } {
+    if (useSharedValidator) {
+      // Use shared comprehensive validator
+      const validationResult = ShapeValidator.validateWithDefaults(shape);
+      
+      return {
+        isValid: validationResult.isValid,
+        errors: validationResult.errors,
+      };
+    }
+
+    // Use local field-by-field validation for real-time form validation
     const errors: string[] = [];
     
     // Validate all paths in the shape
@@ -442,6 +454,28 @@ export class PropertyManager extends BaseEditorSystem {
     return {
       isValid: errors.length === 0,
       errors,
+    };
+  }
+
+  /**
+   * Comprehensive validation using shared validator
+   * Returns validation result with applied defaults
+   */
+  validateShapeComprehensive(shape: ShapeDefinition): {
+    isValid: boolean;
+    errors: string[];
+    warnings?: string[];
+    validatedShape?: ShapeDefinition;
+    appliedDefaults?: string[];
+  } {
+    const validationResult = ShapeValidator.validateWithDefaults(shape);
+    
+    return {
+      isValid: validationResult.isValid,
+      errors: validationResult.errors,
+      warnings: validationResult.warnings,
+      validatedShape: validationResult.validatedShape,
+      appliedDefaults: validationResult.appliedDefaults,
     };
   }
 

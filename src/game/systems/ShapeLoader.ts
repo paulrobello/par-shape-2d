@@ -1,4 +1,5 @@
-import { ShapeDefinition, LoadedShapeDefinitions } from '@/types/shapes';
+import { LoadedShapeDefinitions } from '@/types/shapes';
+import { ShapeValidator } from '@/shared/validation';
 
 // Import all shape JSON files
 import circleJson from '@/data/shapes/basic/circle.json';
@@ -38,8 +39,29 @@ export class ShapeLoader {
     // Load and validate each shape definition
     for (const [id, definition] of Object.entries(this.SHAPE_DEFINITIONS)) {
       try {
-        const validatedDefinition = this.validateShapeDefinition(definition);
-        definitions[id] = validatedDefinition;
+        const validationResult = ShapeValidator.validateWithDefaults(definition);
+        
+        if (!validationResult.isValid) {
+          console.error(`Invalid shape definition for ${id}:`, validationResult.errors.join(', '));
+          continue;
+        }
+
+        if (!validationResult.validatedShape) {
+          console.error(`Failed to validate shape definition for ${id}: no validated shape returned`);
+          continue;
+        }
+
+        definitions[id] = validationResult.validatedShape;
+
+        // Log applied defaults for debugging
+        if (validationResult.appliedDefaults && validationResult.appliedDefaults.length > 0) {
+          console.log(`Applied defaults for ${id}:`, validationResult.appliedDefaults);
+        }
+
+        // Log warnings if any
+        if (validationResult.warnings && validationResult.warnings.length > 0) {
+          console.warn(`Warnings for ${id}:`, validationResult.warnings.join(', '));
+        }
       } catch (error) {
         console.error(`Failed to load shape definition for ${id}:`, error);
       }
@@ -48,96 +70,4 @@ export class ShapeLoader {
     return definitions;
   }
 
-  private static validateShapeDefinition(def: unknown): ShapeDefinition {
-    // Type guard
-    const definition = def as Record<string, unknown>;
-    
-    // Basic validation
-    if (!definition.id || typeof definition.id !== 'string') {
-      throw new Error('Shape definition must have an id');
-    }
-    
-    if (!definition.name || typeof definition.name !== 'string') {
-      throw new Error('Shape definition must have a name');
-    }
-    
-    if (!['basic', 'polygon', 'path', 'composite'].includes(definition.category as string)) {
-      throw new Error('Shape definition must have a valid category');
-    }
-    
-    // Validate dimensions
-    if (!definition.dimensions || typeof definition.dimensions !== 'object') {
-      throw new Error('Shape definition must have dimensions');
-    }
-    
-    const dimensions = definition.dimensions as Record<string, unknown>;
-    if (!['fixed', 'random'].includes(dimensions.type as string)) {
-      throw new Error('Shape dimensions must have a valid type');
-    }
-    
-    // Validate physics
-    if (!definition.physics || typeof definition.physics !== 'object') {
-      throw new Error('Shape definition must have physics configuration');
-    }
-    
-    const physics = definition.physics as Record<string, unknown>;
-    if (!['rectangle', 'circle', 'polygon', 'fromVertices', 'composite'].includes(physics.type as string)) {
-      throw new Error('Shape physics must have a valid type');
-    }
-    
-    // Validate rendering
-    if (!definition.rendering || typeof definition.rendering !== 'object') {
-      throw new Error('Shape definition must have rendering configuration');
-    }
-    
-    const rendering = definition.rendering as Record<string, unknown>;
-    if (!['primitive', 'path', 'composite'].includes(rendering.type as string)) {
-      throw new Error('Shape rendering must have a valid type');
-    }
-    
-    // Validate screw placement
-    if (!definition.screwPlacement || typeof definition.screwPlacement !== 'object') {
-      throw new Error('Shape definition must have screw placement configuration');
-    }
-    
-    const screwPlacement = definition.screwPlacement as Record<string, unknown>;
-    if (!['corners', 'perimeter', 'grid', 'custom', 'capsule'].includes(screwPlacement.strategy as string)) {
-      throw new Error('Shape screw placement must have a valid strategy');
-    }
-    
-    // Apply defaults and return as ShapeDefinition
-    const visual = definition.visual as Record<string, unknown> | undefined;
-    const behavior = definition.behavior as Record<string, unknown> | undefined;
-    
-    const result: ShapeDefinition = {
-      id: definition.id as string,
-      name: definition.name as string,
-      category: definition.category as 'basic' | 'polygon' | 'path' | 'composite',
-      enabled: definition.enabled as boolean,
-      dimensions: {
-        ...dimensions,
-        reductionFactor: (dimensions.reductionFactor as number) ?? 0.15,
-      } as ShapeDefinition['dimensions'],
-      physics: physics as ShapeDefinition['physics'],
-      rendering: rendering as ShapeDefinition['rendering'],
-      visual: {
-        borderWidth: (visual?.borderWidth as number) ?? 3,
-        alpha: (visual?.alpha as number) ?? 0.7,
-        supportsHoles: (visual?.supportsHoles as boolean) ?? true,
-        ...(visual || {}),
-      } as ShapeDefinition['visual'],
-      behavior: {
-        allowSingleScrew: (behavior?.allowSingleScrew as boolean) ?? true,
-        singleScrewDynamic: (behavior?.singleScrewDynamic as boolean) ?? true,
-        rotationalInertiaMultiplier: (behavior?.rotationalInertiaMultiplier as number) ?? 3,
-        ...(behavior || {}),
-      } as ShapeDefinition['behavior'],
-      screwPlacement: {
-        ...screwPlacement,
-        minSeparation: (screwPlacement.minSeparation as number) ?? 48,
-      } as ShapeDefinition['screwPlacement'],
-    };
-    
-    return result;
-  }
 }
