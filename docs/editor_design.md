@@ -130,11 +130,14 @@ src/editor/
 ### 4. Screw Placement System
 - **Visual Indicators**: Dashed gray circles (6px radius) show valid placement positions
 - **Strategy Support**:
-  - **Corners**: Cross pattern for circles, actual corner positions for polygons (configurable margin)
-  - **Perimeter**: Shape-aware distribution along actual edges - circles use circular distribution, polygons use edge-based distribution, paths use vertex-based distribution (configurable point count and margin)
-  - **Grid**: Grid pattern inside shape boundaries (configurable spacing)
+  - **Corners**: Cross pattern for circles, actual corner positions for polygons, intelligent corner detection for path shapes using multiple algorithms (configurable margin)
+  - **Perimeter**: Shape-aware distribution along actual edges - circles use circular distribution, polygons use edge-based distribution, paths use actual vertex-based distribution with proper margin application (configurable point count and margin)
+  - **Grid**: Grid pattern inside shape boundaries with ray-casting point-in-polygon testing for path shapes (configurable spacing and margin enforcement)
   - **Custom**: User-defined positions from JSON configuration (canvas-based editing)
   - **Capsule**: Strategic positions for capsule-shaped objects (configurable end margin)
+- **Path Shape Enhancements**: All strategies now fully support path-based shapes (arrow, chevron, star, horseshoe) with proper vertex analysis
+- **Advanced Corner Detection**: Multi-method approach using angle analysis, direction change detection, and curvature calculation for comprehensive corner identification
+- **Point-in-Polygon Testing**: Ray-casting algorithm ensures grid positions are accurately placed inside complex path shapes
 - **Min Separation Enforcement**: All strategies respect minimum separation distance to prevent overlapping screws
 - **Real-time Feedback**: Indicators hide when screws are placed at those positions
 - **Interactive Editing**: Click empty indicators to add screws, click existing screws to remove
@@ -239,15 +242,23 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   - Coordinate transformations handle canvas-to-shape-relative position conversion properly
 
 ### Screw Placement System
-- **Strategy Pattern**: Modular algorithms for different placement strategies
+- **Strategy Pattern**: Modular algorithms for different placement strategies with full path shape support
 - **Visual Feedback**: Dashed gray indicators show valid positions in real-time
 - **Coordinate System**: Logical pixel coordinates for high-DPI display support
 - **Interactive Tools**: Click-based add/remove with precise hit detection (15px radius)
 - **Event-Driven Updates**: All screw changes trigger re-render events for immediate feedback
 - **Strategy Calculations**: Algorithm implementations for corners, perimeter, grid, custom, and capsule strategies
-- **Shape-Aware Perimeter Strategy**: Polygons use edge-based distribution instead of circular distribution for accurate screw placement
+- **Path Shape Support**: Complete implementation for arrow, chevron, star, and horseshoe shapes
+- **Advanced Corner Detection**: Multi-algorithm approach combining:
+  - Angle-based detection (30° threshold) for sharp corners
+  - Direction change detection using cross product analysis
+  - Curvature-based detection for smooth transitions
+  - Extremal point fallback for comprehensive coverage
+- **Grid Strategy Enhancement**: Ray-casting point-in-polygon testing for accurate positioning inside complex shapes
+- **Perimeter Strategy Enhancement**: Uses actual shape vertices instead of bounding box approximation for precise edge distribution
 - **Min Separation Enforcement**: All placement strategies filter positions based on minimum separation distance
 - **Positioning Consistency**: Screw positions and indicators use identical strategy-based calculation logic
+- **Duplicate Removal**: Intelligent filtering to prevent overlapping corner positions
 
 ### Physics Integration
 - **Isolated PhysicsWorld**: Editor has its own PhysicsWorld instance with proper boundaries

@@ -19,7 +19,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Workflow
 
-- **Important:** After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.
+- **Important:** After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found. Note you only need to run lint and build after code changes not documentation changes.
 - Always update any documentation affected by changes.
 - Always update documentation after lint and build passes and before commiting changes
 - Commit the changes to the current branch with an applicable commit message.

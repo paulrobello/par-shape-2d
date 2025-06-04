@@ -933,9 +933,235 @@ export class ShapeEditorManager extends BaseEditorSystem {
         { x: shape.position.x - shape.width/2 + marginX, y: shape.position.y + shape.height/2 - marginY },
         { x: shape.position.x + shape.width/2 - marginX, y: shape.position.y + shape.height/2 - marginY }
       );
+    } else if (shape.vertices && shape.vertices.length > 0) {
+      // Path-based shapes - identify corners by analyzing vertices for significant angle changes
+      positions.push(...this.calculatePathShapeCorners(shape, margin));
     }
     
     return positions;
+  }
+  
+  private calculatePathShapeCorners(shape: Shape, margin: number): Vector2[] {
+    if (!shape.vertices || shape.vertices.length < 3) {
+      return [];
+    }
+    
+    const corners: Vector2[] = [];
+    
+    // Convert local vertices to world coordinates
+    const worldVertices = shape.vertices.map(v => ({
+      x: shape.position.x + v.x,
+      y: shape.position.y + v.y
+    }));
+    
+    // Method 1: Angle-based corner detection with multiple thresholds
+    const angleCorners = this.findCornersByAngle(worldVertices, shape.position, margin);
+    corners.push(...angleCorners);
+    
+    // Method 2: Direction change detection
+    const directionCorners = this.findCornersByDirectionChange(worldVertices, shape.position, margin);
+    corners.push(...directionCorners);
+    
+    // Method 3: Curvature-based detection for smoother corners
+    const curvatureCorners = this.findCornersByCurvature(worldVertices, shape.position, margin);
+    corners.push(...curvatureCorners);
+    
+    // Remove duplicates (points within 15 pixels of each other)
+    const uniqueCorners = this.removeDuplicateCorners(corners, 15);
+    
+    // If we still don't have enough corners, add extremal points
+    if (uniqueCorners.length < 3) {
+      const extremalPoints = this.calculatePathShapeExtremalPoints(shape, margin);
+      uniqueCorners.push(...extremalPoints);
+      return this.removeDuplicateCorners(uniqueCorners, 15);
+    }
+    
+    return uniqueCorners;
+  }
+  
+  private findCornersByAngle(worldVertices: Vector2[], center: Vector2, margin: number): Vector2[] {
+    const corners: Vector2[] = [];
+    const angleThreshold = Math.PI / 6; // 30 degrees - more sensitive than before
+    
+    for (let i = 0; i < worldVertices.length; i++) {
+      const prev = worldVertices[(i - 1 + worldVertices.length) % worldVertices.length];
+      const curr = worldVertices[i];
+      const next = worldVertices[(i + 1) % worldVertices.length];
+      
+      // Calculate vectors
+      const v1 = { x: curr.x - prev.x, y: curr.y - prev.y };
+      const v2 = { x: next.x - curr.x, y: next.y - curr.y };
+      
+      // Calculate angle between vectors
+      const dot = v1.x * v2.x + v1.y * v2.y;
+      const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+      const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+      
+      if (mag1 > 0 && mag2 > 0) {
+        const cosAngle = dot / (mag1 * mag2);
+        const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
+        
+        // If angle is significant, consider it a corner
+        if (angle > angleThreshold) {
+          corners.push(this.applyMarginToCorner(curr, center, margin));
+        }
+      }
+    }
+    
+    return corners;
+  }
+  
+  private findCornersByDirectionChange(worldVertices: Vector2[], center: Vector2, margin: number): Vector2[] {
+    const corners: Vector2[] = [];
+    const directionThreshold = 0.5; // Threshold for direction change
+    
+    for (let i = 1; i < worldVertices.length - 1; i++) {
+      const prev = worldVertices[i - 1];
+      const curr = worldVertices[i];
+      const next = worldVertices[i + 1];
+      
+      // Calculate direction vectors (normalized)
+      const d1 = this.normalize({ x: curr.x - prev.x, y: curr.y - prev.y });
+      const d2 = this.normalize({ x: next.x - curr.x, y: next.y - curr.y });
+      
+      // Calculate the cross product magnitude (measures direction change)
+      const crossMag = Math.abs(d1.x * d2.y - d1.y * d2.x);
+      
+      if (crossMag > directionThreshold) {
+        corners.push(this.applyMarginToCorner(curr, center, margin));
+      }
+    }
+    
+    return corners;
+  }
+  
+  private findCornersByCurvature(worldVertices: Vector2[], center: Vector2, margin: number): Vector2[] {
+    const corners: Vector2[] = [];
+    const curvatureThreshold = 0.01; // Threshold for curvature
+    
+    // Only check every 2nd or 3rd vertex to avoid too many corners
+    for (let i = 2; i < worldVertices.length - 2; i += 2) {
+      const p1 = worldVertices[i - 2];
+      const p2 = worldVertices[i];
+      const p3 = worldVertices[i + 2];
+      
+      // Calculate curvature using three points
+      const curvature = this.calculateCurvature(p1, p2, p3);
+      
+      if (Math.abs(curvature) > curvatureThreshold) {
+        corners.push(this.applyMarginToCorner(p2, center, margin));
+      }
+    }
+    
+    return corners;
+  }
+  
+  private normalize(vector: Vector2): Vector2 {
+    const mag = Math.sqrt(vector.x * vector.x + vector.y * vector.y);
+    if (mag === 0) return { x: 0, y: 0 };
+    return { x: vector.x / mag, y: vector.y / mag };
+  }
+  
+  private calculateCurvature(p1: Vector2, p2: Vector2, p3: Vector2): number {
+    // Calculate curvature using the circumcircle method
+    const a = Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+    const b = Math.sqrt((p3.x - p2.x) ** 2 + (p3.y - p2.y) ** 2);
+    const c = Math.sqrt((p1.x - p3.x) ** 2 + (p1.y - p3.y) ** 2);
+    
+    const area = Math.abs((p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y)) / 2);
+    
+    if (area === 0 || a === 0 || b === 0 || c === 0) return 0;
+    
+    return (4 * area) / (a * b * c);
+  }
+  
+  private applyMarginToCorner(corner: Vector2, center: Vector2, margin: number): Vector2 {
+    const dx = corner.x - center.x;
+    const dy = corner.y - center.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+    
+    if (distance > margin) {
+      const scale = (distance - margin) / distance;
+      return {
+        x: center.x + dx * scale,
+        y: center.y + dy * scale
+      };
+    }
+    
+    return { x: corner.x, y: corner.y };
+  }
+  
+  private removeDuplicateCorners(corners: Vector2[], threshold: number): Vector2[] {
+    const unique: Vector2[] = [];
+    
+    for (const corner of corners) {
+      const isDuplicate = unique.some(existing => {
+        const distance = Math.sqrt(
+          (corner.x - existing.x) ** 2 + (corner.y - existing.y) ** 2
+        );
+        return distance < threshold;
+      });
+      
+      if (!isDuplicate) {
+        unique.push(corner);
+      }
+    }
+    
+    return unique;
+  }
+  
+  private calculatePathShapeExtremalPoints(shape: Shape, margin: number): Vector2[] {
+    if (!shape.vertices || shape.vertices.length < 3) {
+      return [];
+    }
+    
+    // Convert local vertices to world coordinates
+    const worldVertices = shape.vertices.map(v => ({
+      x: shape.position.x + v.x,
+      y: shape.position.y + v.y
+    }));
+    
+    // Find extremal vertices
+    let leftmost = worldVertices[0];
+    let rightmost = worldVertices[0];
+    let topmost = worldVertices[0];
+    let bottommost = worldVertices[0];
+    
+    worldVertices.forEach(vertex => {
+      if (vertex.x < leftmost.x) leftmost = vertex;
+      if (vertex.x > rightmost.x) rightmost = vertex;
+      if (vertex.y < topmost.y) topmost = vertex;
+      if (vertex.y > bottommost.y) bottommost = vertex;
+    });
+    
+    const extremalPoints = [leftmost, rightmost, topmost, bottommost];
+    const corners: Vector2[] = [];
+    const center = shape.position;
+    
+    // Remove duplicates and apply margin
+    extremalPoints.forEach(point => {
+      const isDuplicate = corners.some(corner => 
+        Math.abs(corner.x - point.x) < 10 && Math.abs(corner.y - point.y) < 10
+      );
+      
+      if (!isDuplicate) {
+        const dx = point.x - center.x;
+        const dy = point.y - center.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > margin) {
+          const scale = (distance - margin) / distance;
+          corners.push({
+            x: center.x + dx * scale,
+            y: center.y + dy * scale
+          });
+        } else {
+          corners.push({ x: point.x, y: point.y });
+        }
+      }
+    });
+    
+    return corners;
   }
 
   private calculatePerimeterPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
@@ -1196,9 +1422,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
   private calculateGridPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
     const positions: Vector2[] = [];
     const spacing = definition.screwPlacement.gridSpacing || 40;
+    const margin = 20;
     
     if (shape.width && shape.height) {
-      const margin = 20;
       const startX = shape.position.x - shape.width/2 + margin;
       const endX = shape.position.x + shape.width/2 - margin;
       const startY = shape.position.y - shape.height/2 + margin;
@@ -1211,7 +1437,6 @@ export class ShapeEditorManager extends BaseEditorSystem {
       }
     } else if (shape.radius) {
       // Grid inside circle
-      const margin = 20;
       const radius = shape.radius - margin;
       const size = radius * 2;
       const startX = shape.position.x - radius;
@@ -1227,9 +1452,115 @@ export class ShapeEditorManager extends BaseEditorSystem {
           }
         }
       }
+    } else if (shape.vertices && shape.vertices.length > 0) {
+      // Grid inside path-based shapes
+      positions.push(...this.calculatePathShapeGridPositions(shape, spacing, margin));
     }
     
     return positions;
+  }
+  
+  private calculatePathShapeGridPositions(shape: Shape, spacing: number, margin: number): Vector2[] {
+    const positions: Vector2[] = [];
+    
+    // Convert local vertices to world coordinates
+    const worldVertices = shape.vertices!.map(v => ({
+      x: shape.position.x + v.x,
+      y: shape.position.y + v.y
+    }));
+    
+    // Find bounding box of the shape
+    let minX = worldVertices[0].x;
+    let maxX = worldVertices[0].x;
+    let minY = worldVertices[0].y;
+    let maxY = worldVertices[0].y;
+    
+    worldVertices.forEach(vertex => {
+      minX = Math.min(minX, vertex.x);
+      maxX = Math.max(maxX, vertex.x);
+      minY = Math.min(minY, vertex.y);
+      maxY = Math.max(maxY, vertex.y);
+    });
+    
+    // Apply margin to bounding box
+    minX += margin;
+    maxX -= margin;
+    minY += margin;
+    maxY -= margin;
+    
+    // Generate grid points and test if they're inside the shape
+    for (let x = minX; x <= maxX; x += spacing) {
+      for (let y = minY; y <= maxY; y += spacing) {
+        if (this.isPointInsidePathShape({ x, y }, worldVertices, margin)) {
+          positions.push({ x, y });
+        }
+      }
+    }
+    
+    return positions;
+  }
+  
+  private isPointInsidePathShape(point: Vector2, worldVertices: Vector2[], margin: number): boolean {
+    // Ray casting algorithm for point-in-polygon test
+    let inside = false;
+    
+    for (let i = 0, j = worldVertices.length - 1; i < worldVertices.length; j = i++) {
+      const xi = worldVertices[i].x;
+      const yi = worldVertices[i].y;
+      const xj = worldVertices[j].x;
+      const yj = worldVertices[j].y;
+      
+      if (((yi > point.y) !== (yj > point.y)) &&
+          (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+    
+    // If inside, check distance from edges for margin
+    if (inside && margin > 0) {
+      return this.getDistanceToNearestEdge(point, worldVertices) >= margin;
+    }
+    
+    return inside;
+  }
+  
+  private getDistanceToNearestEdge(point: Vector2, worldVertices: Vector2[]): number {
+    let minDistance = Infinity;
+    
+    for (let i = 0; i < worldVertices.length; i++) {
+      const v1 = worldVertices[i];
+      const v2 = worldVertices[(i + 1) % worldVertices.length];
+      const distance = this.distanceFromPointToLineSegment(point, v1, v2);
+      minDistance = Math.min(minDistance, distance);
+    }
+    
+    return minDistance;
+  }
+  
+  private distanceFromPointToLineSegment(point: Vector2, lineStart: Vector2, lineEnd: Vector2): number {
+    const A = point.x - lineStart.x;
+    const B = point.y - lineStart.y;
+    const C = lineEnd.x - lineStart.x;
+    const D = lineEnd.y - lineStart.y;
+    
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    
+    if (lenSq === 0) {
+      // Line segment is a point
+      return Math.sqrt(A * A + B * B);
+    }
+    
+    let param = dot / lenSq;
+    param = Math.max(0, Math.min(1, param));
+    
+    const xx = lineStart.x + param * C;
+    const yy = lineStart.y + param * D;
+    
+    const dx = point.x - xx;
+    const dy = point.y - yy;
+    
+    return Math.sqrt(dx * dx + dy * dy);
   }
 
   private calculateCustomPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {

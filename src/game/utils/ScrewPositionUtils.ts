@@ -241,7 +241,12 @@ export function getDefinitionIdFromShape(shape: Shape): string | null {
     'circle': 'circle',
     'rectangle': 'rectangle', 
     'polygon': 'polygon',
-    'capsule': 'capsule'
+    'capsule': 'capsule',
+    // Path-based shapes
+    'arrow': 'arrow',
+    'chevron': 'chevron',
+    'star': 'star',
+    'horseshoe': 'horseshoe'
   };
   
   return typeMapping[shape.type] || null;
@@ -263,8 +268,7 @@ export function getPositionsForStrategy(shape: Shape, definition: ShapeDefinitio
     case 'custom':
       return getCustomPositions(shape, definition);
     case 'grid':
-      // Grid strategy not implemented yet
-      return getCornerPositions(shape);
+      return getGridPositions(shape, definition);
     default:
       if (DEBUG_CONFIG.logShapeDebug) {
         console.warn(`Unknown screw placement strategy: ${strategy}`);
@@ -277,19 +281,167 @@ export function getPositionsForStrategy(shape: Shape, definition: ShapeDefinitio
  * Get corner-based positions for shapes
  */
 export function getCornerPositions(shape: Shape): Vector2[] {
+  // For path-based shapes, identify key vertices as "corners"
+  if (shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'star' || shape.type === 'horseshoe') {
+    return getPathShapeCorners(shape);
+  }
+  
+  // For regular shapes, use existing logic
   return getShapeScrewLocations(shape).corners;
+}
+
+/**
+ * Get corner positions for path-based shapes by analyzing vertices
+ */
+function getPathShapeCorners(shape: Shape): Vector2[] {
+  if (!shape.body.vertices || shape.body.vertices.length < 3) {
+    return [];
+  }
+  
+  const vertices = shape.body.vertices;
+  const corners: Vector2[] = [];
+  const margin = 30; // Distance from edge
+  
+  // For path shapes, we'll identify corners by finding vertices with significant angle changes
+  // This works well for shapes like arrows, stars, etc.
+  const angleThreshold = Math.PI / 4; // 45 degrees
+  
+  for (let i = 0; i < vertices.length; i++) {
+    const prev = vertices[(i - 1 + vertices.length) % vertices.length];
+    const curr = vertices[i];
+    const next = vertices[(i + 1) % vertices.length];
+    
+    // Calculate vectors
+    const v1 = { x: curr.x - prev.x, y: curr.y - prev.y };
+    const v2 = { x: next.x - curr.x, y: next.y - curr.y };
+    
+    // Calculate angle between vectors
+    const dot = v1.x * v2.x + v1.y * v2.y;
+    const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+    const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+    
+    if (mag1 > 0 && mag2 > 0) {
+      const cosAngle = dot / (mag1 * mag2);
+      const angle = Math.acos(Math.max(-1, Math.min(1, cosAngle)));
+      
+      // If angle is significant (sharp corner), consider it a corner
+      if (angle > angleThreshold) {
+        // Move the corner point inward by margin amount
+        const center = { x: shape.body.position.x, y: shape.body.position.y };
+        const dx = curr.x - center.x;
+        const dy = curr.y - center.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > margin) {
+          const scale = (distance - margin) / distance;
+          corners.push({
+            x: center.x + dx * scale,
+            y: center.y + dy * scale
+          });
+        } else {
+          corners.push({ x: curr.x, y: curr.y });
+        }
+      }
+    }
+  }
+  
+  // If we didn't find enough corners, fall back to extremal points
+  if (corners.length < 2) {
+    return getPathShapeExtremalPoints(shape);
+  }
+  
+  return corners;
+}
+
+/**
+ * Get extremal points (leftmost, rightmost, topmost, bottommost) for path shapes
+ */
+function getPathShapeExtremalPoints(shape: Shape): Vector2[] {
+  if (!shape.body.vertices || shape.body.vertices.length < 3) {
+    return [];
+  }
+  
+  const vertices = shape.body.vertices;
+  const margin = 30;
+  const center = { x: shape.body.position.x, y: shape.body.position.y };
+  
+  // Find extremal vertices
+  let leftmost = vertices[0];
+  let rightmost = vertices[0];
+  let topmost = vertices[0];
+  let bottommost = vertices[0];
+  
+  vertices.forEach(vertex => {
+    if (vertex.x < leftmost.x) leftmost = vertex;
+    if (vertex.x > rightmost.x) rightmost = vertex;
+    if (vertex.y < topmost.y) topmost = vertex;
+    if (vertex.y > bottommost.y) bottommost = vertex;
+  });
+  
+  const extremalPoints = [leftmost, rightmost, topmost, bottommost];
+  const corners: Vector2[] = [];
+  
+  // Remove duplicates and apply margin
+  extremalPoints.forEach(point => {
+    const isDuplicate = corners.some(corner => 
+      Math.abs(corner.x - point.x) < 10 && Math.abs(corner.y - point.y) < 10
+    );
+    
+    if (!isDuplicate) {
+      const dx = point.x - center.x;
+      const dy = point.y - center.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance > margin) {
+        const scale = (distance - margin) / distance;
+        corners.push({
+          x: center.x + dx * scale,
+          y: center.y + dy * scale
+        });
+      } else {
+        corners.push({ x: point.x, y: point.y });
+      }
+    }
+  });
+  
+  return corners;
 }
 
 /**
  * Get perimeter-based positions for path shapes
  */
 export function getPerimeterPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
-  const positions: Vector2[] = [];
-  const center = { x: shape.body.position.x, y: shape.body.position.y };
   const perimeterPoints = definition.screwPlacement?.perimeterPoints || 8;
   const margin = definition.screwPlacement?.perimeterMargin || 30;
   
-  // For path shapes, distribute points around the perimeter
+  // For path-based shapes, use the Shape's getPerimeterPoints method which properly handles actual vertices
+  if (shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'star' || shape.type === 'horseshoe') {
+    const perimeter = shape.getPerimeterPoints(perimeterPoints);
+    
+    // Apply margin by moving points inward toward the center
+    const center = { x: shape.body.position.x, y: shape.body.position.y };
+    return perimeter.map(point => {
+      const dx = point.x - center.x;
+      const dy = point.y - center.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance <= margin) {
+        // Point is too close to center, keep it as is
+        return point;
+      }
+      
+      // Move point inward by margin amount
+      const scale = (distance - margin) / distance;
+      return {
+        x: center.x + dx * scale,
+        y: center.y + dy * scale
+      };
+    });
+  }
+  
+  // Fallback for non-path shapes: use circular distribution
+  const positions: Vector2[] = [];
+  const center = { x: shape.body.position.x, y: shape.body.position.y };
   const bounds = shape.body.bounds;
   const width = bounds.max.x - bounds.min.x;
   const height = bounds.max.y - bounds.min.y;
@@ -310,6 +462,143 @@ export function getPerimeterPositions(shape: Shape, definition: ShapeDefinition)
  */
 export function getCapsulePositions(shape: Shape): Vector2[] {
   return getShapeScrewLocations(shape).corners;
+}
+
+/**
+ * Get grid-based positions for shapes
+ */
+export function getGridPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
+  const positions: Vector2[] = [];
+  const center = { x: shape.body.position.x, y: shape.body.position.y };
+  const gridSpacing = definition.screwPlacement?.gridSpacing || 40;
+  const margin = 20; // Use a fixed margin since gridMargin is not in the type definition
+  
+  // Get shape bounds
+  const bounds = shape.body.bounds;
+  const width = bounds.max.x - bounds.min.x;
+  const height = bounds.max.y - bounds.min.y;
+  
+  // Calculate grid bounds with margin
+  const gridWidth = Math.max(gridSpacing, width - 2 * margin);
+  const gridHeight = Math.max(gridSpacing, height - 2 * margin);
+  
+  // Calculate number of grid points in each direction
+  const cols = Math.max(1, Math.floor(gridWidth / gridSpacing) + 1);
+  const rows = Math.max(1, Math.floor(gridHeight / gridSpacing) + 1);
+  
+  // Generate grid positions
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const x = center.x - gridWidth / 2 + (col * gridSpacing);
+      const y = center.y - gridHeight / 2 + (row * gridSpacing);
+      
+      // Check if point is inside the shape bounds (with margin)
+      if (isPointInsideShape(shape, { x, y }, margin)) {
+        positions.push({ x, y });
+      }
+    }
+  }
+  
+  return positions;
+}
+
+/**
+ * Check if a point is inside a shape with margin
+ */
+function isPointInsideShape(shape: Shape, point: Vector2, margin: number): boolean {
+  const bounds = shape.body.bounds;
+  
+  // Basic bounds check with margin
+  if (point.x < bounds.min.x + margin || point.x > bounds.max.x - margin ||
+      point.y < bounds.min.y + margin || point.y > bounds.max.y - margin) {
+    return false;
+  }
+  
+  // For path-based shapes, do more precise collision detection
+  if (shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'star' || shape.type === 'horseshoe') {
+    return isPointInsidePathShape(shape, point, margin);
+  }
+  
+  // For simple shapes, bounds check is sufficient
+  return true;
+}
+
+/**
+ * Check if point is inside a path-based shape using ray casting
+ */
+function isPointInsidePathShape(shape: Shape, point: Vector2, margin: number): boolean {
+  // Use the shape's body vertices for accurate collision detection
+  if (!shape.body.vertices || shape.body.vertices.length < 3) {
+    return false;
+  }
+  
+  const vertices = shape.body.vertices;
+  let inside = false;
+  
+  // Ray casting algorithm
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const xi = vertices[i].x;
+    const yi = vertices[i].y;
+    const xj = vertices[j].x;
+    const yj = vertices[j].y;
+    
+    if (((yi > point.y) !== (yj > point.y)) &&
+        (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  
+  // If inside, check distance from edges for margin
+  if (inside && margin > 0) {
+    return getDistanceToNearestEdge(point, vertices) >= margin;
+  }
+  
+  return inside;
+}
+
+/**
+ * Get distance from point to nearest edge of polygon
+ */
+function getDistanceToNearestEdge(point: Vector2, vertices: Matter.Vector[]): number {
+  let minDistance = Infinity;
+  
+  for (let i = 0; i < vertices.length; i++) {
+    const v1 = vertices[i];
+    const v2 = vertices[(i + 1) % vertices.length];
+    const distance = distanceFromPointToLineSegment(point, v1, v2);
+    minDistance = Math.min(minDistance, distance);
+  }
+  
+  return minDistance;
+}
+
+/**
+ * Calculate distance from point to line segment
+ */
+function distanceFromPointToLineSegment(point: Vector2, lineStart: Matter.Vector, lineEnd: Matter.Vector): number {
+  const A = point.x - lineStart.x;
+  const B = point.y - lineStart.y;
+  const C = lineEnd.x - lineStart.x;
+  const D = lineEnd.y - lineStart.y;
+  
+  const dot = A * C + B * D;
+  const lenSq = C * C + D * D;
+  
+  if (lenSq === 0) {
+    // Line segment is a point
+    return Math.sqrt(A * A + B * B);
+  }
+  
+  let param = dot / lenSq;
+  param = Math.max(0, Math.min(1, param));
+  
+  const xx = lineStart.x + param * C;
+  const yy = lineStart.y + param * D;
+  
+  const dx = point.x - xx;
+  const dy = point.y - yy;
+  
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 /**
