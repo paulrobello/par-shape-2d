@@ -59,10 +59,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
     };
 
     for (const { shape, screws } of this.simulatedShapes.values()) {
-      // Update shape position from physics body
+      // Update shape position and rotation from physics body
       if (shape.body && shape.body.position) {
-        shape.position.x = shape.body.position.x;
-        shape.position.y = shape.body.position.y;
+        // Use the Shape's updateFromBody method to sync with physics
+        shape.updateFromBody();
       }
 
       // Render shape
@@ -252,10 +252,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           height,
           {
             isStatic: false,
-            density: 0.001,
-            friction: 0.3,
-            frictionAir: 0.01,
-            restitution: 0.6,
+            density: 5,
+            friction: 0.1,
+            frictionAir: 0.005,
+            restitution: 0,
           }
         );
         
@@ -265,10 +265,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           radius,
           {
             isStatic: false,
-            density: 0.001,
-            friction: 0.3,
-            frictionAir: 0.01,
-            restitution: 0.6,
+            density: 5,
+            friction: 0.1,
+            frictionAir: 0.005,
+            restitution: 0,
           }
         );
         
@@ -278,20 +278,20 @@ export class PhysicsSimulator extends BaseEditorSystem {
           radius,
           {
             isStatic: false,
-            density: 0.001,
-            friction: 0.3,
-            frictionAir: 0.01,
-            restitution: 0.6,
+            density: 5,
+            friction: 0.1,
+            frictionAir: 0.005,
+            restitution: 0,
           }
         );
         
         physicsBody = Body.create({
           parts: [rectangle, leftCircle, rightCircle],
           isStatic: false,
-          density: 0.001,
-          friction: 0.3,
-          frictionAir: 0.01,
-          restitution: 0.6,
+          density: 5,
+          friction: 0.1,
+          frictionAir: 0.005,
+          restitution: 0,
         });
         
         Body.setPosition(physicsBody, shapeData.shape.position);
@@ -304,10 +304,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           shapeData.shape.radius,
           {
             isStatic: false, // Make sure it's dynamic
-            density: 0.001,
-            friction: 0.3,
-            frictionAir: 0.01,
-            restitution: 0.6,
+            density: 5,
+            friction: 0.1,
+            frictionAir: 0.005,
+            restitution: 0,
           }
         );
       } else {
@@ -318,10 +318,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           shapeData.shape.height || 100,
           {
             isStatic: false, // Make sure it's dynamic
-            density: 0.001,
-            friction: 0.3,
-            frictionAir: 0.01,
-            restitution: 0.6,
+            density: 5,
+            friction: 0.1,
+            frictionAir: 0.005,
+            restitution: 0,
           }
         );
       }
@@ -462,7 +462,7 @@ export class PhysicsSimulator extends BaseEditorSystem {
       pointB: { x: 0, y: 0 },
       length: 0,
       stiffness: 1,
-      damping: 0.1,
+      damping: 0.01, // Match game damping for proper swinging motion
       render: { visible: false },
     });
 

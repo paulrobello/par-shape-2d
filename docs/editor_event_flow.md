@@ -48,9 +48,9 @@ The Shape Editor follows the same event-driven architecture pattern as the main 
 ### Physics Simulation Events (7 events)
 | Event Type | Purpose | Emitters | Subscribers | Status |
 |------------|---------|----------|-------------|--------|
-| `editor:physics:start:requested` | Start physics simulation | SimulationControls | PhysicsSimulator, EditorState, ShapeEditorManager | ✅ Active |
-| `editor:physics:pause:requested` | Pause physics simulation | SimulationControls | PhysicsSimulator, EditorState | ✅ Active |
-| `editor:physics:reset:requested` | Reset physics simulation | SimulationControls | PhysicsSimulator, EditorState, ShapeEditorManager | ✅ Active |
+| `editor:physics:start:requested` | Start physics simulation | SimulationControls | PhysicsSimulator, EditorState, ShapeEditorManager, DrawingToolManager | ✅ Active |
+| `editor:physics:pause:requested` | Pause physics simulation | SimulationControls | PhysicsSimulator, EditorState, DrawingToolManager | ✅ Active |
+| `editor:physics:reset:requested` | Reset physics simulation | SimulationControls | PhysicsSimulator, EditorState, ShapeEditorManager, DrawingToolManager | ✅ Active |
 | `editor:physics:step:completed` | Physics step completed | PhysicsSimulator | None | ✅ Active |
 | `editor:physics:debug:toggled` | Debug view toggle | PlaygroundArea, SimulationControls | ShapeEditorManager, EditorManager, EditorState | ✅ Active |
 | `editor:physics:simulation:shape:requested` | Request shape data for simulation | PhysicsSimulator | ShapeEditorManager | ✅ Active |
@@ -151,6 +151,7 @@ Canvas re-renders with updated screws and placement indicators
 User clicks Start → SimulationControls → editor:physics:start:requested
     ↓
 ShapeEditorManager tracks simulation state (disables screw interaction)
+DrawingToolManager tracks simulation state (disables drawing tools)
     ↓
 PhysicsSimulator → editor:physics:simulation:shape:requested
     ↓

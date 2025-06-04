@@ -13,6 +13,7 @@ export class DrawingToolManager extends BaseEditorSystem {
   private tools: Map<string, BaseTool> = new Map();
   private activeTool: BaseTool | null = null;
   private currentMode: DrawingMode = 'edit';
+  private isSimulationRunning = false;
 
   constructor() {
     super('DrawingToolManager');
@@ -39,6 +40,19 @@ export class DrawingToolManager extends BaseEditorSystem {
 
   private setupEventListeners(): void {
     this.subscribe('editor:tool:selected', this.handleToolSelected.bind(this));
+    
+    // Listen for simulation state changes
+    this.subscribe('editor:physics:start:requested', () => {
+      this.isSimulationRunning = true;
+    });
+    
+    this.subscribe('editor:physics:pause:requested', () => {
+      // Keep simulation running state when paused, tools should remain disabled
+    });
+    
+    this.subscribe('editor:physics:reset:requested', () => {
+      this.isSimulationRunning = false;
+    });
   }
 
   private handleToolSelected(event: EditorToolSelectedEvent): void {
@@ -80,6 +94,11 @@ export class DrawingToolManager extends BaseEditorSystem {
    * Select and activate a tool
    */
   public selectTool(toolName: string): boolean {
+    if (this.isSimulationRunning) {
+      console.warn(`Tool selection disabled during physics simulation`);
+      return false;
+    }
+    
     const tool = this.tools.get(toolName);
     if (!tool) {
       console.warn(`Tool '${toolName}' not found`);
@@ -171,6 +190,10 @@ export class DrawingToolManager extends BaseEditorSystem {
    * Handle mouse down event for the active tool
    */
   public handleMouseDown(point: Point): void {
+    if (this.isSimulationRunning) {
+      return; // Disable tool interaction during simulation
+    }
+    
     if (this.activeTool) {
       this.activeTool.handleMouseDown(point);
     }
@@ -180,6 +203,10 @@ export class DrawingToolManager extends BaseEditorSystem {
    * Handle mouse move event for the active tool
    */
   public handleMouseMove(point: Point): void {
+    if (this.isSimulationRunning) {
+      return; // Disable tool interaction during simulation
+    }
+    
     if (this.activeTool) {
       this.activeTool.handleMouseMove(point);
     }
@@ -189,6 +216,10 @@ export class DrawingToolManager extends BaseEditorSystem {
    * Handle mouse up event for the active tool
    */
   public handleMouseUp(point: Point): void {
+    if (this.isSimulationRunning) {
+      return; // Disable tool interaction during simulation
+    }
+    
     if (this.activeTool) {
       this.activeTool.handleMouseUp(point);
     }
@@ -198,6 +229,10 @@ export class DrawingToolManager extends BaseEditorSystem {
    * Handle key down event for the active tool
    */
   public handleKeyDown(key: string): void {
+    if (this.isSimulationRunning) {
+      return; // Disable tool interaction during simulation
+    }
+    
     if (this.activeTool) {
       this.activeTool.handleKeyDown(key);
     }
@@ -207,6 +242,10 @@ export class DrawingToolManager extends BaseEditorSystem {
    * Handle mouse wheel event for the active tool
    */
   public handleWheel(deltaY: number): void {
+    if (this.isSimulationRunning) {
+      return; // Disable tool interaction during simulation
+    }
+    
     if (this.activeTool) {
       this.activeTool.handleWheel(deltaY);
     }
@@ -249,6 +288,13 @@ export class DrawingToolManager extends BaseEditorSystem {
    */
   public getToolConfigs(): Array<{ name: string; displayName: string; cursor: string; icon?: string; description?: string }> {
     return Array.from(this.tools.values()).map(tool => tool.getConfig());
+  }
+
+  /**
+   * Check if drawing tools are disabled due to simulation running
+   */
+  public isToolsDisabled(): boolean {
+    return this.isSimulationRunning;
   }
 
   /**
