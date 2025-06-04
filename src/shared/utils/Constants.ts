@@ -2,6 +2,37 @@
  * Shared constants used by both game and editor systems
  */
 
+// Re-export physics constants for compatibility
+export const PHYSICS_CONSTANTS = {
+  shape: {
+    friction: 0.1,
+    frictionAir: 0.005,
+    restitution: 0,
+    density: 5,
+  },
+  constraint: {
+    stiffness: 1,
+    damping: 0.01,
+  },
+  world: {
+    bounds: { x: 0, y: 0, width: 800, height: 600 },
+  },
+} as const;
+
+// Game configuration
+export const GAME_CONFIG = {
+  physics: {
+    gravity: { x: 0, y: 1, scale: 0.001 },
+    timestep: 1000 / 60, // 60 FPS
+  },
+} as const;
+
+// Debug configuration
+export const DEBUG_CONFIG = {
+  logPhysicsDebug: false,
+  logPhysicsUpdates: false,
+} as const;
+
 // Physics constants shared between game and editor
 export const SHARED_PHYSICS_CONSTANTS = {
   shape: {

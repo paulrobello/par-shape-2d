@@ -1,11 +1,12 @@
 import { BaseEditorSystem } from '../core/BaseEditorSystem';
-import { PhysicsWorld } from '@/game/physics/PhysicsWorld';
+import { PhysicsWorld } from '@/shared/physics/PhysicsWorld';
+import { PhysicsBodyFactory } from '@/shared/physics/PhysicsBodyFactory';
+import { ConstraintUtils } from '@/shared/physics/ConstraintUtils';
 import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
 import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
 import { EditorEventPriority } from '../core/EditorEventBus';
-import { Body, Bodies, Constraint } from 'matter-js';
 import { Vector2 } from '@/types/game';
 import { 
   EditorPhysicsStartRequestedEvent, 
@@ -13,7 +14,7 @@ import {
   EditorCanvasResizedEvent,
   EditorPhysicsSimulationShapeProvidedEvent
 } from '../events/EditorEventTypes';
-import { PHYSICS_CONSTANTS, DEBUG_CONFIG } from '@/game/utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 /**
  * Manages physics simulation in the editor
@@ -30,9 +31,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
   }
 
   protected async onInitialize(): Promise<void> {
-    // Initialize physics world
-    this.physicsWorld = new PhysicsWorld();
-    await this.physicsWorld.initialize();
+    // Initialize shared physics world for editor
+    this.physicsWorld = new PhysicsWorld({
+      enableBoundaries: true,
+    });
     
     this.setupEventSubscriptions();
   }
@@ -108,9 +110,9 @@ export class PhysicsSimulator extends BaseEditorSystem {
 
     // Handle canvas resize
     this.subscribe('editor:canvas:resized', async (event: EditorCanvasResizedEvent) => {
-      // Note: PhysicsWorld doesn't expose a public setBounds method
-      // For the editor, we'll let the physics world handle boundaries internally
-      console.log('Canvas resized to:', event.payload.width, 'x', event.payload.height);
+      if (this.physicsWorld) {
+        this.physicsWorld.updateBounds(event.payload.width, event.payload.height);
+      }
     });
 
     // Handle shape data for simulation
@@ -243,97 +245,19 @@ export class PhysicsSimulator extends BaseEditorSystem {
         console.log('PhysicsSimulator: Adding shape to physics world', shapeData.shapeId);
       }
       
-      // Create new physics body for simulation (don't reuse editor body)
-      let physicsBody: Body;
-      let physicsBodyParts: Body[] | undefined;
+      // Use PhysicsBodyFactory to create the physics body
+      const bodyResult = PhysicsBodyFactory.createShapeBodyFromDefinition(
+        shapeData.shape.type,
+        shapeData.shape.position,
+        {
+          radius: shapeData.shape.radius,
+          width: shapeData.shape.width,
+          height: shapeData.shape.height,
+        }
+      );
       
-      if (shapeData.shape.type === 'capsule') {
-        // Create composite capsule body (rectangle + 2 circles)
-        const width = shapeData.shape.width || 120;
-        const height = shapeData.shape.height || 50;
-        const radius = height / 2;
-        const rectWidth = width - height;
-        
-        const rectangle = Bodies.rectangle(
-          shapeData.shape.position.x,
-          shapeData.shape.position.y,
-          rectWidth,
-          height,
-          {
-            isStatic: false,
-            density: PHYSICS_CONSTANTS.shape.density,
-            friction: PHYSICS_CONSTANTS.shape.friction,
-            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
-            restitution: PHYSICS_CONSTANTS.shape.restitution,
-          }
-        );
-        
-        const leftCircle = Bodies.circle(
-          shapeData.shape.position.x - rectWidth / 2,
-          shapeData.shape.position.y,
-          radius,
-          {
-            isStatic: false,
-            density: PHYSICS_CONSTANTS.shape.density,
-            friction: PHYSICS_CONSTANTS.shape.friction,
-            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
-            restitution: PHYSICS_CONSTANTS.shape.restitution,
-          }
-        );
-        
-        const rightCircle = Bodies.circle(
-          shapeData.shape.position.x + rectWidth / 2,
-          shapeData.shape.position.y,
-          radius,
-          {
-            isStatic: false,
-            density: PHYSICS_CONSTANTS.shape.density,
-            friction: PHYSICS_CONSTANTS.shape.friction,
-            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
-            restitution: PHYSICS_CONSTANTS.shape.restitution,
-          }
-        );
-        
-        physicsBody = Body.create({
-          parts: [rectangle, leftCircle, rightCircle],
-          isStatic: false,
-          density: 5,
-          friction: 0.1,
-          frictionAir: 0.005,
-          restitution: 0,
-        });
-        
-        Body.setPosition(physicsBody, shapeData.shape.position);
-        physicsBodyParts = [rectangle, leftCircle, rightCircle];
-        
-      } else if (shapeData.shape.radius) {
-        physicsBody = Bodies.circle(
-          shapeData.shape.position.x,
-          shapeData.shape.position.y,
-          shapeData.shape.radius,
-          {
-            isStatic: false, // Make sure it's dynamic
-            density: PHYSICS_CONSTANTS.shape.density,
-            friction: PHYSICS_CONSTANTS.shape.friction,
-            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
-            restitution: PHYSICS_CONSTANTS.shape.restitution,
-          }
-        );
-      } else {
-        physicsBody = Bodies.rectangle(
-          shapeData.shape.position.x,
-          shapeData.shape.position.y,
-          shapeData.shape.width || 100,
-          shapeData.shape.height || 100,
-          {
-            isStatic: false, // Make sure it's dynamic
-            density: PHYSICS_CONSTANTS.shape.density,
-            friction: PHYSICS_CONSTANTS.shape.friction,
-            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
-            restitution: PHYSICS_CONSTANTS.shape.restitution,
-          }
-        );
-      }
+      const physicsBody = bodyResult.body;
+      const physicsBodyParts = bodyResult.parts;
 
       // Create shape entity from data
       const shapeEntity = new Shape(
@@ -382,15 +306,15 @@ export class PhysicsSimulator extends BaseEditorSystem {
       
       this.physicsWorld.addBodies([physicsBody]);
       
-      // Create constraints between screws and shape
-      const constraints: Constraint[] = [];
-      const anchorBodies: Body[] = [];
+      // Use ConstraintUtils to create constraints for all screws
+      const constraintResults = ConstraintUtils.createScrewConstraints(
+        physicsBody,
+        screwEntities
+      );
       
-      for (const screw of screwEntities) {
-        const { constraint, anchorBody } = this.createScrewConstraint(screw, shapeEntity);
-        constraints.push(constraint);
-        anchorBodies.push(anchorBody);
-      }
+      // Extract constraints and anchor bodies
+      const constraints = constraintResults.map(r => r.constraint);
+      const anchorBodies = constraintResults.map(r => r.anchorBody);
       
       // Add anchor bodies and constraints to physics world
       if (anchorBodies.length > 0) {
@@ -443,52 +367,4 @@ export class PhysicsSimulator extends BaseEditorSystem {
     return this.physicsWorld;
   }
 
-  private createScrewConstraint(screw: Screw, shape: Shape): { constraint: Constraint; anchorBody: Body } {
-    if (DEBUG_CONFIG.logPhysicsDebug) {
-      console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
-    }
-    
-    // Calculate offset from physics body center to screw position
-    // For composite bodies, use the actual physics body position, not the Shape entity position
-    const bodyPosition = shape.body.position;
-    const offsetX = screw.position.x - bodyPosition.x;
-    const offsetY = screw.position.y - bodyPosition.y;
-    
-    // Debug logging for composite bodies
-    if (shape.isComposite) {
-      if (DEBUG_CONFIG.logPhysicsDebug) {
-        console.log(`🔧 EDITOR COMPOSITE CONSTRAINT DEBUG:`);
-        console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-        console.log(`  Body.position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
-        console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
-        console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
-      }
-    }
-
-    // Create anchor body at screw position (small invisible circle)
-    const screwAnchor = Bodies.circle(screw.position.x, screw.position.y, 1, {
-      isStatic: true,
-      isSensor: true,
-      render: { visible: false },
-      collisionFilter: { group: -1, category: 0, mask: 0 }
-    });
-
-    // Create constraint between shape and anchor
-    const constraint = Constraint.create({
-      bodyA: shape.body,
-      bodyB: screwAnchor,
-      pointA: { x: offsetX, y: offsetY },
-      pointB: { x: 0, y: 0 },
-      length: 0,
-      stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
-      damping: PHYSICS_CONSTANTS.constraint.damping,
-      render: { visible: false },
-    });
-
-    if (DEBUG_CONFIG.logPhysicsDebug) {
-      console.log(`Constraint created for screw ${screw.id}: offset (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
-    }
-    
-    return { constraint, anchorBody: screwAnchor };
-  }
 }
