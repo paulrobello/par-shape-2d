@@ -75,49 +75,7 @@ Example workflow:
 2. Read file_path: "/path/to/screenshot.png"
 ```
 
-## Shape Editor - Complete Phase 2 Drawing System
+## Shape Editor
 
 The Shape Editor includes a fully implemented drawing system for creating new shapes with all advanced tools:
 
-### Drawing Architecture
-- **Tool-based System**: Modular architecture with `BaseTool` abstract class for all drawing tools
-- **State Management**: Multi-step drawing workflows managed by tool-specific state machines
-- **Grid System**: Configurable grid with visibility toggle and snap-to-grid functionality
-- **Preview System**: Real-time preview rendering with consistent styling across all tools
-- **Mode Switching**: Clean separation between "edit" mode (Phase 1) and "create" mode (Phase 2)
-
-### Event System Extension
-The editor event system has been extended from 27 to 39 events to support drawing operations:
-- **Drawing Tool Events**: Tool selection, drawing state changes, preview updates
-- **Grid System Events**: Grid visibility, size changes, snap toggle, coordinate snapping
-
-### Implemented Drawing Tools (Complete)
-- **SelectTool**: Default tool that activates "edit" mode for Phase 1 functionality
-- **CircleTool**: Center → radius workflow with real-time preview
-- **RectangleTool**: Corner → corner workflow with minimum size validation
-- **PolygonTool**: Center → radius workflow with configurable sides (3-12 range) and mouse wheel control
-- **CapsuleTool**: Three-step workflow (end → end → thickness) with enhanced preview rendering
-- **PathTool**: Multi-point workflow with path closing detection and visual feedback
-
-### Working with Drawing Tools
-When implementing new drawing tools:
-1. Extend `BaseTool` abstract class and implement all required methods including `onWheel` for mouse wheel support
-2. Use the tool's state machine to manage multi-step workflows
-3. Emit appropriate events at each drawing stage
-4. Leverage `PreviewRenderer` utility for consistent visual feedback
-5. Integrate with `GridManager` for coordinate snapping
-6. Register the tool with `DrawingToolManager`
-7. Handle orientation and shape type detection properly in `ShapeFactory`
-
-### Coordinate System
-- All drawing operations use logical canvas coordinates
-- Grid snapping is applied through `GridManager.snapToGrid()`
-- High-DPI displays are properly handled with coordinate transformation
-- Preview rendering uses consistent coordinate system across all tools
-
-### Dimension Handling
-- **Dual Format Support**: Dimensions can be either `number` (fixed) or `{min, max}` (random)
-- **PropertyPanel Logic**: Automatically adapts form fields based on dimension type and data format
-- **Type Conversion**: Switching between fixed/random automatically converts values with sensible defaults
-- **Form Field Behavior**: Fixed dimensions show single input, random dimensions show min/max inputs
-- **Value Validation**: All dimension changes respect min/max constraints and shape-specific rules
