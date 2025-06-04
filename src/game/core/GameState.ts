@@ -5,7 +5,7 @@
 
 import { BaseSystem } from './BaseSystem';
 import { GameState as IGameState, Level, Container, HoldingHole, ScrewColor, Screw as ScrewInterface, FullGameSave } from '@/types/game';
-import { GAME_CONFIG, UI_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/game/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
 import { getRandomScrewColors, getRandomColorsFromList } from '@/game/utils/Colors';
 import {
   SaveRequestedEvent,

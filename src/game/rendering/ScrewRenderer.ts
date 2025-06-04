@@ -1,5 +1,5 @@
 import { RenderContext, Screw } from '@/types/game';
-import { SCREW_COLORS, UI_CONSTANTS } from '@/game/utils/Constants';
+import { SCREW_COLORS, UI_CONSTANTS } from '@/shared/utils/Constants';
 import { hexToRgba } from '@/game/utils/Colors';
 
 export class ScrewRenderer {

@@ -28,7 +28,7 @@ import {
   EditorDrawingCancelledEvent,
   EditorToolSelectedEvent
 } from '../events/EditorEventTypes';
-import { DEBUG_CONFIG } from '@/game/utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 /**
  * Main editor orchestrator that manages all editor systems

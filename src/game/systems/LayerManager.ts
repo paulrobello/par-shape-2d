@@ -7,7 +7,7 @@ import { BaseSystem } from '../core/BaseSystem';
 import { Layer } from '@/game/entities/Layer';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeFactory } from '@/game/systems/ShapeFactory';
-import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/game/utils/Constants';
+import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
 import { ScrewColor } from '@/types/game';
 import { randomIntBetween } from '@/game/utils/MathUtils';
 import {

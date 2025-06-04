@@ -2,10 +2,9 @@ import { Bodies, Body, Vertices, Bounds } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeType, Vector2 } from '@/types/game';
 import { ShapeDefinition, ShapeDimensions } from '@/types/shapes';
-import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS } from '@/game/utils/Constants';
+import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { randomBetween } from '@/game/utils/MathUtils';
 import { ShapeRegistry } from './ShapeRegistry';
-import { DEBUG_CONFIG } from '@/game/utils/Constants';
 import { initializePolyDecomp, isPolyDecompInitialized } from '@/game/utils/PhysicsInit';
 
 export class ShapeFactory {

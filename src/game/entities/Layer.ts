@@ -1,6 +1,6 @@
 import { Layer as ILayer, Rectangle } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
-import {GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG} from '@/game/utils/Constants';
+import {GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG} from '@/shared/utils/Constants';
 
 export class Layer implements ILayer {
   public id: string;

@@ -7,7 +7,7 @@ import { Vector2 } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeDefinition } from '@/types/shapes';
 import { ShapeRegistry } from '@/game/systems/ShapeRegistry';
-import { DEBUG_CONFIG } from '@/game/utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 /**
  * Calculate optimal screw positions for a shape using JSON-defined strategy

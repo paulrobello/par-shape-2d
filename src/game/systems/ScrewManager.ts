@@ -8,7 +8,7 @@ import { Constraint, Bodies, Body, Sleeping } from 'matter-js';
 import { Screw } from '@/game/entities/Screw';
 import { Shape } from '@/game/entities/Shape';
 import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
-import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/game/utils/Constants';
+import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { getRandomScrewColor } from '@/game/utils/Colors';
 import { randomIntBetween } from '@/game/utils/MathUtils';
 import {

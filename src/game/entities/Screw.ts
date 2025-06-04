@@ -1,6 +1,6 @@
 import { Constraint, Body } from 'matter-js';
 import { Screw as IScrew, ScrewColor, Vector2 } from '@/types/game';
-import { UI_CONSTANTS } from '@/game/utils/Constants';
+import { UI_CONSTANTS } from '@/shared/utils/Constants';
 
 export class Screw implements IScrew {
   public id: string;

@@ -5,7 +5,7 @@ import { SystemCoordinator } from '@/game/core/SystemCoordinator';
 import { eventFlowValidator } from '@/game/core/EventFlowValidator';
 import { GameState } from '@/game/core/GameState';
 import { GameEvent } from '@/game/events/EventTypes';
-import { GAME_CONFIG, getTotalLayersForLevel } from '@/game/utils/Constants';
+import { GAME_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { initializePolyDecomp } from '@/game/utils/PhysicsInit';
 

@@ -17,7 +17,7 @@ import {
   EditorPhysicsSimulationShapeRequestedEvent
 } from '../events/EditorEventTypes';
 import { Vector2, ShapeType } from '@/types/game';
-import { DEBUG_CONFIG } from '@/game/utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { initializePolyDecomp, isPolyDecompInitialized } from '@/game/utils/PhysicsInit';
 import {
   ScrewPlacementStrategyFactory

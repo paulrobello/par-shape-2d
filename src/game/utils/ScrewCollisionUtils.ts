@@ -5,7 +5,7 @@
 
 import { Vector2 } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
-import { DEBUG_CONFIG } from '@/game/utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 /**
  * Check if a point is within shape bounds with margin

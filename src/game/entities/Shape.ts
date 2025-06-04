@@ -1,6 +1,6 @@
 import { Body } from 'matter-js';
 import { Shape as IShape, ShapeType, Vector2, Screw } from '@/types/game';
-import { UI_CONSTANTS, DEBUG_CONFIG } from '@/game/utils/Constants';
+import { UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export class Shape implements IShape {
   public id: string;

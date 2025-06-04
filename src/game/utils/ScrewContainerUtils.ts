@@ -5,7 +5,7 @@
 
 import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
 import { Screw } from '@/game/entities/Screw';
-import { UI_CONSTANTS, GAME_CONFIG } from '@/game/utils/Constants';
+import { UI_CONSTANTS, GAME_CONFIG } from '@/shared/utils/Constants';
 
 /**
  * Calculate the position of a specific hole within a container

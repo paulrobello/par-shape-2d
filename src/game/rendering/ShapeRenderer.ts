@@ -1,6 +1,6 @@
 import { Shape } from '@/game/entities/Shape';
 import { RenderContext } from '@/types/game';
-import { UI_CONSTANTS } from '@/game/utils/Constants';
+import { UI_CONSTANTS } from '@/shared/utils/Constants';
 import { hexToRgba } from '@/game/utils/Colors';
 
 export class ShapeRenderer {
