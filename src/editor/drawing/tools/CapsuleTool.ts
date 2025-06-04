@@ -488,6 +488,9 @@ export class CapsuleTool extends BaseTool {
           // Draw capsule outline
           ctx.beginPath();
           
+          // Calculate the angle from first end to second end
+          const lineAngle = Math.atan2(secondEnd.y - firstEnd.y, secondEnd.x - firstEnd.x);
+          
           // Start at top-left of first end
           ctx.moveTo(topStart.x, topStart.y);
           
@@ -495,22 +498,17 @@ export class CapsuleTool extends BaseTool {
           ctx.lineTo(topEnd.x, topEnd.y);
           
           // Right semicircle (at second end)
-          // Calculate the angle from the center line
-          const lineAngle = Math.atan2(secondEnd.y - firstEnd.y, secondEnd.x - firstEnd.x);
-          // Start from top side, sweep clockwise to bottom side
-          const rightAngleStart = lineAngle - Math.PI / 2;
-          const rightAngleEnd = lineAngle + Math.PI / 2;
-          ctx.arc(secondEnd.x, secondEnd.y, radius, rightAngleStart, rightAngleEnd);
+          // Arc from top to bottom of second end
+          ctx.arc(secondEnd.x, secondEnd.y, radius, lineAngle - Math.PI / 2, lineAngle + Math.PI / 2, false);
           
-          // Bottom line (drawn implicitly by arc endpoint)
+          // Bottom line - arc endpoint connects to bottom of first end
           ctx.lineTo(bottomStart.x, bottomStart.y);
           
           // Left semicircle (at first end)
-          // Start from bottom side, sweep clockwise to top side
-          const leftAngleStart = lineAngle + Math.PI / 2;
-          const leftAngleEnd = lineAngle + Math.PI * 1.5;
-          ctx.arc(firstEnd.x, firstEnd.y, radius, leftAngleStart, leftAngleEnd);
+          // Arc from bottom to top of first end
+          ctx.arc(firstEnd.x, firstEnd.y, radius, lineAngle + Math.PI / 2, lineAngle - Math.PI / 2, false);
           
+          // Close path (connects back to starting point)
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
