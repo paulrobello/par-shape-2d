@@ -116,7 +116,7 @@ export class PathTool extends BaseTool {
       this.drawingData.isComplete = true;
 
       // Create path shape definition
-      const pathString = this.pointsToPathString(this.drawingData.points);
+      const { pathString, originalScale } = this.pointsToPathStringWithScale(this.drawingData.points);
       
       const shapeDefinition: ShapeDefinition = {
         id: `path_${Date.now()}`,
@@ -126,7 +126,7 @@ export class PathTool extends BaseTool {
         dimensions: {
           type: 'fixed',
           path: pathString,
-          scale: { min: 1.0, max: 1.0 }
+          scale: { min: originalScale, max: originalScale }
         },
         physics: {
           type: 'fromVertices',
@@ -192,22 +192,38 @@ export class PathTool extends BaseTool {
    * Convert points array to path string format used by the shape system
    */
   private pointsToPathString(points: Point[]): string {
-    if (points.length === 0) return '';
+    const { pathString } = this.pointsToPathStringWithScale(points);
+    return pathString;
+  }
+
+  /**
+   * Convert points array to path string format with scale factor calculation
+   */
+  private pointsToPathStringWithScale(points: Point[]): { pathString: string; originalScale: number } {
+    if (points.length === 0) return { pathString: '', originalScale: 1.0 };
     
     // Calculate bounds to normalize coordinates
     const bounds = this.calculateBounds(points);
     const width = bounds.maxX - bounds.minX;
     const height = bounds.maxY - bounds.minY;
-    const scale = 100; // Normalize to 100-unit scale
+    const normalizedSize = 100; // Normalize to 100-unit scale
+    
+    // Calculate scale factor to maintain original size
+    // Target size in editor should be similar to original drawn size
+    const originalSize = Math.max(width, height);
+    const targetSize = Math.min(originalSize, 300); // Cap at 300px for reasonable size
+    const scaleFactor = targetSize / normalizedSize;
     
     // Convert to normalized coordinates
     const normalizedPoints = points.map(point => ({
-      x: ((point.x - bounds.minX) / width) * scale,
-      y: ((point.y - bounds.minY) / height) * scale
+      x: ((point.x - bounds.minX) / width) * normalizedSize,
+      y: ((point.y - bounds.minY) / height) * normalizedSize
     }));
     
     // Create path string (space-separated x y coordinates)
-    return normalizedPoints.map(p => `${Math.round(p.x)} ${Math.round(p.y)}`).join(' ');
+    const pathString = normalizedPoints.map(p => `${Math.round(p.x)} ${Math.round(p.y)}`).join(' ');
+    
+    return { pathString, originalScale: scaleFactor };
   }
 
   /**

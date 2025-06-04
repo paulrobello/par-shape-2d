@@ -291,9 +291,17 @@ export class ShapeFactory {
         }
         
       case 'path':
+        let scaleValue: number;
+        if (typeof dims.scale === 'number') {
+          scaleValue = dims.scale;
+        } else if (dims.scale && typeof dims.scale === 'object') {
+          scaleValue = randomBetween(dims.scale.min, dims.scale.max);
+        } else {
+          scaleValue = 1.0; // Default scale
+        }
         return {
           path: dims.path,
-          scale: randomBetween(dims.scale!.min, dims.scale!.max) * reduction,
+          scale: scaleValue * reduction,
         };
         
       case 'composite':

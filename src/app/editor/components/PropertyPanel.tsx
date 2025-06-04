@@ -187,6 +187,13 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
             payload: { path: 'dimensions.height', value: Math.round(avgHeight) },
           });
         }
+        if (shape.dimensions?.scale && typeof shape.dimensions.scale === 'object') {
+          const avgScale = (shape.dimensions.scale.min + shape.dimensions.scale.max) / 2;
+          await eventBus.emit({
+            type: 'editor:property:changed',
+            payload: { path: 'dimensions.scale', value: Number(avgScale.toFixed(1)) },
+          });
+        }
       }
     }
     // Handle dimension type changes - expand single values to min/max for random dimensions
@@ -223,6 +230,16 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
             payload: { path: 'dimensions.height', value: {
               min: Math.max(10, Math.round(height * 0.8)),
               max: Math.round(height * 1.2)
+            }},
+          });
+        }
+        if (shape.dimensions?.scale && typeof shape.dimensions.scale === 'number') {
+          const scale = shape.dimensions.scale;
+          await eventBus.emit({
+            type: 'editor:property:changed',
+            payload: { path: 'dimensions.scale', value: {
+              min: Math.max(0.1, Number((scale * 0.8).toFixed(1))),
+              max: Number((scale * 1.2).toFixed(1))
             }},
           });
         }
@@ -580,6 +597,55 @@ export const PropertyPanel: React.FC<PropertyPanelProps> = ({ editorManager, the
               error={undefined}
             theme={theme} // errors['dimensions.sides']}
             />
+          )}
+          
+          {currentShape.dimensions?.scale !== undefined && (
+            <>
+              {currentShape.dimensions.type === 'fixed' ? (
+                <FormField
+                  label="Scale"
+                  path="dimensions.scale"
+                  value={typeof currentShape.dimensions.scale === 'number' 
+                    ? currentShape.dimensions.scale 
+                    : getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.scale.min')
+                  }
+                  type="number"
+                  min={0.1}
+                  max={5.0}
+                  step={0.1}
+                  onChange={handlePropertyChange}
+                  error={undefined}
+                  theme={theme}
+                />
+              ) : (
+                <>
+                  <FormField
+                    label="Scale Min"
+                    path="dimensions.scale.min"
+                    value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.scale.min')}
+                    type="number"
+                    min={0.1}
+                    max={5.0}
+                    step={0.1}
+                    onChange={handlePropertyChange}
+                    error={undefined}
+                    theme={theme}
+                  />
+                  <FormField
+                    label="Scale Max"
+                    path="dimensions.scale.max"
+                    value={getNestedValue(currentShape as unknown as Record<string, unknown>, 'dimensions.scale.max')}
+                    type="number"
+                    min={0.1}
+                    max={5.0}
+                    step={0.1}
+                    onChange={handlePropertyChange}
+                    error={undefined}
+                    theme={theme}
+                  />
+                </>
+              )}
+            </>
           )}
         </>
       ))}

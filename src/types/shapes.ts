@@ -21,7 +21,7 @@ export interface ShapeDefinition {
     
     // For path shapes
     path?: string;
-    scale?: { min: number; max: number };
+    scale?: { min: number; max: number } | number;
     
     // For size reduction during retries
     reductionFactor?: number;

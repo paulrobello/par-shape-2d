@@ -25,8 +25,8 @@ export class GridManager extends BaseEditorSystem {
     enabled: false,
     size: 20,
     snapEnabled: false,
-    dotOpacity: 0.3,
-    dotSize: 1
+    dotOpacity: 0.6,
+    dotSize: 2
   };
 
   constructor() {
@@ -112,26 +112,25 @@ export class GridManager extends BaseEditorSystem {
 
     ctx.save();
     
-    // Set dot appearance
-    ctx.fillStyle = `rgba(0, 0, 0, ${this.settings.dotOpacity})`;
+    // Set dot appearance - make dots more visible
+    ctx.fillStyle = `rgba(100, 100, 100, ${this.settings.dotOpacity})`;
     
     const gridSize = this.settings.size;
-    const dotRadius = this.settings.dotSize / 2;
+    const dotRadius = Math.max(this.settings.dotSize / 2, 1); // Ensure minimum 1px radius
 
     // Calculate grid bounds to only render visible dots
-    const startX = Math.floor(-gridSize) + (gridSize - ((-gridSize) % gridSize));
-    const startY = Math.floor(-gridSize) + (gridSize - ((-gridSize) % gridSize));
-    const endX = canvasWidth + gridSize;
-    const endY = canvasHeight + gridSize;
+    // Start from 0 and go to canvas dimensions
+    const startX = 0;
+    const startY = 0;
+    const endX = canvasWidth;
+    const endY = canvasHeight;
 
     // Render dots at grid intersections
     for (let x = startX; x <= endX; x += gridSize) {
       for (let y = startY; y <= endY; y += gridSize) {
-        if (x >= 0 && x <= canvasWidth && y >= 0 && y <= canvasHeight) {
-          ctx.beginPath();
-          ctx.arc(x, y, dotRadius, 0, 2 * Math.PI);
-          ctx.fill();
-        }
+        ctx.beginPath();
+        ctx.arc(x, y, dotRadius, 0, 2 * Math.PI);
+        ctx.fill();
       }
     }
 

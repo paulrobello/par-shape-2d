@@ -1,6 +1,6 @@
 import { BaseEditorSystem } from '../core/BaseEditorSystem';
 import { ShapeDefinition } from '@/types/shapes';
-import { Bodies, Body } from 'matter-js';
+import { Bodies, Body, Vertices, Bounds } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
@@ -145,7 +145,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
       // Create appropriate physics body based on shape type
       let body: Body;
       let shapeType: string;
-      let shapeDimensions: { width?: number; height?: number; radius?: number; sides?: number } = {};
+      let shapeDimensions: { width?: number; height?: number; radius?: number; sides?: number; vertices?: Vector2[] } = {};
       
       if (definition.physics.type === 'circle') {
         // Circle shape
@@ -160,6 +160,37 @@ export class ShapeEditorManager extends BaseEditorSystem {
         body = Bodies.polygon(centerX, centerY, sides, radius);
         shapeType = 'polygon';
         shapeDimensions = { radius, sides };
+      } else if (definition.physics.type === 'fromVertices' && dimensions.path) {
+        // Path shape - use fromVertices to create physics body
+        // @ts-expect-error the @types lib is not up to date
+        const pathVertices = Vertices.fromPath(dimensions.path);
+        
+        // Scale the vertices if scale is specified
+        if (dimensions.scale && dimensions.scale !== 1 && dimensions.scale > 0) {
+          const initialBounds = Bounds.create(pathVertices);
+          const center = {
+            x: (initialBounds.min.x + initialBounds.max.x) / 2,
+            y: (initialBounds.min.y + initialBounds.max.y) / 2
+          };
+          Vertices.scale(pathVertices, dimensions.scale, dimensions.scale, center);
+        }
+        
+        // Center the vertices at origin for relative positioning
+        const bounds = Bounds.create(pathVertices);
+        const centerVertexX = (bounds.min.x + bounds.max.x) / 2;
+        const centerVertexY = (bounds.min.y + bounds.max.y) / 2;
+        Vertices.translate(pathVertices, { x: -centerVertexX, y: -centerVertexY }, 1);
+        
+        // Store original vertices for rendering (in local coordinates)
+        const originalVertices: Vector2[] = pathVertices.map(v => ({
+          x: v.x,
+          y: v.y
+        }));
+        
+        // Create physics body
+        body = Bodies.fromVertices(centerX, centerY, [pathVertices], {}, true);
+        shapeType = 'star'; // Use 'star' as fallback type for path shapes
+        shapeDimensions = { vertices: originalVertices };
       } else {
         // Rectangle/other shapes
         const finalWidth = dimensions.width || 100;
@@ -235,7 +266,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
       // Create appropriate physics body based on shape type
       let body: Body;
       let shapeType: string;
-      let shapeDimensions: { width?: number; height?: number; radius?: number; sides?: number } = {};
+      let shapeDimensions: { width?: number; height?: number; radius?: number; sides?: number; vertices?: Vector2[] } = {};
       
       if (definition.physics.type === 'circle') {
         // Circle shape
@@ -250,6 +281,37 @@ export class ShapeEditorManager extends BaseEditorSystem {
         body = Bodies.polygon(centerX, centerY, sides, radius);
         shapeType = 'polygon';
         shapeDimensions = { radius, sides };
+      } else if (definition.physics.type === 'fromVertices' && dimensions.path) {
+        // Path shape - use fromVertices to create physics body
+        // @ts-expect-error the @types lib is not up to date
+        const pathVertices = Vertices.fromPath(dimensions.path);
+        
+        // Scale the vertices if scale is specified
+        if (dimensions.scale && dimensions.scale !== 1 && dimensions.scale > 0) {
+          const initialBounds = Bounds.create(pathVertices);
+          const center = {
+            x: (initialBounds.min.x + initialBounds.max.x) / 2,
+            y: (initialBounds.min.y + initialBounds.max.y) / 2
+          };
+          Vertices.scale(pathVertices, dimensions.scale, dimensions.scale, center);
+        }
+        
+        // Center the vertices at origin for relative positioning
+        const bounds = Bounds.create(pathVertices);
+        const centerVertexX = (bounds.min.x + bounds.max.x) / 2;
+        const centerVertexY = (bounds.min.y + bounds.max.y) / 2;
+        Vertices.translate(pathVertices, { x: -centerVertexX, y: -centerVertexY }, 1);
+        
+        // Store original vertices for rendering (in local coordinates)
+        const originalVertices: Vector2[] = pathVertices.map(v => ({
+          x: v.x,
+          y: v.y
+        }));
+        
+        // Create physics body
+        body = Bodies.fromVertices(centerX, centerY, [pathVertices], {}, true);
+        shapeType = 'star'; // Use 'star' as fallback type for path shapes
+        shapeDimensions = { vertices: originalVertices };
       } else {
         // Rectangle/other shapes
         const finalWidth = dimensions.width || 100;
@@ -320,7 +382,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
     }
   }
 
-  private generateDimensions(definition: ShapeDefinition): { width?: number; height?: number; radius?: number; sides?: number } {
+  private generateDimensions(definition: ShapeDefinition): { width?: number; height?: number; radius?: number; sides?: number; path?: string; scale?: number } {
     const dimensions = definition.dimensions;
     
     if (dimensions.type === 'random') {
@@ -340,6 +402,16 @@ export class ShapeEditorManager extends BaseEditorSystem {
         }
         result.width = 0;
         result.height = 0;
+      } else if (dimensions.path) {
+        // Path shape
+        result.path = dimensions.path as string;
+        if (dimensions.scale) {
+          if (typeof dimensions.scale === 'number') {
+            result.scale = dimensions.scale;
+          } else {
+            result.scale = this.randomInRange(dimensions.scale.min, dimensions.scale.max);
+          }
+        }
       } else {
         // Only set width/height for non-radius shapes
         if (dimensions.width) {
@@ -371,6 +443,16 @@ export class ShapeEditorManager extends BaseEditorSystem {
         }
         result.width = 0;
         result.height = 0;
+      } else if (dimensions.path) {
+        // Path shape
+        result.path = dimensions.path as string;
+        if (dimensions.scale) {
+          if (typeof dimensions.scale === 'number') {
+            result.scale = dimensions.scale;
+          } else {
+            result.scale = (dimensions.scale.min + dimensions.scale.max) / 2; // Use average for fixed type
+          }
+        }
       } else {
         result.width = dimensions.width as number;
         result.height = dimensions.height as number;
@@ -728,6 +810,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
   private calculatePotentialScrewPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
     const positions: Vector2[] = [];
     const strategy = definition.screwPlacement.strategy;
+    const minSeparation = definition.screwPlacement.minSeparation || 48;
     
     switch (strategy) {
       case 'corners':
@@ -747,7 +830,8 @@ export class ShapeEditorManager extends BaseEditorSystem {
         break;
     }
     
-    return positions;
+    // Apply min separation filtering to all strategies
+    return this.filterPositionsByMinSeparation(positions, minSeparation);
   }
 
   private calculateCornerPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
@@ -795,24 +879,19 @@ export class ShapeEditorManager extends BaseEditorSystem {
   }
 
   private calculatePerimeterPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
-    const positions: Vector2[] = [];
+    let positions: Vector2[] = [];
     const points = definition.screwPlacement.perimeterPoints || 8;
     const margin = definition.screwPlacement.perimeterMargin || 20;
     
-    if (shape.radius) {
-      // Circle or Polygon perimeter - both use circular distribution
+    if (shape.radius && shape.sides) {
+      // Polygon perimeter - distribute along actual polygon edges
+      positions = this.calculatePolygonPerimeterPositions(shape, points, margin);
+    } else if (shape.radius) {
+      // Circle perimeter - circular distribution
       const radius = shape.radius - margin;
       
       for (let i = 0; i < points; i++) {
-        let angle;
-        if (shape.sides) {
-          // For polygons, use the same orientation as the polygon vertices
-          // But distribute points evenly around the perimeter
-          angle = (i * Math.PI * 2) / points + (Math.PI / shape.sides);
-        } else {
-          // For circles, start from the right (0 radians)
-          angle = (i * Math.PI * 2) / points;
-        }
+        const angle = (i * Math.PI * 2) / points;
         
         positions.push({
           x: shape.position.x + Math.cos(angle) * radius,
@@ -850,9 +929,208 @@ export class ShapeEditorManager extends BaseEditorSystem {
         
         positions.push({ x, y });
       }
+    } else if (shape.vertices && shape.vertices.length > 0) {
+      // Path shapes with stored vertices
+      positions = this.calculatePathPerimeterPositions(shape, points, margin);
     }
     
     return positions;
+  }
+
+  private calculatePolygonPerimeterPositions(shape: Shape, points: number, margin: number): Vector2[] {
+    const positions: Vector2[] = [];
+    const radius = shape.radius!;
+    const sides = shape.sides!;
+    
+    // Calculate the vertices of the polygon (same as Shape.createPolygonPath())
+    const vertices: Vector2[] = [];
+    for (let i = 0; i < sides; i++) {
+      const angle = (i * Math.PI * 2) / sides + (Math.PI / sides);
+      vertices.push({
+        x: shape.position.x + Math.cos(angle) * radius,
+        y: shape.position.y + Math.sin(angle) * radius
+      });
+    }
+    
+    // Calculate the perimeter length of the polygon
+    let totalPerimeter = 0;
+    const edgeLengths: number[] = [];
+    for (let i = 0; i < sides; i++) {
+      const current = vertices[i];
+      const next = vertices[(i + 1) % sides];
+      const length = Math.sqrt(
+        Math.pow(next.x - current.x, 2) + Math.pow(next.y - current.y, 2)
+      );
+      edgeLengths.push(length);
+      totalPerimeter += length;
+    }
+    
+    // Distribute points along the perimeter proportionally
+    const targetSpacing = totalPerimeter / points;
+    let currentDistance = 0;
+    let edgeIndex = 0;
+    let distanceOnCurrentEdge = 0;
+    
+    for (let i = 0; i < points; i++) {
+      const targetDistance = i * targetSpacing;
+      
+      // Find which edge this point should be on
+      while (currentDistance + edgeLengths[edgeIndex] - distanceOnCurrentEdge < targetDistance && edgeIndex < sides) {
+        currentDistance += edgeLengths[edgeIndex] - distanceOnCurrentEdge;
+        edgeIndex = (edgeIndex + 1) % sides;
+        distanceOnCurrentEdge = 0;
+      }
+      
+      // Calculate position along the current edge
+      const remainingDistance = targetDistance - currentDistance;
+      distanceOnCurrentEdge = remainingDistance;
+      
+      const current = vertices[edgeIndex];
+      const next = vertices[(edgeIndex + 1) % sides];
+      const edgeProgress = remainingDistance / edgeLengths[edgeIndex];
+      
+      // Apply margin by moving the point inward from the edge
+      const edgeX = current.x + (next.x - current.x) * edgeProgress;
+      const edgeY = current.y + (next.y - current.y) * edgeProgress;
+      
+      // Calculate inward direction (toward center)
+      const centerX = shape.position.x;
+      const centerY = shape.position.y;
+      const toCenter = {
+        x: centerX - edgeX,
+        y: centerY - edgeY
+      };
+      const toCenterLength = Math.sqrt(toCenter.x * toCenter.x + toCenter.y * toCenter.y);
+      
+      if (toCenterLength > 0) {
+        const normalizedToCenter = {
+          x: toCenter.x / toCenterLength,
+          y: toCenter.y / toCenterLength
+        };
+        
+        positions.push({
+          x: edgeX + normalizedToCenter.x * margin,
+          y: edgeY + normalizedToCenter.y * margin
+        });
+      } else {
+        // Fallback if point is exactly at center
+        positions.push({ x: edgeX, y: edgeY });
+      }
+    }
+    
+    return positions;
+  }
+
+  private calculatePathPerimeterPositions(shape: Shape, points: number, margin: number): Vector2[] {
+    const positions: Vector2[] = [];
+    const vertices = shape.vertices!;
+    
+    // Calculate the perimeter length of the path
+    let totalPerimeter = 0;
+    const edgeLengths: number[] = [];
+    for (let i = 0; i < vertices.length; i++) {
+      const current = vertices[i];
+      const next = vertices[(i + 1) % vertices.length];
+      const length = Math.sqrt(
+        Math.pow(next.x - current.x, 2) + Math.pow(next.y - current.y, 2)
+      );
+      edgeLengths.push(length);
+      totalPerimeter += length;
+    }
+    
+    // Distribute points along the perimeter proportionally
+    const targetSpacing = totalPerimeter / points;
+    let currentDistance = 0;
+    let edgeIndex = 0;
+    let distanceOnCurrentEdge = 0;
+    
+    for (let i = 0; i < points; i++) {
+      const targetDistance = i * targetSpacing;
+      
+      // Find which edge this point should be on
+      while (currentDistance + edgeLengths[edgeIndex] - distanceOnCurrentEdge < targetDistance && edgeIndex < vertices.length) {
+        currentDistance += edgeLengths[edgeIndex] - distanceOnCurrentEdge;
+        edgeIndex = (edgeIndex + 1) % vertices.length;
+        distanceOnCurrentEdge = 0;
+      }
+      
+      // Calculate position along the current edge
+      const remainingDistance = targetDistance - currentDistance;
+      distanceOnCurrentEdge = remainingDistance;
+      
+      const current = vertices[edgeIndex];
+      const next = vertices[(edgeIndex + 1) % vertices.length];
+      const edgeProgress = remainingDistance / edgeLengths[edgeIndex];
+      
+      // Apply margin by moving the point inward from the edge
+      const edgeX = shape.position.x + current.x + (next.x - current.x) * edgeProgress;
+      const edgeY = shape.position.y + current.y + (next.y - current.y) * edgeProgress;
+      
+      // Calculate inward direction (toward center)
+      const centerX = shape.position.x;
+      const centerY = shape.position.y;
+      const toCenter = {
+        x: centerX - edgeX,
+        y: centerY - edgeY
+      };
+      const toCenterLength = Math.sqrt(toCenter.x * toCenter.x + toCenter.y * toCenter.y);
+      
+      if (toCenterLength > 0) {
+        const normalizedToCenter = {
+          x: toCenter.x / toCenterLength,
+          y: toCenter.y / toCenterLength
+        };
+        
+        positions.push({
+          x: edgeX + normalizedToCenter.x * margin,
+          y: edgeY + normalizedToCenter.y * margin
+        });
+      } else {
+        // Fallback if point is exactly at center
+        positions.push({ x: edgeX, y: edgeY });
+      }
+    }
+    
+    return positions;
+  }
+
+  private filterPositionsByMinSeparation(positions: Vector2[], minSeparation: number): Vector2[] {
+    if (positions.length === 0 || minSeparation <= 0) {
+      return positions;
+    }
+
+    const filteredPositions: Vector2[] = [];
+    
+    // Always include the first position
+    if (positions.length > 0) {
+      filteredPositions.push(positions[0]);
+    }
+    
+    // Filter subsequent positions based on min separation
+    for (let i = 1; i < positions.length; i++) {
+      const currentPos = positions[i];
+      let tooClose = false;
+      
+      // Check distance to all already accepted positions
+      for (const acceptedPos of filteredPositions) {
+        const distance = Math.sqrt(
+          Math.pow(currentPos.x - acceptedPos.x, 2) + 
+          Math.pow(currentPos.y - acceptedPos.y, 2)
+        );
+        
+        if (distance < minSeparation) {
+          tooClose = true;
+          break;
+        }
+      }
+      
+      // Only add if it's far enough from all existing positions
+      if (!tooClose) {
+        filteredPositions.push(currentPos);
+      }
+    }
+    
+    return filteredPositions;
   }
 
   private calculateGridPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {

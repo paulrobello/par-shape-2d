@@ -116,6 +116,7 @@ src/editor/
 - **Dynamic Screw Placement Controls**: Input fields shown/hidden based on selected placement strategy
 - **Auto-Population of Defaults**: Strategy-specific fields automatically populated with appropriate defaults when strategy changes
 - **Intelligent Random Generation**: Random values respect min/max relationships and strategy-specific relevance
+- **Scale Factor Support**: Path shapes include adjustable scale property (0.1-5.0 range) with automatic calculation for optimal sizing
 
 ### 3. Playground Area
 - **Shape Preview**: Real-time rendering using game's ShapeRenderer with blue color scheme (#007bff)
@@ -129,11 +130,12 @@ src/editor/
 ### 4. Screw Placement System
 - **Visual Indicators**: Dashed gray circles (6px radius) show valid placement positions
 - **Strategy Support**:
-  - **Corners**: Cross pattern for circles, corner positions for rectangles (configurable margin)
-  - **Perimeter**: Evenly distributed around shape perimeter (configurable point count and margin)
+  - **Corners**: Cross pattern for circles, actual corner positions for polygons (configurable margin)
+  - **Perimeter**: Shape-aware distribution along actual edges - circles use circular distribution, polygons use edge-based distribution, paths use vertex-based distribution (configurable point count and margin)
   - **Grid**: Grid pattern inside shape boundaries (configurable spacing)
   - **Custom**: User-defined positions from JSON configuration (canvas-based editing)
   - **Capsule**: Strategic positions for capsule-shaped objects (configurable end margin)
+- **Min Separation Enforcement**: All strategies respect minimum separation distance to prevent overlapping screws
 - **Real-time Feedback**: Indicators hide when screws are placed at those positions
 - **Interactive Editing**: Click empty indicators to add screws, click existing screws to remove
 - **Position Alignment**: Screw positions and placement indicators use consistent calculation logic
@@ -226,6 +228,8 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Interactive Tools**: Click-based add/remove with precise hit detection (15px radius)
 - **Event-Driven Updates**: All screw changes trigger re-render events for immediate feedback
 - **Strategy Calculations**: Algorithm implementations for corners, perimeter, grid, custom, and capsule strategies
+- **Shape-Aware Perimeter Strategy**: Polygons use edge-based distribution instead of circular distribution for accurate screw placement
+- **Min Separation Enforcement**: All placement strategies filter positions based on minimum separation distance
 - **Positioning Consistency**: Screw positions and indicators use identical strategy-based calculation logic
 
 ### Physics Integration
@@ -272,8 +276,8 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 
 ### ✅ Phase 2A - Foundation (Implemented)
 - **Grid System**: 
-  - Configurable grid with dot rendering (5px, 10px, 20px, 50px sizes)
-  - Toggle visibility and snap-to-grid functionality
+  - Configurable grid with visible dot rendering (5px, 10px, 20px, 50px sizes)
+  - Toggle visibility and snap-to-grid functionality with enhanced visibility (2px dots, 60% opacity)
   - Efficient rendering with only visible grid points drawn
   - GridManager system with event-driven state updates
   - GridControls UI component in property panel
@@ -347,8 +351,9 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   - Multi-point workflow with dynamic point addition
   - Path closing detection (click first point when ≥3 points)
   - Visual feedback for closing opportunity with red highlight
-  - Automatic path string generation for fromVertices physics
-  - Creates path category shapes with decomposition support
+  - Automatic path string generation with intelligent scale factor calculation
+  - Maintains original drawn size with scale factor preservation (caps at 300px for reasonable dimensions)
+  - Creates path category shapes with decomposition support and proper vertex storage
   
 - **Visual Polish**: Enhanced drawing state feedback and dimension displays
 
