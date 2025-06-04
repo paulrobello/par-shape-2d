@@ -134,7 +134,7 @@ src/editor/
   - **Perimeter**: Shape-aware distribution along actual edges - circles use circular distribution, polygons use edge-based distribution, paths use actual vertex-based distribution with proper margin application (configurable point count and margin)
   - **Grid**: Grid pattern inside shape boundaries with ray-casting point-in-polygon testing for path shapes (configurable spacing and margin enforcement)
   - **Custom**: User-defined positions from JSON configuration (canvas-based editing)
-  - **Capsule**: Strategic positions for capsule-shaped objects (configurable end margin)
+  - **Capsule**: Strategic positions for capsule-shaped objects including center, ends, and sides (configurable end margin)
 - **Path Shape Enhancements**: All strategies now fully support path-based shapes (arrow, chevron, star, horseshoe) with proper vertex analysis
 - **Advanced Corner Detection**: Multi-method approach using angle analysis, direction change detection, and curvature calculation for comprehensive corner identification
 - **Point-in-Polygon Testing**: Ray-casting algorithm ensures grid positions are accurately placed inside complex path shapes

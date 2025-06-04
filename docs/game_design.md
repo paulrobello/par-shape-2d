@@ -404,10 +404,11 @@ JSON-driven placement strategies with advanced positioning algorithms:
 
 **3. Capsule Strategy** (`"strategy": "capsule"`):
 - **Used by**: Capsule composite shapes
-- **Algorithm**: Horizontal distribution along center line
+- **Algorithm**: Strategic positioning at center, ends, and sides
+- **Positions**: Center position, end positions, and side positions (if tall enough)
 - **Configuration**:
   - `capsuleEndMargin`: Distance from ends (typically 5px)
-  - Even spacing based on screw count
+  - Center position always included for pivot point
 - **Multi-part aware**: Accounts for composite body structure
 
 **4. Grid Strategy** (`"strategy": "grid"`):
@@ -1194,7 +1195,7 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ All rendering uses UI_CONSTANTS for uniform appearance
 - ✅ Fixed mobile layout issues and touch coordinate transformation
 - ✅ **Capsule Shape Support**: Full implementation with composite physics bodies
-- ✅ **Capsule Screw Placement**: Proper centering with 5px end margins
+- ✅ **Capsule Screw Placement**: Strategic positioning at center, ends, and sides with configurable margins
 - ✅ **Capsule Blocking Detection**: Specialized collision detection for composite shapes
 - ✅ **Event Loop Prevention**: Unique source identifiers prevent physics event loops
 - ✅ **Single-Screw Physics**: Enhanced pendulum motion with initial perturbation and wake-up control
