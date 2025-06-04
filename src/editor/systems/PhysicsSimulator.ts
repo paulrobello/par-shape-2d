@@ -236,7 +236,68 @@ export class PhysicsSimulator extends BaseEditorSystem {
       
       // Create new physics body for simulation (don't reuse editor body)
       let physicsBody: Body;
-      if (shapeData.shape.radius) {
+      let physicsBodyParts: Body[] | undefined;
+      
+      if (shapeData.shape.type === 'capsule') {
+        // Create composite capsule body (rectangle + 2 circles)
+        const width = shapeData.shape.width || 120;
+        const height = shapeData.shape.height || 50;
+        const radius = height / 2;
+        const rectWidth = width - height;
+        
+        const rectangle = Bodies.rectangle(
+          shapeData.shape.position.x,
+          shapeData.shape.position.y,
+          rectWidth,
+          height,
+          {
+            isStatic: false,
+            density: 0.001,
+            friction: 0.3,
+            frictionAir: 0.01,
+            restitution: 0.6,
+          }
+        );
+        
+        const leftCircle = Bodies.circle(
+          shapeData.shape.position.x - rectWidth / 2,
+          shapeData.shape.position.y,
+          radius,
+          {
+            isStatic: false,
+            density: 0.001,
+            friction: 0.3,
+            frictionAir: 0.01,
+            restitution: 0.6,
+          }
+        );
+        
+        const rightCircle = Bodies.circle(
+          shapeData.shape.position.x + rectWidth / 2,
+          shapeData.shape.position.y,
+          radius,
+          {
+            isStatic: false,
+            density: 0.001,
+            friction: 0.3,
+            frictionAir: 0.01,
+            restitution: 0.6,
+          }
+        );
+        
+        physicsBody = Body.create({
+          parts: [rectangle, leftCircle, rightCircle],
+          isStatic: false,
+          density: 0.001,
+          friction: 0.3,
+          frictionAir: 0.01,
+          restitution: 0.6,
+        });
+        
+        Body.setPosition(physicsBody, shapeData.shape.position);
+        physicsBodyParts = [rectangle, leftCircle, rightCircle];
+        
+      } else if (shapeData.shape.radius) {
         physicsBody = Bodies.circle(
           shapeData.shape.position.x,
           shapeData.shape.position.y,
@@ -268,7 +329,7 @@ export class PhysicsSimulator extends BaseEditorSystem {
       // Create shape entity from data
       const shapeEntity = new Shape(
         shapeData.shape.id,
-        shapeData.shape.type as 'circle' | 'rectangle',
+        shapeData.shape.type as 'circle' | 'rectangle' | 'capsule',
         shapeData.shape.position,
         physicsBody,
         'physics-layer',
@@ -278,8 +339,14 @@ export class PhysicsSimulator extends BaseEditorSystem {
           radius: shapeData.shape.radius,
           width: shapeData.shape.width,
           height: shapeData.shape.height,
-        }
+        },
+        physicsBodyParts ? { isComposite: true, parts: physicsBodyParts } : undefined
       );
+      
+      // For composite bodies, sync the position after creation
+      if (physicsBodyParts) {
+        shapeEntity.updateFromBody();
+      }
 
       // Create screw entities
       const screwEntities: Screw[] = [];
