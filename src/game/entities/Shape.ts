@@ -41,6 +41,8 @@ export class Shape implements IShape {
       parts: Body[];
     }
   ) {
+    console.log(`Shape constructor: Creating shape with type='${type}', id='${id}', dimensions:`, dimensions);
+    
     this.id = id;
     this.type = type;
     this.position = position;
@@ -118,6 +120,8 @@ export class Shape implements IShape {
 
   public getPath2D(): Path2D {
     const path = new Path2D();
+    
+    console.log(`Shape.getPath2D(): Creating path for shape type '${this.type}', width: ${this.width}, height: ${this.height}, radius: ${this.radius}`);
 
     switch (this.type) {
       case 'rectangle':
@@ -135,6 +139,7 @@ export class Shape implements IShape {
       case 'horseshoe':
         return this.createPathFromVertices();
       default:
+        console.warn(`Shape.getPath2D(): Unknown shape type '${this.type}', returning empty path`);
         return path;
     }
   }

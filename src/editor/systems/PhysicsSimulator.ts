@@ -359,9 +359,11 @@ export class PhysicsSimulator extends BaseEditorSystem {
   private createScrewConstraint(screw: Screw, shape: Shape): { constraint: Constraint; anchorBody: Body } {
     console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
     
-    // Calculate offset from shape center to screw position
-    const offsetX = screw.position.x - shape.position.x;
-    const offsetY = screw.position.y - shape.position.y;
+    // Calculate offset from physics body center to screw position
+    // For composite bodies, use the actual physics body position, not the Shape entity position
+    const bodyPosition = shape.body.position;
+    const offsetX = screw.position.x - bodyPosition.x;
+    const offsetY = screw.position.y - bodyPosition.y;
 
     // Create anchor body at screw position (small invisible circle)
     const screwAnchor = Bodies.circle(screw.position.x, screw.position.y, 1, {

@@ -1368,8 +1368,10 @@ export class ScrewManager extends BaseSystem {
   private createScrewConstraint(screw: Screw, shape: Shape): void {
     console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
     
-    const offsetX = screw.position.x - shape.position.x;
-    const offsetY = screw.position.y - shape.position.y;
+    // For composite bodies, use the actual physics body position, not the Shape entity position
+    const bodyPosition = shape.body.position;
+    const offsetX = screw.position.x - bodyPosition.x;
+    const offsetY = screw.position.y - bodyPosition.y;
 
     const screwAnchor = Bodies.circle(screw.position.x, screw.position.y, 1, {
       isStatic: true,

@@ -191,6 +191,24 @@ export class ShapeEditorManager extends BaseEditorSystem {
         body = Bodies.fromVertices(centerX, centerY, [pathVertices], {}, true);
         shapeType = 'star'; // Use 'star' as fallback type for path shapes
         shapeDimensions = { vertices: originalVertices };
+      } else if (definition.physics.type === 'composite' && definition.id.includes('capsule')) {
+        // Capsule shape - create composite body like ShapeFactory
+        const finalWidth = dimensions.width || 120;
+        const finalHeight = dimensions.height || 40;
+        const radius = finalHeight / 2;
+        const rectWidth = finalWidth - finalHeight;
+        
+        // Create the parts
+        const rectangle = Bodies.rectangle(centerX, centerY, rectWidth, finalHeight);
+        const leftCircle = Bodies.circle(centerX - rectWidth / 2, centerY, radius);
+        const rightCircle = Bodies.circle(centerX + rectWidth / 2, centerY, radius);
+        
+        // Create composite body
+        body = Body.create({ parts: [rectangle, leftCircle, rightCircle] });
+        Body.setPosition(body, { x: centerX, y: centerY });
+        
+        shapeType = 'capsule';
+        shapeDimensions = { width: finalWidth, height: finalHeight };
       } else {
         // Rectangle/other shapes
         const finalWidth = dimensions.width || 100;
@@ -209,7 +227,12 @@ export class ShapeEditorManager extends BaseEditorSystem {
         'editor-layer',
         '#007bff', // Blue color
         '#007bff', // Blue tint
-        shapeDimensions
+        shapeDimensions,
+        // Add composite data for capsules
+        shapeType === 'capsule' ? { 
+          isComposite: true, 
+          parts: body.parts ? body.parts : [] 
+        } : undefined
       );
       
       if (!shape) {
@@ -312,6 +335,24 @@ export class ShapeEditorManager extends BaseEditorSystem {
         body = Bodies.fromVertices(centerX, centerY, [pathVertices], {}, true);
         shapeType = 'star'; // Use 'star' as fallback type for path shapes
         shapeDimensions = { vertices: originalVertices };
+      } else if (definition.physics.type === 'composite' && definition.id.includes('capsule')) {
+        // Capsule shape - create composite body like ShapeFactory
+        const finalWidth = dimensions.width || 120;
+        const finalHeight = dimensions.height || 40;
+        const radius = finalHeight / 2;
+        const rectWidth = finalWidth - finalHeight;
+        
+        // Create the parts
+        const rectangle = Bodies.rectangle(centerX, centerY, rectWidth, finalHeight);
+        const leftCircle = Bodies.circle(centerX - rectWidth / 2, centerY, radius);
+        const rightCircle = Bodies.circle(centerX + rectWidth / 2, centerY, radius);
+        
+        // Create composite body
+        body = Body.create({ parts: [rectangle, leftCircle, rightCircle] });
+        Body.setPosition(body, { x: centerX, y: centerY });
+        
+        shapeType = 'capsule';
+        shapeDimensions = { width: finalWidth, height: finalHeight };
       } else {
         // Rectangle/other shapes
         const finalWidth = dimensions.width || 100;
@@ -329,7 +370,12 @@ export class ShapeEditorManager extends BaseEditorSystem {
         'editor-layer',
         '#007bff', // Blue color
         '#007bff', // Blue tint
-        shapeDimensions
+        shapeDimensions,
+        // Add composite data for capsules
+        shapeType === 'capsule' ? { 
+          isComposite: true, 
+          parts: body.parts ? body.parts : [] 
+        } : undefined
       );
       
       if (!newShape) {
@@ -497,7 +543,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
   }
 
   private renderShape(context: CanvasRenderingContext2D, shape: Shape): void {
-    console.log('ShapeEditorManager: Rendering shape at', shape.position, 'type:', shape.type, 'radius:', shape.radius);
+    console.log('ShapeEditorManager: Rendering shape at', shape.position, 'type:', shape.type, 'radius:', shape.radius, 'width:', shape.width, 'height:', shape.height);
     
     const renderContext = {
       ctx: context,
