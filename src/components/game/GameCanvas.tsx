@@ -7,6 +7,7 @@ import { GameState } from '@/game/core/GameState';
 import { GameEvent } from '@/game/events/EventTypes';
 import { GAME_CONFIG, getTotalLayersForLevel } from '@/game/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
+import { initializePolyDecomp } from '@/game/utils/PhysicsInit';
 
 // Type guard for Visual Viewport API support
 function hasVisualViewport(window: Window): window is Window & { visualViewport: VisualViewport } {
@@ -113,6 +114,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
   } | null>(null);
 
   useEffect(() => {
+    // Initialize poly-decomp for Matter.js Bodies.fromVertices support
+    initializePolyDecomp();
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 

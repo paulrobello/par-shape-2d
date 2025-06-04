@@ -34,7 +34,7 @@ It has 2 parts, the game itself and a shape editor. The editor includes comprehe
 
 **Physics Integration** uses collision groups to separate layers. Screws are implemented as Matter.js constraints between shapes and anchor points. The physics world includes sleep management to wake unsupported shapes and prevent floating objects.
 
-**Complex Shapes**: Path-based shapes (arrow, chevron, star, horseshoe) use `Bodies.fromVertices()` with poly-decomp-es for accurate physics simulation. Original vertices are preserved separately for rendering to maintain visual accuracy.
+**Complex Shapes**: Path-based shapes (arrow, chevron, star, horseshoe) use `Bodies.fromVertices()` with poly-decomp-es for accurate physics simulation. The poly-decomp library is automatically initialized at application startup via the `PhysicsInit.ts` utility to eliminate Matter.js warnings. Original vertices are preserved separately for rendering to maintain visual accuracy.
 
 ## Documentation and References
 

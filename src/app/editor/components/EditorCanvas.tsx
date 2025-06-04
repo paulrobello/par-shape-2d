@@ -10,6 +10,7 @@ import { useDarkMode } from '@/editor/utils/useDarkMode';
 import { getTheme } from '@/editor/utils/theme';
 import { ToolPalette } from '@/editor/components/ToolPalette';
 import { DrawingOverlay } from '@/editor/components/DrawingOverlay';
+import { initializePolyDecomp } from '@/game/utils/PhysicsInit';
 
 export const EditorCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,6 +23,9 @@ export const EditorCanvas: React.FC = () => {
   const theme = getTheme(isDarkMode);
 
   useEffect(() => {
+    // Initialize poly-decomp for Matter.js Bodies.fromVertices support
+    initializePolyDecomp();
+    
     let manager: EditorManager | null = null;
     
     const initializeEditor = async () => {

@@ -290,6 +290,16 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **File I/O**: Shape file loading and saving
 - **Editor State**: Separate state management for editor functionality
 
+## Physics Library Integration
+
+### Poly-Decomp Initialization
+- **Purpose**: Enables proper physics body creation for complex path-based shapes using `Bodies.fromVertices`
+- **Implementation**: Centralized initialization system via `PhysicsInit.ts` utility
+- **Coverage**: Automatic initialization in both game and editor contexts
+- **Benefits**: Eliminates Matter.js warnings and ensures correct physics decomposition for complex shapes
+- **Usage**: Transparent - automatically initialized when GameCanvas or EditorCanvas components mount
+- **State Tracking**: Internal tracking prevents redundant initialization calls
+
 ## Phase 2 Implementation (Partially Complete)
 
 ### ✅ Phase 2A - Foundation (Implemented)

@@ -1,4 +1,4 @@
-import { Bodies, Body, Vertices, Bounds, Common } from 'matter-js';
+import { Bodies, Body, Vertices, Bounds } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeType, Vector2 } from '@/types/game';
 import { ShapeDefinition, ShapeDimensions } from '@/types/shapes';
@@ -6,7 +6,7 @@ import { PHYSICS_CONSTANTS, SHAPE_TINTS, UI_CONSTANTS } from '@/game/utils/Const
 import { randomBetween } from '@/game/utils/MathUtils';
 import { ShapeRegistry } from './ShapeRegistry';
 import { DEBUG_CONFIG } from '@/game/utils/Constants';
-import * as decomp from 'poly-decomp-es';
+import { initializePolyDecomp, isPolyDecompInitialized } from '@/game/utils/PhysicsInit';
 
 export class ShapeFactory {
   private static shapeCounter = 0;
@@ -442,7 +442,10 @@ export class ShapeFactory {
     position: Vector2,
     dimensions: ShapeDimensions
   ): { body: Body; originalVertices: Vector2[] } {
-    Common.setDecomp(decomp);
+    // Ensure poly-decomp is initialized
+    if (!isPolyDecompInitialized()) {
+      initializePolyDecomp();
+    }
     
     // Create vertices from path
     // @ts-expect-error the @types lib is not up to date

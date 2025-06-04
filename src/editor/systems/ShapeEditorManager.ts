@@ -18,6 +18,7 @@ import {
 } from '../events/EditorEventTypes';
 import { Vector2, ShapeType } from '@/types/game';
 import { DEBUG_CONFIG } from '@/game/utils/Constants';
+import { initializePolyDecomp, isPolyDecompInitialized } from '@/game/utils/PhysicsInit';
 
 interface EditorShape {
   shape: Shape;
@@ -188,6 +189,11 @@ export class ShapeEditorManager extends BaseEditorSystem {
           y: v.y
         }));
         
+        // Ensure poly-decomp is initialized before creating physics body
+        if (!isPolyDecompInitialized()) {
+          initializePolyDecomp();
+        }
+        
         // Create physics body
         body = Bodies.fromVertices(centerX, centerY, [pathVertices], {}, true);
         shapeType = 'star'; // Use 'star' as fallback type for path shapes
@@ -331,6 +337,11 @@ export class ShapeEditorManager extends BaseEditorSystem {
           x: v.x,
           y: v.y
         }));
+        
+        // Ensure poly-decomp is initialized before creating physics body
+        if (!isPolyDecompInitialized()) {
+          initializePolyDecomp();
+        }
         
         // Create physics body
         body = Bodies.fromVertices(centerX, centerY, [pathVertices], {}, true);
