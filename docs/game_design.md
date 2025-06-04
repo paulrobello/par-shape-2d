@@ -84,15 +84,23 @@ The application follows a **clean event-driven architecture** with complete deco
 All core systems extend the `BaseSystem` class and communicate exclusively through events:
 
 ### Physics System
-**File**: `src/game/physics/PhysicsWorld.ts`
+**Files**: `src/shared/physics/PhysicsWorld.ts` (shared), `src/game/physics/PhysicsWorld.ts` (adapter)
 
-Event-driven physics system that manages Matter.js independently:
+Shared physics system with game adapter pattern for event-driven Matter.js management:
+
+**Shared Architecture**:
+- **Shared PhysicsWorld**: Core physics implementation in `src/shared/physics/`
+- **PhysicsBodyFactory**: Unified physics body creation with collision filter safety
+- **ConstraintUtils**: Shared constraint management utilities
+- **Game Adapter**: Event-driven wrapper maintaining game compatibility
+- **Editor Integration**: Same shared physics used by editor with different configuration
 
 **Event-Driven Features**:
 - **Event Communication**: Listens for bounds changes, game state events
 - **Autonomous Operation**: Manages physics without external dependencies
 - **Event Emission**: Publishes collision events, physics step completion
 - **Body Management**: Handles add/remove events from other systems
+- **Safety Validation**: Comprehensive collision filter and render property validation
 
 **Core Functionality**:
 - **Engine Configuration**: 60fps timestep, optimized iterations
@@ -100,6 +108,7 @@ Event-driven physics system that manages Matter.js independently:
 - **Boundaries**: Non-collidable walls (shapes fall through)
 - **Sleep Management**: Automatic wake-up of unsupported shapes
 - **Collision Detection**: Event-driven collision handling
+- **Runtime Safety**: Default values for all physics properties to prevent undefined errors
 
 **Enhanced Physics Properties**:
 - **Reduced Air Friction**: 10x reduction (0.0005) for maximum natural swinging motion
@@ -113,6 +122,7 @@ Event-driven physics system that manages Matter.js independently:
 - Shape stability checking
 - Physics body lifecycle management
 - Support detection for sleeping shapes
+- Shared codebase eliminating ~500 lines of duplication
 - **Composite Body Support**: Capsules use Matter.js composite bodies (rectangle + 2 circles)
 - **Multi-Part Physics**: Each capsule part has independent physics properties
 - **Enhanced Single-Screw Physics**: Shapes with one screw have optimized pendulum motion with initial perturbation
@@ -804,12 +814,31 @@ src/game/core/
 
 ### Physics System
 ```
+src/shared/physics/                    # Shared physics implementation
+├── PhysicsWorld.ts                    # Core Matter.js world wrapper
+│   ├── Engine configuration and boundaries
+│   ├── Collision detection and response
+│   ├── Sleep/wake management for stability
+│   └── Editor-specific simulation methods
+│
+├── PhysicsBodyFactory.ts              # Unified physics body creation
+│   ├── Shape body creation for all types
+│   ├── Collision filter safety validation
+│   ├── Render property initialization
+│   └── Constraint creation utilities
+│
+└── ConstraintUtils.ts                 # Shared constraint management
+    ├── Screw constraint creation
+    ├── Batch constraint operations
+    ├── Constraint removal with cleanup
+    └── Constraint query utilities
+
 src/game/physics/
-└── PhysicsWorld.ts       # Matter.js world wrapper
-    ├── Engine configuration and boundaries
+└── PhysicsWorld.ts                    # Game adapter for shared physics
+    ├── Event-driven wrapper for game compatibility
+    ├── Game event bridge to shared implementation
     ├── Body/constraint lifecycle management
-    ├── Collision detection and response
-    └── Sleep/wake management for stability
+    └── Backward compatibility maintenance
 ```
 
 ### Entity Layer
@@ -895,6 +924,11 @@ src/game/rendering/
 ### Shared Code Layer
 ```
 src/shared/
+├── physics/                  # Shared physics implementation
+│   ├── PhysicsWorld.ts            # Core physics world implementation
+│   ├── PhysicsBodyFactory.ts      # Unified physics body creation
+│   └── ConstraintUtils.ts         # Shared constraint management utilities
+│
 ├── strategies/               # Shared screw placement strategies
 │   ├── ScrewPlacementStrategy.ts  # Base interfaces and abstract classes
 │   ├── CornerStrategy.ts          # Corner-based placement implementation
@@ -907,7 +941,7 @@ src/shared/
 └── utils/                    # Shared utility functions
     ├── GeometryUtils.ts           # Shape geometry calculations
     ├── CollisionUtils.ts          # Collision detection utilities
-    └── Constants.ts               # Shared constants and configuration
+    └── Constants.ts               # Shared constants and configuration (includes physics constants)
 ```
 
 ### Utility Layer
