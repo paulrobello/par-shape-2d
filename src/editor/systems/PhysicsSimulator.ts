@@ -346,6 +346,11 @@ export class PhysicsSimulator extends BaseEditorSystem {
       // For composite bodies, sync the position after creation
       if (physicsBodyParts) {
         shapeEntity.updateFromBody();
+        console.log(`🔧 COMPOSITE BODY DEBUG:`);
+        console.log(`  Body.isStatic: ${physicsBody.isStatic}`);
+        console.log(`  Body.mass: ${physicsBody.mass.toFixed(3)}`);
+        console.log(`  Body.inertia: ${physicsBody.inertia.toFixed(3)}`);
+        console.log(`  Body.parts.length: ${physicsBody.parts.length}`);
       }
 
       // Create screw entities
