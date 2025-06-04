@@ -143,8 +143,12 @@ export class EditorManager extends BaseEditorSystem {
     this.gridManager.renderGrid(context, logicalWidth, logicalHeight);
     
     // Render all systems
-    this.shapeEditorManager.render(context);
-    this.physicsSimulator.render(context);
+    // During physics simulation, only render physics shapes to avoid duplication
+    if (this.editorState.getState().simulationRunning) {
+      this.physicsSimulator.render(context);
+    } else {
+      this.shapeEditorManager.render(context);
+    }
     
     // Render drawing tool previews (on top)
     this.drawingToolManager.render(context);
