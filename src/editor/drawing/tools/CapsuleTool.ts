@@ -463,52 +463,47 @@ export class CapsuleTool extends BaseTool {
         if (perpPoints) {
           const radius = thickness / 2;
           
-          // Calculate capsule outline points
-          const lineLength = this.drawingData.length;
-          const perpVector = {
-            x: -(secondEnd.y - firstEnd.y) / lineLength,
-            y: (secondEnd.x - firstEnd.x) / lineLength
-          };
-          
-          // Top and bottom line endpoints
-          const topStart = {
-            x: firstEnd.x + perpVector.x * radius,
-            y: firstEnd.y + perpVector.y * radius
-          };
-          const topEnd = {
-            x: secondEnd.x + perpVector.x * radius,
-            y: secondEnd.y + perpVector.y * radius
-          };
-          const bottomStart = {
-            x: firstEnd.x - perpVector.x * radius,
-            y: firstEnd.y - perpVector.y * radius
-          };
-          // bottomEnd is calculated but not used directly since arc draws to it
+          // Note: Perpendicular vectors are calculated in the new approach below
 
-          // Draw capsule outline
+          // Draw capsule outline using a different approach
           ctx.beginPath();
           
-          // Calculate the angle from first end to second end
-          const lineAngle = Math.atan2(secondEnd.y - firstEnd.y, secondEnd.x - firstEnd.x);
+          // Calculate unit vector along the line
+          const dx = secondEnd.x - firstEnd.x;
+          const dy = secondEnd.y - firstEnd.y;
+          const len = Math.sqrt(dx * dx + dy * dy);
+          const unitX = dx / len;
+          const unitY = dy / len;
           
-          // Start at top-left of first end
-          ctx.moveTo(topStart.x, topStart.y);
+          // Calculate perpendicular unit vector (rotated 90 degrees counter-clockwise)
+          const perpX = -unitY;
+          const perpY = unitX;
+          
+          // Calculate all four corner points explicitly
+          const p1 = { x: firstEnd.x + perpX * radius, y: firstEnd.y + perpY * radius };      // top-left
+          const p2 = { x: secondEnd.x + perpX * radius, y: secondEnd.y + perpY * radius };    // top-right
+          const p3 = { x: secondEnd.x - perpX * radius, y: secondEnd.y - perpY * radius };    // bottom-right
+          const p4 = { x: firstEnd.x - perpX * radius, y: firstEnd.y - perpY * radius };      // bottom-left
+          
+          // Start at top-left
+          ctx.moveTo(p1.x, p1.y);
           
           // Top line
-          ctx.lineTo(topEnd.x, topEnd.y);
+          ctx.lineTo(p2.x, p2.y);
           
-          // Right semicircle (at second end)
-          // Arc from top to bottom of second end
-          ctx.arc(secondEnd.x, secondEnd.y, radius, lineAngle - Math.PI / 2, lineAngle + Math.PI / 2, false);
+          // Right semicircle
+          const rightStartAngle = Math.atan2(p2.y - secondEnd.y, p2.x - secondEnd.x);
+          const rightEndAngle = Math.atan2(p3.y - secondEnd.y, p3.x - secondEnd.x);
+          ctx.arc(secondEnd.x, secondEnd.y, radius, rightStartAngle, rightEndAngle, false);
           
-          // Bottom line - arc endpoint connects to bottom of first end
-          ctx.lineTo(bottomStart.x, bottomStart.y);
+          // Bottom line
+          ctx.lineTo(p4.x, p4.y);
           
-          // Left semicircle (at first end)
-          // Arc from bottom to top of first end
-          ctx.arc(firstEnd.x, firstEnd.y, radius, lineAngle + Math.PI / 2, lineAngle - Math.PI / 2, false);
+          // Left semicircle
+          const leftStartAngle = Math.atan2(p4.y - firstEnd.y, p4.x - firstEnd.x);
+          const leftEndAngle = Math.atan2(p1.y - firstEnd.y, p1.x - firstEnd.x);
+          ctx.arc(firstEnd.x, firstEnd.y, radius, leftStartAngle, leftEndAngle, false);
           
-          // Close path (connects back to starting point)
           ctx.closePath();
           ctx.fill();
           ctx.stroke();
