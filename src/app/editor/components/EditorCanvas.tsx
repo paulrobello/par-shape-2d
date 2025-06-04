@@ -16,6 +16,8 @@ export const EditorCanvas: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [editorManager, setEditorManager] = useState<EditorManager | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [currentMode, setCurrentMode] = useState<string>('create');
+  const [isDrawing, setIsDrawing] = useState(false);
   const isDarkMode = useDarkMode();
   const theme = getTheme(isDarkMode);
 
@@ -69,6 +71,34 @@ export const EditorCanvas: React.FC = () => {
     }
   }, [editorManager, theme]);
 
+  // Track mode changes
+  useEffect(() => {
+    if (!editorManager) return;
+
+    const drawingToolManager = editorManager.getDrawingToolManager();
+    
+    const updateModeState = () => {
+      setCurrentMode(drawingToolManager.getCurrentMode());
+      setIsDrawing(drawingToolManager.isDrawing());
+    };
+
+    // Initial state
+    updateModeState();
+
+    // Subscribe to mode changes
+    const unsubscribe = drawingToolManager.subscribeToEvent('editor:drawing:mode:changed', updateModeState);
+    const unsubscribeDrawing = drawingToolManager.subscribeToEvent('editor:drawing:started', updateModeState);
+    const unsubscribeComplete = drawingToolManager.subscribeToEvent('editor:drawing:completed', updateModeState);
+    const unsubscribeCancel = drawingToolManager.subscribeToEvent('editor:drawing:cancelled', updateModeState);
+
+    return () => {
+      unsubscribe();
+      unsubscribeDrawing();
+      unsubscribeComplete();
+      unsubscribeCancel();
+    };
+  }, [editorManager]);
+
   return (
     <div 
       className="editor-container"
@@ -93,9 +123,37 @@ export const EditorCanvas: React.FC = () => {
           alignItems: 'center',
         }}
       >
-        <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: theme.text.primary }}>
-          Shape Editor
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 'bold', color: theme.text.primary }}>
+            Shape Editor
+          </h1>
+          {isInitialized && (
+            <div style={{
+              padding: '4px 12px',
+              backgroundColor: theme.background.secondary,
+              border: `1px solid ${theme.border.secondary}`,
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+            }}>
+              <span style={{ fontSize: '14px', fontWeight: '500', color: theme.text.secondary }}>
+                Mode: <span style={{ fontWeight: '600', color: theme.text.primary }}>
+                  {currentMode === 'create' ? 'Create' : 'Edit'}
+                </span>
+              </span>
+              {isDrawing && (
+                <span style={{ 
+                  marginLeft: '12px', 
+                  fontSize: '12px', 
+                  color: theme.status.info,
+                  fontWeight: '500'
+                }}>
+                  (Drawing... Press ESC to cancel)
+                </span>
+              )}
+            </div>
+          )}
+        </div>
         {isInitialized && (
           <ToolPalette 
             drawingToolManager={editorManager!.getDrawingToolManager()} 
@@ -103,22 +161,6 @@ export const EditorCanvas: React.FC = () => {
           />
         )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              padding: '8px 16px',
-              border: `1px solid ${theme.button.border}`,
-              borderRadius: '4px',
-              backgroundColor: theme.button.background,
-              color: theme.button.text,
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '500',
-            }}
-            title="Start fresh with a new shape"
-          >
-            New
-          </button>
           <FileControls editorManager={editorManager} theme={theme} />
           <SimulationControls editorManager={editorManager} theme={theme} />
         </div>

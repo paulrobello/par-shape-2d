@@ -99,6 +99,9 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
     cursor: 'pointer',
     fontSize: '12px',
     marginRight: '4px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   };
 
   const activeButtonStyle = {
@@ -116,74 +119,69 @@ export const SimulationControls: React.FC<SimulationControlsProps> = ({ editorMa
   };
 
   return (
-    <div className="simulation-controls" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{ fontSize: '12px', color: theme.text.secondary, marginRight: '8px' }}>
-        Simulation:
+    <div className="simulation-controls" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+      <div style={{ 
+        fontSize: '12px', 
+        color: theme.text.secondary, 
+        fontWeight: '500',
+        marginBottom: '2px'
+      }}>
+        Simulation
       </div>
       
-      <button
-        onClick={handleToggleSimulation}
-        disabled={!hasShape}
-        style={!hasShape ? disabledButtonStyle : (isSimulating && !isPaused ? activeButtonStyle : buttonStyle)}
-        title={
-          !hasShape 
-            ? 'Load a shape first' 
-            : !isSimulating 
-              ? 'Start physics simulation' 
-              : isPaused 
-                ? 'Resume simulation' 
-                : 'Pause simulation'
-        }
-      >
-        {!isSimulating ? 'Start' : isPaused ? 'Resume' : 'Pause'}
-      </button>
-      
-      <button
-        onClick={handleResetSimulation}
-        disabled={!isSimulating && !isPaused}
-        style={!isSimulating && !isPaused ? disabledButtonStyle : buttonStyle}
-        title="Reset simulation to initial state"
-      >
-        Reset
-      </button>
-      
-      <div style={{ width: '1px', height: '20px', backgroundColor: '#ccc', margin: '0 8px' }} />
-      
-      <button
-        onClick={handleToggleDebug}
-        style={debugMode ? activeButtonStyle : buttonStyle}
-        title="Toggle debug visualization"
-      >
-        Debug
-      </button>
-      
-      {isSimulating && (
-        <div style={{ 
-          fontSize: '11px', 
-          color: theme.status.success, 
-          marginLeft: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px'
-        }}>
-          <div style={{
-            width: '6px',
-            height: '6px',
-            borderRadius: '50%',
-            backgroundColor: theme.status.success,
-            animation: 'pulse 1s infinite',
-          }} />
-          {isPaused ? 'Paused' : 'Running'}
-        </div>
-      )}
-      
-      <style jsx>{`
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.5; }
-          100% { opacity: 1; }
-        }
-      `}</style>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px',
+        padding: '6px',
+        border: `1px solid ${theme.border.secondary}`,
+        borderRadius: '4px',
+        backgroundColor: theme.background.secondary,
+      }}>
+        <button
+          onClick={handleToggleSimulation}
+          disabled={!hasShape}
+          style={!hasShape ? disabledButtonStyle : (isSimulating && !isPaused ? activeButtonStyle : buttonStyle)}
+          title={
+            !hasShape 
+              ? 'Load a shape first' 
+              : !isSimulating 
+                ? 'Start physics simulation' 
+                : isPaused 
+                  ? 'Resume simulation' 
+                  : 'Pause simulation'
+          }
+        >
+          {!isSimulating || isPaused ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M8,5.14V19.14L19,12.14L8,5.14Z"/>
+            </svg>
+          ) : (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M14,19H18V5H14M6,19H10V5H6V19Z"/>
+            </svg>
+          )}
+        </button>
+        
+        <button
+          onClick={handleResetSimulation}
+          disabled={!isSimulating && !isPaused}
+          style={!isSimulating && !isPaused ? disabledButtonStyle : buttonStyle}
+          title="Reset simulation to initial state"
+        >
+          Reset
+        </button>
+        
+        <div style={{ width: '1px', height: '20px', backgroundColor: theme.border.secondary, margin: '0 4px' }} />
+        
+        <button
+          onClick={handleToggleDebug}
+          style={debugMode ? activeButtonStyle : buttonStyle}
+          title="Toggle debug visualization"
+        >
+          Debug
+        </button>
+      </div>
     </div>
   );
 };

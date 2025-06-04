@@ -77,5 +77,5 @@ Example workflow:
 
 ## Shape Editor
 
-The Shape Editor includes a fully implemented drawing system for creating new shapes with all advanced tools:
+The Shape Editor includes a fully implemented drawing system for creating new shapes with all advanced tools. The UI features icon-based controls with organized groupings, toast notifications for user feedback, and a streamlined toolbar without the Select tool.
 

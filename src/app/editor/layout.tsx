@@ -1,4 +1,5 @@
 import { Metadata } from 'next';
+import EditorLayoutClient from './EditorLayoutClient';
 
 export const metadata: Metadata = {
   title: 'Shape Editor - PAR Shape 2D',
@@ -10,9 +11,5 @@ export default function EditorLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="editor-layout">
-      {children}
-    </div>
-  );
+  return <EditorLayoutClient>{children}</EditorLayoutClient>;
 }

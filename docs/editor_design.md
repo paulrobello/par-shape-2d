@@ -162,9 +162,26 @@ src/editor/
   - Main content area split between canvas (left) and property panel (right)
   - Canvas area with inset border effect for visual definition
   - Property panel with fixed 300px width, no overlap with canvas
-- **File Controls**: Combined drag & drop and click-to-browse interface with hover feedback
-- **New Button**: Reload window to start fresh in Create mode for new shape creation
-- **Simulation Controls**: Single toggle button for Start/Pause and separate Reset button for physics testing
+  - Organized control groups: Tools, File, and Simulation with titles and borders
+- **File Controls**: 
+  - Grouped under "File" title with border
+  - Combined drag & drop and click-to-browse interface
+  - Icon-based buttons: Save (disk icon), Copy to clipboard (copy icon), New (document icon)
+  - Toast notifications for clipboard operations (bottom-right position)
+- **Tool Controls**:
+  - Grouped under "Tools" title with border
+  - Icon and text-based tool buttons (no Select tool)
+  - Mode indicator moved to header next to "Shape Editor" title
+- **Simulation Controls**: 
+  - Grouped under "Simulation" title with border
+  - Icon-based Start/Pause button (play/pause icons)
+  - Text-based Reset and Debug buttons
+  - Removed redundant running indicator
+- **Toast Notifications**:
+  - react-toastify integration for user feedback
+  - Theme-aware styling with translucent backgrounds
+  - Bottom-right positioning for non-intrusive notifications
+  - Success/error states with appropriate colors
 - **Canvas Interaction**: 
   - Click to add/remove screws at placement indicators
   - Visual help text for user guidance
@@ -174,7 +191,7 @@ src/editor/
   - Fixed horizontal scrollbar issues, proper overflow handling
   - Canvas properly sized within its container accounting for padding
   - High-DPI display support with correct coordinate transformations
-- **Accessibility**: High contrast text and clear visual indicators
+- **Accessibility**: High contrast text, clear visual indicators, and informative tooltips
 
 ## Event System
 
@@ -438,7 +455,7 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Reset Functionality**: Physics simulation reset properly restores shapes to original positions with event-driven updates
 - **Dark Mode Support**: Complete UI theming with automatic system preference detection and consistent canvas backgrounds
 - **Screw Position Alignment**: Placement indicators and actual screws use identical strategy-based positioning logic
-- **Streamlined UI**: Combined start/pause controls with single toggle button interface for better usability
+- **Streamlined UI**: Icon-based controls, organized toolbar groups, toast notifications, and improved visual hierarchy
 
 ### ✅ Phase 2A, 2B & 2C - Complete Shape Creation System (Fully Implemented)
 - **Extended Event System**: Grown from 27 to 39 events with 12 new Phase 2 events
@@ -446,8 +463,7 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Drawing Tool Architecture**: Modular tool system with BaseTool abstract class and tool manager
 - **Drawing State Management**: Complete session tracking and multi-step workflow support
 - **Mode Switching**: Clean separation between "edit" mode (Phase 1) and "create" mode (Phase 2)
-- **Complete Drawing Tools**: All 6 tools implemented and functional:
-  - **SelectTool** (Phase 1 mode): Edit mode for screw manipulation and property editing
+- **Complete Drawing Tools**: All 5 creation tools implemented and functional:
   - **CircleTool**: Center → radius workflow with real-time preview
   - **RectangleTool**: Corner → corner workflow with dimension validation
   - **PolygonTool**: Center → radius workflow with interactive mouse wheel control for sides (3-12)
