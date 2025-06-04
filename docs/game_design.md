@@ -357,7 +357,7 @@ JSON-configured dimensions with 87.5% scaling for improved visibility:
 - **Square Polygon**: Radius 63-112px for regular 4-sided polygon (from polygons/square.json)
 - **Rectangle Polygon**: Width 75-150px, height 30-120px, aspect ratio 0.4-2.5 (from polygons/rectangle.json)
 - **Capsule**: Width 77-227px, height 34px (from capsule.json)
-- **Path Shapes**: Scale 0.8-1.5 applied to vertex paths defined in arrow.json, chevron.json, star.json, horseshoe.json
+- **Path Shapes**: Scale 0.8-1.5 applied to vertex paths defined in arrow.json, chevron.json, star.json, horseshoe.json (supports both fixed and random scale values)
 - **Size Reduction**: All shapes support 15% reduction factor during placement retries (reductionFactor: 0.15)
 
 ### Shape Placement
@@ -493,6 +493,33 @@ Complete JSON-based shape definition system with the following structure:
     "rotationalInertiaMultiplier": 3
   }
 }
+
+// Path shape example with scale support:
+{
+  "id": "star",
+  "name": "Star",
+  "category": "path",
+  "enabled": true,
+  "dimensions": {
+    "type": "random",
+    "path": "M 50,0 L 61,35 L 98,35 L 68,57 L 79,91 L 50,70 L 21,91 L 32,57 L 2,35 L 39,35 Z",
+    "scale": { "min": 0.8, "max": 1.5 }
+  },
+  "physics": {
+    "type": "fromVertices",
+    "decomposition": true
+  },
+  "rendering": {
+    "type": "path",
+    "preserveOriginalVertices": true
+  },
+  "screwPlacement": {
+    "strategy": "perimeter",
+    "perimeterPoints": 8,
+    "perimeterMargin": 30,
+    "minSeparation": 48
+  }
+}
 ```
 
 #### JSON Field Definitions
@@ -508,8 +535,8 @@ Complete JSON-based shape definition system with the following structure:
 - **`width`/`height`**: Fixed number or {min, max} range for basic shapes
 - **`radius`**: Fixed number or {min, max} range for circles and polygons
 - **`sides`**: Number of sides for polygon shapes
-- **`path`**: Vertex coordinates string for path-based shapes
-- **`scale`**: {min, max} scaling range for path shapes
+- **`path`**: Vertex coordinates string for path-based shapes (SVG path format)
+- **`scale`**: Fixed number or {min, max} scaling range for path shapes (supports both formats)
 - **`aspectRatio`**: {min, max} width/height ratio constraints
 - **`reductionFactor`**: Percentage reduction per retry attempt (default: 0.15)
 
@@ -550,7 +577,7 @@ Complete JSON-based shape definition system with the following structure:
 - Triangle, Square, Rectangle, Pentagon, Hexagon, Heptagon, Octagon - Geometric polygons (3-8 sides)
 
 **Path Shapes** (`src/data/shapes/paths/`):
-- Arrow, Chevron, Star, Horseshoe - Complex vertex-defined shapes
+- Arrow, Chevron, Star, Horseshoe - Complex vertex-defined shapes with intelligent scale factor calculation
 
 **Composite Shapes** (`src/data/shapes/composite/`):
 - Capsule - Multi-part physics bodies (rectangle + 2 circles)
@@ -1145,6 +1172,8 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ **Shape Configuration**: Decentralized shape enabling/disabling via JSON `enabled` field
 - ✅ **Vertex Rendering Fix**: Separate rendering vertices from physics vertices for accurate shape display
 - ✅ **Poly-Decomp Integration**: Proper complex shape physics using poly-decomp-es library
+- ✅ **Path Shape Scale Support**: Intelligent scale factor calculation for optimal sizing with both fixed and random scale values
+- ✅ **Enhanced fromVertices Physics**: Full support for path shapes using Matter.js fromVertices with proper vertex handling
 - ✅ Ready for production use with polished visual experience
 
 ---
