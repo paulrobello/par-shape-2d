@@ -2,6 +2,8 @@
  * Editor-specific constants and configuration
  */
 
+import { GAME_CONFIG } from '@/game/utils/Constants';
+
 export const EDITOR_CONSTANTS = {
   canvas: {
     defaultWidth: 800,
@@ -25,8 +27,8 @@ export const EDITOR_CONSTANTS = {
   },
   
   physics: {
-    gravity: { x: 0, y: 0.8 },
-    timestep: 16.67, // ~60fps
+    gravity: GAME_CONFIG.physics.gravity,
+    timestep: GAME_CONFIG.physics.timestep,
     maxBodies: 50,
   },
   

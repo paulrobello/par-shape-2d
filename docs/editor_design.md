@@ -170,8 +170,8 @@ src/editor/
   - Toast notifications for clipboard operations (bottom-right position)
 - **Tool Controls**:
   - Grouped under "Tools" title with border
-  - Icon and text-based tool buttons (no Select tool)
-  - Mode indicator moved to header next to "Shape Editor" title
+  - Icon and text-based tool buttons (includes Select tool for edit mode)
+  - Clickable mode indicator in header next to "Shape Editor" title with toggle functionality
 - **Simulation Controls**: 
   - Grouped under "Simulation" title with border
   - Icon-based Start/Pause button (play/pause icons)
@@ -255,6 +255,7 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Constraint System**: Real Matter.js constraints between screws and shape bodies
 - **Anchor Bodies**: Static anchor points created at screw positions for constraint attachment
 - **Dynamic Bodies**: Physics shapes with realistic mass, friction, and damping properties
+- **Synchronized Constants**: Physics properties (gravity, density, friction, restitution, stiffness, damping) are synchronized with game constants to ensure consistent behavior
 - **Event Communication**: Proper event-driven data transfer between editor and physics systems
 - **Shape Data Provider**: Complete shape and screw configuration passed to simulation
 - **State Management**: Simulation state tracking to control interaction during physics
@@ -510,8 +511,10 @@ Clean separation between editing and creation modes:
 - **Create Mode**: Phase 2 functionality - shape drawing with selected tool
 - **Mode Switching**: 
   - Automatic based on tool selection (SelectTool → edit, others → create)
+  - Manual via clickable mode indicator in header (toggles between modes)
   - Editor starts in create mode with CircleTool selected
   - Switches to edit mode when file is loaded or shape is created
+  - Toggle disabled during physics simulation for safety
 - **UI Adaptation**: Interface elements enable/disable based on current mode
 
 ### Coordinate System Integration

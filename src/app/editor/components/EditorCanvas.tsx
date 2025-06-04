@@ -128,14 +128,29 @@ export const EditorCanvas: React.FC = () => {
             Shape Editor
           </h1>
           {isInitialized && (
-            <div style={{
-              padding: '4px 12px',
-              backgroundColor: theme.background.secondary,
-              border: `1px solid ${theme.border.secondary}`,
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-            }}>
+            <div 
+              onClick={() => editorManager?.getDrawingToolManager().toggleMode()}
+              style={{
+                padding: '4px 12px',
+                backgroundColor: theme.background.secondary,
+                border: `1px solid ${theme.border.secondary}`,
+                borderRadius: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                userSelect: 'none',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = theme.background.tertiary || theme.background.secondary;
+                e.currentTarget.style.borderColor = theme.border.primary;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = theme.background.secondary;
+                e.currentTarget.style.borderColor = theme.border.secondary;
+              }}
+              title="Click to toggle between Create and Edit modes"
+            >
               <span style={{ fontSize: '14px', fontWeight: '500', color: theme.text.secondary }}>
                 Mode: <span style={{ fontWeight: '600', color: theme.text.primary }}>
                   {currentMode === 'create' ? 'Create' : 'Edit'}

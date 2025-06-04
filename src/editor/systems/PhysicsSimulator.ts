@@ -13,6 +13,7 @@ import {
   EditorCanvasResizedEvent,
   EditorPhysicsSimulationShapeProvidedEvent
 } from '../events/EditorEventTypes';
+import { PHYSICS_CONSTANTS } from '@/game/utils/Constants';
 
 /**
  * Manages physics simulation in the editor
@@ -252,10 +253,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           height,
           {
             isStatic: false,
-            density: 5,
-            friction: 0.1,
-            frictionAir: 0.005,
-            restitution: 0,
+            density: PHYSICS_CONSTANTS.shape.density,
+            friction: PHYSICS_CONSTANTS.shape.friction,
+            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
+            restitution: PHYSICS_CONSTANTS.shape.restitution,
           }
         );
         
@@ -265,10 +266,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           radius,
           {
             isStatic: false,
-            density: 5,
-            friction: 0.1,
-            frictionAir: 0.005,
-            restitution: 0,
+            density: PHYSICS_CONSTANTS.shape.density,
+            friction: PHYSICS_CONSTANTS.shape.friction,
+            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
+            restitution: PHYSICS_CONSTANTS.shape.restitution,
           }
         );
         
@@ -278,10 +279,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           radius,
           {
             isStatic: false,
-            density: 5,
-            friction: 0.1,
-            frictionAir: 0.005,
-            restitution: 0,
+            density: PHYSICS_CONSTANTS.shape.density,
+            friction: PHYSICS_CONSTANTS.shape.friction,
+            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
+            restitution: PHYSICS_CONSTANTS.shape.restitution,
           }
         );
         
@@ -304,10 +305,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           shapeData.shape.radius,
           {
             isStatic: false, // Make sure it's dynamic
-            density: 5,
-            friction: 0.1,
-            frictionAir: 0.005,
-            restitution: 0,
+            density: PHYSICS_CONSTANTS.shape.density,
+            friction: PHYSICS_CONSTANTS.shape.friction,
+            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
+            restitution: PHYSICS_CONSTANTS.shape.restitution,
           }
         );
       } else {
@@ -318,10 +319,10 @@ export class PhysicsSimulator extends BaseEditorSystem {
           shapeData.shape.height || 100,
           {
             isStatic: false, // Make sure it's dynamic
-            density: 5,
-            friction: 0.1,
-            frictionAir: 0.005,
-            restitution: 0,
+            density: PHYSICS_CONSTANTS.shape.density,
+            friction: PHYSICS_CONSTANTS.shape.friction,
+            frictionAir: PHYSICS_CONSTANTS.shape.frictionAir,
+            restitution: PHYSICS_CONSTANTS.shape.restitution,
           }
         );
       }
@@ -461,8 +462,8 @@ export class PhysicsSimulator extends BaseEditorSystem {
       pointA: { x: offsetX, y: offsetY },
       pointB: { x: 0, y: 0 },
       length: 0,
-      stiffness: 1,
-      damping: 0.01, // Match game damping for proper swinging motion
+      stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
+      damping: PHYSICS_CONSTANTS.constraint.damping,
       render: { visible: false },
     });
 

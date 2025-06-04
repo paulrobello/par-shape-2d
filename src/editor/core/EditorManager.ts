@@ -7,6 +7,7 @@ import { PhysicsSimulator } from '../systems/PhysicsSimulator';
 import { DrawingToolManager } from '../systems/DrawingToolManager';
 import { GridManager } from '../systems/GridManager';
 import { DrawingStateManager } from '../systems/DrawingStateManager';
+import { SelectTool } from '../drawing/tools/SelectTool';
 import { CircleTool } from '../drawing/tools/CircleTool';
 import { RectangleTool } from '../drawing/tools/RectangleTool';
 import { PolygonTool } from '../drawing/tools/PolygonTool';
@@ -489,12 +490,14 @@ export class EditorManager extends BaseEditorSystem {
 
   private registerDrawingTools(): void {
     // Register all drawing tools
+    const selectTool = new SelectTool();
     const circleTool = new CircleTool();
     const rectangleTool = new RectangleTool();
     const polygonTool = new PolygonTool();
     const capsuleTool = new CapsuleTool();
     const pathTool = new PathTool();
 
+    this.drawingToolManager.registerTool(selectTool);
     this.drawingToolManager.registerTool(circleTool);
     this.drawingToolManager.registerTool(rectangleTool);
     this.drawingToolManager.registerTool(polygonTool);

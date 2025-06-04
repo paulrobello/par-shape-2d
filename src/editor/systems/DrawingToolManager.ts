@@ -169,6 +169,43 @@ export class DrawingToolManager extends BaseEditorSystem {
   }
 
   /**
+   * Toggle between edit and create modes
+   */
+  public toggleMode(): void {
+    console.log('toggleMode called, current mode:', this.currentMode, 'simulation running:', this.isSimulationRunning);
+    
+    if (this.isSimulationRunning) {
+      console.warn('Cannot toggle mode during physics simulation');
+      return;
+    }
+
+    const availableTools = Array.from(this.tools.keys());
+    console.log('Available tools:', availableTools);
+
+    if (this.currentMode === 'edit') {
+      // Switch to create mode - select circle tool (or first non-select tool)
+      if (this.tools.has('circle')) {
+        console.log('Switching to create mode - selecting circle tool');
+        this.selectTool('circle');
+      } else {
+        const createTools = Array.from(this.tools.values()).filter(tool => tool.getConfig().name !== 'select');
+        if (createTools.length > 0) {
+          console.log('Switching to create mode - selecting first available tool:', createTools[0].getConfig().name);
+          this.selectTool(createTools[0].getConfig().name);
+        }
+      }
+    } else {
+      // Switch to edit mode - select the select tool
+      if (this.tools.has('select')) {
+        console.log('Switching to edit mode - selecting select tool');
+        this.selectTool('select');
+      } else {
+        console.warn('Select tool not found! Available tools:', availableTools);
+      }
+    }
+  }
+
+  /**
    * Set drawing mode and emit event if changed
    */
   private setDrawingMode(mode: DrawingMode): void {
