@@ -909,20 +909,22 @@ export class ScrewManager extends BaseSystem {
         const actualScrewCount = Math.round((capsuleWidth + spacing) / (screwDiameter + spacing));
         
         // Y position should be at the vertical midpoint of the capsule
-        const y = shape.position.y;
+        // For composite bodies, use the physics body position
+        const bodyPosition = shape.isComposite ? shape.body.position : shape.position;
+        const y = bodyPosition.y;
         
         corners = [];
         
         if (actualScrewCount === 1) {
           // Single screw goes in the center
-          corners.push({ x: shape.position.x, y });
+          corners.push({ x: bodyPosition.x, y });
         } else {
           // Add 5px margin from capsule ends
           const endMargin = 5;
           const availableWidth = capsuleWidth - (2 * endMargin);
           
           // Distribute screws evenly within the available width (excluding margins)
-          const leftEdge = shape.position.x - capsuleWidth / 2 + endMargin;
+          const leftEdge = bodyPosition.x - capsuleWidth / 2 + endMargin;
           
           if (actualScrewCount === 2) {
             // For 2 screws, place them near the ends but with margin
@@ -1106,9 +1108,12 @@ export class ScrewManager extends BaseSystem {
   private getCustomPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
     const customPositions = definition.screwPlacement.customPositions || [];
     
+    // For composite bodies, use the physics body position
+    const bodyPosition = shape.isComposite ? shape.body.position : shape.position;
+    
     return customPositions.map(pos => ({
-      x: shape.position.x + pos.position.x,
-      y: shape.position.y + pos.position.y
+      x: bodyPosition.x + pos.position.x,
+      y: bodyPosition.y + pos.position.y
     }));
   }
 
