@@ -11,7 +11,20 @@ import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
 import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/game/utils/Constants';
 import { getRandomScrewColor } from '@/game/utils/Colors';
 import { randomIntBetween } from '@/game/utils/MathUtils';
-import { ShapeRegistry } from './ShapeRegistry';
+import {
+  calculateScrewPositions,
+  calculateScrewPositionsLegacy,
+  getShapeDefinition,
+  getDefinitionIdFromShape
+} from '@/game/utils/ScrewPositionUtils';
+import {
+  getDistanceToNearestEdge
+} from '@/game/utils/ScrewCollisionUtils';
+import {
+  calculateContainerHolePosition,
+  findScrewDestination,
+  determineDestinationType
+} from '@/game/utils/ScrewContainerUtils';
 import { ShapeDefinition } from '@/types/shapes';
 import {
   ShapeCreatedEvent,
@@ -84,7 +97,9 @@ export class ScrewManager extends BaseSystem {
       
       // Handle completed collection animations
       if (completed.length > 0) {
-        console.log(`${completed.length} screw animations completed`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`${completed.length} screw animations completed`);
+        }
         completed.forEach(screwId => {
           const screw = this.state.screws.get(screwId);
           if (screw) {
@@ -108,7 +123,9 @@ export class ScrewManager extends BaseSystem {
             const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
             if (shape) {
               shape.removeScrew(screwId);
-              console.log(`Removed screw ${screwId} from shape ${shape.id} after animation`);
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`Removed screw ${screwId} from shape ${shape.id} after animation`);
+              }
             }
             
             // Clear the shape reference - this screw no longer belongs to any shape
@@ -116,20 +133,32 @@ export class ScrewManager extends BaseSystem {
             
             // Keep all screws in state for rendering purposes
             // Mark their destination for game logic but don't delete them
-            console.log(`🎯 Screw ${screwId} destination: targetType=${screw.targetType}, targetPosition=${JSON.stringify(screw.targetPosition)}`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`🎯 Screw ${screwId} destination: targetType=${screw.targetType}, targetPosition=${JSON.stringify(screw.targetPosition)}`);
+            }
             
             if (screw.targetType === 'container') {
-              console.log(`📦 KEEPING screw ${screwId} in state (went to container, needed for rendering) - Total screws: ${this.state.screws.size}`);
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`📦 KEEPING screw ${screwId} in state (went to container, needed for rendering) - Total screws: ${this.state.screws.size}`);
+              }
             } else if (screw.targetType === 'holding_hole') {
-              console.log(`🏠 KEEPING screw ${screwId} in state (went to holding hole) - Total screws: ${this.state.screws.size}`);
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`🏠 KEEPING screw ${screwId} in state (went to holding hole) - Total screws: ${this.state.screws.size}`);
+              }
             } else {
               // Fallback to position-based detection if targetType is not set
               const destinationType = this.determineDestinationType(screw);
-              console.log(`⚠️ Screw ${screwId} targetType not set, using position-based detection: ${destinationType}`);
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`⚠️ Screw ${screwId} targetType not set, using position-based detection: ${destinationType}`);
+              }
               if (destinationType === 'container') {
-                console.log(`📦 KEEPING screw ${screwId} in state (went to container - fallback, needed for rendering) - Total screws: ${this.state.screws.size}`);
+                if (DEBUG_CONFIG.logScrewDebug) {
+                  console.log(`📦 KEEPING screw ${screwId} in state (went to container - fallback, needed for rendering) - Total screws: ${this.state.screws.size}`);
+                }
               } else {
-                console.log(`🏠 KEEPING screw ${screwId} in state (went to holding hole - fallback) - Total screws: ${this.state.screws.size}`);
+                if (DEBUG_CONFIG.logScrewDebug) {
+                  console.log(`🏠 KEEPING screw ${screwId} in state (went to holding hole - fallback) - Total screws: ${this.state.screws.size}`);
+                }
               }
             }
           }
@@ -138,7 +167,9 @@ export class ScrewManager extends BaseSystem {
       
       // Handle completed transfer animations
       if (transferCompleted.length > 0) {
-        console.log(`${transferCompleted.length} screw transfer animations completed`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`${transferCompleted.length} screw transfer animations completed`);
+        }
         // Transfer completion events are emitted by updateTransferAnimations
         // The actual placing in containers is handled by GameState's transfer completion handler
       }
@@ -207,7 +238,9 @@ export class ScrewManager extends BaseSystem {
         if (screw.shapeId === event.shape.id) {
           // Only screws still attached to the shape will match this condition
           if (DEBUG_CONFIG.logShapeDestruction) {
-            console.log(`🔍 Screw ${screwId} still belongs to destroyed shape ${event.shape.id} - isCollected: ${screw.isCollected}, targetType: ${screw.targetType}`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`🔍 Screw ${screwId} still belongs to destroyed shape ${event.shape.id} - isCollected: ${screw.isCollected}, targetType: ${screw.targetType}`);
+            }
           }
           screwsToRemove.push(screwId);
         }
@@ -217,11 +250,15 @@ export class ScrewManager extends BaseSystem {
       screwsToRemove.forEach(screwId => {
         this.removeScrewFromShape(screwId);
         this.state.screws.delete(screwId);
-        console.log(`💀 DELETED screw ${screwId} due to shape destruction - Remaining: ${this.state.screws.size}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`💀 DELETED screw ${screwId} due to shape destruction - Remaining: ${this.state.screws.size}`);
+        }
       });
       
       if (screwsToRemove.length > 0) {
-        console.log(`Cleaned up ${screwsToRemove.length} screws from destroyed shape ${event.shape.id}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`Cleaned up ${screwsToRemove.length} screws from destroyed shape ${event.shape.id}`);
+        }
       }
     });
   }
@@ -231,7 +268,9 @@ export class ScrewManager extends BaseSystem {
       // Update stored virtual game dimensions for target calculations
       this.state.virtualGameWidth = event.width;
       this.state.virtualGameHeight = event.height;
-      console.log(`🎯 ScrewManager: Updated virtual dimensions to ${event.width}x${event.height}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎯 ScrewManager: Updated virtual dimensions to ${event.width}x${event.height}`);
+      }
     });
   }
 
@@ -239,15 +278,21 @@ export class ScrewManager extends BaseSystem {
     this.executeIfActive(() => {
       const screw = this.state.screws.get(event.screw.id);
       if (!screw) {
-        console.log(`Screw ${event.screw.id} not found`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`Screw ${event.screw.id} not found`);
+        }
         return;
       }
       
       // If screw is blocked, start shake animation
       if (!screw.isRemovable && !screw.isCollected && !screw.isBeingCollected) {
-        console.log(`🔒 Screw ${event.screw.id} is blocked - starting shake animation`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔒 Screw ${event.screw.id} is blocked - starting shake animation`);
+        }
         screw.startShake();
-        console.log(`📳 Shake animation started for screw ${event.screw.id} - isShaking: ${screw.isShaking}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`📳 Shake animation started for screw ${event.screw.id} - isShaking: ${screw.isShaking}`);
+        }
         
         // Add haptic feedback for mobile if available
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -266,14 +311,18 @@ export class ScrewManager extends BaseSystem {
       
       // Continue with normal click handling for removable screws
       if (screw.isCollected || screw.isBeingCollected) {
-        console.log(`Screw ${event.screw.id} is already collected or being collected`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`Screw ${event.screw.id} is already collected or being collected`);
+        }
         return;
       }
 
       // Determine where the screw should go (container or holding hole)
       const destination = this.findScrewDestination(screw);
       if (!destination) {
-        console.log(`No available destination for screw ${event.screw.id}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`No available destination for screw ${event.screw.id}`);
+        }
         return;
       }
       
@@ -282,20 +331,26 @@ export class ScrewManager extends BaseSystem {
         const container = this.state.containers.find(c => c.id === destination.id);
         if (container) {
           container.reservedHoles[destination.holeIndex] = event.screw.id;
-          console.log(`Reserved container ${destination.id} hole ${destination.holeIndex} for screw ${event.screw.id}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Reserved container ${destination.id} hole ${destination.holeIndex} for screw ${event.screw.id}`);
+          }
         }
       } else if (destination.type === 'holding_hole') {
         const holdingHole = this.state.holdingHoles.find(h => h.id === destination.id);
         if (holdingHole) {
           // Mark holding hole as reserved
           holdingHole.reservedBy = event.screw.id;
-          console.log(`Reserved holding hole ${destination.id} for screw ${event.screw.id}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Reserved holding hole ${destination.id} for screw ${event.screw.id}`);
+          }
         }
       }
       
       // Start the collection animation instead of immediately removing
       if (this.startScrewCollection(event.screw.id, destination.position, destination)) {
-        console.log(`Started collection animation for screw ${event.screw.id} to ${destination.type} at (${destination.position.x.toFixed(1)}, ${destination.position.y.toFixed(1)})`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`Started collection animation for screw ${event.screw.id} to ${destination.type} at (${destination.position.x.toFixed(1)}, ${destination.position.y.toFixed(1)})`);
+        }
         
         // Add hole to shape immediately when screw is clicked (using original position)
         const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
@@ -324,18 +379,26 @@ export class ScrewManager extends BaseSystem {
           const activeCount = remainingScrews.filter(s => s.id !== event.screw.id && !s.isBeingCollected).length;
           
           if (DEBUG_CONFIG.logPhysicsStateChanges) {
-            console.log(`🔍 handleScrewClicked: Shape ${shape.id} has ${activeCount} active screws remaining after removing ${event.screw.id}`);
-            console.log(`🔍 Remaining screws: ${remainingScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected})`).join(', ')}`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`🔍 handleScrewClicked: Shape ${shape.id} has ${activeCount} active screws remaining after removing ${event.screw.id}`);
+            }
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`🔍 Remaining screws: ${remainingScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected})`).join(', ')}`);
+            }
           }
           
           if (activeCount === 0) {
             if (DEBUG_CONFIG.logPhysicsStateChanges) {
-              console.log(`Last screw removed from shape ${shape.id}, letting gravity take effect naturally`);
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`Last screw removed from shape ${shape.id}, letting gravity take effect naturally`);
+              }
             }
             // No manual forces - let gravity and physics handle the falling motion naturally
           } else if (activeCount === 1) {
             if (DEBUG_CONFIG.logPhysicsStateChanges) {
-              console.log(`📌 Shape ${shape.id} will have 1 screw remaining - should become dynamic in removeConstraintOnly`);
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`📌 Shape ${shape.id} will have 1 screw remaining - should become dynamic in removeConstraintOnly`);
+              }
             }
           }
           
@@ -360,7 +423,9 @@ export class ScrewManager extends BaseSystem {
   private handleSaveRequested(_event: SaveRequestedEvent): void {
     void _event;
     this.executeIfActive(() => {
-      console.log(`ScrewManager save state: ${this.state.screws.size} screws, ${this.state.constraints.size} constraints`);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`ScrewManager save state: ${this.state.screws.size} screws, ${this.state.constraints.size} constraints`);
+      }
     });
   }
 
@@ -374,7 +439,9 @@ export class ScrewManager extends BaseSystem {
   private handleContainerStateUpdated(event: import('@/game/events/EventTypes').ContainerStateUpdatedEvent): void {
     this.executeIfActive(() => {
       this.state.containers = event.containers;
-      console.log(`🎯 ScrewManager: Container state updated - ${event.containers.length} containers`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎯 ScrewManager: Container state updated - ${event.containers.length} containers`);
+      }
       
       // Check if any screws in holding holes can now transfer to new/updated containers
       this.checkAllHoldingHolesForTransfers();
@@ -384,13 +451,17 @@ export class ScrewManager extends BaseSystem {
   private handleHoldingHoleStateUpdated(event: import('@/game/events/EventTypes').HoldingHoleStateUpdatedEvent): void {
     this.executeIfActive(() => {
       this.state.holdingHoles = event.holdingHoles;
-      console.log(`🎯 ScrewManager: Holding hole state updated - ${event.holdingHoles.length} holes`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎯 ScrewManager: Holding hole state updated - ${event.holdingHoles.length} holes`);
+      }
     });
   }
 
   private handleScrewTransferStarted(event: ScrewTransferStartedEvent): void {
     this.executeIfActive(() => {
-      console.log(`📨 ScrewManager: RECEIVED screw:transfer:started for screw ${event.screwId}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`📨 ScrewManager: RECEIVED screw:transfer:started for screw ${event.screwId}`);
+      }
       
       const screw = this.state.screws.get(event.screwId);
       if (screw) {
@@ -412,7 +483,11 @@ export class ScrewManager extends BaseSystem {
           return;
         }
 
-        console.log(`✅ ScrewManager: Starting transfer - screw ${screw.id} (${screw.color}) to container ${targetContainer.id} (${targetContainer.color})`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+
+          console.log(`✅ ScrewManager: Starting transfer - screw ${screw.id} (${screw.color}) to container ${targetContainer.id} (${targetContainer.color})`);
+
+        }
         console.log(`🔍 ScrewManager: State screw object properties:`, {
           id: screw.id,
           shapeId: screw.shapeId,
@@ -425,15 +500,23 @@ export class ScrewManager extends BaseSystem {
         // Ensure all indices are passed correctly
         console.log(`🔢 Transfer indices - fromHole: ${event.fromHoleIndex}, toContainer: ${event.toContainerIndex}, toHole: ${event.toHoleIndex}`);
         screw.startTransfer(event.fromPosition, event.toPosition, event.fromHoleIndex, event.toContainerIndex, event.toHoleIndex);
-        console.log(`🎯 ScrewManager: Started transfer animation for screw ${screw.id} from hole ${event.fromHoleIndex} to container ${event.toContainerIndex} hole ${event.toHoleIndex}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🎯 ScrewManager: Started transfer animation for screw ${screw.id} from hole ${event.fromHoleIndex} to container ${event.toContainerIndex} hole ${event.toHoleIndex}`);
+        }
       } else {
         console.error(`❌ ScrewManager: Screw ${event.screwId} NOT FOUND in state! Available screws:`, Array.from(this.state.screws.keys()));
-        console.log(`🔍 ScrewManager: Total screws in state: ${this.state.screws.size}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔍 ScrewManager: Total screws in state: ${this.state.screws.size}`);
+        }
         
         // Debug: Log all screws with their states
-        console.log(`🔍 ScrewManager: All screws in state with details:`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔍 ScrewManager: All screws in state with details:`);
+        }
         Array.from(this.state.screws.entries()).forEach(([id, screw]) => {
-          console.log(`  - ${id}: collected=${screw.isCollected}, beingCollected=${screw.isBeingCollected}, targetType=${screw.targetType || 'none'}, position=(${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`  - ${id}: collected=${screw.isCollected}, beingCollected=${screw.isBeingCollected}, targetType=${screw.targetType || 'none'}, position=(${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+          }
         });
         
         // Emit transfer failed event
@@ -452,7 +535,9 @@ export class ScrewManager extends BaseSystem {
 
   private handleScrewTransferCompleted(event: ScrewTransferCompletedEvent): void {
     this.executeIfActive(() => {
-      console.log(`🏁 ScrewManager: RECEIVED transfer completed for screw ${event.screwId}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🏁 ScrewManager: RECEIVED transfer completed for screw ${event.screwId}`);
+      }
       console.log(`🏁 Transfer details: fromHole=${event.fromHoleIndex}, toContainer=${event.toContainerIndex}, toHole=${event.toHoleIndex}`);
       
       const screw = this.state.screws.get(event.screwId);
@@ -466,7 +551,9 @@ export class ScrewManager extends BaseSystem {
         
         if (containerIndex >= 0 && holeIndex < 0 && screw.transferToHoleIndex !== undefined && screw.transferToHoleIndex >= 0) {
           holeIndex = screw.transferToHoleIndex;
-          console.log(`🔧 Using screw's transferToHoleIndex: ${holeIndex}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔧 Using screw's transferToHoleIndex: ${holeIndex}`);
+          }
         }
         
         if (containerIndex >= 0 && containerIndex < this.state.containers.length && holeIndex >= 0) {
@@ -494,7 +581,11 @@ export class ScrewManager extends BaseSystem {
             screw.targetContainerId = container.id;
             screw.targetHoleIndex = holeIndex;
             
-            console.log(`📍 ScrewManager: Updated screw ${event.screwId} position to container hole (${holeX}, ${holeY})`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+            
+              console.log(`📍 ScrewManager: Updated screw ${event.screwId} position to container hole (${holeX}, ${holeY})`);
+            
+            }
           }
         }
         
@@ -504,16 +595,24 @@ export class ScrewManager extends BaseSystem {
         // Clear the shape reference - this screw no longer belongs to any shape
         screw.shapeId = '';
         
-        console.log(`📦 ScrewManager: KEEPING screw ${event.screwId} in state after transfer to container (needed for rendering) - Total: ${this.state.screws.size}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+        
+          console.log(`📦 ScrewManager: KEEPING screw ${event.screwId} in state after transfer to container (needed for rendering) - Total: ${this.state.screws.size}`);
+        
+        }
       } else {
-        console.log(`❌ ScrewManager: Screw ${event.screwId} not found for transfer completion`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`❌ ScrewManager: Screw ${event.screwId} not found for transfer completion`);
+        }
       }
     });
   }
 
   private handleScrewColorsRequested(event: ScrewColorsRequestedEvent): void {
     this.executeIfActive(() => {
-      console.log(`🎨 ScrewManager: RECEIVED screw colors request for container ${event.containerIndex}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎨 ScrewManager: RECEIVED screw colors request for container ${event.containerIndex}`);
+      }
       
       // Get all active screw colors (screws on shapes or in holding holes, not in containers)
       const activeScrewColors: ScrewColor[] = [];
@@ -552,7 +651,11 @@ export class ScrewManager extends BaseSystem {
         else if (screw.targetType === 'holding_hole') inHoldingHoleCount++;
       }
       
-      console.log(`🎨 ScrewManager: Active screws - On shapes: ${onShapeCount}, In holding holes: ${inHoldingHoleCount}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+      
+        console.log(`🎨 ScrewManager: Active screws - On shapes: ${onShapeCount}, In holding holes: ${inHoldingHoleCount}`);
+      
+      }
       console.log(`🎨 ScrewManager: Active screw colors (by frequency):`, 
         activeScrewColors.map(color => `${color}(${colorCounts.get(color)})`).join(', '));
       
@@ -563,7 +666,9 @@ export class ScrewManager extends BaseSystem {
 
   private handleScrewTransferColorCheck(event: ScrewTransferColorCheckEvent): void {
     this.executeIfActive(() => {
-      console.log(`🔍 ScrewManager: RECEIVED color check request for ${event.holdingHoleScrews.length} screws to container color ${event.targetColor}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔍 ScrewManager: RECEIVED color check request for ${event.holdingHoleScrews.length} screws to container color ${event.targetColor}`);
+      }
       console.log(`🔍 ScrewManager: Container details:`, {
         id: event.targetContainer.id,
         color: event.targetContainer.color,
@@ -579,17 +684,29 @@ export class ScrewManager extends BaseSystem {
           const screw = this.state.screws.get(screwId);
           if (screw && screw.color === event.targetColor) {
             validTransfers.push({ screwId, holeIndex });
-            console.log(`✅ ScrewManager: Screw ${screwId} (${screw.color}) matches target color ${event.targetColor}`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`✅ ScrewManager: Screw ${screwId} (${screw.color}) matches target color ${event.targetColor}`);
+            }
           } else if (screw) {
-            console.log(`❌ ScrewManager: Screw ${screwId} (${screw.color}) does NOT match target color ${event.targetColor}`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`❌ ScrewManager: Screw ${screwId} (${screw.color}) does NOT match target color ${event.targetColor}`);
+            }
           } else {
-            console.log(`❌ ScrewManager: Screw ${screwId} not found in state`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`❌ ScrewManager: Screw ${screwId} not found in state`);
+            }
           }
         }
       });
       
-      console.log(`🔍 ScrewManager: Found ${validTransfers.length} valid color-matched transfers`);
-      console.log(`🔍 ScrewManager: Total screws in state: ${this.state.screws.size}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+      
+        console.log(`🔍 ScrewManager: Found ${validTransfers.length} valid color-matched transfers`);
+      
+      }
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔍 ScrewManager: Total screws in state: ${this.state.screws.size}`);
+      }
       
       // Call the callback with the valid transfers
       event.callback(validTransfers);
@@ -634,7 +751,11 @@ export class ScrewManager extends BaseSystem {
       // Make shape static only if it has more than one screw
       if (screwPositions.length > 1) {
         Body.setStatic(shape.body, true);
-        console.log(`Placed ${screwPositions.length} screws on ${shape.type} shape (requested ${screwCount}) - shape made static`);
+        if (DEBUG_CONFIG.logShapeDebug) {
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Placed ${screwPositions.length} screws on ${shape.type} shape (requested ${screwCount}) - shape made static`);
+          }
+        }
       } else if (behavior.singleScrewDynamic !== false) {
         // Single screw - keep shape dynamic so it can rotate/swing around the screw
         Body.setStatic(shape.body, false);
@@ -655,11 +776,19 @@ export class ScrewManager extends BaseSystem {
           y: (Math.random() - 0.5) * 0.001
         });
         
-        console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape kept dynamic for rotation with initial motion`);
+        if (DEBUG_CONFIG.logShapeDebug) {
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape kept dynamic for rotation with initial motion`);
+          }
+        }
       } else {
         // Single screw but configured to be static
         Body.setStatic(shape.body, true);
-        console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape made static per configuration`);
+        if (DEBUG_CONFIG.logShapeDebug) {
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape made static per configuration`);
+          }
+        }
       }
 
       // Emit event that shape's screws are ready
@@ -672,64 +801,14 @@ export class ScrewManager extends BaseSystem {
     });
   }
 
+  // Use utility function for screw position calculation
   private calculateScrewPositions(shape: Shape, count: number): Vector2[] {
-    const definition = this.getShapeDefinition(shape);
-    
-    if (!definition) {
-      // Fallback to legacy method if no definition found
-      return this.calculateScrewPositionsLegacy(shape, count);
-    }
-    
-    const placement = definition.screwPlacement;
-    const screwRadius = UI_CONSTANTS.screws.radius;
-    const minSeparation = placement.minSeparation || screwRadius * 4;
-    
-    if (count === 1 && definition.behavior.allowSingleScrew !== false) {
-      // For single screw, always use center
-      return [{ ...shape.position }];
-    }
-    
-    // Get positions based on strategy
-    const possiblePositions = this.getPositionsForStrategy(shape, definition);
-    
-    // Determine maximum screws based on configuration
-    const maxPossibleScrews = this.getMaxScrewsFromDefinition(shape, definition, possiblePositions);
-    const actualCount = Math.min(count, maxPossibleScrews);
-    
-    // Select positions without overlap
-    const selectedPositions = this.selectNonOverlappingPositions(
-      possiblePositions,
-      actualCount,
-      minSeparation
-    );
-    
-    console.log(`Placed ${selectedPositions.length} screws on ${shape.type} shape (requested ${count}, max possible: ${maxPossibleScrews})`);
-    return selectedPositions;
+    return calculateScrewPositions(shape, count);
   }
 
+  // Use utility function for legacy screw position calculation
   private calculateScrewPositionsLegacy(shape: Shape, count: number): Vector2[] {
-    // Legacy implementation for backwards compatibility
-    const possiblePositions = this.getShapeScrewLocations(shape);
-    const screwRadius = UI_CONSTANTS.screws.radius;
-    const minSeparation = screwRadius * 4;
-    
-    if (count === 1) {
-      return [possiblePositions.center];
-    }
-
-    const maxPossibleScrews = this.getMaxScrewsForShape(shape, possiblePositions);
-    const actualCount = Math.min(count, maxPossibleScrews);
-    
-    const allPositions = [
-      ...possiblePositions.corners,
-      ...possiblePositions.alternates,
-      possiblePositions.center
-    ];
-    
-    const selectedPositions = this.selectNonOverlappingPositions(allPositions, actualCount, minSeparation);
-    
-    console.log(`Placed ${selectedPositions.length} screws on ${shape.type} shape (requested ${count}, max possible: ${maxPossibleScrews})`);
-    return selectedPositions;
+    return calculateScrewPositionsLegacy(shape, count);
   }
 
   private getMaxScrewsForShape(shape: Shape, positions: { corners: Vector2[], center: Vector2, alternates: Vector2[] }): number {
@@ -973,17 +1052,9 @@ export class ScrewManager extends BaseSystem {
     return { corners, center, alternates };
   }
 
+  // Use utility function for distance calculations
   private getDistanceToNearestEdge(point: Vector2, shape: Shape): number {
-    // Simple approximation - check distance to shape center and bounds
-    const bounds = shape.getBounds();
-    const centerDist = Math.sqrt(
-      Math.pow(point.x - shape.position.x, 2) + 
-      Math.pow(point.y - shape.position.y, 2)
-    );
-    
-    // Estimate based on bounds
-    const maxDimension = Math.max(bounds.width, bounds.height);
-    return (maxDimension / 2) - centerDist;
+    return getDistanceToNearestEdge(point, shape);
   }
 
   private getShapeArea(shape: Shape): number {
@@ -1024,31 +1095,13 @@ export class ScrewManager extends BaseSystem {
     }
   }
 
+  // Use utility functions for shape definition handling
   private getShapeDefinition(shape: Shape): ShapeDefinition | null {
-    const registry = ShapeRegistry.getInstance();
-    
-    // Map shape type to definition ID
-    const definitionId = this.getDefinitionIdFromShape(shape);
-    if (!definitionId) return null;
-    
-    return registry.getDefinition(definitionId) || null;
+    return getShapeDefinition(shape);
   }
 
   private getDefinitionIdFromShape(shape: Shape): string | null {
-    if (shape.type === 'polygon' && shape.sides) {
-      // Map polygon sides to specific definition IDs
-      const polygonMap: Record<number, string> = {
-        3: 'triangle',
-        5: 'pentagon',
-        6: 'hexagon',
-        7: 'heptagon',
-        8: 'octagon'
-      };
-      return polygonMap[shape.sides] || null;
-    }
-    
-    // Direct mapping for other shapes
-    return shape.type;
+    return getDefinitionIdFromShape(shape);
   }
 
   private getPositionsForStrategy(shape: Shape, definition: ShapeDefinition): Vector2[] {
@@ -1149,99 +1202,38 @@ export class ScrewManager extends BaseSystem {
     return new Screw(id, shapeId, position, color);
   }
 
+  // Use utility function for finding screw destinations
   private findScrewDestination(screw: Screw): { type: 'container' | 'holding_hole'; position: Vector2; id: string; holeIndex?: number } | null {
-    console.log(`🔍 Finding destination for screw ${screw.id} (color: ${screw.color})`);
-    console.log(`🔍 Available containers:`, this.state.containers.map(c => ({
-      id: c.id,
-      color: c.color,
-      isFull: c.isFull,
-      holes: c.holes,
-      availableSlots: c.holes ? c.holes.filter(h => h === null).length : 0
-    })));
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔍 Finding destination for screw ${screw.id} (color: ${screw.color})`);
+    }
     
-    // Try to find a matching color container first
-    // Use the actual container state from GameState
-    const matchingContainer = this.state.containers.find(container => 
-      container.color === screw.color && !container.isFull
+    const destination = findScrewDestination(
+      screw,
+      this.state.containers,
+      this.state.holdingHoles,
+      this.state.virtualGameWidth,
+      this.state.virtualGameHeight
     );
     
-    if (matchingContainer) {
-      console.log(`🎯 Found matching container for ${screw.color} screw:`, matchingContainer.id);
-      // Find the next available hole in the container (check both filled and reserved)
-      let holeIndex = -1;
-      
-      // Ensure holes array exists and has the right length
-      if (!matchingContainer.holes || matchingContainer.holes.length !== matchingContainer.maxHoles) {
-        console.log(`⚠️ Container ${matchingContainer.id} has invalid holes array:`, matchingContainer.holes);
-        return null;
-      }
-      
-      for (let i = 0; i < matchingContainer.maxHoles; i++) {
-        if (matchingContainer.holes[i] === null && (!matchingContainer.reservedHoles || matchingContainer.reservedHoles[i] === null)) {
-          holeIndex = i;
-          break;
-        }
-      }
-      
-      if (holeIndex !== -1) {
-        // Calculate hole position using same logic as GameManager rendering
-        const containerWidth = UI_CONSTANTS.containers.width;
-        const containerHeight = UI_CONSTANTS.containers.height;
-        const spacing = UI_CONSTANTS.containers.spacing;
-        const startY = UI_CONSTANTS.containers.startY;
-        const containerIndex = this.state.containers.findIndex(c => c.id === matchingContainer.id);
-        
-        // Calculate actual container position (matches GameManager.renderContainers exactly)
-        const totalWidth = (this.state.containers.length * containerWidth) + ((this.state.containers.length - 1) * spacing);
-        const virtualGameWidth = this.state.virtualGameWidth; // Use current virtual game width
-        const startX = (virtualGameWidth - totalWidth) / 2;
-        const containerX = startX + (containerIndex * (containerWidth + spacing));
-        
-        // Calculate hole position within container (matches GameManager logic exactly)
-        const holeCount = UI_CONSTANTS.containers.hole.count;
-        const holeSpacing = containerWidth / (holeCount + 1); // +1 for proper spacing
-        const holeX = containerX + holeSpacing + (holeIndex * holeSpacing);
-        const holeY = startY + containerHeight / 2;
-        
-        console.log(`🎯 SCREW DESTINATION: Container ${containerIndex} hole ${holeIndex} at (${holeX.toFixed(1)}, ${holeY.toFixed(1)}) - containerX=${containerX.toFixed(1)}, startX=${startX.toFixed(1)}, totalWidth=${totalWidth.toFixed(1)}, virtualGameWidth=${virtualGameWidth}`);
-        
-        return {
-          type: 'container',
-          position: { x: holeX, y: holeY },
-          id: matchingContainer.id,
-          holeIndex: holeIndex
-        };
+    if (!destination) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`No available destination found for screw ${screw.id} (color: ${screw.color})`);
       }
     }
     
-    // Fallback to holding holes
-    // Use the actual holding hole state from GameState
-    const availableHole = this.state.holdingHoles.find(hole => 
-      hole.screwId === null && !hole.reservedBy
-    );
-    
-    if (availableHole) {
-      console.log(`🎯 SCREW DESTINATION: Holding hole ${availableHole.id} at (${availableHole.position.x.toFixed(1)}, ${availableHole.position.y.toFixed(1)})`);
-      return {
-        type: 'holding_hole',
-        position: { ...availableHole.position },
-        id: availableHole.id
-      };
-    }
-    
-    console.log(`No available destination found for screw ${screw.id} (color: ${screw.color})`);
-    return null;
+    return destination;
   }
 
+  // Use utility function for determining destination type
   private determineDestinationType(screw: Screw): 'container' | 'holding_hole' {
-    // Check if screw went to a container or holding hole based on Y position
-    if (screw.targetPosition) {
-      const containerY = UI_CONSTANTS.containers.startY + (UI_CONSTANTS.containers.height / 2);
-      const holdingY = UI_CONSTANTS.holdingHoles.startY;
-      const midPoint = (containerY + holdingY) / 2;
-      return screw.targetPosition.y < midPoint ? 'container' : 'holding_hole';
-    }
-    return 'holding_hole';
+    return determineDestinationType(
+      screw,
+      this.state.containers,
+      this.state.holdingHoles,
+      this.state.virtualGameWidth,
+      this.state.virtualGameHeight
+    );
   }
 
   private placeScrewInDestination(screw: Screw): void {
@@ -1251,7 +1243,9 @@ export class ScrewManager extends BaseSystem {
     }
 
     if (DEBUG_CONFIG.logScrewPlacement) {
-      console.log(`📍 Placing screw ${screw.id} in ${screw.targetType} (targetContainerId: ${screw.targetContainerId}, targetHoleIndex: ${screw.targetHoleIndex})`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`📍 Placing screw ${screw.id} in ${screw.targetType} (targetContainerId: ${screw.targetContainerId}, targetHoleIndex: ${screw.targetHoleIndex})`);
+      }
     }
 
     if (screw.targetType === 'holding_hole') {
@@ -1263,7 +1257,9 @@ export class ScrewManager extends BaseSystem {
         // Clear the reservation
         if (holdingHole.reservedBy === screw.id) {
           holdingHole.reservedBy = undefined;
-          console.log(`Cleared reservation for screw ${screw.id} in holding hole ${holdingHole.id}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Cleared reservation for screw ${screw.id} in holding hole ${holdingHole.id}`);
+          }
         }
         
         // Emit event to place screw in holding hole
@@ -1275,7 +1271,9 @@ export class ScrewManager extends BaseSystem {
         });
         
         if (DEBUG_CONFIG.logScrewPlacement) {
-          console.log(`✅ Placed screw ${screw.id} in holding hole ${holeIndex}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`✅ Placed screw ${screw.id} in holding hole ${holeIndex}`);
+          }
         }
         
         // Check if there's now a matching container available and transfer immediately
@@ -1292,7 +1290,9 @@ export class ScrewManager extends BaseSystem {
         // Clear the reservation
         if (container.reservedHoles[screw.targetHoleIndex] === screw.id) {
           container.reservedHoles[screw.targetHoleIndex] = null;
-          console.log(`Cleared reservation for screw ${screw.id} in container ${container.id} hole ${screw.targetHoleIndex}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Cleared reservation for screw ${screw.id} in container ${container.id} hole ${screw.targetHoleIndex}`);
+          }
         }
         
         // Place the screw ID in the specific hole
@@ -1303,7 +1303,9 @@ export class ScrewManager extends BaseSystem {
         if (filledCount === container.maxHoles) {
           // Mark container as full
           container.isFull = true;
-          console.log(`Container ${container.id} is now full with ${filledCount} screws`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Container ${container.id} is now full with ${filledCount} screws`);
+          }
           
           // Emit container filled event
           this.emit({
@@ -1316,7 +1318,9 @@ export class ScrewManager extends BaseSystem {
         }
         
         if (DEBUG_CONFIG.logScrewPlacement) {
-          console.log(`✅ Placed screw ${screw.id} in container ${containerIndex} hole ${screw.targetHoleIndex}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`✅ Placed screw ${screw.id} in container ${containerIndex} hole ${screw.targetHoleIndex}`);
+          }
         }
       } else {
         console.error(`❌ Failed to find container for screw ${screw.id} - containerIndex: ${containerIndex}, targetHoleIndex: ${screw.targetHoleIndex}`);
@@ -1325,7 +1329,9 @@ export class ScrewManager extends BaseSystem {
   }
 
   private createScrewConstraint(screw: Screw, shape: Shape): void {
-    console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
+    }
     
     // For composite bodies, use the actual physics body position, not the Shape entity position
     const bodyPosition = shape.body.position;
@@ -1334,11 +1340,13 @@ export class ScrewManager extends BaseSystem {
     
     // Debug logging for composite bodies
     if (shape.isComposite) {
-      console.log(`🔧 COMPOSITE CONSTRAINT DEBUG:`);
-      console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-      console.log(`  Body.position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
-      console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
-      console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`🔧 COMPOSITE CONSTRAINT DEBUG:`);
+        console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+        console.log(`  Body.position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
+        console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+        console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+      }
     }
 
     const screwAnchor = Bodies.circle(screw.position.x, screw.position.y, 1, {
@@ -1384,7 +1392,11 @@ export class ScrewManager extends BaseSystem {
       constraint
     });
     
-    console.log(`Constraint created for screw ${screw.id}: offset (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+    
+      console.log(`Constraint created for screw ${screw.id}: offset (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+    
+    }
   }
 
   private removeConstraintOnly(screwId: string): boolean {
@@ -1425,8 +1437,14 @@ export class ScrewManager extends BaseSystem {
       );
       
       if (DEBUG_CONFIG.logPhysicsStateChanges) {
-        console.log(`Shape ${shape?.id}: Total screws=${allShapeScrews.length}, Constraining screws=${shapeScrews.length} after removing ${screwId}`);
-        console.log(`  Screws: ${allShapeScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected})`).join(', ')}`);
+        if (DEBUG_CONFIG.logShapeDebug) {
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Shape ${shape?.id}: Total screws=${allShapeScrews.length}, Constraining screws=${shapeScrews.length} after removing ${screwId}`);
+          }
+        }
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`  Screws: ${allShapeScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected})`).join(', ')}`);
+        }
       }
       
       if (shapeScrews.length === 0 && shape) {
@@ -1467,7 +1485,9 @@ export class ScrewManager extends BaseSystem {
           };
           
           if (DEBUG_CONFIG.logPhysicsStateChanges) {
-            console.log(`🔧 Calculated linear velocity from rotation: pivot=(${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), radius=(${dx.toFixed(1)}, ${dy.toFixed(1)}), velocity=(${linearVelocity.x.toFixed(2)}, ${linearVelocity.y.toFixed(2)})`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`🔧 Calculated linear velocity from rotation: pivot=(${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), radius=(${dx.toFixed(1)}, ${dy.toFixed(1)}), velocity=(${linearVelocity.x.toFixed(2)}, ${linearVelocity.y.toFixed(2)})`);
+            }
           }
         }
         
@@ -1503,10 +1523,12 @@ export class ScrewManager extends BaseSystem {
         // Preserve layer-based collision filtering - shapes should only interact within their layer
         // Don't modify collision filters to maintain proper layer separation
         const filter = shape.body.collisionFilter;
-        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+        if (DEBUG_CONFIG.logLayerDebug) {
           console.log(`🔧 Preserving layer collision filter for ${shape.id}: group=${filter.group}, category=${filter.category}, mask=${filter.mask}`);
           console.log(`🔧 Shape ${shape.id} AFTER: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)}), mass=${shape.body.mass}, density=${shape.body.density}`);
-          console.log(`Shape ${shape.id} now has no screws - made dynamic and given impulse to fall`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Shape ${shape.id} now has no screws - made dynamic and given impulse to fall`);
+          }
         }
         
         // Ensure the shape entity updates its position from the physics body
@@ -1524,7 +1546,9 @@ export class ScrewManager extends BaseSystem {
       } else if (shapeScrews.length === 1 && shape) {
         // Only one screw left - make shape dynamic so it can swing/rotate
         if (DEBUG_CONFIG.logPhysicsStateChanges) {
-          console.log(`🔧 Shape ${shape.id} has 1 screw - making dynamic for rotation. BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔧 Shape ${shape.id} has 1 screw - making dynamic for rotation. BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}`);
+          }
         }
         
         const wasStatic = shape.body.isStatic;
@@ -1547,7 +1571,9 @@ export class ScrewManager extends BaseSystem {
         
         if (DEBUG_CONFIG.logPhysicsStateChanges) {
           console.log(`🔧 Shape ${shape.id} AFTER: isStatic=${shape.body.isStatic} (was ${wasStatic}), isSleeping=${shape.body.isSleeping}, inertia=${shape.body.inertia} (was ${oldInertia})`);
-          console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with enhanced physics`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with enhanced physics`);
+          }
         }
         
         // Verify the change took effect
@@ -1643,7 +1669,11 @@ export class ScrewManager extends BaseSystem {
         shape.body.inertia = shape.body.mass * 2; // Increase rotational inertia
         Body.setAngularVelocity(shape.body, 0.02); // Give a small initial angular velocity
         
-        console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with enhanced physics`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+        
+          console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with enhanced physics`);
+        
+        }
         this.updateShapeConstraints(screw.shapeId);
       } else if (shapeScrews.length === 0 && shape) {
         // No screws left - make shape fully dynamic
@@ -1667,9 +1697,15 @@ export class ScrewManager extends BaseSystem {
         // Preserve layer-based collision filtering - shapes should only interact within their layer
         // Don't modify collision filters to maintain proper layer separation
         const filter = shape.body.collisionFilter;
-        console.log(`🔧 Preserving layer collision filter for ${shape.id}: group=${filter.group}, category=${filter.category}, mask=${filter.mask}`);
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log(`🔧 Preserving layer collision filter for ${shape.id}: group=${filter.group}, category=${filter.category}, mask=${filter.mask}`);
+        }
         
-        console.log(`Shape ${shape.id} now has no screws - made dynamic and given impulse to fall`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+        
+          console.log(`Shape ${shape.id} now has no screws - made dynamic and given impulse to fall`);
+        
+        }
       }
 
       return true;
@@ -1800,7 +1836,9 @@ export class ScrewManager extends BaseSystem {
         // if (isRemovable) removableCount++;
 
         if (wasRemovable !== isRemovable) {
-          console.log(`Screw ${screw.id} removability changed: ${wasRemovable} -> ${isRemovable}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Screw ${screw.id} removability changed: ${wasRemovable} -> ${isRemovable}`);
+          }
           
           if (isRemovable) {
             this.emit({
@@ -2173,7 +2211,11 @@ export class ScrewManager extends BaseSystem {
               screw
             });
             
-            console.log(`Screw ${screw.id} collection completed`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+            
+              console.log(`Screw ${screw.id} collection completed`);
+            
+            }
           }
         }
       }
@@ -2210,7 +2252,11 @@ export class ScrewManager extends BaseSystem {
               toHoleIndex: screw.transferToHoleIndex ?? -1
             });
             
-            console.log(`Screw ${screw.id} transfer animation completed`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+            
+              console.log(`Screw ${screw.id} transfer animation completed`);
+            
+            }
           }
         }
       }
@@ -2227,13 +2273,17 @@ export class ScrewManager extends BaseSystem {
           shakingCount++;
           const wasComplete = screw.updateShakeAnimation(deltaTime);
           if (wasComplete) {
-            console.log(`📳 Shake animation completed for screw ${screw.id}`);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`📳 Shake animation completed for screw ${screw.id}`);
+            }
           }
         }
       }
       // Only log when there are shaking screws to avoid spam
       if (shakingCount > 0 && Date.now() % 1000 < 50) {
-        console.log(`📳 Updating ${shakingCount} shaking screws`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`📳 Updating ${shakingCount} shaking screws`);
+        }
       }
     });
   }
@@ -2261,7 +2311,9 @@ export class ScrewManager extends BaseSystem {
   // Method to clear all screws (used for restart)
   public clearAllScrews(): void {
     this.executeIfActive(() => {
-      console.log(`Clearing all ${this.state.screws.size} screws and ${this.state.constraints.size} constraints`);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`Clearing all ${this.state.screws.size} screws and ${this.state.constraints.size} constraints`);
+      }
       
       // Remove all constraints from physics
       this.state.constraints.forEach((constraint, screwId) => {
@@ -2304,7 +2356,9 @@ export class ScrewManager extends BaseSystem {
       this.state.constraints.clear();
       this.state.screwCounter = 0;
       
-      console.log('All screws and holding holes cleared');
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log('All screws and holding holes cleared');
+      }
     });
   }
 
@@ -2343,11 +2397,15 @@ export class ScrewManager extends BaseSystem {
         );
         
         if (emptyHoleIndex !== -1) {
-          console.log(`🔄 Found matching container for screw ${screw.id} (${screw.color}) - transferring from holding hole ${holeIndex} to container ${containerIndex} hole ${emptyHoleIndex}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔄 Found matching container for screw ${screw.id} (${screw.color}) - transferring from holding hole ${holeIndex} to container ${containerIndex} hole ${emptyHoleIndex}`);
+          }
           
           // Reserve the container hole immediately
           matchingContainer.reservedHoles[emptyHoleIndex] = screw.id;
-          console.log(`📌 Reserved container ${containerIndex} hole ${emptyHoleIndex} for screw ${screw.id}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`📌 Reserved container ${containerIndex} hole ${emptyHoleIndex} for screw ${screw.id}`);
+          }
           
           // Calculate positions for animation
           const fromPosition = this.state.holdingHoles[holeIndex].position;
@@ -2377,24 +2435,14 @@ export class ScrewManager extends BaseSystem {
     });
   }
 
+  // Use utility function for calculating container hole positions
   private calculateContainerHolePosition(containerIndex: number, holeIndex: number): Vector2 {
-    // Use actual UI constants to match the calculation logic in GameState and GameManager
-    const containerWidth = UI_CONSTANTS.containers.width;
-    const containerHeight = UI_CONSTANTS.containers.height;  
-    const spacing = UI_CONSTANTS.containers.spacing;
-    const startY = UI_CONSTANTS.containers.startY;
-    const virtualGameWidth = this.state.virtualGameWidth; // Use current virtual game width instead of canvas width
-    const totalWidth = (this.state.containers.length * containerWidth) + ((this.state.containers.length - 1) * spacing);
-    const startX = (virtualGameWidth - totalWidth) / 2;
-    const containerX = startX + (containerIndex * (containerWidth + spacing));
-    
-    // Use the same hole spacing calculation as GameManager and GameState
-    const holeCount = UI_CONSTANTS.containers.hole.count;
-    const holeSpacing = containerWidth / (holeCount + 1); // +1 for proper spacing
-    const holeX = containerX + holeSpacing + (holeIndex * holeSpacing);
-    const holeY = startY + containerHeight / 2;
-    
-    return { x: holeX, y: holeY };
+    return calculateContainerHolePosition(
+      containerIndex,
+      holeIndex,
+      this.state.virtualGameWidth,
+      this.state.virtualGameHeight
+    );
   }
 
   protected onDestroy(): void {

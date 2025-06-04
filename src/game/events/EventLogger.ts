@@ -4,6 +4,7 @@
 
 import { eventBus } from './EventBus';
 import { GameEvent } from './EventTypes';
+import { DEBUG_CONFIG } from '../utils/Constants';
 
 export interface EventLogEntry {
   timestamp: number;
@@ -39,7 +40,9 @@ export class EventLogger {
   startLogging(level: 'none' | 'error' | 'warn' | 'info' | 'debug' = 'info'): void {
     this.isLogging = true;
     this.logLevel = level;
-    console.log(`Event logging started at level: ${level}`);
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log(`Event logging started at level: ${level}`);
+    }
   }
 
   /**
@@ -47,7 +50,9 @@ export class EventLogger {
    */
   stopLogging(): void {
     this.isLogging = false;
-    console.log('Event logging stopped');
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log('Event logging stopped');
+    }
   }
 
   /**
@@ -111,7 +116,9 @@ export class EventLogger {
    */
   clearLogs(): void {
     this.logs.length = 0;
-    console.log('Event logs cleared');
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log('Event logs cleared');
+    }
   }
 
   /**
@@ -211,6 +218,8 @@ export class EventLogger {
    * Print event summary to console
    */
   printSummary(): void {
+    if (!DEBUG_CONFIG.logEventFlow) return;
+    
     const summary = this.getPerformanceSummary();
     const stats = eventBus.getStats();
 
@@ -238,6 +247,8 @@ export class EventLogger {
    * Print event flow for debugging
    */
   printEventFlow(eventTypes?: string[], count: number = 20): void {
+    if (!DEBUG_CONFIG.logEventFlow) return;
+    
     let logsToShow = this.logs.slice(-count);
     
     if (eventTypes && eventTypes.length > 0) {
@@ -348,10 +359,10 @@ export class EventLogger {
     }
 
     // Console output based on log level
-    if (this.logLevel === 'debug' || 
+    if (DEBUG_CONFIG.logEventFlow && (this.logLevel === 'debug' || 
         (this.logLevel === 'info' && level !== 'error') ||
         (this.logLevel === 'warn' && level === 'warn') ||
-        (this.logLevel === 'error' && level === 'error')) {
+        (this.logLevel === 'error' && level === 'error'))) {
       
       const source = event.source || 'unknown';
       const message = `[${source}] ${event.type}`;

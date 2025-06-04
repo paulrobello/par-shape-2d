@@ -106,7 +106,9 @@ export class ShapeFactory {
     // Create physics body
     const bodyResult = this.createPhysicsBody(definition, validPosition, dimensions);
     if (!bodyResult) {
-      console.error(`Failed to create physics body for shape ${definition.id}`);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.error(`Failed to create physics body for shape ${definition.id}`);
+      }
       return null;
     }
     

@@ -5,6 +5,7 @@
 
 import { eventBus } from '../events/EventBus';
 import { GameEvent } from '../events/EventTypes';
+import { DEBUG_CONFIG } from '../utils/Constants';
 
 export class EventFlowValidator {
   private eventLog: GameEvent[] = [];
@@ -38,7 +39,9 @@ export class EventFlowValidator {
     this.subscribeToEventType('debug:mode:toggled');
     this.subscribeToEventType('system:ready');
 
-    console.log('✅ EventFlowValidator started monitoring events');
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log('✅ EventFlowValidator started monitoring events');
+    }
   }
 
   /**
@@ -69,7 +72,9 @@ export class EventFlowValidator {
       data: this.extractEventData(event)
     };
 
-    console.log(`📡 [EventFlow] ${event.type}`, logEntry);
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log(`📡 [EventFlow] ${event.type}`, logEntry);
+    }
   }
 
   /**
@@ -95,7 +100,9 @@ export class EventFlowValidator {
     if (this.subscriptionId) {
       eventBus.unsubscribe(this.subscriptionId);
       this.subscriptionId = null;
-      console.log('✅ EventFlowValidator stopped monitoring events');
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log('✅ EventFlowValidator stopped monitoring events');
+      }
     }
   }
 
@@ -184,7 +191,9 @@ export class EventFlowValidator {
         source: 'EventFlowValidator'
       });
       
-      console.log('✅ Test event emitted successfully');
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log('✅ Test event emitted successfully');
+      }
       return true;
     } catch (error) {
       console.error('❌ Failed to emit test event:', error);
@@ -197,7 +206,9 @@ export class EventFlowValidator {
    */
   clearLog(): void {
     this.eventLog = [];
-    console.log('✅ Event log cleared');
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log('✅ Event log cleared');
+    }
   }
 }
 

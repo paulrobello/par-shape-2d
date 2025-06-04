@@ -13,7 +13,7 @@ import {
   EditorCanvasResizedEvent,
   EditorPhysicsSimulationShapeProvidedEvent
 } from '../events/EditorEventTypes';
-import { PHYSICS_CONSTANTS } from '@/game/utils/Constants';
+import { PHYSICS_CONSTANTS, DEBUG_CONFIG } from '@/game/utils/Constants';
 
 /**
  * Manages physics simulation in the editor
@@ -149,7 +149,9 @@ export class PhysicsSimulator extends BaseEditorSystem {
         payload: { shapeId },
       });
       
-      console.log('Physics simulation started for shape:', shapeId);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log('Physics simulation started for shape:', shapeId);
+      }
       
     } catch (error) {
       await this.emit({
@@ -164,7 +166,9 @@ export class PhysicsSimulator extends BaseEditorSystem {
 
   private pauseSimulation(): void {
     this.isPaused = !this.isPaused;
-    console.log('Physics simulation', this.isPaused ? 'paused' : 'resumed');
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log('Physics simulation', this.isPaused ? 'paused' : 'resumed');
+    }
   }
 
   private async resetSimulation(): Promise<void> {
@@ -201,7 +205,9 @@ export class PhysicsSimulator extends BaseEditorSystem {
     
     this.simulatedShapes.clear();
     this.originalShapePositions.clear();
-    console.log('Physics simulation reset - shapes restored to original positions');
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log('Physics simulation reset - shapes restored to original positions');
+    }
   }
 
   private stopSimulation(): void {
@@ -233,7 +239,9 @@ export class PhysicsSimulator extends BaseEditorSystem {
     if (!this.physicsWorld) return;
 
     try {
-      console.log('PhysicsSimulator: Adding shape to physics world', shapeData.shapeId);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log('PhysicsSimulator: Adding shape to physics world', shapeData.shapeId);
+      }
       
       // Create new physics body for simulation (don't reuse editor body)
       let physicsBody: Body;
@@ -347,11 +355,13 @@ export class PhysicsSimulator extends BaseEditorSystem {
       // For composite bodies, sync the position after creation
       if (physicsBodyParts) {
         shapeEntity.updateFromBody();
-        console.log(`🔧 COMPOSITE BODY DEBUG:`);
-        console.log(`  Body.isStatic: ${physicsBody.isStatic}`);
-        console.log(`  Body.mass: ${physicsBody.mass.toFixed(3)}`);
-        console.log(`  Body.inertia: ${physicsBody.inertia.toFixed(3)}`);
-        console.log(`  Body.parts.length: ${physicsBody.parts.length}`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`🔧 COMPOSITE BODY DEBUG:`);
+          console.log(`  Body.isStatic: ${physicsBody.isStatic}`);
+          console.log(`  Body.mass: ${physicsBody.mass.toFixed(3)}`);
+          console.log(`  Body.inertia: ${physicsBody.inertia.toFixed(3)}`);
+          console.log(`  Body.parts.length: ${physicsBody.parts.length}`);
+        }
       }
 
       // Create screw entities
@@ -402,10 +412,14 @@ export class PhysicsSimulator extends BaseEditorSystem {
         screws: screwEntities,
       });
 
-      console.log('PhysicsSimulator: Shape added to physics world with', screwEntities.length, 'screws and', constraints.length, 'constraints');
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log('PhysicsSimulator: Shape added to physics world with', screwEntities.length, 'screws and', constraints.length, 'constraints');
+      }
       
     } catch (error) {
-      console.error('PhysicsSimulator: Error adding shape to physics world:', error);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.error('PhysicsSimulator: Error adding shape to physics world:', error);
+      }
       await this.emit({
         type: 'editor:error:physics',
         payload: {
@@ -430,7 +444,9 @@ export class PhysicsSimulator extends BaseEditorSystem {
   }
 
   private createScrewConstraint(screw: Screw, shape: Shape): { constraint: Constraint; anchorBody: Body } {
-    console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
+    }
     
     // Calculate offset from physics body center to screw position
     // For composite bodies, use the actual physics body position, not the Shape entity position
@@ -440,11 +456,13 @@ export class PhysicsSimulator extends BaseEditorSystem {
     
     // Debug logging for composite bodies
     if (shape.isComposite) {
-      console.log(`🔧 EDITOR COMPOSITE CONSTRAINT DEBUG:`);
-      console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-      console.log(`  Body.position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
-      console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
-      console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`🔧 EDITOR COMPOSITE CONSTRAINT DEBUG:`);
+        console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+        console.log(`  Body.position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
+        console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+        console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+      }
     }
 
     // Create anchor body at screw position (small invisible circle)
@@ -467,7 +485,9 @@ export class PhysicsSimulator extends BaseEditorSystem {
       render: { visible: false },
     });
 
-    console.log(`Constraint created for screw ${screw.id}: offset (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log(`Constraint created for screw ${screw.id}: offset (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+    }
     
     return { constraint, anchorBody: screwAnchor };
   }

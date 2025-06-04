@@ -17,6 +17,7 @@ import {
   EditorPhysicsSimulationShapeRequestedEvent
 } from '../events/EditorEventTypes';
 import { Vector2, ShapeType } from '@/types/game';
+import { DEBUG_CONFIG } from '@/game/utils/Constants';
 
 interface EditorShape {
   shape: Shape;
@@ -701,7 +702,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
     // We need to access the editor state to check simulation status
     const simulationRunning = await this.checkSimulationStatus();
     if (simulationRunning) {
-      console.log('ShapeEditorManager: Screw manipulation disabled during physics simulation');
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log('ShapeEditorManager: Screw manipulation disabled during physics simulation');
+      }
       return;
     }
     

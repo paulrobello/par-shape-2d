@@ -840,13 +840,14 @@ src/game/systems/
 │   ├── Visibility culling optimization
 │   └── Level progression logic
 │
-├── ScrewManager.ts      # Screw interactions and animations
-│   ├── Constraint creation/removal
-│   ├── Collection animation system
+├── ScrewManager.ts      # Screw interactions and animations (refactored)
+│   ├── Event-driven screw lifecycle management
+│   ├── Constraint creation/removal coordination
+│   ├── Collection and transfer animation systems
 │   ├── Shake animation for blocked screws
-│   ├── Blocking detection algorithms
-│   ├── Smart selection logic
-│   └── JSON-based screw placement strategies
+│   ├── Integration with ScrewPositionUtils for placement
+│   ├── Integration with ScrewCollisionUtils for blocking detection
+│   └── Integration with ScrewContainerUtils for destination finding
 │
 ├── ShapeFactory.ts      # JSON-driven shape generation with overlap prevention
 │   ├── Shape definition loading from JSON
@@ -891,25 +892,45 @@ src/game/rendering/
 ### Utility Layer
 ```
 src/game/utils/
-├── Constants.ts         # Game configuration and constants
+├── Constants.ts              # Game configuration and constants
 │   ├── Game dimensions, colors, and limits
 │   ├── Physics parameters and collision groups
 │   ├── Layout settings for mobile/desktop
 │   └── Animation timing and container settings
 │
-├── Colors.ts           # Color management utilities
+├── Colors.ts                # Color management utilities
 │   ├── Random color selection with 9 screw colors
 │   ├── Color manipulation (lighten/darken/alpha)
 │   ├── RGBA conversion and hex utilities
 │   └── Container color matching algorithms
 │
-├── MathUtils.ts       # Mathematical utility functions
+├── MathUtils.ts            # Mathematical utility functions
 │   ├── Vector operations and geometric calculations
-│   ├── Collision detection and intersection helpers
 │   ├── Animation easing functions
 │   └── Coordinate transformation utilities
 │
-└── DeviceDetection.ts # Device and platform detection
+├── ScrewPositionUtils.ts   # Screw position calculation utilities
+│   ├── JSON-driven screw placement strategies
+│   ├── Shape-specific position calculations
+│   ├── Overlap detection and position selection
+│   ├── Area-based screw limits and validation
+│   └── Shape definition and registry integration
+│
+├── ScrewCollisionUtils.ts  # Collision detection utilities
+│   ├── Circle-shape intersection algorithms
+│   ├── Point-in-polygon and line segment collision
+│   ├── Rotation-aware collision detection
+│   ├── Distance calculations and edge detection
+│   └── Multi-shape type support (circle, polygon, capsule, paths)
+│
+├── ScrewContainerUtils.ts  # Container and holding hole utilities
+│   ├── Container hole position calculations
+│   ├── Screw destination finding algorithms
+│   ├── Color matching and transfer validation
+│   ├── Holding hole position management
+│   └── Active screw color tracking
+│
+└── DeviceDetection.ts      # Device and platform detection
     ├── Mobile/desktop identification using react-device-detect
     ├── Touch capability detection
     ├── Viewport size calculations
@@ -1091,7 +1112,7 @@ Comprehensive debugging tools accessible via keyboard shortcuts:
 - **C**: Clear all save data
 
 **Debug Logging Control**:
-The game includes a configurable debug logging system in `Constants.ts`:
+The game includes a comprehensive configurable debug logging system in `Constants.ts`:
 ```typescript
 export const DEBUG_CONFIG = {
   enableVerboseLogging: false,      // General verbose logging
@@ -1099,9 +1120,22 @@ export const DEBUG_CONFIG = {
   logScrewPlacement: false,         // Screw placement in containers/holes
   logPhysicsStateChanges: false,    // Physics state transitions
   logShapeDestruction: false,       // Shape destruction details
+  logPhysicsUpdates: false,         // Physics update loop messages
+  logShapeCreation: false,          // Shape creation debug messages
+  logShapeDebug: false,             // Shape-related debug messages
+  logScrewDebug: false,             // Screw-related debug messages
+  logEventFlow: false,              // EventFlow validation messages
+  logPhysicsDebug: false,           // Physics-related debug messages
+  logLayerDebug: false,             // Layer-related debug messages
 };
 ```
-This allows selective enabling of debug logs without console spam during normal gameplay.
+This allows selective enabling of debug logs by category without console spam during normal gameplay. Each flag controls a specific aspect of the game's debugging output:
+
+- **Shape debugging**: `logShapeDebug` - shape creation, bounds, collision detection
+- **Screw debugging**: `logScrewDebug` - screw placement, removal, blocking, constraints
+- **Physics debugging**: `logPhysicsDebug` - body/constraint lifecycle, simulation state, collisions
+- **Layer debugging**: `logLayerDebug` - layer management, bounds, fade animations, clearing
+- **Event debugging**: `logEventFlow` - event system validation, flow monitoring, performance
 
 ### Save Data Inspection
 Detailed save data analysis for debugging:
@@ -1174,6 +1208,13 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ **Poly-Decomp Integration**: Proper complex shape physics using poly-decomp-es library
 - ✅ **Path Shape Scale Support**: Intelligent scale factor calculation for optimal sizing with both fixed and random scale values
 - ✅ **Enhanced fromVertices Physics**: Full support for path shapes using Matter.js fromVertices with proper vertex handling
+- ✅ **ScrewManager Refactoring**: Extracted utility functions to improve modularity and reduce file size
+  - **ScrewPositionUtils**: JSON-driven placement strategies and position calculation algorithms
+  - **ScrewCollisionUtils**: Rotation-aware collision detection and geometric intersection methods
+  - **ScrewContainerUtils**: Container/holding hole calculations and destination finding logic
+  - **Reduced Complexity**: ScrewManager file size reduced significantly with improved maintainability
+  - **Better Testing**: Utility functions can be tested independently of the main system
+  - **Code Reusability**: Extracted functions can be used by other systems as needed
 - ✅ Ready for production use with polished visual experience
 
 ---

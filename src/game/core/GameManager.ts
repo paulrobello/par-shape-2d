@@ -267,9 +267,13 @@ export class GameManager extends BaseSystem {
       // The holding_hole:filled event is fired when a holding hole is filled or emptied
       // GameState manages the actual holding hole state, so we just log here
       if (event.screwId) {
-        console.log(`🕳️ GameManager: Holding hole ${event.holeIndex} filled with screw ${event.screwId}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🕳️ GameManager: Holding hole ${event.holeIndex} filled with screw ${event.screwId}`);
+        }
       } else {
-        console.log(`🕳️ GameManager: Holding hole ${event.holeIndex} is now empty`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🕳️ GameManager: Holding hole ${event.holeIndex} is now empty`);
+        }
       }
       
       // The actual holding hole state will be updated via holding_hole:state:updated event
@@ -288,7 +292,7 @@ export class GameManager extends BaseSystem {
 
   private handleCollisionDetected(event: CollisionDetectedEvent): void {
     this.executeIfActive(() => {
-      if (this.state.debugMode) {
+      if (DEBUG_CONFIG.logPhysicsDebug) {
         console.log(`🔥 Collision detected between bodies ${event.bodyA} and ${event.bodyB} with force ${event.force.toFixed(2)}`);
       }
     });
@@ -585,7 +589,9 @@ export class GameManager extends BaseSystem {
           break;
         case 'c':
           localStorage.removeItem('par-shape-2d-save');
-          console.log('Save data cleared');
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log('Save data cleared');
+          }
           break;
         case 'p':
         case ' ': // spacebar
@@ -620,7 +626,9 @@ export class GameManager extends BaseSystem {
     const screw = this.findScrewAtPoint(point, inputType);
     if (screw) {
       const screwWithId = screw as { id: string };
-      console.log(`Found screw ${screwWithId.id} at distance from click`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`Found screw ${screwWithId.id} at distance from click`);
+      }
       
       // Emit screw clicked event
       this.emit({
@@ -630,7 +638,9 @@ export class GameManager extends BaseSystem {
         position: point
       });
     } else {
-      console.log('No removable screw found at input point');
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log('No removable screw found at input point');
+      }
     }
   }
 
@@ -657,9 +667,13 @@ export class GameManager extends BaseSystem {
     });
 
     if (closestScrew) {
-      console.log(`Found screw ${(closestScrew as Screw).id} at distance ${closestDistance.toFixed(1)}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`Found screw ${(closestScrew as Screw).id} at distance ${closestDistance.toFixed(1)}`);
+      }
     } else {
-      console.log(`No screw found within ${maxDistance}px of click point`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`No screw found within ${maxDistance}px of click point`);
+      }
     }
 
     return closestScrew;
@@ -1303,7 +1317,9 @@ export class GameManager extends BaseSystem {
               const screw = screwManager.getScrew(screwId);
               if (screw) {
                 if (DEBUG_CONFIG.logContainerRendering && index === 0 && i === 0) { // Log first screw for debugging
-                  console.log(`🎨 Rendering screw ${screwId} in container ${index} hole ${i}`);
+                  if (DEBUG_CONFIG.logScrewDebug) {
+                    console.log(`🎨 Rendering screw ${screwId} in container ${index} hole ${i}`);
+                  }
                 }
                 const renderContext: RenderContext = { 
                   ctx: this.state.ctx!,

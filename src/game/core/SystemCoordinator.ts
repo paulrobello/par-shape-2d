@@ -11,6 +11,7 @@ import { ScrewManager } from '../systems/ScrewManager';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { ShapeRegistry } from '../systems/ShapeRegistry';
 import { eventBus } from '../events/EventBus';
+import { DEBUG_CONFIG } from '../utils/Constants';
 
 export class SystemCoordinator {
   private systems: Map<string, BaseSystem> = new Map();
@@ -152,7 +153,9 @@ export class SystemCoordinator {
     if (this.physicsWorld) {
       this.physicsWorld.update(deltaTime);
     } else {
-      console.log('⚠️ SystemCoordinator: PhysicsWorld not available');
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log('⚠️ SystemCoordinator: PhysicsWorld not available');
+      }
     }
     
     // Update GameState for container animations and other state management

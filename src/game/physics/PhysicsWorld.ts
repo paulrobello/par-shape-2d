@@ -165,11 +165,15 @@ export class PhysicsWorld extends BaseSystem {
       if (event.body) {
         World.add(this.state.world, event.body);
         this.state.bodies.add(event.bodyId);
-        console.log(`Physics body ${event.bodyId} added to world for shape ${event.shape?.id || 'unknown'}`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`Physics body ${event.bodyId} added to world for shape ${event.shape?.id || 'unknown'}`);
+        }
       } else {
         // Body already added by shape creation
         this.state.bodies.add(event.bodyId);
-        console.log(`Physics body ${event.bodyId} tracked for shape ${event.shape?.id || 'unknown'}`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`Physics body ${event.bodyId} tracked for shape ${event.shape?.id || 'unknown'}`);
+        }
       }
     });
   }
@@ -183,7 +187,9 @@ export class PhysicsWorld extends BaseSystem {
       if (bodyToRemove) {
         Composite.remove(this.state.world, bodyToRemove);
         this.state.bodies.delete(event.bodyId);
-        console.log(`Physics body ${event.bodyId} removed for shape ${event.shape?.id || 'unknown'}`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`Physics body ${event.bodyId} removed for shape ${event.shape?.id || 'unknown'}`);
+        }
       }
     });
   }
@@ -201,7 +207,9 @@ export class PhysicsWorld extends BaseSystem {
       Composite.remove(this.state.world, anchorBody);
       this.state.bodies.delete(event.bodyId);
       
-      console.log(`Anchor body ${event.bodyId} immediately removed for shape ${event.shape?.id || 'unknown'}`);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`Anchor body ${event.bodyId} immediately removed for shape ${event.shape?.id || 'unknown'}`);
+      }
     });
   }
 
@@ -218,7 +226,9 @@ export class PhysicsWorld extends BaseSystem {
         Composite.remove(this.state.world, event.constraint);
         this.state.constraints.delete(event.constraint.id?.toString() || event.screwId);
         
-        console.log(`Constraint immediately removed for screw ${event.screwId}`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`Constraint immediately removed for screw ${event.screwId}`);
+        }
       }
       
       // 2. Remove anchor body second
@@ -231,10 +241,14 @@ export class PhysicsWorld extends BaseSystem {
         Composite.remove(this.state.world, event.anchorBody);
         this.state.bodies.delete(event.anchorBody.id.toString());
         
-        console.log(`Anchor body immediately removed for screw ${event.screwId}`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`Anchor body immediately removed for screw ${event.screwId}`);
+        }
       }
       
-      console.log(`🔧 Screw ${event.screwId} completely removed from physics world (atomic operation)`);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`🔧 Screw ${event.screwId} completely removed from physics world (atomic operation)`);
+      }
     });
   }
 
@@ -244,7 +258,9 @@ export class PhysicsWorld extends BaseSystem {
       if (event.constraint) {
         World.add(this.state.world, event.constraint);
         this.state.constraints.add(event.constraintId);
-        console.log(`Physics constraint ${event.constraintId} added to world for screw ${event.screw.id}`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`Physics constraint ${event.constraintId} added to world for screw ${event.screw.id}`);
+        }
       } else {
         console.error(`No constraint provided in event for screw ${event.screw.id}`);
       }
@@ -262,7 +278,9 @@ export class PhysicsWorld extends BaseSystem {
       if (constraintToRemove) {
         Composite.remove(this.state.world, constraintToRemove);
         this.state.constraints.delete(event.constraintId);
-        console.log(`Physics constraint ${event.constraintId} removed for screw ${event.screw.id}`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`Physics constraint ${event.constraintId} removed for screw ${event.screw.id}`);
+        }
       }
     });
   }
@@ -433,14 +451,18 @@ export class PhysicsWorld extends BaseSystem {
   public pause(): void {
     this.executeIfActive(() => {
       this.state.isPaused = true;
-      console.log('Physics simulation paused');
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log('Physics simulation paused');
+      }
     });
   }
 
   public resume(): void {
     this.executeIfActive(() => {
       this.state.isPaused = false;
-      console.log('Physics simulation resumed');
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log('Physics simulation resumed');
+      }
     });
   }
 

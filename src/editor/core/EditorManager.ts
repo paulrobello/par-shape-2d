@@ -28,6 +28,7 @@ import {
   EditorDrawingCancelledEvent,
   EditorToolSelectedEvent
 } from '../events/EditorEventTypes';
+import { DEBUG_CONFIG } from '@/game/utils/Constants';
 
 /**
  * Main editor orchestrator that manages all editor systems
@@ -178,7 +179,9 @@ export class EditorManager extends BaseEditorSystem {
     }, EditorEventPriority.CRITICAL);
 
     this.subscribe('editor:error:physics', async (event: EditorErrorPhysicsEvent) => {
-      console.error('Physics error:', event.payload.error);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.error('Physics error:', event.payload.error);
+      }
       this.showError(`Physics error: ${event.payload.error}`);
     }, EditorEventPriority.CRITICAL);
 

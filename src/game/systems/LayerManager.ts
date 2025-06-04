@@ -7,7 +7,7 @@ import { BaseSystem } from '../core/BaseSystem';
 import { Layer } from '@/game/entities/Layer';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeFactory } from '@/game/systems/ShapeFactory';
-import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, getTotalLayersForLevel } from '@/game/utils/Constants';
+import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/game/utils/Constants';
 import { ScrewColor } from '@/types/game';
 import { randomIntBetween } from '@/game/utils/MathUtils';
 import {
@@ -97,7 +97,9 @@ export class LayerManager extends BaseSystem {
         height: shapeAreaHeight
       };
       
-      console.log(`LayerManager: Updated bounds to shape area: (${this.state.currentBounds.x}, ${this.state.currentBounds.y}, ${this.state.currentBounds.width}, ${this.state.currentBounds.height})`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`LayerManager: Updated bounds to shape area: (${this.state.currentBounds.x}, ${this.state.currentBounds.y}, ${this.state.currentBounds.width}, ${this.state.currentBounds.height})`);
+      }
       
       // Update bounds for all existing layers
       this.state.layers.forEach(layer => {
@@ -132,7 +134,9 @@ export class LayerManager extends BaseSystem {
     this.executeIfActive(() => {
       // The layer manager state will be collected by other systems
       // Just ensure our state is consistent
-      console.log(`LayerManager save state: ${this.state.layers.length} layers, ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} generated`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`LayerManager save state: ${this.state.layers.length} layers, ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} generated`);
+      }
     });
   }
 
@@ -176,7 +180,11 @@ export class LayerManager extends BaseSystem {
           }
         }
 
-        console.log(`LayerManager: Layer ${layer.id} shapes ready with screw colors:`, screwColors);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          if (DEBUG_CONFIG.logLayerDebug) {
+          console.log(`LayerManager: Layer ${layer.id} shapes ready with screw colors:`, screwColors);
+        }
+        }
         
         // Emit layer shapes ready event
         this.emit({
@@ -235,9 +243,13 @@ export class LayerManager extends BaseSystem {
       const existingDepths = this.state.layers.map(l => `${l.id}:${l.depthIndex}:${l.colorIndex}`).join(', ');
       const visibleColorIndices = this.getVisibleLayers().map(l => l.colorIndex).join(', ');
       if (fadeIn) {
-        console.log(`🎨 Generated layer ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} with fade-in at index ${index}, depth ${depthIndex}, color ${colorIndex}, physics group ${physicsLayerGroup}. Existing: [${existingDepths}]. Visible colors: [${visibleColorIndices}]`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`🎨 Generated layer ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} with fade-in at index ${index}, depth ${depthIndex}, color ${colorIndex}, physics group ${physicsLayerGroup}. Existing: [${existingDepths}]. Visible colors: [${visibleColorIndices}]`);
+        }
       } else {
-        console.log(`🎨 Created initial layer ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} at index ${index}, depth ${depthIndex}, color ${colorIndex}, physics group ${physicsLayerGroup}. Existing: [${existingDepths}]. Visible colors: [${visibleColorIndices}]`);
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`🎨 Created initial layer ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} at index ${index}, depth ${depthIndex}, color ${colorIndex}, physics group ${physicsLayerGroup}. Existing: [${existingDepths}]. Visible colors: [${visibleColorIndices}]`);
+        }
       }
       
       // Emit layer created event
@@ -256,7 +268,9 @@ export class LayerManager extends BaseSystem {
     this.executeIfActive(() => {
       if (layer.isGenerated) return;
       
-      console.log(`GENERATING SHAPES FOR LAYER ${layer.id}: bounds=(${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width.toFixed(0)}, ${layer.bounds.height.toFixed(0)})`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`GENERATING SHAPES FOR LAYER ${layer.id}: bounds=(${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width.toFixed(0)}, ${layer.bounds.height.toFixed(0)})`);
+      }
       
       const shapeCount = randomIntBetween(
         GAME_CONFIG.shapes.minPerLayer,
@@ -304,8 +318,10 @@ export class LayerManager extends BaseSystem {
           );
           
           if (withinBounds) {
-            console.log(`Created shape ${shape.id} in layer ${layer.id} (color ${layer.colorIndex}) at position (${shape.position.x}, ${shape.position.y}) with physics group ${layer.physicsLayerGroup}`);
-            console.log(`🎨 Shape ${shape.id}: color=${shape.color}, tint=${shape.tint}, collision filter: group=${shape.body.collisionFilter.group}, category=${shape.body.collisionFilter.category}, mask=${shape.body.collisionFilter.mask}`);
+            if (DEBUG_CONFIG.logPhysicsDebug) {
+              console.log(`Created shape ${shape.id} in layer ${layer.id} (color ${layer.colorIndex}) at position (${shape.position.x}, ${shape.position.y}) with physics group ${layer.physicsLayerGroup}`);
+              console.log(`🎨 Shape ${shape.id}: color=${shape.color}, tint=${shape.tint}, collision filter: group=${shape.body.collisionFilter.group}, category=${shape.body.collisionFilter.category}, mask=${shape.body.collisionFilter.mask}`);
+            }
             shapes.push(shape);
             layer.addShape(shape);
             shapeCreated = true;
@@ -345,7 +361,9 @@ export class LayerManager extends BaseSystem {
         }
         
         if (!shapeCreated) {
-          console.log(`Failed to place shape ${i + 1} in layer ${layer.id} after multiple attempts`);
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log(`Failed to place shape ${i + 1} in layer ${layer.id} after multiple attempts`);
+          }
         }
       }
       
@@ -413,7 +431,9 @@ export class LayerManager extends BaseSystem {
           // Remove from layer
           layer.removeShape(shapeId);
           
-          console.log(`Shape ${shapeId} removed from layer ${layer.id}. Layer empty: ${layer.isEmpty()}, has shapes with screws: ${layer.hasShapesWithScrews()}`);
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log(`Shape ${shapeId} removed from layer ${layer.id}. Layer empty: ${layer.isEmpty()}, has shapes with screws: ${layer.hasShapesWithScrews()}`);
+          }
           
           return true;
         }
@@ -474,8 +494,10 @@ export class LayerManager extends BaseSystem {
   }
 
   private onLayerCleared(layer: Layer): void {
-    console.log(`Layer ${layer.id} cleared!`);
-    console.log(`Before removal - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Layer ${layer.id} cleared!`);
+      console.log(`Before removal - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
+    }
     
     // Remove the cleared layer
     this.removeLayer(layer.id);
@@ -488,7 +510,9 @@ export class LayerManager extends BaseSystem {
       index: layer.index
     });
     
-    console.log(`After removal - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`After removal - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
+    }
     
     // Generate a new layer if we haven't reached the total for this level
     // AND we still have visible layers (not at the end of the level)
@@ -496,16 +520,24 @@ export class LayerManager extends BaseSystem {
                                    this.state.layers.length > 0;
     
     if (shouldGenerateNewLayer) {
-      console.log(`Generating new layer: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} generated, ${this.state.layers.length} active layers`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`Generating new layer: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} generated, ${this.state.layers.length} active layers`);
+      }
       const newLayer = this.createLayer(true); // Create with fade-in animation
       this.generateShapesForLayer(newLayer);
-      console.log(`After generation - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`After generation - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
+      }
     } else {
-      console.log(`No new layer generated: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} layers generated, ${this.state.layers.length} active layers remaining`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`No new layer generated: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} layers generated, ${this.state.layers.length} active layers remaining`);
+      }
       
       // Check if level is complete (no more active layers)
       if (this.state.layers.length === 0) {
-        console.log('🎉 All layers cleared! Level complete!');
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log('🎉 All layers cleared! Level complete!');
+        }
         this.emit({
           type: 'all_layers:cleared',
           timestamp: Date.now()
@@ -522,17 +554,23 @@ export class LayerManager extends BaseSystem {
       visibleLayers.map(layer => layer.colorIndex % totalColors)
     );
     
-    console.log(`Visible layers: ${visibleLayers.length}, Used color indices: [${Array.from(usedColorIndices).sort().join(', ')}]`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Visible layers: ${visibleLayers.length}, Used color indices: [${Array.from(usedColorIndices).sort().join(', ')}]`);
+    }
     
     for (let colorIndex = 0; colorIndex < totalColors; colorIndex++) {
       if (!usedColorIndices.has(colorIndex)) {
-        console.log(`Selected unused color index ${colorIndex} for new layer`);
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log(`Selected unused color index ${colorIndex} for new layer`);
+        }
         return colorIndex;
       }
     }
     
     const fallbackIndex = this.state.colorCounter % totalColors;
-    console.log(`All colors used, falling back to color index ${fallbackIndex}`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`All colors used, falling back to color index ${fallbackIndex}`);
+    }
     this.state.colorCounter++;
     return fallbackIndex;
   }
@@ -601,7 +639,9 @@ export class LayerManager extends BaseSystem {
     this.executeIfActive(() => {
       // Skip all layer management during restoration
       if (this.state.isRestoringFlag) {
-        console.log('Skipping updateShapePositions during restoration');
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log('Skipping updateShapePositions during restoration');
+        }
         return;
       }
       
@@ -617,7 +657,9 @@ export class LayerManager extends BaseSystem {
         
         // Check if layer is now cleared
         if (layer.isCleared()) {
-          console.log(`Layer ${layer.id} is cleared, removing it`);
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log(`Layer ${layer.id} is cleared, removing it`);
+          }
           this.onLayerCleared(layer);
         }
       });
@@ -688,7 +730,9 @@ export class LayerManager extends BaseSystem {
         this.generateShapesForLayer(layer);
       }
       
-      console.log(`Initialized level ${levelNumber} with ${initialLayers} layers. ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} total generated.`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`Initialized level ${levelNumber} with ${initialLayers} layers. ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} total generated.`);
+      }
     });
   }
 
@@ -745,7 +789,9 @@ export class LayerManager extends BaseSystem {
 
   // Serialization methods for save/load
   public toSerializable(): import('@/types/game').SerializableLayerManagerState {
-    console.log(`Saving LayerManager state - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Saving LayerManager state - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
+    }
     return {
       layers: this.state.layers.map(layer => layer.toSerializable()),
       layerCounter: this.state.layerCounter,
@@ -759,8 +805,10 @@ export class LayerManager extends BaseSystem {
 
   public fromSerializable(data: import('@/types/game').SerializableLayerManagerState): void {
     this.executeIfActive(() => {
-      console.log(`Starting LayerManager restoration`);
-      console.log(`Loading LayerManager state - layersGeneratedThisLevel: ${data.layersGeneratedThisLevel}, totalLayersForLevel: ${data.totalLayersForLevel}, layers count: ${data.layers?.length || 0}`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`Starting LayerManager restoration`);
+        console.log(`Loading LayerManager state - layersGeneratedThisLevel: ${data.layersGeneratedThisLevel}, totalLayersForLevel: ${data.totalLayersForLevel}, layers count: ${data.layers?.length || 0}`);
+      }
       
       // Set restoration flag
       this.state.isRestoringFlag = true;
@@ -776,12 +824,16 @@ export class LayerManager extends BaseSystem {
       this.state.totalLayersForLevel = data.totalLayersForLevel;
       this.state.layersGeneratedThisLevel = data.layersGeneratedThisLevel;
       
-      console.log(`After loading counters - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`After loading counters - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}`);
+      }
       
       // Recreate layers
       if (data.layers) {
         data.layers.forEach((layerData, index) => {
-          console.log(`Restoring layer ${index + 1}/${data.layers.length}: ${layerData.id}`);
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log(`Restoring layer ${index + 1}/${data.layers.length}: ${layerData.id}`);
+          }
           
           const layer = new Layer(
             layerData.id,
@@ -795,11 +847,15 @@ export class LayerManager extends BaseSystem {
           
           // For now, skip complex restoration and just create empty layers
           // In a full implementation, this would emit events to restore shapes and screws
-          console.log(`Layer ${layerData.id} needs restoration - skipping complex restoration for now`);
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log(`Layer ${layerData.id} needs restoration - skipping complex restoration for now`);
+          }
           
           this.state.layers.push(layer);
           
-          console.log(`Layer ${layerData.id} restoration requested - shapes and screws will be restored by other systems`);
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log(`Layer ${layerData.id} restoration requested - shapes and screws will be restored by other systems`);
+          }
         });
       }
       
@@ -809,11 +865,15 @@ export class LayerManager extends BaseSystem {
       // Update visibility
       this.updateLayerVisibility();
       
-      console.log(`LayerManager restoration complete: ${this.state.layers.length} layers, ${this.getAllShapes().length} total shapes`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`LayerManager restoration complete: ${this.state.layers.length} layers, ${this.getAllShapes().length} total shapes`);
+      }
       
       // Clear restoration flag
       this.state.isRestoringFlag = false;
-      console.log('LayerManager restoration flag cleared');
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log('LayerManager restoration flag cleared');
+      }
     });
   }
 

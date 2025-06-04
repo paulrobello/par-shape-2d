@@ -137,6 +137,16 @@ export const DEBUG_CONFIG = {
   logPhysicsUpdates: false,
   // Set to true to debug shape creation issues
   logShapeCreation: false,
+  // Set to true to log shape-related debug messages
+  logShapeDebug: false,
+  // Set to true to log screw-related debug messages
+  logScrewDebug: false,
+  // Set to true to log EventFlow validation messages
+  logEventFlow: false,
+  // Set to true to log physics-related debug messages
+  logPhysicsDebug: false,
+  // Set to true to log layer-related debug messages
+  logLayerDebug: false,
 } as const;
 
 // SHAPE_CONFIG.enabledShapes removed - shapes are now controlled by the "enabled" field in individual JSON files

@@ -1,6 +1,6 @@
 import { Layer as ILayer, Rectangle } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
-import {GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS} from '@/game/utils/Constants';
+import {GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG} from '@/game/utils/Constants';
 
 export class Layer implements ILayer {
   public id: string;
@@ -40,7 +40,9 @@ export class Layer implements ILayer {
       // Restored layers are always fully visible and never fade
       this.fadeOpacity = 1.0;
       this.fadeStartTime = 0;
-      console.log(`Layer ${this.id} created as restored - no fade-in`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`Layer ${this.id} created as restored - no fade-in`);
+      }
     } else if (startFadeIn) {
       this.startFadeIn();
     } else {
@@ -67,7 +69,9 @@ export class Layer implements ILayer {
       ? 2 * progress * progress 
       : 1 - Math.pow(-2 * progress + 2, 3) / 2;
       
-    console.log(`Layer ${this.id} fade animation: opacity=${this.fadeOpacity.toFixed(2)}, progress=${progress.toFixed(2)}`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Layer ${this.id} fade animation: opacity=${this.fadeOpacity.toFixed(2)}, progress=${progress.toFixed(2)}`);
+    }
   }
 
   public getFadeOpacity(): number {
@@ -129,14 +133,18 @@ export class Layer implements ILayer {
     if (!this.hasShapesWithScrews()) {
       if (this.clearingStartTime === 0) {
         this.clearingStartTime = Date.now();
-        console.log(`Layer ${this.id} has no shapes with screws, starting clearing timer`);
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log(`Layer ${this.id} has no shapes with screws, starting clearing timer`);
+        }
         return false; // Not cleared yet, allow shapes to fall
       }
 
       // Check if enough time has passed for shapes to fall out of view
       const elapsed = Date.now() - this.clearingStartTime;
       if (elapsed >= this.clearingDelay) {
-        console.log(`Layer ${this.id} clearing delay expired, layer can be cleared`);
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log(`Layer ${this.id} clearing delay expired, layer can be cleared`);
+        }
         return true;
       }
 
@@ -164,7 +172,9 @@ export class Layer implements ILayer {
   public updateBounds(newBounds: Rectangle, skipRedistribution: boolean = false): void {
     const oldBounds = { ...this.bounds };
     this.bounds = { ...newBounds };
-    console.log(`Layer ${this.id} bounds updated from (${oldBounds.x}, ${oldBounds.y}, ${oldBounds.width.toFixed(0)}, ${oldBounds.height.toFixed(0)}) to (${this.bounds.x}, ${this.bounds.y}, ${this.bounds.width.toFixed(0)}, ${this.bounds.height.toFixed(0)})`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Layer ${this.id} bounds updated from (${oldBounds.x}, ${oldBounds.y}, ${oldBounds.width.toFixed(0)}, ${oldBounds.height.toFixed(0)}) to (${this.bounds.x}, ${this.bounds.y}, ${this.bounds.width.toFixed(0)}, ${this.bounds.height.toFixed(0)})`);
+    }
 
     // If bounds changed significantly, redistribute existing shapes to use the new space
     // Skip redistribution if explicitly requested (e.g., during game restoration)
@@ -173,11 +183,15 @@ export class Layer implements ILayer {
       const widthChanged = Math.abs(newBounds.width - oldBounds.width) > 50;
 
       if ((heightChanged || widthChanged) && this.shapes.length > 0) {
-        console.log(`Layer ${this.id} bounds changed significantly, redistributing ${this.shapes.length} shapes`);
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log(`Layer ${this.id} bounds changed significantly, redistributing ${this.shapes.length} shapes`);
+        }
         this.redistributeShapes();
       }
     } else {
-      console.log(`Layer ${this.id} bounds updated without redistribution (restoration mode)`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`Layer ${this.id} bounds updated without redistribution (restoration mode)`);
+      }
     }
   }
 
@@ -217,7 +231,9 @@ export class Layer implements ILayer {
         y: this.bounds.y + margin + relativeY * usableHeight,
       };
 
-      console.log(`Redistributing shape ${shape.id} from (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}) to (${newPosition.x.toFixed(1)}, ${newPosition.y.toFixed(1)}) - maintaining relative position`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`Redistributing shape ${shape.id} from (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}) to (${newPosition.x.toFixed(1)}, ${newPosition.y.toFixed(1)}) - maintaining relative position`);
+      }
 
       // Update physics body position
       const { Body } = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
@@ -300,14 +316,20 @@ export class Layer implements ILayer {
     this.isVisible = data.isVisible;
     this.isGenerated = data.isGenerated;
     
-    console.log(`Layer ${this.id} fromSerializable: fadeOpacity already set to ${this.fadeOpacity}`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Layer ${this.id} fromSerializable: fadeOpacity already set to ${this.fadeOpacity}`);
+    }
 
     // Don't restore saved bounds - keep the current bounds that were updated for mobile
     // The bounds should already be correctly set by updateLayerBoundsForScale()
-    console.log(`Layer ${this.id} keeping current bounds (${this.bounds.x}, ${this.bounds.y}, ${this.bounds.width.toFixed(0)}, ${this.bounds.height.toFixed(0)}) instead of saved bounds (${data.bounds.x}, ${data.bounds.y}, ${data.bounds.width.toFixed(0)}, ${data.bounds.height.toFixed(0)})`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Layer ${this.id} keeping current bounds (${this.bounds.x}, ${this.bounds.y}, ${this.bounds.width.toFixed(0)}, ${this.bounds.height.toFixed(0)}) instead of saved bounds (${data.bounds.x}, ${data.bounds.y}, ${data.bounds.width.toFixed(0)}, ${data.bounds.height.toFixed(0)})`);
+    }
 
     // Don't recreate shapes here - they are handled by GameManager's simpleRestore
     this.shapes = [];
-    console.log(`Layer ${this.id} fromSerializable: shapes will be restored by GameManager`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Layer ${this.id} fromSerializable: shapes will be restored by GameManager`);
+    }
   }
 }

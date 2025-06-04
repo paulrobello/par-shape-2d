@@ -1,6 +1,6 @@
 import { Body } from 'matter-js';
 import { Shape as IShape, ShapeType, Vector2, Screw } from '@/types/game';
-import { UI_CONSTANTS } from '@/game/utils/Constants';
+import { UI_CONSTANTS, DEBUG_CONFIG } from '@/game/utils/Constants';
 
 export class Shape implements IShape {
   public id: string;
@@ -41,7 +41,9 @@ export class Shape implements IShape {
       parts: Body[];
     }
   ) {
-    console.log(`Shape constructor: Creating shape with type='${type}', id='${id}', dimensions:`, dimensions);
+    if (DEBUG_CONFIG.logShapeDebug) {
+      console.log(`Shape constructor: Creating shape with type='${type}', id='${id}', dimensions:`, dimensions);
+    }
     
     this.id = id;
     this.type = type;
@@ -121,7 +123,9 @@ export class Shape implements IShape {
   public getPath2D(): Path2D {
     const path = new Path2D();
     
-    console.log(`Shape.getPath2D(): Creating path for shape type '${this.type}', width: ${this.width}, height: ${this.height}, radius: ${this.radius}`);
+    if (DEBUG_CONFIG.logShapeDebug) {
+      console.log(`Shape.getPath2D(): Creating path for shape type '${this.type}', width: ${this.width}, height: ${this.height}, radius: ${this.radius}`);
+    }
 
     switch (this.type) {
       case 'rectangle':
@@ -506,7 +510,9 @@ export class Shape implements IShape {
     // Restore holes
     this.holes = data.holes ? data.holes.map(hole => ({ ...hole })) : [];
     
-    console.log(`Updated shape ${this.id} position to (${this.position.x}, ${this.position.y})`);
+    if (DEBUG_CONFIG.logShapeDebug) {
+      console.log(`Updated shape ${this.id} position to (${this.position.x}, ${this.position.y})`);
+    }
 
     // Restore screws - connect to existing screws in ScrewManager instead of creating new ones
     this.screws = [];

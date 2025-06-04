@@ -5,6 +5,7 @@
 import { eventBus } from './EventBus';
 import { eventLogger } from './EventLogger';
 import { GameEvent, EventPriority } from './EventTypes';
+import { DEBUG_CONFIG } from '../utils/Constants';
 
 export interface EventDebugInfo {
   subscriptions: Map<string, Array<{
@@ -170,7 +171,9 @@ export class EventDebugger {
     // Auto-stop after 30 seconds
     setTimeout(() => {
       eventBus.unsubscribe(subscriptionId);
-      console.log('Event flow visualization stopped');
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log('Event flow visualization stopped');
+      }
     }, 30000);
   }
 

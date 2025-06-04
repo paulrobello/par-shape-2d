@@ -5,7 +5,7 @@
 
 import { BaseSystem } from './BaseSystem';
 import { GameState as IGameState, Level, Container, HoldingHole, ScrewColor, Screw as ScrewInterface, FullGameSave } from '@/types/game';
-import { GAME_CONFIG, UI_CONSTANTS, getTotalLayersForLevel } from '@/game/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/game/utils/Constants';
 import { getRandomScrewColors, getRandomColorsFromList } from '@/game/utils/Colors';
 import {
   SaveRequestedEvent,
@@ -96,7 +96,9 @@ export class GameState extends BaseSystem {
       
       // Award points for screw removal (regardless of destination)
       this.addScore(points);
-      console.log(`Added ${points} points for removing screw ${screw.id} from shape (destination: ${destination})`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`Added ${points} points for removing screw ${screw.id} from shape (destination: ${destination})`);
+      }
       
       this.markUnsavedChanges();
     });
@@ -163,7 +165,9 @@ export class GameState extends BaseSystem {
 
   private handleHoldingHoleFilled(event: HoldingHoleFilledEvent): void {
     this.executeIfActive(() => {
-      console.log(`📥 GameState: RECEIVED holding_hole:filled event for hole ${event.holeIndex}, screwId: ${event.screwId || 'null'}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`📥 GameState: RECEIVED holding_hole:filled event for hole ${event.holeIndex}, screwId: ${event.screwId || 'null'}`);
+      }
       const { holeIndex, screwId } = event;
       
       if (holeIndex >= 0 && holeIndex < this.holdingHoles.length) {
@@ -187,8 +191,12 @@ export class GameState extends BaseSystem {
         } else {
           // Screw was placed in hole
           hole.screwId = screwId;
-          console.log(`✅ GameState: Placed screw ${screwId} in holding hole ${holeIndex}`);
-          console.log(`🏠 GameState: Total screws in holding holes:`, this.holdingHoles.filter(h => h.screwId !== null).length);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`✅ GameState: Placed screw ${screwId} in holding hole ${holeIndex}`);
+          }
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🏠 GameState: Total screws in holding holes:`, this.holdingHoles.filter(h => h.screwId !== null).length);
+          }
           
           if (this.isHoldingAreaFull()) {
             this.emit({
@@ -215,7 +223,9 @@ export class GameState extends BaseSystem {
     this.executeIfActive(() => {
       const { screwId, toContainerIndex, toHoleIndex, fromHoleIndex, reason } = event;
       
-      console.log(`❌ GameState: Transfer failed for screw ${screwId}: ${reason}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`❌ GameState: Transfer failed for screw ${screwId}: ${reason}`);
+      }
       
       // Clear the reservation if it was made
       if (toContainerIndex >= 0 && toContainerIndex < this.containers.length) {
@@ -231,7 +241,9 @@ export class GameState extends BaseSystem {
       // Restore the screw to the holding hole
       if (fromHoleIndex >= 0 && fromHoleIndex < this.holdingHoles.length) {
         this.holdingHoles[fromHoleIndex].screwId = screwId;
-        console.log(`↩️ Restored screw ${screwId} to holding hole ${fromHoleIndex}`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`↩️ Restored screw ${screwId} to holding hole ${fromHoleIndex}`);
+        }
         
         this.emit({
           type: 'holding_hole:state:updated',
@@ -253,7 +265,9 @@ export class GameState extends BaseSystem {
           // Clear the reservation and place the screw in the actual hole
           container.reservedHoles[toHoleIndex] = null;
           container.holes[toHoleIndex] = screwId;
-          console.log(`Completed transfer of screw ${screwId} to container ${container.id} hole ${toHoleIndex}`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`Completed transfer of screw ${screwId} to container ${container.id} hole ${toHoleIndex}`);
+          }
           
           // Check if container is now full
           if (container.holes.filter(h => h !== null).length === container.maxHoles) {
@@ -379,14 +393,18 @@ export class GameState extends BaseSystem {
     this.executeIfActive(() => {
       // Level completion is now handled by LayerManager emitting level:complete event
       // when all layers are actually cleared, so we don't need to check here
-      console.log('GameState: Layer cleared event received');
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log('GameState: Layer cleared event received');
+      }
     });
   }
 
   private handleAllLayersCleared(_event: AllLayersClearedEvent): void {
     void _event;
     this.executeIfActive(() => {
-      console.log('GameState: All layers cleared - completing level');
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log('GameState: All layers cleared - completing level');
+      }
       // Mark level as complete and emit proper level:complete event
       this.state.levelComplete = true;
       this.state.totalScore += this.state.levelScore;
@@ -433,7 +451,9 @@ export class GameState extends BaseSystem {
 
       // Initialize containers only once when the first layer has shapes ready
       if (!this.containersInitialized && this.state.gameStarted) {
-        console.log(`GameState: Initializing containers with screw colors:`, screwColors);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`GameState: Initializing containers with screw colors:`, screwColors);
+        }
         this.initializeContainers(screwColors);
         this.containersInitialized = true;
 
@@ -716,7 +736,9 @@ export class GameState extends BaseSystem {
       // Start fade-out animation
       container.isFadingOut = true;
       container.fadeStartTime = Date.now();
-      console.log(`🎭 Starting fade-out animation for container ${container.id} (opacity: ${container.fadeOpacity})`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`🎭 Starting fade-out animation for container ${container.id} (opacity: ${container.fadeOpacity})`);
+      }
       
       // Start replacement process after fade-out completes
       setTimeout(() => {
@@ -751,7 +773,9 @@ export class GameState extends BaseSystem {
             allAvailableScrewColors.push(color);
           }
         }
-        console.log(`🎯 Container replacement: Active screws: [${activeScrewColors.join(', ')}], Holding holes: [${holdingHoleScrewColors.join(', ')}], Combined: [${allAvailableScrewColors.join(', ')}]`);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🎯 Container replacement: Active screws: [${activeScrewColors.join(', ')}], Holding holes: [${holdingHoleScrewColors.join(', ')}], Combined: [${allAvailableScrewColors.join(', ')}]`);
+        }
         this.finishContainerReplacement(containerIndex, oldContainer, existingColors, allAvailableScrewColors);
       }
     });
@@ -771,12 +795,16 @@ export class GameState extends BaseSystem {
     if (priorityColors.length > 0) {
       // Use an active screw color that's not already in use
       newColor = priorityColors[Math.floor(Math.random() * priorityColors.length)];
-      console.log(`🎯 Container replacement: Using active screw color ${newColor} (${priorityColors.length} priority colors available from ${activeScrewColors.length} active colors)`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎯 Container replacement: Using active screw color ${newColor} (${priorityColors.length} priority colors available from ${activeScrewColors.length} active colors)`);
+      }
     } else {
       // All active colors are already in use by other containers
       // Pick a random active color (even if already in use)
       newColor = activeScrewColors[Math.floor(Math.random() * activeScrewColors.length)];
-      console.log(`🎯 Container replacement: All active colors in use, using duplicate active color ${newColor} (from ${activeScrewColors.length} active colors)`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎯 Container replacement: All active colors in use, using duplicate active color ${newColor} (from ${activeScrewColors.length} active colors)`);
+      }
     }
 
     const oldColor = oldContainer.color;
@@ -796,7 +824,9 @@ export class GameState extends BaseSystem {
       isFadingIn: true,
     };
     
-    console.log(`🎭 Starting fade-in animation for new container ${this.containers[containerIndex].id}`);
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`🎭 Starting fade-in animation for new container ${this.containers[containerIndex].id}`);
+    }
 
     this.emit({
       type: 'container:replaced',
@@ -855,7 +885,9 @@ export class GameState extends BaseSystem {
   }
 
   private checkAndTransferHoldingScrews(newContainerColor: ScrewColor): void {
-    console.log(`🔍 GameState: Checking holding holes for screws matching new container color: ${newContainerColor}`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔍 GameState: Checking holding holes for screws matching new container color: ${newContainerColor}`);
+    }
     console.log(`🔍 GameState: Current holding holes:`, this.holdingHoles.map(h => ({ 
       id: h.id, 
       screwId: h.screwId,
@@ -877,7 +909,9 @@ export class GameState extends BaseSystem {
       .filter(item => item.screwId !== null) as { screwId: string; holeIndex: number }[];
 
     if (holdingHoleScrewIds.length === 0) {
-      console.log(`🔄 GameState: No screws in holding holes to transfer to new ${newContainerColor} container`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔄 GameState: No screws in holding holes to transfer to new ${newContainerColor} container`);
+      }
       return;
     }
 
@@ -891,17 +925,25 @@ export class GameState extends BaseSystem {
       callback: (validTransfers: { screwId: string; holeIndex: number }[]) => {
         console.log(`🔄 GameState: Received callback with ${validTransfers.length} valid transfers`);
         if (validTransfers.length > 0) {
-          console.log(`✨ GameState: INITIATING TRANSFERS for ${validTransfers.length} screws to ${newContainerColor} container!`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`✨ GameState: INITIATING TRANSFERS for ${validTransfers.length} screws to ${newContainerColor} container!`);
+          }
         }
         validTransfers.forEach(transfer => {
-          console.log(`🚀 GameState: Requesting transfer for screw ${transfer.screwId} from hole ${transfer.holeIndex} to ${newContainerColor} container`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🚀 GameState: Requesting transfer for screw ${transfer.screwId} from hole ${transfer.holeIndex} to ${newContainerColor} container`);
+          }
           this.requestScrewTransfer(transfer.screwId, transfer.holeIndex, targetContainer);
         });
         
         if (validTransfers.length > 0) {
-          console.log(`🔄 GameState: Requested ${validTransfers.length} color-matched screw transfers to new ${newContainerColor} container`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔄 GameState: Requested ${validTransfers.length} color-matched screw transfers to new ${newContainerColor} container`);
+          }
         } else {
-          console.log(`🔄 GameState: No color-matched screws found in holding holes for new ${newContainerColor} container`);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔄 GameState: No color-matched screws found in holding holes for new ${newContainerColor} container`);
+          }
         }
       }
     });
@@ -912,13 +954,17 @@ export class GameState extends BaseSystem {
     // Check if there's space in the container
     const emptyHoleIndex = this.getFirstEmptyHoleIndex(targetContainer);
     if (emptyHoleIndex === -1) {
-      console.log(`Container ${targetContainer.id} is full, cannot transfer screw ${screwId}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`Container ${targetContainer.id} is full, cannot transfer screw ${screwId}`);
+      }
       return;
     }
 
     // Reserve the hole immediately to prevent race conditions
     targetContainer.reservedHoles[emptyHoleIndex] = screwId;
-    console.log(`Reserved container ${targetContainer.id} hole ${emptyHoleIndex} for screw ${screwId}`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`Reserved container ${targetContainer.id} hole ${emptyHoleIndex} for screw ${screwId}`);
+    }
 
     // Calculate positions for animation
     const holdingHole = this.holdingHoles[holeIndex];
@@ -946,7 +992,9 @@ export class GameState extends BaseSystem {
     console.log(`🎯 Hole position calculation: containerX=${containerX}, holeSpacing=${holeSpacing}, emptyHoleIndex=${emptyHoleIndex}, final holeX=${holeX}, holeY=${holeY}`);
     
     // Start the transfer animation (ScrewManager will validate color match)
-    console.log(`🚀 GameState: EMITTING screw:transfer:started for screw ${screwId} from hole ${holeIndex} to container ${containerIndex} hole ${emptyHoleIndex}`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🚀 GameState: EMITTING screw:transfer:started for screw ${screwId} from hole ${holeIndex} to container ${containerIndex} hole ${emptyHoleIndex}`);
+    }
     this.emit({
       type: 'screw:transfer:started',
       timestamp: Date.now(),
@@ -961,7 +1009,9 @@ export class GameState extends BaseSystem {
     // Clear the holding hole immediately (screw is now animating)
     holdingHole.screwId = null;
 
-    console.log(`Started transfer animation for screw ${screwId} from holding hole ${holeIndex} to container ${targetContainer.id} hole ${emptyHoleIndex}`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`Started transfer animation for screw ${screwId} from holding hole ${holeIndex} to container ${targetContainer.id} hole ${emptyHoleIndex}`);
+    }
 
     // Emit holding hole filled event (with null to indicate it's now empty)
     this.emit({
@@ -1086,7 +1136,9 @@ export class GameState extends BaseSystem {
           container.fadeDuration = 500;
           container.isFadingOut = false;
           container.isFadingIn = false;
-          console.log(`🎭 Added missing fade properties to container ${container.id}`);
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log(`🎭 Added missing fade properties to container ${container.id}`);
+          }
         }
       });
       if (this.holdingHoles.length === 0) {
@@ -1181,7 +1233,9 @@ export class GameState extends BaseSystem {
           if (progress >= 1) {
             container.isFadingOut = false;
             container.fadeOpacity = 0;
-            console.log(`🎭 Fade-out completed for container ${container.id}`);
+            if (DEBUG_CONFIG.logLayerDebug) {
+              console.log(`🎭 Fade-out completed for container ${container.id}`);
+            }
           }
         } else if (container.isFadingIn) {
           // Fade from 0 to 1
@@ -1189,7 +1243,9 @@ export class GameState extends BaseSystem {
           
           // Debug logging for fade-in
           if (elapsed % 100 < 16) { // Log roughly every 100ms
-            console.log(`🎭 Fade-in progress for container ${container.id}: ${(progress * 100).toFixed(1)}% (opacity: ${container.fadeOpacity.toFixed(2)})`);
+            if (DEBUG_CONFIG.logLayerDebug) {
+              console.log(`🎭 Fade-in progress for container ${container.id}: ${(progress * 100).toFixed(1)}% (opacity: ${container.fadeOpacity.toFixed(2)})`);
+            }
           }
           
           if (progress >= 1) {
