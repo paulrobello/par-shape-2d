@@ -16,6 +16,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Avoid using types `any` and `unknown`
 - Always try to use proper types or type unions
 - Try not to duplicate code, if multiple areas could benefit for some functionality reason about how it could best be shared.
+- **Important:** Before creating any new functionality for the game or editor check that it does not already exist as shared functionality. If the functionality would be beneficial to both game and editor then create it as a shared resource.
 
 ## Workflow
 
@@ -92,4 +93,3 @@ Example workflow:
 ## Shape Editor
 
 The Shape Editor includes a fully implemented drawing system for creating new shapes with all advanced tools. The UI features icon-based controls with organized groupings, toast notifications for user feedback, and a streamlined toolbar without the Select tool.
-
