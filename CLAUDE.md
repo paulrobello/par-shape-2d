@@ -95,18 +95,19 @@ The editor event system has been extended from 27 to 39 events to support drawin
 - **SelectTool**: Default tool that activates "edit" mode for Phase 1 functionality
 - **CircleTool**: Center → radius workflow with real-time preview
 - **RectangleTool**: Corner → corner workflow with minimum size validation
-- **PolygonTool**: Center → radius workflow with configurable sides (3-12 range)
-- **CapsuleTool**: Three-step workflow (end → end → thickness) with complex preview
+- **PolygonTool**: Center → radius workflow with configurable sides (3-12 range) and mouse wheel control
+- **CapsuleTool**: Three-step workflow (end → end → thickness) with enhanced preview rendering
 - **PathTool**: Multi-point workflow with path closing detection and visual feedback
 
 ### Working with Drawing Tools
 When implementing new drawing tools:
-1. Extend `BaseTool` abstract class and implement all required methods
+1. Extend `BaseTool` abstract class and implement all required methods including `onWheel` for mouse wheel support
 2. Use the tool's state machine to manage multi-step workflows
 3. Emit appropriate events at each drawing stage
 4. Leverage `PreviewRenderer` utility for consistent visual feedback
 5. Integrate with `GridManager` for coordinate snapping
 6. Register the tool with `DrawingToolManager`
+7. Handle orientation and shape type detection properly in `ShapeFactory`
 
 ### Coordinate System
 - All drawing operations use logical canvas coordinates

@@ -337,9 +337,11 @@ User Action → UI Component → Event Emission → System Handler → State Upd
   
 - **CapsuleTool**: 
   - Three-step workflow (end → end → thickness)
-  - Complex preview rendering showing capsule evolution
-  - Creates composite category shapes with simplified positioning
+  - Enhanced preview rendering with accurate capsule outline using manual arc segments
+  - Perpendicular vector calculations for precise thickness visualization
+  - Creates path-based shapes using fromVertices physics for proper orientation
   - Thickness calculation based on perpendicular distance from center line
+  - Manual semicircle rendering ensures outward-curving ends
   
 - **PathTool**: 
   - Multi-point workflow with dynamic point addition
@@ -452,11 +454,12 @@ The editor implements several mechanisms to prevent infinite event loops:
 - **Shape Generation**: All tools create proper ShapeDefinition objects for seamless integration
 
 ### ✅ Phase 2C - Advanced Tools (Completed)
-- **PolygonTool**: Configurable sides with center → radius workflow - fully implemented
-- **CapsuleTool**: Three-step workflow (end → end → thickness) - fully implemented
+- **PolygonTool**: Configurable sides with center → radius workflow - fully implemented with mouse wheel support
+- **CapsuleTool**: Three-step workflow (end → end → thickness) - fully implemented with enhanced preview rendering
 - **PathTool**: Multi-point workflow with path closing detection - fully implemented
 - **Visual Polish**: Enhanced drawing state feedback and dimension displays - implemented
 - **Tool Integration**: All tools registered and working with existing event system
+- **Rendering Improvements**: Fixed polygon type detection and capsule orientation preservation
 
 ### 🔄 Future Enhancements (Optional)
 - **Advanced Shape Creation**: Vertex editing and shape modification tools
