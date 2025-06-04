@@ -77,6 +77,30 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * Ensure the game is playable with one hand, as the player may need to hold their device with one hand while playing.
 * Haptic feedback should be provided when a screw is removed or a container box is filled.
 
+## Technical Architecture
+
+This project features a comprehensive shared utilities framework that provides:
+
+- **Event-driven architecture** with complete system decoupling
+- **Shared utilities ecosystem** eliminating code duplication across game and editor
+- **TypeScript type safety** throughout the entire codebase
+- **Comprehensive physics integration** with Matter.js
+- **Advanced rendering system** with multi-mode support
+- **Robust validation framework** for all data operations
+
+The architecture includes both a gameplay mode and a shape editor for creating custom shapes.
+
+## Development
+
+```bash
+npm install          # Install dependencies
+npm run build        # Build for production
+npm run lint         # Check code quality
+npm run dev          # Start development server
+```
+
 ## More Information 
 
 * Read all files in the `docs` folder including looking at any images
+* See `shared_refactor.md` for detailed architectural documentation
+* Check `CLAUDE.md` for development guidelines and patterns
