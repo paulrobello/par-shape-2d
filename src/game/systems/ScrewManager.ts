@@ -1233,16 +1233,6 @@ export class ScrewManager extends BaseSystem {
     return null;
   }
 
-  private getAvailableContainers(): Container[] {
-    // Return the actual container state from GameState
-    return this.state.containers;
-  }
-
-  private getAvailableHoldingHoles(): HoldingHole[] {
-    // Return the actual holding hole state from GameState
-    return this.state.holdingHoles;
-  }
-
   private determineDestinationType(screw: Screw): 'container' | 'holding_hole' {
     // Check if screw went to a container or holding hole based on Y position
     if (screw.targetPosition) {
@@ -1332,42 +1322,6 @@ export class ScrewManager extends BaseSystem {
         console.error(`❌ Failed to find container for screw ${screw.id} - containerIndex: ${containerIndex}, targetHoleIndex: ${screw.targetHoleIndex}`);
       }
     }
-  }
-
-  private findClosestHoldingHoleIndex(position: Vector2): number {
-    let closestIndex = 0;
-    let closestDistance = Infinity;
-    
-    this.state.holdingHoles.forEach((hole, index) => {
-      const distance = Math.sqrt(
-        Math.pow(hole.position.x - position.x, 2) + 
-        Math.pow(hole.position.y - position.y, 2)
-      );
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestIndex = index;
-      }
-    });
-    
-    return closestIndex;
-  }
-
-  private findClosestContainerIndex(position: Vector2): number {
-    let closestIndex = 0;
-    let closestDistance = Infinity;
-    
-    this.state.containers.forEach((container, index) => {
-      const distance = Math.sqrt(
-        Math.pow(container.position.x - position.x, 2) + 
-        Math.pow(container.position.y - position.y, 2)
-      );
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestIndex = index;
-      }
-    });
-    
-    return closestIndex;
   }
 
   private createScrewConstraint(screw: Screw, shape: Shape): void {
@@ -2174,28 +2128,6 @@ export class ScrewManager extends BaseSystem {
     return false;
   }
 
-  private isCircleIntersectingRectangleBounds(center: Vector2, radius: number, bounds: { x: number; y: number; width: number; height: number }): boolean {
-    // Find the closest point on the rectangle to the circle center
-    const closestX = Math.max(bounds.x, Math.min(center.x, bounds.x + bounds.width));
-    const closestY = Math.max(bounds.y, Math.min(center.y, bounds.y + bounds.height));
-    
-    // Calculate distance from circle center to closest point
-    const distance = Math.sqrt(
-      Math.pow(center.x - closestX, 2) + 
-      Math.pow(center.y - closestY, 2)
-    );
-    
-    return distance < radius;
-  }
-
-  private isCircleIntersectingCircleGeometry(center1: Vector2, radius1: number, center2: Vector2, radius2: number): boolean {
-    const distance = Math.sqrt(
-      Math.pow(center1.x - center2.x, 2) + 
-      Math.pow(center1.y - center2.y, 2)
-    );
-    return distance < (radius1 + radius2);
-  }
-
   public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }): boolean {
     return this.executeIfActive(() => {
       const screw = this.state.screws.get(screwId);
@@ -2463,40 +2395,6 @@ export class ScrewManager extends BaseSystem {
     const holeY = startY + containerHeight / 2;
     
     return { x: holeX, y: holeY };
-  }
-
-  // Serialization methods for save/load
-  public toSerializable(): { animatingScrews: import('@/types/game').SerializableScrew[] } {
-    const animatingScrews: import('@/types/game').SerializableScrew[] = [];
-
-    this.state.screws.forEach(screw => {
-      const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
-      let relativeOffset: Vector2 | undefined;
-      
-      if (shape) {
-        relativeOffset = {
-          x: screw.position.x - shape.position.x,
-          y: screw.position.y - shape.position.y
-        };
-      }
-
-      if (screw.isBeingCollected && relativeOffset) {
-        animatingScrews.push({
-          id: screw.id,
-          shapeId: screw.shapeId,
-          position: screw.position,
-          color: screw.color,
-          isRemovable: screw.isRemovable,
-          isCollected: screw.isCollected,
-          isBeingCollected: screw.isBeingCollected,
-          relativeOffset,
-          animationTarget: screw.targetPosition,
-          animationProgress: screw.collectionProgress
-        });
-      }
-    });
-
-    return { animatingScrews };
   }
 
   protected onDestroy(): void {
