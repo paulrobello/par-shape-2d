@@ -382,7 +382,9 @@ Advanced deterministic placement system eliminating all overlaps:
 - **Grid Optimization**: Grid size = `Math.max(testRadius * 2 + minSeparation, 80)`
 
 ### Screw Placement
-JSON-driven placement strategies with advanced positioning algorithms:
+JSON-driven placement strategies with advanced positioning algorithms using a shared strategy system:
+
+> **Shared Implementation**: Screw placement strategies are implemented in `src/shared/strategies/` and used by both the game and shape editor to eliminate code duplication. The `ScrewPlacementStrategyFactory` provides consistent strategy instantiation across modules.
 
 #### Placement Strategies (Defined in Shape JSON)
 
@@ -846,7 +848,7 @@ src/game/systems/
 │   ├── Constraint creation/removal coordination
 │   ├── Collection and transfer animation systems
 │   ├── Shake animation for blocked screws
-│   ├── Integration with ScrewPositionUtils for placement
+│   ├── Integration with shared placement strategies from src/shared/strategies/
 │   ├── Integration with ScrewCollisionUtils for blocking detection
 │   └── Integration with ScrewContainerUtils for destination finding
 │
@@ -890,6 +892,24 @@ src/game/rendering/
     └── All dimensions from UI_CONSTANTS for uniform appearance
 ```
 
+### Shared Code Layer
+```
+src/shared/
+├── strategies/               # Shared screw placement strategies
+│   ├── ScrewPlacementStrategy.ts  # Base interfaces and abstract classes
+│   ├── CornerStrategy.ts          # Corner-based placement implementation
+│   ├── PerimeterStrategy.ts       # Perimeter-based placement implementation
+│   ├── GridStrategy.ts            # Grid-based placement implementation
+│   ├── CapsuleStrategy.ts         # Capsule-specific placement implementation
+│   ├── CustomStrategy.ts          # User-defined placement implementation
+│   └── index.ts                   # Strategy factory and registration system
+│
+└── utils/                    # Shared utility functions
+    ├── GeometryUtils.ts           # Shape geometry calculations
+    ├── CollisionUtils.ts          # Collision detection utilities
+    └── Constants.ts               # Shared constants and configuration
+```
+
 ### Utility Layer
 ```
 src/game/utils/
@@ -910,12 +930,11 @@ src/game/utils/
 │   ├── Animation easing functions
 │   └── Coordinate transformation utilities
 │
-├── ScrewPositionUtils.ts   # Screw position calculation utilities
-│   ├── JSON-driven screw placement strategies
-│   ├── Shape-specific position calculations
-│   ├── Overlap detection and position selection
+├── ScrewPositionUtils.ts   # Legacy screw position utilities (migrated to shared)
+│   ├── Legacy placement calculation functions
+│   ├── Shape definition and registry integration
 │   ├── Area-based screw limits and validation
-│   └── Shape definition and registry integration
+│   └── Utility functions supporting shared strategy system
 │
 ├── ScrewCollisionUtils.ts  # Collision detection utilities
 │   ├── Circle-shape intersection algorithms

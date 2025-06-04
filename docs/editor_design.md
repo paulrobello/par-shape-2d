@@ -247,18 +247,19 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Coordinate System**: Logical pixel coordinates for high-DPI display support
 - **Interactive Tools**: Click-based add/remove with precise hit detection (15px radius)
 - **Event-Driven Updates**: All screw changes trigger re-render events for immediate feedback
-- **Strategy Calculations**: Algorithm implementations for corners, perimeter, grid, custom, and capsule strategies
+- **Shared Strategy System**: Centralized screw placement logic in `src/shared/strategies/` eliminates code duplication
+- **Strategy Factory Pattern**: `ScrewPlacementStrategyFactory` ensures consistent strategy instantiation across game and editor
+- **Five Strategy Implementations**:
+  - **CornerStrategy**: Multi-algorithm corner detection (angle-based, direction-change, curvature analysis)
+  - **PerimeterStrategy**: Precise edge distribution using actual shape vertices  
+  - **GridStrategy**: Ray-casting point-in-polygon testing for accurate internal positioning
+  - **CapsuleStrategy**: Specialized end and center placement for capsule shapes
+  - **CustomStrategy**: User-defined positioning with coordinate conversion utilities
 - **Path Shape Support**: Complete implementation for arrow, chevron, star, and horseshoe shapes
-- **Advanced Corner Detection**: Multi-algorithm approach combining:
-  - Angle-based detection (30° threshold) for sharp corners
-  - Direction change detection using cross product analysis
-  - Curvature-based detection for smooth transitions
-  - Extremal point fallback for comprehensive coverage
-- **Grid Strategy Enhancement**: Ray-casting point-in-polygon testing for accurate positioning inside complex shapes
-- **Perimeter Strategy Enhancement**: Uses actual shape vertices instead of bounding box approximation for precise edge distribution
-- **Min Separation Enforcement**: All placement strategies filter positions based on minimum separation distance
-- **Positioning Consistency**: Screw positions and indicators use identical strategy-based calculation logic
-- **Duplicate Removal**: Intelligent filtering to prevent overlapping corner positions
+- **Shared Utilities**: Consolidated geometry and collision utilities in `src/shared/utils/`
+- **Min Separation Enforcement**: All strategies filter positions based on minimum separation distance
+- **Positioning Consistency**: Identical calculation logic ensures screw positions match indicators
+- **Code Consolidation**: Eliminated ~1156 lines of duplicate screw placement code through shared implementation
 
 ### Physics Integration
 - **Isolated PhysicsWorld**: Editor has its own PhysicsWorld instance with proper boundaries
@@ -291,7 +292,8 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 
 ### Shared Code Usage
 - **Game Systems**: Reuse PhysicsWorld, ShapeRenderer, Shape entities
-- **Utilities**: Leverage existing math, color, and validation utils
+- **Screw Strategies**: Shared strategy system in `src/shared/strategies/` used by both game and editor
+- **Shared Utilities**: Consolidated geometry, collision, and math utilities in `src/shared/utils/`
 - **Types**: Use game's shape type definitions and interfaces
 - **Constants**: Share physics and rendering constants
 

@@ -12,14 +12,19 @@ import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/ga
 import { getRandomScrewColor } from '@/game/utils/Colors';
 import { randomIntBetween } from '@/game/utils/MathUtils';
 import {
-  calculateScrewPositions,
   calculateScrewPositionsLegacy,
   getShapeDefinition,
-  getDefinitionIdFromShape
+  getDefinitionIdFromShape,
+  getShapeScrewLocations,
+  getMaxScrewsForShape as getMaxScrewsFromPositions,
 } from '@/game/utils/ScrewPositionUtils';
 import {
+  ScrewPlacementStrategyFactory,
+  selectNonOverlappingPositions
+} from '@/shared/strategies';
+import {
   getDistanceToNearestEdge
-} from '@/game/utils/ScrewCollisionUtils';
+} from '@/shared/utils/CollisionUtils';
 import {
   calculateContainerHolePosition,
   findScrewDestination,
@@ -719,7 +724,7 @@ export class ScrewManager extends BaseSystem {
       if (shape.screws.length > 0) return; // Already has screws
 
       // Get possible positions first to determine realistic limits
-      const possiblePositions = this.getShapeScrewLocations(shape);
+      const possiblePositions = getShapeScrewLocations(shape);
       const maxPossibleScrews = this.getMaxScrewsForShape(shape, possiblePositions);
       
       // Randomize screw count within realistic bounds
@@ -803,7 +808,29 @@ export class ScrewManager extends BaseSystem {
 
   // Use utility function for screw position calculation
   private calculateScrewPositions(shape: Shape, count: number): Vector2[] {
-    return calculateScrewPositions(shape, count);
+    // Get shape definition to determine strategy
+    const definition = this.getShapeDefinition(shape);
+    
+    if (!definition) {
+      if (DEBUG_CONFIG.logShapeDebug) {
+        console.warn(`No definition found for shape ${shape.id}, using legacy placement`);
+      }
+      return this.calculateScrewPositionsLegacy(shape, count);
+    }
+    
+    // Use shared strategy system
+    const strategy = ScrewPlacementStrategyFactory.create(definition.screwPlacement.strategy);
+    const context = {
+      shape,
+      config: definition.screwPlacement
+    };
+    
+    const positions = strategy.calculatePositions(context);
+    const maxScrews = this.getMaxScrewsFromDefinition(shape, definition, positions);
+    const actualCount = Math.min(count, maxScrews);
+    
+    const minSeparation = definition.screwPlacement?.minSeparation || 48;
+    return selectNonOverlappingPositions(positions, actualCount, minSeparation);
   }
 
   // Use utility function for legacy screw position calculation
@@ -812,21 +839,7 @@ export class ScrewManager extends BaseSystem {
   }
 
   private getMaxScrewsForShape(shape: Shape, positions: { corners: Vector2[], center: Vector2, alternates: Vector2[] }): number {
-    const totalPositions = positions.corners.length + positions.alternates.length + 1; // +1 for center
-    
-    // Calculate shape-specific limits based on area and type
-    const shapeArea = this.getShapeArea(shape);
-    let areaBasedLimit: number;
-    
-    if (shapeArea < 2500) areaBasedLimit = 1;
-    else if (shapeArea < 4000) areaBasedLimit = 2;
-    else if (shapeArea < 6000) areaBasedLimit = 3;
-    else if (shapeArea < 10000) areaBasedLimit = 4;
-    else if (shapeArea < 15000) areaBasedLimit = 5;
-    else areaBasedLimit = 6;
-    
-    // Return the minimum of available positions and area-based limit
-    return Math.min(totalPositions, areaBasedLimit);
+    return getMaxScrewsFromPositions(shape, positions);
   }
 
   private selectNonOverlappingPositions(positions: Vector2[], count: number, minSeparation: number): Vector2[] {
@@ -1054,7 +1067,12 @@ export class ScrewManager extends BaseSystem {
 
   // Use utility function for distance calculations
   private getDistanceToNearestEdge(point: Vector2, shape: Shape): number {
-    return getDistanceToNearestEdge(point, shape);
+    // Convert shape to vertices for the shared utility
+    if (shape.body?.vertices) {
+      const vertices = shape.body.vertices.map(v => ({ x: v.x, y: v.y }));
+      return getDistanceToNearestEdge(point, vertices);
+    }
+    return 0;
   }
 
   private getShapeArea(shape: Shape): number {

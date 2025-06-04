@@ -456,7 +456,7 @@ export class EditorManager extends BaseEditorSystem {
       this.drawingToolManager.handleMouseDown(point);
     } else {
       // Phase 1: Edit mode - delegate to shape editor manager for screw interaction
-      await this.shapeEditorManager.handleCanvasClick(point.x, point.y);
+      this.shapeEditorManager.handleCanvasClick(point);
     }
   }
 
