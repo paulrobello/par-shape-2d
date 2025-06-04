@@ -142,65 +142,33 @@ export class CapsuleTool extends BaseTool {
 
       this.drawingData.thickness = thickness;
 
-      // Create capsule shape definition
-      // Note: Using a simplified approach that works with current type definitions
-      // The complex 'auto' positioning will be handled by the shape rendering system
-      const radius = thickness / 2;
+      // Calculate the capsule vertices for proper orientation
+      const capsuleVertices = this.calculateCapsuleVertices(thickness);
+      
+      // Create capsule shape definition using path rendering to preserve orientation
       const shapeDefinition: ShapeDefinition = {
         id: `capsule_${Date.now()}`,
         name: 'New Capsule',
-        category: 'composite',
+        category: 'path',
         enabled: true,
         dimensions: {
           type: 'fixed',
           width: Math.round(this.drawingData.length),
-          height: Math.round(thickness)
+          height: Math.round(thickness),
+          // Store vertices for custom rendering
+          path: this.generateCapsulePath(capsuleVertices)
         },
         physics: {
-          type: 'composite',
-          composite: {
-            parts: [
-              {
-                type: 'rectangle',
-                position: { x: 0, y: 0 },
-                dimensions: { width: Math.round(this.drawingData.length), height: Math.round(thickness) }
-              },
-              {
-                type: 'circle',
-                position: { x: -Math.round(this.drawingData.length / 2), y: 0 },
-                dimensions: { radius: Math.round(radius) }
-              },
-              {
-                type: 'circle',
-                position: { x: Math.round(this.drawingData.length / 2), y: 0 },
-                dimensions: { radius: Math.round(radius) }
-              }
-            ]
-          }
+          type: 'fromVertices'
         },
         rendering: {
-          type: 'composite',
-          compositeParts: [
-            {
-              type: 'rectangle',
-              position: { x: 0, y: 0 },
-              dimensions: { width: Math.round(this.drawingData.length), height: Math.round(thickness) }
-            },
-            {
-              type: 'arc',
-              position: { x: -Math.round(this.drawingData.length / 2), y: 0 },
-              dimensions: { radius: Math.round(radius), startAngle: 1.5708, endAngle: 4.71239 }
-            },
-            {
-              type: 'arc',
-              position: { x: Math.round(this.drawingData.length / 2), y: 0 },
-              dimensions: { radius: Math.round(radius), startAngle: -1.5708, endAngle: 1.5708 }
-            }
-          ]
+          type: 'path',
+          preserveOriginalVertices: true
         },
         screwPlacement: {
-          strategy: 'capsule',
-          capsuleEndMargin: 5,
+          strategy: 'perimeter',
+          perimeterPoints: 6,
+          perimeterMargin: 15,
           minSeparation: 48,
           maxScrews: {
             absolute: 8
@@ -331,6 +299,86 @@ export class CapsuleTool extends BaseTool {
     };
   }
 
+  /**
+   * Calculate capsule vertices for proper orientation rendering
+   */
+  private calculateCapsuleVertices(thickness: number): Point[] {
+    if (!this.drawingData) return [];
+
+    const { firstEnd, secondEnd, length } = this.drawingData;
+    const radius = thickness / 2;
+    
+    // Calculate perpendicular vector
+    const perpVector = {
+      x: -(secondEnd.y - firstEnd.y) / length,
+      y: (secondEnd.x - firstEnd.x) / length
+    };
+    
+    const vertices: Point[] = [];
+    const segments = 8; // Number of segments for rounded ends
+    
+    // Start with top line from first end to second end
+    const topStart = {
+      x: firstEnd.x + perpVector.x * radius,
+      y: firstEnd.y + perpVector.y * radius
+    };
+    const topEnd = {
+      x: secondEnd.x + perpVector.x * radius,
+      y: secondEnd.y + perpVector.y * radius
+    };
+    
+    vertices.push(topStart);
+    vertices.push(topEnd);
+    
+    // Right semicircle (at second end) - from top to bottom
+    const rightStartAngle = Math.atan2(topEnd.y - secondEnd.y, topEnd.x - secondEnd.x);
+    
+    for (let i = 1; i <= segments; i++) {
+      const angle = rightStartAngle + (Math.PI * i) / segments;
+      vertices.push({
+        x: secondEnd.x + Math.cos(angle) * radius,
+        y: secondEnd.y + Math.sin(angle) * radius
+      });
+    }
+    
+    // Bottom line from second end to first end
+    const bottomStart = {
+      x: firstEnd.x - perpVector.x * radius,
+      y: firstEnd.y - perpVector.y * radius
+    };
+    
+    vertices.push(bottomStart);
+    
+    // Left semicircle (at first end) - from bottom to top
+    const leftStartAngle = Math.atan2(bottomStart.y - firstEnd.y, bottomStart.x - firstEnd.x);
+    
+    for (let i = 1; i <= segments; i++) {
+      const angle = leftStartAngle + (Math.PI * i) / segments;
+      vertices.push({
+        x: firstEnd.x + Math.cos(angle) * radius,
+        y: firstEnd.y + Math.sin(angle) * radius
+      });
+    }
+    
+    return vertices;
+  }
+
+  /**
+   * Generate SVG path string from capsule vertices
+   */
+  private generateCapsulePath(vertices: Point[]): string {
+    if (vertices.length === 0) return '';
+    
+    let path = `M ${vertices[0].x} ${vertices[0].y}`;
+    
+    for (let i = 1; i < vertices.length; i++) {
+      path += ` L ${vertices[i].x} ${vertices[i].y}`;
+    }
+    
+    path += ' Z'; // Close the path
+    return path;
+  }
+
   protected onDrawingComplete(shapeDefinition: ShapeDefinition): void {
     // Reset for next drawing
     this.drawingData = null;
@@ -414,22 +462,54 @@ export class CapsuleTool extends BaseTool {
         
         if (perpPoints) {
           const radius = thickness / 2;
+          
+          // Calculate capsule outline points
+          const lineLength = this.drawingData.length;
+          const perpVector = {
+            x: -(secondEnd.y - firstEnd.y) / lineLength,
+            y: (secondEnd.x - firstEnd.x) / lineLength
+          };
+          
+          // Top and bottom line endpoints
+          const topStart = {
+            x: firstEnd.x + perpVector.x * radius,
+            y: firstEnd.y + perpVector.y * radius
+          };
+          const topEnd = {
+            x: secondEnd.x + perpVector.x * radius,
+            y: secondEnd.y + perpVector.y * radius
+          };
+          const bottomStart = {
+            x: firstEnd.x - perpVector.x * radius,
+            y: firstEnd.y - perpVector.y * radius
+          };
+          // bottomEnd is calculated but not used directly since arc draws to it
 
           // Draw capsule outline
           ctx.beginPath();
           
+          // Start at top-left of first end
+          ctx.moveTo(topStart.x, topStart.y);
+          
           // Top line
-          ctx.moveTo(firstEnd.x, firstEnd.y);
-          ctx.lineTo(secondEnd.x, secondEnd.y);
+          ctx.lineTo(topEnd.x, topEnd.y);
           
-          // Right semicircle
-          ctx.arc(secondEnd.x, secondEnd.y, radius, 0, Math.PI, false);
+          // Right semicircle (at second end)
+          // Calculate the angle from the center line
+          const lineAngle = Math.atan2(secondEnd.y - firstEnd.y, secondEnd.x - firstEnd.x);
+          // Start from top side, sweep clockwise to bottom side
+          const rightAngleStart = lineAngle - Math.PI / 2;
+          const rightAngleEnd = lineAngle + Math.PI / 2;
+          ctx.arc(secondEnd.x, secondEnd.y, radius, rightAngleStart, rightAngleEnd);
           
-          // Bottom line
-          ctx.lineTo(firstEnd.x, firstEnd.y);
+          // Bottom line (drawn implicitly by arc endpoint)
+          ctx.lineTo(bottomStart.x, bottomStart.y);
           
-          // Left semicircle
-          ctx.arc(firstEnd.x, firstEnd.y, radius, Math.PI, 0, false);
+          // Left semicircle (at first end)
+          // Start from bottom side, sweep clockwise to top side
+          const leftAngleStart = lineAngle + Math.PI / 2;
+          const leftAngleEnd = lineAngle + Math.PI * 1.5;
+          ctx.arc(firstEnd.x, firstEnd.y, radius, leftAngleStart, leftAngleEnd);
           
           ctx.closePath();
           ctx.fill();
