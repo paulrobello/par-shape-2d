@@ -306,6 +306,7 @@ User Action → UI Component → Event Emission → System Handler → State Upd
 - **Grid System**: 
   - Configurable grid with visible dot rendering (5px, 10px, 20px, 50px sizes)
   - Toggle visibility and snap-to-grid functionality with enhanced visibility (2px dots, 60% opacity)
+  - Grid snap enabled by default for precise shape creation
   - Efficient rendering with only visible grid points drawn
   - GridManager system with event-driven state updates
   - GridControls UI component in property panel

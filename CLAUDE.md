@@ -20,9 +20,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Workflow
 
 - **Important:** After changes to code are complete verify them with `npm run lint && npm run build`, fix any errors found.
-- Update any documentation affected by the changes.
-- Commit the changes to the current branch with an applicable commit message.
+- Always update any documentation affected by changes.
 - Always update documentation after lint and build passes and before commiting changes
+- Commit the changes to the current branch with an applicable commit message.
+
 
 ## Architecture Overview
 
@@ -30,11 +31,9 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 
 It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection, proper physics simulation reset functionality, aligned screw placement indicators, streamlined UI controls, and a complete shape creation system with drawing tools.
 
-## Matter.js Integration
+## Physics
 
-**Physics Integration** uses collision groups to separate layers. Screws are implemented as Matter.js constraints between shapes and anchor points. The physics world includes sleep management to wake unsupported shapes and prevent floating objects.
-
-**Complex Shapes**: Path-based shapes (arrow, chevron, star, horseshoe) use `Bodies.fromVertices()` with poly-decomp-es for accurate physics simulation. The poly-decomp library is automatically initialized at application startup via the `PhysicsInit.ts` utility to eliminate Matter.js warnings. Original vertices are preserved separately for rendering to maintain visual accuracy.
+**Physics** are provided by the Matter.js library with poly-decomp-es for accurate physics simulation.
 
 ## Documentation and References
 
