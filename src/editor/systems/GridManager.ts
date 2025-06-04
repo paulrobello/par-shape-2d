@@ -22,7 +22,7 @@ export interface GridSettings {
 
 export class GridManager extends BaseEditorSystem {
   private settings: GridSettings = {
-    enabled: false,
+    enabled: true,
     size: 20,
     snapEnabled: false,
     dotOpacity: 0.6,

@@ -208,14 +208,14 @@ export class Shape implements IShape {
     // Top line
     path.lineTo(x + w - radius, y);
     
-    // Right semicircle
-    path.arc(x + w - radius, y + radius, radius, -Math.PI / 2, Math.PI / 2);
+    // Right semicircle - curve outward (clockwise from top to bottom)
+    path.arc(x + w - radius, y + radius, radius, -Math.PI / 2, Math.PI / 2, false);
     
-    // Bottom line
+    // Bottom line (right to left)
     path.lineTo(x + radius, y + h);
     
-    // Left semicircle
-    path.arc(x + radius, y + radius, radius, Math.PI / 2, Math.PI * 1.5);
+    // Left semicircle - curve outward (clockwise from bottom to top)  
+    path.arc(x + radius, y + radius, radius, Math.PI / 2, -Math.PI / 2, false);
     
     path.closePath();
     return path;

@@ -142,33 +142,62 @@ export class CapsuleTool extends BaseTool {
 
       this.drawingData.thickness = thickness;
 
-      // Calculate the capsule vertices for proper orientation
-      const capsuleVertices = this.calculateCapsuleVertices(thickness);
-      
-      // Create capsule shape definition using path rendering to preserve orientation
+      // Create capsule shape definition using composite rendering like the game
       const shapeDefinition: ShapeDefinition = {
         id: `capsule_${Date.now()}`,
         name: 'New Capsule',
-        category: 'path',
+        category: 'composite',
         enabled: true,
         dimensions: {
           type: 'fixed',
           width: Math.round(this.drawingData.length),
-          height: Math.round(thickness),
-          // Store vertices for custom rendering
-          path: this.generateCapsulePath(capsuleVertices)
+          height: Math.round(thickness)
         },
         physics: {
-          type: 'fromVertices'
+          type: 'composite',
+          composite: {
+            parts: [
+              {
+                type: 'rectangle',
+                position: { x: 0, y: 0 },
+                dimensions: { width: 'auto', height: 'auto' }
+              },
+              {
+                type: 'circle',
+                position: { x: 'left', y: 0 },
+                dimensions: { radius: 'auto' }
+              },
+              {
+                type: 'circle',
+                position: { x: 'right', y: 0 },
+                dimensions: { radius: 'auto' }
+              }
+            ]
+          }
         },
         rendering: {
-          type: 'path',
-          preserveOriginalVertices: true
+          type: 'composite',
+          compositeParts: [
+            {
+              type: 'rectangle',
+              position: { x: 0, y: 0 },
+              dimensions: { width: 'auto', height: 'auto' }
+            },
+            {
+              type: 'arc',
+              position: { x: 'left', y: 0 },
+              dimensions: { radius: 'auto', startAngle: 1.5708, endAngle: 4.71239 }
+            },
+            {
+              type: 'arc',
+              position: { x: 'right', y: 0 },
+              dimensions: { radius: 'auto', startAngle: -1.5708, endAngle: 1.5708 }
+            }
+          ]
         },
         screwPlacement: {
-          strategy: 'perimeter',
-          perimeterPoints: 6,
-          perimeterMargin: 15,
+          strategy: 'capsule',
+          capsuleEndMargin: 5,
           minSeparation: 48,
           maxScrews: {
             absolute: 8
@@ -299,85 +328,6 @@ export class CapsuleTool extends BaseTool {
     };
   }
 
-  /**
-   * Calculate capsule vertices for proper orientation rendering
-   */
-  private calculateCapsuleVertices(thickness: number): Point[] {
-    if (!this.drawingData) return [];
-
-    const { firstEnd, secondEnd, length } = this.drawingData;
-    const radius = thickness / 2;
-    
-    // Calculate perpendicular vector
-    const perpVector = {
-      x: -(secondEnd.y - firstEnd.y) / length,
-      y: (secondEnd.x - firstEnd.x) / length
-    };
-    
-    const vertices: Point[] = [];
-    const segments = 8; // Number of segments for rounded ends
-    
-    // Start with top line from first end to second end
-    const topStart = {
-      x: firstEnd.x + perpVector.x * radius,
-      y: firstEnd.y + perpVector.y * radius
-    };
-    const topEnd = {
-      x: secondEnd.x + perpVector.x * radius,
-      y: secondEnd.y + perpVector.y * radius
-    };
-    
-    vertices.push(topStart);
-    vertices.push(topEnd);
-    
-    // Right semicircle (at second end) - from top to bottom
-    const rightStartAngle = Math.atan2(topEnd.y - secondEnd.y, topEnd.x - secondEnd.x);
-    
-    for (let i = 1; i <= segments; i++) {
-      const angle = rightStartAngle + (Math.PI * i) / segments;
-      vertices.push({
-        x: secondEnd.x + Math.cos(angle) * radius,
-        y: secondEnd.y + Math.sin(angle) * radius
-      });
-    }
-    
-    // Bottom line from second end to first end
-    const bottomStart = {
-      x: firstEnd.x - perpVector.x * radius,
-      y: firstEnd.y - perpVector.y * radius
-    };
-    
-    vertices.push(bottomStart);
-    
-    // Left semicircle (at first end) - from bottom to top
-    const leftStartAngle = Math.atan2(bottomStart.y - firstEnd.y, bottomStart.x - firstEnd.x);
-    
-    for (let i = 1; i <= segments; i++) {
-      const angle = leftStartAngle + (Math.PI * i) / segments;
-      vertices.push({
-        x: firstEnd.x + Math.cos(angle) * radius,
-        y: firstEnd.y + Math.sin(angle) * radius
-      });
-    }
-    
-    return vertices;
-  }
-
-  /**
-   * Generate SVG path string from capsule vertices
-   */
-  private generateCapsulePath(vertices: Point[]): string {
-    if (vertices.length === 0) return '';
-    
-    let path = `M ${vertices[0].x} ${vertices[0].y}`;
-    
-    for (let i = 1; i < vertices.length; i++) {
-      path += ` L ${vertices[i].x} ${vertices[i].y}`;
-    }
-    
-    path += ' Z'; // Close the path
-    return path;
-  }
 
   protected onDrawingComplete(shapeDefinition: ShapeDefinition): void {
     // Reset for next drawing

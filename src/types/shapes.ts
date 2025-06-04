@@ -35,8 +35,8 @@ export interface ShapeDefinition {
     composite?: {
       parts: Array<{
         type: 'rectangle' | 'circle';
-        position: { x: number; y: number };
-        dimensions: { width?: number; height?: number; radius?: number };
+        position: { x: number | string; y: number | string };
+        dimensions: { width?: number | string; height?: number | string; radius?: number | string };
       }>;
     };
   };
@@ -50,7 +50,7 @@ export interface ShapeDefinition {
     // For composite rendering
     compositeParts?: Array<{
       type: 'rectangle' | 'circle' | 'arc';
-      position: { x: number; y: number };
+      position: { x: number | string; y: number | string };
       dimensions: Record<string, unknown>;
     }>;
   };

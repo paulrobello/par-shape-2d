@@ -421,7 +421,7 @@ export class ShapeFactory {
         return this.createPathBody(position, dimensions);
         
       case 'composite':
-        if (definition.id === 'capsule') {
+        if (definition.id === 'capsule' || definition.id.includes('capsule')) {
           return this.createCapsuleBody(position, dimensions);
         }
         break;
