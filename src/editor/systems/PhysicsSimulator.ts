@@ -364,6 +364,15 @@ export class PhysicsSimulator extends BaseEditorSystem {
     const bodyPosition = shape.body.position;
     const offsetX = screw.position.x - bodyPosition.x;
     const offsetY = screw.position.y - bodyPosition.y;
+    
+    // Debug logging for composite bodies
+    if (shape.isComposite) {
+      console.log(`🔧 EDITOR COMPOSITE CONSTRAINT DEBUG:`);
+      console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+      console.log(`  Body.position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
+      console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+      console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+    }
 
     // Create anchor body at screw position (small invisible circle)
     const screwAnchor = Bodies.circle(screw.position.x, screw.position.y, 1, {
