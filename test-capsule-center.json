@@ -1,0 +1,69 @@
+{
+  "id": "capsule",
+  "name": "Capsule (Center Test)",
+  "category": "composite",
+  "enabled": true,
+  "dimensions": {
+    "type": "random",
+    "width": { "min": 80, "max": 120 },
+    "height": { "min": 30, "max": 50 }
+  },
+  "physics": {
+    "type": "composite",
+    "composite": {
+      "parts": [
+        {
+          "type": "rectangle",
+          "position": { "x": 0, "y": 0 },
+          "dimensions": { "width": "width-height", "height": "height" }
+        },
+        {
+          "type": "circle",
+          "position": { "x": "-(width-height)/2", "y": 0 },
+          "dimensions": { "radius": "height/2" }
+        },
+        {
+          "type": "circle",
+          "position": { "x": "(width-height)/2", "y": 0 },
+          "dimensions": { "radius": "height/2" }
+        }
+      ]
+    }
+  },
+  "rendering": {
+    "type": "composite",
+    "compositeParts": [
+      {
+        "type": "rectangle",
+        "position": { "x": 0, "y": 0 },
+        "dimensions": { "width": "width-height", "height": "height" }
+      },
+      {
+        "type": "arc",
+        "position": { "x": "-(width-height)/2", "y": 0 },
+        "dimensions": { "radius": "height/2", "startAngle": 1.57, "endAngle": 4.71 }
+      },
+      {
+        "type": "arc",
+        "position": { "x": "(width-height)/2", "y": 0 },
+        "dimensions": { "radius": "height/2", "startAngle": -1.57, "endAngle": 1.57 }
+      }
+    ]
+  },
+  "screwPlacement": {
+    "strategy": "capsule",
+    "capsuleEndMargin": 15,
+    "minSeparation": 25,
+    "maxScrews": {
+      "absolute": 5
+    }
+  },
+  "visual": {
+    "supportsHoles": true
+  },
+  "behavior": {
+    "allowSingleScrew": true,
+    "singleScrewDynamic": true,
+    "rotationalInertiaMultiplier": 2
+  }
+}

@@ -461,7 +461,9 @@ export function getPerimeterPositions(shape: Shape, definition: ShapeDefinition)
  * Get capsule-specific positions
  */
 export function getCapsulePositions(shape: Shape): Vector2[] {
-  return getShapeScrewLocations(shape).corners;
+  const locations = getShapeScrewLocations(shape);
+  // Include both corners and center for capsule strategy
+  return [...locations.corners, locations.center];
 }
 
 /**

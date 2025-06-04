@@ -1587,6 +1587,9 @@ export class ShapeEditorManager extends BaseEditorSystem {
       // Place screws at strategic positions
       const endRadius = Math.min(shape.width, shape.height) / 2;
       
+      // Center position - always include for capsule strategy
+      positions.push({ x: shape.position.x, y: shape.position.y });
+      
       // End positions
       positions.push(
         { x: shape.position.x - shape.width/2 + endRadius, y: shape.position.y },
