@@ -38,6 +38,7 @@ import {
   ShapeCreatedEvent,
   ShapeDestroyedEvent,
   ScrewClickedEvent,
+  PhysicsBodyAddedEvent,
   ContainerColorsUpdatedEvent,
   BoundsChangedEvent,
   SaveRequestedEvent,
@@ -192,6 +193,9 @@ export class ScrewManager extends BaseSystem {
     this.subscribe('shape:created', this.handleShapeCreated.bind(this));
     this.subscribe('shape:destroyed', this.handleShapeDestroyed.bind(this));
     
+    // Physics events - listen for when bodies are actually added to world
+    this.subscribe('physics:body:added', this.handlePhysicsBodyAdded.bind(this));
+    
     // Screw interaction events
     this.subscribe('screw:clicked', this.handleScrewClicked.bind(this));
     
@@ -225,22 +229,39 @@ export class ScrewManager extends BaseSystem {
       this.state.allShapes.push(event.shape);
       this.state.layerDepthLookup.set(event.shape.layerId, event.layer.depthIndex);
       
-      // CRITICAL: For composite bodies, sync position before generating screws
-      // The body position may have shifted to center of mass after creation
-      if (event.shape.isComposite && event.shape.body) {
-        const originalPosition = { x: event.shape.position.x, y: event.shape.position.y };
-        event.shape.updateFromBody();
+      // DON'T generate screws here - wait for physics:body:added event
+      // when the body is actually added to the physics world
+    });
+  }
+  
+  private handlePhysicsBodyAdded(event: PhysicsBodyAddedEvent): void {
+    this.executeIfActive(() => {
+      // Only handle shape bodies, not screw anchor bodies
+      if (event.shape && event.source !== 'ScrewManager' && !event.source?.startsWith('ScrewManager-')) {
+        const shape = event.shape;
         
-        if (DEBUG_CONFIG.logPhysicsDebug) {
-          console.log(`🔧 Composite shape ${event.shape.id} position sync:`);
-          console.log(`  Original: (${originalPosition.x.toFixed(1)}, ${originalPosition.y.toFixed(1)})`);
-          console.log(`  After sync: (${event.shape.position.x.toFixed(1)}, ${event.shape.position.y.toFixed(1)})`);
-          console.log(`  Body: (${event.shape.body.position.x.toFixed(1)}, ${event.shape.body.position.y.toFixed(1)})`);
+        // Check if this shape already has screws (to avoid duplicates)
+        if (shape.screws && shape.screws.length > 0) {
+          return;
         }
+        
+        // CRITICAL: For composite bodies, sync position AFTER body is added to world
+        // Matter.js may further adjust position when added to world
+        if (shape.isComposite && shape.body) {
+          const beforePosition = { x: shape.position.x, y: shape.position.y };
+          shape.updateFromBody();
+          
+          if (DEBUG_CONFIG.logPhysicsDebug) {
+            console.log(`🔧 Composite shape ${shape.id} post-world-add position sync:`);
+            console.log(`  Before: (${beforePosition.x.toFixed(1)}, ${beforePosition.y.toFixed(1)})`);
+            console.log(`  After sync: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+            console.log(`  Body: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+          }
+        }
+        
+        // Now generate screws with correct position
+        this.generateScrewsForShape(shape, this.state.containerColors);
       }
-      
-      // Generate screws for the new shape
-      this.generateScrewsForShape(event.shape, this.state.containerColors);
     });
   }
 
