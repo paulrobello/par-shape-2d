@@ -29,6 +29,7 @@ export interface GameState {
 export interface Shape {
   id: string;
   type: ShapeType;
+  definitionId: string; // Store the original definition ID for strategy lookup
   position: Vector2;
   rotation: number;
   width?: number;

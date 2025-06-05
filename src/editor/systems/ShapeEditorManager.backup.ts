@@ -237,6 +237,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
         'editor-layer',
         '#007bff', // Blue color
         '#007bff', // Blue tint
+        shapeId, // definitionId
         shapeDimensions,
         // Add composite data for capsules
         shapeType === 'capsule' ? { 
@@ -385,6 +386,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
         'editor-layer',
         '#007bff', // Blue color
         '#007bff', // Blue tint
+        shapeId, // definitionId
         shapeDimensions,
         // Add composite data for capsules
         shapeType === 'capsule' ? { 

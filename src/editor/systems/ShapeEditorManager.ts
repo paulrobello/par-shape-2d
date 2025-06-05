@@ -363,6 +363,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
         'editor-layer',
         '#007bff', // Blue color
         '#007bff', // Blue tint
+        shapeId, // definitionId
         shapeDimensions,
         // Add composite data for capsules
         shapeType === 'capsule' ? { 
@@ -552,7 +553,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
   public handleCanvasClick(position: Vector2): void {
     if (!this.currentShape) return;
     
-    const simulationRunning = this.checkSimulationStatus();
+    const simulationRunning = this.isSimulationRunning;
     if (simulationRunning) {
       return; // Don't allow screw manipulation during simulation
     }
@@ -699,7 +700,4 @@ export class ShapeEditorManager extends BaseEditorSystem {
     }
   }
 
-  private checkSimulationStatus(): boolean {
-    return this.isSimulationRunning;
-  }
 }

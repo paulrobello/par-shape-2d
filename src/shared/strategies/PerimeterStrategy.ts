@@ -47,7 +47,7 @@ export class PerimeterStrategy extends BasePlacementStrategy {
     let positions: Vector2[] = [];
     
     // Handle different shape types
-    if (this.isPathShape(shape)) {
+    if (['arrow', 'chevron', 'star', 'horseshoe'].includes(shape.type)) {
       positions = this.calculatePathShapePerimeter(shape, perimeterPoints, margin);
     } else if (shape.radius && shape.radius > 0) {
       positions = this.calculateCirclePerimeter(shape, perimeterPoints, margin);
@@ -59,9 +59,6 @@ export class PerimeterStrategy extends BasePlacementStrategy {
     return this.applyMinSeparation(positions, minSeparation);
   }
 
-  private isPathShape(shape: Shape): boolean {
-    return ['arrow', 'chevron', 'star', 'horseshoe'].includes(shape.type);
-  }
 
   private calculatePathShapePerimeter(shape: Shape, perimeterPoints: number, margin: number): Vector2[] {
     const vertices = getShapeVertices(shape);

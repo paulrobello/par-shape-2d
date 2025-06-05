@@ -13,19 +13,18 @@ import { UI_CONSTANTS, GAME_CONFIG } from '@/shared/utils/Constants';
 export function calculateContainerHolePosition(
   containerIndex: number, 
   holeIndex: number,
-  virtualGameWidth: number,
-  virtualGameHeight: number
+  virtualGameWidth: number
 ): Vector2 {
   const containerWidth = UI_CONSTANTS.containers.width;
   const containerHeight = UI_CONSTANTS.containers.height;
   const containerSpacing = UI_CONSTANTS.containers.spacing;
   const holeCount = UI_CONSTANTS.containers.hole.count;
   
-  // Calculate container position
+  // Calculate container position (at bottom of screen)
   const totalContainersWidth = 4 * containerWidth + 3 * containerSpacing;
   const startX = (virtualGameWidth - totalContainersWidth) / 2;
   const containerX = startX + containerIndex * (containerWidth + containerSpacing);
-  const containerY = virtualGameHeight - containerHeight / 2 - 20;
+  const containerY = UI_CONSTANTS.containers.startY + containerHeight / 2;
   
   // Calculate hole position within container (same formula as other systems)
   const holeSpacing = containerWidth / (holeCount + 1);
@@ -39,14 +38,13 @@ export function calculateContainerHolePosition(
  * Calculate holding hole positions
  */
 export function calculateHoldingHolePositions(
-  virtualGameWidth: number,
-  virtualGameHeight: number
+  virtualGameWidth: number
 ): Vector2[] {
   const holeCount = GAME_CONFIG.holdingHoles.count;
   const holeSpacing = 80;
   const totalWidth = (holeCount - 1) * holeSpacing;
   const startX = (virtualGameWidth - totalWidth) / 2;
-  const y = virtualGameHeight - 140;
+  const y = UI_CONSTANTS.holdingHoles.startY;
   
   const positions: Vector2[] = [];
   for (let i = 0; i < holeCount; i++) {
@@ -66,8 +64,7 @@ export function findScrewDestination(
   screw: Screw,
   containers: Container[],
   holdingHoles: HoldingHole[],
-  virtualGameWidth: number,
-  virtualGameHeight: number
+  virtualGameWidth: number
 ): { type: 'container' | 'holding_hole'; position: Vector2; id: string; holeIndex?: number } | null {
   // First, try to find a matching container with space
   for (let i = 0; i < containers.length; i++) {
@@ -78,7 +75,7 @@ export function findScrewDestination(
         if (!container.holes[holeIndex]) {
           return {
             type: 'container',
-            position: calculateContainerHolePosition(i, holeIndex, virtualGameWidth, virtualGameHeight),
+            position: calculateContainerHolePosition(i, holeIndex, virtualGameWidth),
             id: container.id,
             holeIndex
           };
@@ -88,7 +85,7 @@ export function findScrewDestination(
   }
   
   // If no matching container, find first available holding hole
-  const holdingPositions = calculateHoldingHolePositions(virtualGameWidth, virtualGameHeight);
+  const holdingPositions = calculateHoldingHolePositions(virtualGameWidth);
   for (let i = 0; i < holdingHoles.length; i++) {
     const hole = holdingHoles[i];
     if (!hole.screwId) {

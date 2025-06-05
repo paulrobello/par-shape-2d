@@ -14,7 +14,6 @@ import { randomIntBetween } from '@/game/utils/MathUtils';
 import {
   calculateScrewPositionsLegacy,
   getShapeDefinition,
-  getDefinitionIdFromShape,
   getShapeScrewLocations,
   getMaxScrewsForShape as getMaxScrewsFromPositions,
 } from '@/game/utils/ScrewPositionUtils';
@@ -22,14 +21,11 @@ import {
   ScrewPlacementStrategyFactory
 } from '@/shared/strategies';
 import {
-  getDistanceToNearestEdge,
-  isCircleIntersectingShape,
-  isScrewAreaBlocked,
-  isPointInShapeBoundsWithMarginEnhanced
+  isScrewAreaBlocked
 } from '@/shared/utils/CollisionUtils';
 import {
-  calculateShapeArea,
-  selectNonOverlappingPositions
+  selectNonOverlappingPositions,
+  calculateShapeArea
 } from '@/shared/utils/GeometryUtils';
 import {
   calculateContainerHolePosition,
@@ -125,7 +121,7 @@ export class ScrewManager extends BaseSystem {
               type: 'screw:collected',
               timestamp: Date.now(),
               screw,
-              destination: this.determineDestinationType(screw),
+              destination: determineDestinationType(screw, this.state.containers, this.state.holdingHoles, this.state.virtualGameWidth, this.state.virtualGameHeight),
               points: 10 // Fixed 10 points per screw removed from shape
             });
             
@@ -158,7 +154,7 @@ export class ScrewManager extends BaseSystem {
               }
             } else {
               // Fallback to position-based detection if targetType is not set
-              const destinationType = this.determineDestinationType(screw);
+              const destinationType = determineDestinationType(screw, this.state.containers, this.state.holdingHoles, this.state.virtualGameWidth, this.state.virtualGameHeight);
               if (DEBUG_CONFIG.logScrewDebug) {
                 console.log(`⚠️ Screw ${screwId} targetType not set, using position-based detection: ${destinationType}`);
               }
@@ -756,7 +752,7 @@ export class ScrewManager extends BaseSystem {
       });
 
       // Apply physics configuration based on shape definition
-      const definition = this.getShapeDefinition(shape);
+      const definition = getShapeDefinition(shape);
       const behavior = definition?.behavior || {};
       
       // Make shape static only if it has more than one screw
@@ -812,16 +808,16 @@ export class ScrewManager extends BaseSystem {
     });
   }
 
-  // Use utility function for screw position calculation
+  // Calculate screw positions using shared strategy system or legacy fallback
   private calculateScrewPositions(shape: Shape, count: number): Vector2[] {
     // Get shape definition to determine strategy
-    const definition = this.getShapeDefinition(shape);
+    const definition = getShapeDefinition(shape);
     
     if (!definition) {
       if (DEBUG_CONFIG.logShapeDebug) {
         console.warn(`No definition found for shape ${shape.id}, using legacy placement`);
       }
-      return this.calculateScrewPositionsLegacy(shape, count);
+      return calculateScrewPositionsLegacy(shape, count);
     }
     
     // Use shared strategy system
@@ -839,294 +835,12 @@ export class ScrewManager extends BaseSystem {
     return selectNonOverlappingPositions(positions, actualCount, minSeparation);
   }
 
-  // Use utility function for legacy screw position calculation
-  private calculateScrewPositionsLegacy(shape: Shape, count: number): Vector2[] {
-    return calculateScrewPositionsLegacy(shape, count);
-  }
 
   private getMaxScrewsForShape(shape: Shape, positions: { corners: Vector2[], center: Vector2, alternates: Vector2[] }): number {
     return getMaxScrewsFromPositions(shape, positions);
   }
 
-  // Use shared utility function
-  private selectNonOverlappingPositions(positions: Vector2[], count: number, minSeparation: number): Vector2[] {
-    return selectNonOverlappingPositions(positions, count, minSeparation);
-  }
-
-  private getShapeScrewLocations(shape: Shape): { corners: Vector2[], center: Vector2, alternates: Vector2[] } {
-    const screwRadius = UI_CONSTANTS.screws.radius;
-    const margin = screwRadius * 2.5; // Ensure screw doesn't touch edges
-    const minSeparation = screwRadius * 4; // Minimum distance between screws
-    
-    let corners: Vector2[] = [];
-    let alternates: Vector2[] = [];
-    const center = { ...shape.position };
-    
-    switch (shape.type) {
-      case 'rectangle':
-      case 'square':
-        const width = shape.width || 60;
-        const height = shape.height || 60;
-        const halfWidth = width / 2 - margin;
-        const halfHeight = height / 2 - margin;
-        
-        // Check if shape is too small for corner placement
-        const tooNarrow = width < minSeparation + (margin * 2);
-        const tooShort = height < minSeparation + (margin * 2);
-        
-        if (tooNarrow && tooShort) {
-          // Very small shape - only center
-          corners = [];
-          alternates = [];
-        } else if (tooNarrow) {
-          // Too narrow for side-by-side corners - use top/bottom centers
-          corners = [];
-          alternates = [
-            { x: shape.position.x, y: shape.position.y - halfHeight }, // Top center
-            { x: shape.position.x, y: shape.position.y + halfHeight }, // Bottom center
-          ];
-        } else if (tooShort) {
-          // Too short for stacked corners - use left/right centers
-          corners = [];
-          alternates = [
-            { x: shape.position.x - halfWidth, y: shape.position.y }, // Left center
-            { x: shape.position.x + halfWidth, y: shape.position.y }, // Right center
-          ];
-        } else {
-          // Normal size - use all corners
-          corners = [
-            { x: shape.position.x - halfWidth, y: shape.position.y - halfHeight }, // Top-left
-            { x: shape.position.x + halfWidth, y: shape.position.y - halfHeight }, // Top-right
-            { x: shape.position.x - halfWidth, y: shape.position.y + halfHeight }, // Bottom-left
-            { x: shape.position.x + halfWidth, y: shape.position.y + halfHeight }, // Bottom-right
-          ];
-        }
-        break;
-        
-      case 'circle':
-        const radius = shape.radius || 30;
-        const cornerRadius = radius - margin;
-        
-        if (radius < minSeparation / 2 + margin) {
-          // Small circle - only center
-          corners = [];
-        } else {
-          // Place 4 "corners" at cardinal directions
-          corners = [
-            { x: shape.position.x, y: shape.position.y - cornerRadius }, // Top
-            { x: shape.position.x + cornerRadius, y: shape.position.y }, // Right
-            { x: shape.position.x, y: shape.position.y + cornerRadius }, // Bottom
-            { x: shape.position.x - cornerRadius, y: shape.position.y }, // Left
-          ];
-        }
-        break;
-        
-      case 'polygon':
-        const polygonRadius = shape.radius || 30;
-        const polygonSides = shape.sides || 5; // Default to pentagon if not specified
-        
-        if (polygonRadius < minSeparation / 2 + margin) {
-          // Small polygon - only center
-          corners = [];
-        } else {
-          // Generate polygon vertices with rotation applied, matching Matter.js Bodies.polygon() orientation
-          const polygonVertices: Vector2[] = [];
-          for (let i = 0; i < polygonSides; i++) {
-            const angle = (i * Math.PI * 2) / polygonSides + (Math.PI / polygonSides) + shape.rotation;
-            polygonVertices.push({
-              x: shape.position.x + Math.cos(angle) * polygonRadius,
-              y: shape.position.y + Math.sin(angle) * polygonRadius,
-            });
-          }
-          
-          // Calculate positions inset from each vertex
-          corners = polygonVertices.map(vertex => {
-            const direction = {
-              x: shape.position.x - vertex.x,
-              y: shape.position.y - vertex.y
-            };
-            const length = Math.sqrt(direction.x * direction.x + direction.y * direction.y);
-            const normalized = {
-              x: direction.x / length,
-              y: direction.y / length
-            };
-            
-            return {
-              x: vertex.x + normalized.x * margin,
-              y: vertex.y + normalized.y * margin
-            };
-          });
-        }
-        break;
-        
-      case 'capsule':
-        const capsuleWidth = shape.width || 120;
-        
-        // The capsule was designed with its width to perfectly fit screws
-        // Use the same formula as ShapeFactory: Width = screwCount * (screwRadius * 2) + (screwCount - 1) * spacing
-        const capsuleScrewRadius = UI_CONSTANTS.screws.radius;
-        const spacing = 5; // Same spacing used in dimensions calculation
-        const screwDiameter = capsuleScrewRadius * 2;
-        
-        // Back-calculate how many screws this capsule was designed for
-        // Width = n * 2r + (n-1) * s = n(2r + s) - s
-        // Solving for n: n = (Width + s) / (2r + s)
-        const actualScrewCount = Math.round((capsuleWidth + spacing) / (screwDiameter + spacing));
-        
-        // Y position should be at the vertical midpoint of the capsule
-        // For composite bodies, use the physics body position
-        const bodyPosition = shape.isComposite ? shape.body.position : shape.position;
-        const y = bodyPosition.y;
-        
-        corners = [];
-        
-        if (actualScrewCount === 1) {
-          // Single screw goes in the center
-          corners.push({ x: bodyPosition.x, y });
-        } else {
-          // Add 5px margin from capsule ends
-          const endMargin = 5;
-          const availableWidth = capsuleWidth - (2 * endMargin);
-          
-          // Distribute screws evenly within the available width (excluding margins)
-          const leftEdge = bodyPosition.x - capsuleWidth / 2 + endMargin;
-          
-          if (actualScrewCount === 2) {
-            // For 2 screws, place them near the ends but with margin
-            corners.push({ x: leftEdge + capsuleScrewRadius, y });
-            corners.push({ x: leftEdge + availableWidth - capsuleScrewRadius, y });
-          } else {
-            // For 3+ screws, distribute evenly across available width
-            for (let i = 0; i < actualScrewCount; i++) {
-              const t = i / (actualScrewCount - 1); // 0 to 1
-              const x = leftEdge + capsuleScrewRadius + t * (availableWidth - 2 * capsuleScrewRadius);
-              corners.push({ x, y });
-            }
-          }
-        }
-        
-        // No alternates for capsule - screws only go on top
-        alternates = [];
-        break;
-        
-      case 'arrow':
-      case 'chevron':
-      case 'star':
-      case 'horseshoe':
-        // For vertex-based shapes, use perimeter points
-        if (shape.body.vertices && shape.body.vertices.length > 0) {
-          const perimeterPoints = shape.getPerimeterPoints(8); // Get 8 evenly distributed points
-          
-          // Filter out points that are too close to the edge
-          const validPoints = perimeterPoints.filter(point => {
-            // Check if the point is inside the shape with enough margin
-            const distToEdge = this.getDistanceToNearestEdge(point, shape);
-            return distToEdge >= margin;
-          });
-          
-          // Use up to 4 points as corners
-          corners = validPoints.slice(0, 4);
-          alternates = validPoints.slice(4);
-        }
-        break;
-        
-      default:
-        // Fallback to just center
-        break;
-    }
-    
-    return { corners, center, alternates };
-  }
-
-  // Use utility function for distance calculations
-  private getDistanceToNearestEdge(point: Vector2, shape: Shape): number {
-    // Convert shape to vertices for the shared utility
-    if (shape.body?.vertices) {
-      const vertices = shape.body.vertices.map(v => ({ x: v.x, y: v.y }));
-      return getDistanceToNearestEdge(point, vertices);
-    }
-    return 0;
-  }
-
-  // Use shared utility function
-  private getShapeArea(shape: Shape): number {
-    return calculateShapeArea(shape);
-  }
-
   // Use utility functions for shape definition handling
-  private getShapeDefinition(shape: Shape): ShapeDefinition | null {
-    return getShapeDefinition(shape);
-  }
-
-  private getDefinitionIdFromShape(shape: Shape): string | null {
-    return getDefinitionIdFromShape(shape);
-  }
-
-  private getPositionsForStrategy(shape: Shape, definition: ShapeDefinition): Vector2[] {
-    const strategy = definition.screwPlacement.strategy;
-    
-    switch (strategy) {
-      case 'corners':
-        return this.getCornerPositions(shape, definition);
-      case 'perimeter':
-        return this.getPerimeterPositions(shape, definition);
-      case 'capsule':
-        return this.getCapsulePositions(shape, definition);
-      case 'custom':
-        return this.getCustomPositions(shape, definition);
-      default:
-        // Fallback to legacy positions
-        const legacy = this.getShapeScrewLocations(shape);
-        return [...legacy.corners, ...legacy.alternates, legacy.center];
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private getCornerPositions(shape: Shape, _definition: ShapeDefinition): Vector2[] {
-    const legacy = this.getShapeScrewLocations(shape);
-    return [...legacy.corners, ...legacy.alternates, legacy.center];
-  }
-
-  private getPerimeterPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
-    const perimeterPoints = definition.screwPlacement.perimeterPoints || 8;
-    const margin = definition.screwPlacement.perimeterMargin || 30;
-    
-    if (shape.vertices && shape.vertices.length > 0) {
-      const points = shape.getPerimeterPoints(perimeterPoints);
-      
-      // Filter out points too close to edge
-      const validPoints = points.filter(point => {
-        const distToEdge = this.getDistanceToNearestEdge(point, shape);
-        return distToEdge >= margin;
-      });
-      
-      // Add center position
-      validPoints.push({ ...shape.position });
-      
-      return validPoints;
-    }
-    
-    // Fallback to corners
-    return this.getCornerPositions(shape, definition);
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  private getCapsulePositions(shape: Shape, _definition: ShapeDefinition): Vector2[] {
-    const legacy = this.getShapeScrewLocations(shape);
-    return [...legacy.corners, legacy.center];
-  }
-
-  private getCustomPositions(shape: Shape, definition: ShapeDefinition): Vector2[] {
-    const customPositions = definition.screwPlacement.customPositions || [];
-    
-    // For composite bodies, use the physics body position
-    const bodyPosition = shape.isComposite ? shape.body.position : shape.position;
-    
-    return customPositions.map(pos => ({
-      x: bodyPosition.x + pos.position.x,
-      y: bodyPosition.y + pos.position.y
-    }));
-  }
 
   private getMaxScrewsFromDefinition(
     shape: Shape,
@@ -1141,7 +855,7 @@ export class ScrewManager extends BaseSystem {
     
     // Check area-based limits
     if (placement.maxScrews?.byArea) {
-      const shapeArea = this.getShapeArea(shape);
+      const shapeArea = calculateShapeArea(shape);
       
       for (const limit of placement.maxScrews.byArea) {
         if (shapeArea <= limit.maxArea) {
@@ -1160,7 +874,7 @@ export class ScrewManager extends BaseSystem {
     return new Screw(id, shapeId, position, color);
   }
 
-  // Use utility function for finding screw destinations
+  // Find screw destination with debug logging and state management
   private findScrewDestination(screw: Screw): { type: 'container' | 'holding_hole'; position: Vector2; id: string; holeIndex?: number } | null {
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`🔍 Finding destination for screw ${screw.id} (color: ${screw.color})`);
@@ -1170,8 +884,7 @@ export class ScrewManager extends BaseSystem {
       screw,
       this.state.containers,
       this.state.holdingHoles,
-      this.state.virtualGameWidth,
-      this.state.virtualGameHeight
+      this.state.virtualGameWidth
     );
     
     if (!destination) {
@@ -1181,17 +894,6 @@ export class ScrewManager extends BaseSystem {
     }
     
     return destination;
-  }
-
-  // Use utility function for determining destination type
-  private determineDestinationType(screw: Screw): 'container' | 'holding_hole' {
-    return determineDestinationType(
-      screw,
-      this.state.containers,
-      this.state.holdingHoles,
-      this.state.virtualGameWidth,
-      this.state.virtualGameHeight
-    );
   }
 
   private placeScrewInDestination(screw: Screw): void {
@@ -1351,9 +1053,7 @@ export class ScrewManager extends BaseSystem {
     });
     
     if (DEBUG_CONFIG.logScrewDebug) {
-    
       console.log(`Constraint created for screw ${screw.id}: offset (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
-    
     }
   }
 
@@ -1851,7 +1551,7 @@ export class ScrewManager extends BaseSystem {
         continue; // Skip shapes behind the screw
       }
 
-      if (this.isScrewAreaBlocked(screw, shape, true)) {
+      if (isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true)) {
         return false;
       }
     }
@@ -1883,27 +1583,12 @@ export class ScrewManager extends BaseSystem {
         continue; // Skip shapes behind the screw
       }
 
-      if (this.isScrewAreaBlocked(screw, shape, true)) {
+      if (isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true)) {
         blockingShapes.push(shape);
       }
     }
 
     return blockingShapes;
-  }
-
-  // Use shared utility function
-  private isScrewAreaBlocked(screw: Screw, shape: Shape, precisCheck: boolean = false): boolean {
-    return isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, precisCheck);
-  }
-
-  // Use shared utility function
-  private isPointInShapeBoundsWithMargin(point: Vector2, shape: Shape): boolean {
-    return isPointInShapeBoundsWithMarginEnhanced(point, shape);
-  }
-
-  // Use shared utility function
-  private isCircleIntersectingShape(center: Vector2, radius: number, shape: Shape): boolean {
-    return isCircleIntersectingShape(center, radius, shape);
   }
 
   // All collision detection methods moved to shared utilities
@@ -1954,9 +1639,7 @@ export class ScrewManager extends BaseSystem {
             });
             
             if (DEBUG_CONFIG.logScrewDebug) {
-            
               console.log(`Screw ${screw.id} collection completed`);
-            
             }
           }
         }
@@ -1995,9 +1678,7 @@ export class ScrewManager extends BaseSystem {
             });
             
             if (DEBUG_CONFIG.logScrewDebug) {
-            
               console.log(`Screw ${screw.id} transfer animation completed`);
-            
             }
           }
         }
@@ -2151,7 +1832,7 @@ export class ScrewManager extends BaseSystem {
           
           // Calculate positions for animation
           const fromPosition = this.state.holdingHoles[holeIndex].position;
-          const toPosition = this.calculateContainerHolePosition(containerIndex, emptyHoleIndex);
+          const toPosition = calculateContainerHolePosition(containerIndex, emptyHoleIndex, this.state.virtualGameWidth);
           
           // Start transfer animation
           this.emit({
@@ -2176,17 +1857,7 @@ export class ScrewManager extends BaseSystem {
       }
     });
   }
-
-  // Use utility function for calculating container hole positions
-  private calculateContainerHolePosition(containerIndex: number, holeIndex: number): Vector2 {
-    return calculateContainerHolePosition(
-      containerIndex,
-      holeIndex,
-      this.state.virtualGameWidth,
-      this.state.virtualGameHeight
-    );
-  }
-
+  
   protected onDestroy(): void {
     this.clearAllScrews();
   }

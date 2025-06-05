@@ -153,6 +153,7 @@ export class ShapeFactory {
       layerId,
       color,
       tint,
+      definition.id, // Pass the definition ID for strategy lookup
       {
         width: dimensions.width,
         height: dimensions.height,
@@ -542,7 +543,29 @@ export class ShapeFactory {
   }
 
   private static getShapeType(definition: ShapeDefinition): ShapeType {
-    // First try to map based on physics type for better accuracy
+    // Check definition ID first for specific shapes
+    const typeMapping: Record<string, ShapeType> = {
+      'rectangle': 'rectangle',
+      'square': 'square',
+      'circle': 'circle',
+      'triangle': 'polygon',
+      'pentagon': 'polygon',
+      'hexagon': 'polygon',
+      'heptagon': 'polygon',
+      'octagon': 'polygon',
+      'capsule': 'capsule',
+      'arrow': 'arrow',
+      'chevron': 'chevron',
+      'star': 'star',
+      'horseshoe': 'horseshoe',
+    };
+    
+    // Return specific type if found in mapping
+    if (typeMapping[definition.id]) {
+      return typeMapping[definition.id];
+    }
+    
+    // Fallback to physics type for unrecognized definitions
     if (definition.physics.type === 'polygon') {
       return 'polygon';
     }
@@ -570,24 +593,7 @@ export class ShapeFactory {
       return 'star'; // Fallback for path-based shapes
     }
     
-    // Fallback: Map definition IDs to ShapeTypes for backwards compatibility
-    const typeMapping: Record<string, ShapeType> = {
-      'rectangle': 'rectangle',
-      'square': 'polygon',
-      'circle': 'circle',
-      'triangle': 'polygon',
-      'pentagon': 'polygon',
-      'hexagon': 'polygon',
-      'heptagon': 'polygon',
-      'octagon': 'polygon',
-      'capsule': 'capsule',
-      'arrow': 'arrow',
-      'chevron': 'chevron',
-      'star': 'star',
-      'horseshoe': 'horseshoe',
-    };
-    
-    return typeMapping[definition.id] || 'circle';
+    return 'circle';
   }
 
   private static findValidPosition(
@@ -733,6 +739,7 @@ export class ShapeFactory {
       layerId,
       color,
       tint,
+      'circle', // Use 'circle' as the definition ID for fallback shapes
       { radius }
     );
   }

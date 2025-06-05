@@ -40,7 +40,7 @@ export class CornerStrategy extends BasePlacementStrategy {
     let corners: Vector2[] = [];
     
     // Handle different shape types
-    if (this.isPathShape(shape)) {
+    if (['arrow', 'chevron', 'star', 'horseshoe'].includes(shape.type)) {
       corners = this.calculatePathShapeCorners(shape, margin);
     } else if (shape.radius && shape.radius > 0) {
       corners = this.calculateCircleCorners(shape, margin);
@@ -52,9 +52,6 @@ export class CornerStrategy extends BasePlacementStrategy {
     return this.applyMinSeparation(corners, minSeparation);
   }
 
-  private isPathShape(shape: Shape): boolean {
-    return ['arrow', 'chevron', 'star', 'horseshoe'].includes(shape.type);
-  }
 
   private calculatePathShapeCorners(shape: Shape, margin: number): Vector2[] {
     const vertices = getShapeVertices(shape);

@@ -5,6 +5,7 @@ import { UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 export class Shape implements IShape {
   public id: string;
   public type: ShapeType;
+  public definitionId: string; // Store the original definition ID for strategy lookup
   public position: Vector2;
   public rotation: number;
   public width?: number;
@@ -29,6 +30,7 @@ export class Shape implements IShape {
     layerId: string,
     color: string,
     tint: string,
+    definitionId: string, // Add definitionId parameter
     dimensions?: {
       width?: number;
       height?: number;
@@ -47,6 +49,7 @@ export class Shape implements IShape {
     
     this.id = id;
     this.type = type;
+    this.definitionId = definitionId;
     this.position = position;
     this.rotation = 0;
     this.body = body;

@@ -51,7 +51,7 @@ export class CapsuleStrategy extends BasePlacementStrategy {
     
     if (this.isCapsuleShape(shape)) {
       return this.calculateTrueCapsulePositions(shape, endMargin);
-    } else if (this.isPathShape(shape)) {
+    } else if (['arrow', 'chevron', 'star', 'horseshoe'].includes(shape.type)) {
       return this.calculatePathBasedCapsulePositions(shape, endMargin);
     } else {
       // Fallback for other shapes - use corners and center
@@ -68,9 +68,6 @@ export class CapsuleStrategy extends BasePlacementStrategy {
     return aspectRatio > 2; // Arbitrary threshold for capsule-like shapes
   }
 
-  private isPathShape(shape: Shape): boolean {
-    return ['arrow', 'chevron', 'star', 'horseshoe'].includes(shape.type);
-  }
 
   private calculateTrueCapsulePositions(shape: Shape, endMargin: number): Vector2[] {
     const { x, y } = shape.position;

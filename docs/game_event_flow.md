@@ -329,6 +329,9 @@ The EventBus includes loop detection (max 50 loops per event type/source) to pre
 2. **Event Loop Prevention**: Duplicate removal checks prevent cascading physics events
 3. **Unified Polygon System**: Reduced shape type complexity simplifies event patterns
 4. **State Deduplication**: Constraint/anchor body removal events only emit when state actually changes
+5. **Coordinate System Fix**: Fixed screw container/holding hole positioning to use proper Canvas coordinates (y=0 at top)
+6. **Strategy System Integration**: Shape type determination now prioritizes definition ID over physics type for accurate strategy selection
+7. **Code Deduplication**: Eliminated redundant wrapper methods throughout game and editor systems
 
 ### Orphaned/Unused Events
 The following events are defined in EventTypes.ts but have no active emitters or subscribers:

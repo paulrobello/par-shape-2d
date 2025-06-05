@@ -268,6 +268,7 @@ export class PhysicsSimulator extends BaseEditorSystem {
         'physics-layer',
         '#007bff', // Keep blue color consistent with editor
         '#007bff', // Keep blue tint consistent with editor
+        shapeData.shape.id, // definitionId
         {
           radius: shapeData.shape.radius,
           width: shapeData.shape.width,

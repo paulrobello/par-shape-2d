@@ -41,6 +41,8 @@ PAR Shape 2D is a 2D physics-based puzzle game where players must strategically 
 - Intelligent auto-transfer system from holding holes to matching containers
 - Visual warning system with pulsing red border when game over is imminent
 - Progressive difficulty with increasing layer counts every 3 levels
+- **Fixed Coordinate System**: Proper Canvas coordinate handling (y=0 at top) for accurate positioning
+- **Enhanced Strategy Selection**: Shape placement strategies now use definition ID for precise targeting
 
 ## Event-Driven Architecture
 

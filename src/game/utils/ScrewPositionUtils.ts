@@ -8,6 +8,7 @@ import { Shape } from '@/game/entities/Shape';
 import { ShapeDefinition } from '@/types/shapes';
 import { ShapeRegistry } from '@/game/systems/ShapeRegistry';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { CapsuleStrategy } from '@/shared/strategies';
 
 /**
  * Calculate optimal screw positions for a shape using JSON-defined strategy
@@ -236,20 +237,8 @@ export function getShapeDefinition(shape: Shape): ShapeDefinition | null {
  * Determine the definition ID from a shape instance
  */
 export function getDefinitionIdFromShape(shape: Shape): string | null {
-  // Map shape types to definition IDs
-  const typeMapping: Record<string, string> = {
-    'circle': 'circle',
-    'rectangle': 'rectangle', 
-    'polygon': 'polygon',
-    'capsule': 'capsule',
-    // Path-based shapes
-    'arrow': 'arrow',
-    'chevron': 'chevron',
-    'star': 'star',
-    'horseshoe': 'horseshoe'
-  };
-  
-  return typeMapping[shape.type] || null;
+  // Simply return the stored definition ID
+  return shape.definitionId || null;
 }
 
 /**
@@ -458,12 +447,29 @@ export function getPerimeterPositions(shape: Shape, definition: ShapeDefinition)
 }
 
 /**
- * Get capsule-specific positions
+ * Get capsule-specific positions using shared strategy
  */
 export function getCapsulePositions(shape: Shape): Vector2[] {
-  const locations = getShapeScrewLocations(shape);
-  // Include both corners and center for capsule strategy
-  return [...locations.corners, locations.center];
+  // Use the shared CapsuleStrategy for proper positioning
+  const strategy = new CapsuleStrategy();
+  
+  // Get shape definition for proper configuration
+  const definition = getShapeDefinition(shape);
+  const defaultConfig = {
+    strategy: 'capsule' as const,
+    capsuleEndMargin: 15,
+    minSeparation: 48
+  };
+  
+  // Use definition config if available, otherwise use defaults
+  const config = definition?.screwPlacement || defaultConfig;
+  
+  const context = {
+    shape,
+    config
+  };
+  
+  return strategy.calculatePositions(context);
 }
 
 /**
