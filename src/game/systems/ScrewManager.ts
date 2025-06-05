@@ -996,18 +996,20 @@ export class ScrewManager extends BaseSystem {
       console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
     }
     
-    // For composite bodies, use the actual physics body position, not the Shape entity position
-    const bodyPosition = shape.body.position;
-    const offsetX = screw.position.x - bodyPosition.x;
-    const offsetY = screw.position.y - bodyPosition.y;
+    // For composite bodies, we should use the shape's position for offset calculation
+    // because the body.position is the center of mass which may differ from the shape's position
+    const referencePosition = shape.position;
+    const offsetX = screw.position.x - referencePosition.x;
+    const offsetY = screw.position.y - referencePosition.y;
     
     // Debug logging for composite bodies
     if (shape.isComposite) {
       if (DEBUG_CONFIG.logPhysicsDebug) {
         console.log(`🔧 COMPOSITE CONSTRAINT DEBUG:`);
         console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-        console.log(`  Body.position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
+        console.log(`  Body.position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
         console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+        console.log(`  Using shape.position for offset calculation`);
         console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
       }
     }
