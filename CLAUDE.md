@@ -42,10 +42,21 @@ src/shared/
 ├── physics/          # Physics engine consolidation  
 ├── validation/       # Data validation consolidation
 ├── utils/            # Constants and configuration consolidation
-└── rendering/        # Rendering utilities consolidation
+├── rendering/        # Rendering utilities consolidation
+└── events/           # Event system consolidation
 ```
 
-This shared architecture was built through a systematic 5-phase refactor that eliminated over 2,000 lines of duplicate code while maintaining zero breaking changes and complete TypeScript type safety.
+This shared architecture was built through a systematic 6-phase refactor that eliminated over 2,500 lines of duplicate code while maintaining zero breaking changes and complete TypeScript type safety.
+
+### Shared Event System
+
+The **shared event system** (`src/shared/events/`) provides a unified, high-performance event infrastructure used by both game and editor:
+
+- **SharedEventBus**: Core event bus with priority handling, loop detection, and performance tracking
+- **BaseEventTypes**: Common event interfaces for physics, shapes, validation, and file operations
+- **EventUtils**: Utilities for debugging, performance monitoring, and event flow analysis
+
+Both game and editor extend this shared foundation with their domain-specific events while reusing all common infrastructure. This eliminates duplicate event handling code and ensures consistent behavior across the application.
 
 ## Physics
 

@@ -6,6 +6,7 @@ import { eventBus } from './EventBus';
 import { eventLogger } from './EventLogger';
 import { GameEvent, EventPriority } from './EventTypes';
 import { DEBUG_CONFIG } from '../utils/Constants';
+import { EventHistory } from '@/shared/events';
 
 export interface EventDebugInfo {
   subscriptions: Map<string, Array<{
@@ -23,11 +24,7 @@ export interface EventDebugInfo {
     queueSize: number;
     subscriptionCount: number;
   };
-  recentEvents: Array<{
-    event: GameEvent;
-    handlers: number;
-    duration: number;
-  }>;
+  recentEvents: EventHistory[];
   frequencyStats: Map<string, {
     count: number;
     totalDuration: number;

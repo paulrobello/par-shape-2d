@@ -82,12 +82,13 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `container:filled` | Container becomes full | GameState, ScrewManager | GameManager, GameState |
 | `container:replaced` | Container replacement | GameState | GameManager |
 | `container:colors:updated` | Container color changes | GameState | ScrewManager, LayerManager |
-| `container:state:updated` | Container state changes | GameState | GameManager, ScrewManager |
+| `container:state:updated` | Container state synchronization | GameState | GameManager, ScrewManager |
 | `holding_hole:filled` | Holding hole occupied | GameState, ScrewManager | GameManager, GameState |
 | `holding_holes:full` | All holding holes full | GameState | GameManager |
 | `holding_holes:available` | Holding holes freed up, timer cancelled | GameState | GameManager |
-| `holding_hole:state:updated` | Holding hole state changes | GameState | GameManager, ScrewManager |
+| `holding_hole:state:updated` | Holding hole state synchronization | GameState | GameManager, ScrewManager |
 | `screw_colors:requested` | Request for active screw colors | GameState | ScrewManager |
+| `screw:transfer:color_check` | Validate screw colors for automated transfers | GameState | ScrewManager |
 
 ### Physics Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -100,7 +101,6 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `physics:constraint:removed` | Constraint removal | ScrewManager | PhysicsWorld |
 | `physics:collision:detected` | Collision detection | PhysicsWorld | GameManager |
 | `physics:step:completed` | Physics step completion | PhysicsWorld | None |
-| `physics:error` | Physics simulation errors | PhysicsWorld | None |
 
 ### Save/Restore Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -121,26 +121,28 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 ### Debug Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
-| `debug:mode:toggled` | Debug mode toggle | GameManager | GameManager, EventFlowValidator |
-| `debug:info:requested` | Debug data request | GameManager, EventFlowValidator | GameManager |
-| `debug:performance:test` | Performance testing | None | EventDebugger |
+| `debug:performance:test` | Performance testing | EventDebugger | EventDebugger |
 
 ### Error Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
-| `system:error` | System-level errors | None | None |
-| `save:error` | Save/restore errors | None | None |
+| `physics:error` | Physics simulation errors | PhysicsWorld | None |
 
 ### Rendering Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
-| `render:requested` | Render frame request | None | None |
 | `bounds:changed` | Canvas bounds update | GameManager | PhysicsWorld, LayerManager, GameState, ScrewManager |
 
 ### System Coordination Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
 | `system:ready` | System initialization complete | SystemCoordinator | EventFlowValidator |
+
+### Validation and Monitoring Events
+| Event Type | Purpose | Emitters | Subscribers |
+|------------|---------|----------|-------------|
+| `debug:mode:toggled` | Debug mode toggle | GameManager | GameManager, EventFlowValidator |
+| `debug:info:requested` | Debug data request | GameManager, EventFlowValidator | GameManager |
 
 ## Event Flow Diagrams
 
@@ -202,9 +204,13 @@ If BLOCKED:
 
 ### Container Transfer Flow
 ```
+GameState → screw:transfer:color_check
+    ↓
+ScrewManager validates color match
+    ↓
 GameState → screw:transfer:started
     ↓
-ScrewManager → screw:transfer:completed
+ScrewManager → screw:transfer:completed OR screw:transfer:failed
     ↓
 GameState → container:state:updated, holding_hole:state:updated
     ↓
@@ -266,12 +272,13 @@ Game continues without game over threat
 3. **Level Progression Chain**: `layer:cleared` → `all_layers:cleared` → `level:complete` → `next_level:requested` → `level:started`
 4. **Save Chain**: `save:requested` → (multiple handlers) → `save:completed`
 5. **Container Chain**: `screw:collected` → `container:filled` → `container:replaced` → `container:colors:updated`
-6. **Holding Holes Timer Chain**: `holding_holes:full` → timer started → `holding_holes:available` → timer cancelled
-7. **Physics Cleanup Chain**: `screw:removed` → `physics:constraint:removed` + `physics:body:removed:immediate` → PhysicsWorld cleanup
-8. **Atomic Physics Removal**: `screw:removed` → `physics:screw:removed:immediate` → PhysicsWorld atomic cleanup (preferred)
+6. **Container Transfer Chain**: `screw:transfer:color_check` → `screw:transfer:started` → `screw:transfer:completed/failed` → `container:state:updated`
+7. **Holding Holes Timer Chain**: `holding_holes:full` → timer started → `holding_holes:available` → timer cancelled
+8. **Physics Cleanup Chain**: `screw:removed` → `physics:constraint:removed` + `physics:body:removed:immediate` → PhysicsWorld cleanup
+9. **Atomic Physics Removal**: `screw:removed` → `physics:screw:removed:immediate` → PhysicsWorld atomic cleanup (preferred)
 
 ### Event Priority Analysis
-- **EventFlowValidator**: Uses priority 3 (highest) for monitoring all major events
+- **EventFlowValidator**: Uses EventPriority.CRITICAL (3) for monitoring all major events
 - **All other systems**: Use default priority (EventPriority.NORMAL = 1)
 - **EventDebugger**: Uses default priority for specialized debug events
 
@@ -330,9 +337,17 @@ The following events are defined in EventTypes.ts but have no active emitters or
 - **`system:error`** - Defined but no emitters or subscribers found
 - **`save:error`** - Defined but no emitters or subscribers found
 - **`render:requested`** - Defined but no emitters or subscribers found
-- **`debug:performance:test`** - Has subscriber (EventDebugger) but no emitters found
+- **`screw:blocked`** - Defined but no emitters found
+- **`screw:unblocked`** - Defined but no emitters found
 
 These events should either be implemented with proper emitters/subscribers or removed from the type definitions to maintain clean architecture.
+
+### EventFlowValidator System
+A comprehensive monitoring system that subscribes to critical events for validation and debugging:
+
+**Subscribes to**: `game:started`, `game:over`, `level:started`, `level:complete`, `screw:clicked`, `screw:removed`, `screw:collected`, `shape:created`, `layer:created`, `physics:body:added`, `physics:constraint:added`, `save:requested`, `restore:requested`, `debug:mode:toggled`, `system:ready`
+
+**Priority**: Uses EventPriority.CRITICAL (3) for highest priority monitoring
 
 ---
 

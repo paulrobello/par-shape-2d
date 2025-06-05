@@ -56,7 +56,7 @@ export abstract class BaseEditorSystem {
     handler: EditorEventHandler<T>,
     priority: EditorEventPriority = EditorEventPriority.NORMAL
   ): void {
-    const subscriptionId = this.eventBus.subscribe(eventType, handler, priority);
+    const subscriptionId = this.eventBus.subscribe(eventType, handler, { priority });
     this.subscriptions.push(subscriptionId);
   }
 

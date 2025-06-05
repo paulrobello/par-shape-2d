@@ -66,7 +66,7 @@ export class EventFlowValidator {
     // Create a detailed log entry
     const logEntry = {
       type: event.type,
-      timestamp: new Date(event.timestamp).toISOString(),
+      timestamp: new Date(event.timestamp || Date.now()).toISOString(),
       source: event.source || 'unknown',
       priority: event.priority || 'normal',
       data: this.extractEventData(event)

@@ -6,22 +6,10 @@ import { Shape } from '../entities/Shape';
 import { Layer } from '../entities/Layer';
 import { Screw, ScrewColor } from '@/types/game';
 import Matter from 'matter-js';
+import { BaseEvent, EventPriority, EventHandler, EventSubscriptionOptions } from '@/shared/events';
 
-// Event priority levels
-export enum EventPriority {
-  LOW = 0,
-  NORMAL = 1,
-  HIGH = 2,
-  CRITICAL = 3
-}
-
-// Base event interface
-export interface BaseEvent {
-  type: string;
-  timestamp: number;
-  source?: string;
-  priority?: EventPriority;
-}
+// Re-export shared types for backward compatibility
+export { EventPriority, type EventHandler, type EventSubscriptionOptions };
 
 // Game lifecycle events
 export interface GameStartedEvent extends BaseEvent {
@@ -505,12 +493,5 @@ export type GameEvent =
   | BoundsChangedEvent
   | SystemReadyEvent;
 
-// Event handler type
-export type EventHandler<T extends GameEvent = GameEvent> = (event: T) => void | Promise<void>;
-
-// Event subscription options
-export interface EventSubscriptionOptions {
-  priority?: EventPriority;
-  once?: boolean;
-  source?: string;
-}
+// Game-specific event handler type
+export type GameEventHandler<T extends GameEvent = GameEvent> = EventHandler<T>;

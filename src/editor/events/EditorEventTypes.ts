@@ -1,14 +1,15 @@
 import { ShapeDefinition } from '@/types/shapes';
+import { BaseEvent, EventHandler } from '@/shared/events';
 
 // File Management Events
-export interface EditorFileLoadRequestedEvent {
+export interface EditorFileLoadRequestedEvent extends BaseEvent {
   type: 'editor:file:load:requested';
   payload: {
     file: File;
   };
 }
 
-export interface EditorFileLoadCompletedEvent {
+export interface EditorFileLoadCompletedEvent extends BaseEvent {
   type: 'editor:file:load:completed';
   payload: {
     shapeDefinition: ShapeDefinition;
@@ -16,7 +17,7 @@ export interface EditorFileLoadCompletedEvent {
   };
 }
 
-export interface EditorFileLoadFailedEvent {
+export interface EditorFileLoadFailedEvent extends BaseEvent {
   type: 'editor:file:load:failed';
   payload: {
     error: string;
@@ -24,7 +25,7 @@ export interface EditorFileLoadFailedEvent {
   };
 }
 
-export interface EditorFileSaveRequestedEvent {
+export interface EditorFileSaveRequestedEvent extends BaseEvent {
   type: 'editor:file:save:requested';
   payload: {
     shapeDefinition: ShapeDefinition;
@@ -32,14 +33,14 @@ export interface EditorFileSaveRequestedEvent {
   };
 }
 
-export interface EditorFileSaveCompletedEvent {
+export interface EditorFileSaveCompletedEvent extends BaseEvent {
   type: 'editor:file:save:completed';
   payload: {
     filename: string;
   };
 }
 
-export interface EditorFileValidationFailedEvent {
+export interface EditorFileValidationFailedEvent extends BaseEvent {
   type: 'editor:file:validation:failed';
   payload: {
     errors: string[];
@@ -48,7 +49,7 @@ export interface EditorFileValidationFailedEvent {
 }
 
 // Property Management Events
-export interface EditorPropertyChangedEvent {
+export interface EditorPropertyChangedEvent extends BaseEvent {
   type: 'editor:property:changed';
   payload: {
     path: string;
@@ -57,7 +58,7 @@ export interface EditorPropertyChangedEvent {
   };
 }
 
-export interface EditorPropertyValidatedEvent {
+export interface EditorPropertyValidatedEvent extends BaseEvent {
   type: 'editor:property:validated';
   payload: {
     path: string;
@@ -66,14 +67,14 @@ export interface EditorPropertyValidatedEvent {
   };
 }
 
-export interface EditorPropertyRandomRequestedEvent {
+export interface EditorPropertyRandomRequestedEvent extends BaseEvent {
   type: 'editor:property:random:requested';
   payload: {
     paths?: string[]; // If not provided, randomize all
   };
 }
 
-export interface EditorPropertyResetRequestedEvent {
+export interface EditorPropertyResetRequestedEvent extends BaseEvent {
   type: 'editor:property:reset:requested';
   payload: {
     paths?: string[]; // If not provided, reset all
@@ -81,7 +82,7 @@ export interface EditorPropertyResetRequestedEvent {
 }
 
 // Shape Management Events
-export interface EditorShapeCreatedEvent {
+export interface EditorShapeCreatedEvent extends BaseEvent {
   type: 'editor:shape:created';
   payload: {
     shapeDefinition: ShapeDefinition;
@@ -89,7 +90,7 @@ export interface EditorShapeCreatedEvent {
   };
 }
 
-export interface EditorShapeUpdatedEvent {
+export interface EditorShapeUpdatedEvent extends BaseEvent {
   type: 'editor:shape:updated';
   payload: {
     shapeDefinition: ShapeDefinition;
@@ -97,21 +98,21 @@ export interface EditorShapeUpdatedEvent {
   };
 }
 
-export interface EditorShapeDestroyedEvent {
+export interface EditorShapeDestroyedEvent extends BaseEvent {
   type: 'editor:shape:destroyed';
   payload: {
     shapeId: string;
   };
 }
 
-export interface EditorShapeSelectedEvent {
+export interface EditorShapeSelectedEvent extends BaseEvent {
   type: 'editor:shape:selected';
   payload: {
     shapeId: string | null;
   };
 }
 
-export interface EditorShapePreviewUpdatedEvent {
+export interface EditorShapePreviewUpdatedEvent extends BaseEvent {
   type: 'editor:shape:preview:updated';
   payload: {
     shapeId: string;
@@ -119,7 +120,7 @@ export interface EditorShapePreviewUpdatedEvent {
 }
 
 // Screw Management Events
-export interface EditorScrewPlacementUpdatedEvent {
+export interface EditorScrewPlacementUpdatedEvent extends BaseEvent {
   type: 'editor:screw:placement:updated';
   payload: {
     shapeId: string;
@@ -127,7 +128,7 @@ export interface EditorScrewPlacementUpdatedEvent {
   };
 }
 
-export interface EditorScrewAddedEvent {
+export interface EditorScrewAddedEvent extends BaseEvent {
   type: 'editor:screw:added';
   payload: {
     shapeId: string;
@@ -136,7 +137,7 @@ export interface EditorScrewAddedEvent {
   };
 }
 
-export interface EditorScrewRemovedEvent {
+export interface EditorScrewRemovedEvent extends BaseEvent {
   type: 'editor:screw:removed';
   payload: {
     shapeId: string;
@@ -144,7 +145,7 @@ export interface EditorScrewRemovedEvent {
   };
 }
 
-export interface EditorScrewStrategyChangedEvent {
+export interface EditorScrewStrategyChangedEvent extends BaseEvent {
   type: 'editor:screw:strategy:changed';
   payload: {
     shapeId: string;
@@ -153,45 +154,45 @@ export interface EditorScrewStrategyChangedEvent {
 }
 
 // Physics Simulation Events
-export interface EditorPhysicsStartRequestedEvent {
+export interface EditorPhysicsStartRequestedEvent extends BaseEvent {
   type: 'editor:physics:start:requested';
   payload: {
     shapeId: string;
   };
 }
 
-export interface EditorPhysicsPauseRequestedEvent {
+export interface EditorPhysicsPauseRequestedEvent extends BaseEvent {
   type: 'editor:physics:pause:requested';
   payload: Record<string, never>;
 }
 
-export interface EditorPhysicsResetRequestedEvent {
+export interface EditorPhysicsResetRequestedEvent extends BaseEvent {
   type: 'editor:physics:reset:requested';
   payload: Record<string, never>;
 }
 
-export interface EditorPhysicsStepCompletedEvent {
+export interface EditorPhysicsStepCompletedEvent extends BaseEvent {
   type: 'editor:physics:step:completed';
   payload: {
     timestamp: number;
   };
 }
 
-export interface EditorPhysicsDebugToggledEvent {
+export interface EditorPhysicsDebugToggledEvent extends BaseEvent {
   type: 'editor:physics:debug:toggled';
   payload: {
     enabled: boolean;
   };
 }
 
-export interface EditorPhysicsSimulationShapeRequestedEvent {
+export interface EditorPhysicsSimulationShapeRequestedEvent extends BaseEvent {
   type: 'editor:physics:simulation:shape:requested';
   payload: {
     shapeId: string;
   };
 }
 
-export interface EditorPhysicsSimulationShapeProvidedEvent {
+export interface EditorPhysicsSimulationShapeProvidedEvent extends BaseEvent {
   type: 'editor:physics:simulation:shape:provided';
   payload: {
     shapeId: string;
@@ -212,7 +213,7 @@ export interface EditorPhysicsSimulationShapeProvidedEvent {
 }
 
 // UI State Events
-export interface EditorPanelToggledEvent {
+export interface EditorPanelToggledEvent extends BaseEvent {
   type: 'editor:panel:toggled';
   payload: {
     panel: string;
@@ -220,14 +221,14 @@ export interface EditorPanelToggledEvent {
   };
 }
 
-export interface EditorModeChangedEvent {
+export interface EditorModeChangedEvent extends BaseEvent {
   type: 'editor:mode:changed';
   payload: {
     mode: 'edit' | 'simulate' | 'debug';
   };
 }
 
-export interface EditorCanvasResizedEvent {
+export interface EditorCanvasResizedEvent extends BaseEvent {
   type: 'editor:canvas:resized';
   payload: {
     width: number;
@@ -236,7 +237,7 @@ export interface EditorCanvasResizedEvent {
 }
 
 // Drawing Tool Events (Phase 2)
-export interface EditorToolSelectedEvent {
+export interface EditorToolSelectedEvent extends BaseEvent {
   type: 'editor:tool:selected';
   payload: {
     toolName: string;
@@ -244,7 +245,7 @@ export interface EditorToolSelectedEvent {
   };
 }
 
-export interface EditorDrawingStartedEvent {
+export interface EditorDrawingStartedEvent extends BaseEvent {
   type: 'editor:drawing:started';
   payload: {
     toolName: string;
@@ -252,7 +253,7 @@ export interface EditorDrawingStartedEvent {
   };
 }
 
-export interface EditorDrawingProgressEvent {
+export interface EditorDrawingProgressEvent extends BaseEvent {
   type: 'editor:drawing:progress';
   payload: {
     toolName: string;
@@ -262,7 +263,7 @@ export interface EditorDrawingProgressEvent {
   };
 }
 
-export interface EditorDrawingPreviewUpdatedEvent {
+export interface EditorDrawingPreviewUpdatedEvent extends BaseEvent {
   type: 'editor:drawing:preview:updated';
   payload: {
     toolName: string;
@@ -270,7 +271,7 @@ export interface EditorDrawingPreviewUpdatedEvent {
   };
 }
 
-export interface EditorDrawingCompletedEvent {
+export interface EditorDrawingCompletedEvent extends BaseEvent {
   type: 'editor:drawing:completed';
   payload: {
     toolName: string;
@@ -278,7 +279,7 @@ export interface EditorDrawingCompletedEvent {
   };
 }
 
-export interface EditorDrawingCancelledEvent {
+export interface EditorDrawingCancelledEvent extends BaseEvent {
   type: 'editor:drawing:cancelled';
   payload: {
     toolName: string;
@@ -286,7 +287,7 @@ export interface EditorDrawingCancelledEvent {
   };
 }
 
-export interface EditorDrawingModeChangedEvent {
+export interface EditorDrawingModeChangedEvent extends BaseEvent {
   type: 'editor:drawing:mode:changed';
   payload: {
     mode: 'edit' | 'create';
@@ -294,7 +295,7 @@ export interface EditorDrawingModeChangedEvent {
   };
 }
 
-export interface EditorDrawingStateChangedEvent {
+export interface EditorDrawingStateChangedEvent extends BaseEvent {
   type: 'editor:drawing:state:changed';
   payload: {
     toolName: string;
@@ -304,14 +305,14 @@ export interface EditorDrawingStateChangedEvent {
 }
 
 // Grid System Events (Phase 2)
-export interface EditorGridToggledEvent {
+export interface EditorGridToggledEvent extends BaseEvent {
   type: 'editor:grid:toggled';
   payload: {
     enabled: boolean;
   };
 }
 
-export interface EditorGridSizeChangedEvent {
+export interface EditorGridSizeChangedEvent extends BaseEvent {
   type: 'editor:grid:size:changed';
   payload: {
     size: number;
@@ -319,14 +320,14 @@ export interface EditorGridSizeChangedEvent {
   };
 }
 
-export interface EditorGridSnapToggledEvent {
+export interface EditorGridSnapToggledEvent extends BaseEvent {
   type: 'editor:grid:snap:toggled';
   payload: {
     enabled: boolean;
   };
 }
 
-export interface EditorGridCoordinateSnappedEvent {
+export interface EditorGridCoordinateSnappedEvent extends BaseEvent {
   type: 'editor:grid:coordinate:snapped';
   payload: {
     original: { x: number; y: number };
@@ -335,7 +336,7 @@ export interface EditorGridCoordinateSnappedEvent {
 }
 
 // Error Events
-export interface EditorErrorValidationEvent {
+export interface EditorErrorValidationEvent extends BaseEvent {
   type: 'editor:error:validation';
   payload: {
     errors: string[];
@@ -343,7 +344,7 @@ export interface EditorErrorValidationEvent {
   };
 }
 
-export interface EditorErrorPhysicsEvent {
+export interface EditorErrorPhysicsEvent extends BaseEvent {
   type: 'editor:error:physics';
   payload: {
     error: string;
@@ -351,7 +352,7 @@ export interface EditorErrorPhysicsEvent {
   };
 }
 
-export interface EditorErrorFileEvent {
+export interface EditorErrorFileEvent extends BaseEvent {
   type: 'editor:error:file';
   payload: {
     error: string;
@@ -411,4 +412,4 @@ export type EditorEvent =
 export type EditorEventType = EditorEvent['type'];
 
 // Event handler type
-export type EditorEventHandler<T extends EditorEvent = EditorEvent> = (event: T) => void | Promise<void>;
+export type EditorEventHandler<T extends EditorEvent = EditorEvent> = EventHandler<T>;

@@ -301,7 +301,7 @@ export class EventLogger {
             .slice(-50)
             .find(log => 
               log.event.type === historyEntry.event.type &&
-              Math.abs(log.timestamp - historyEntry.event.timestamp) < 100
+              Math.abs(log.timestamp - (historyEntry.event.timestamp || 0)) < 100
             );
           
           if (recentLog) {
