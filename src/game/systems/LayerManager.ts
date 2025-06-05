@@ -343,18 +343,8 @@ export class LayerManager extends BaseSystem {
               body: shape.body // Include the actual body so PhysicsWorld can add it
             });
             
-            // For composite shapes, also emit events for parts
-            if (shape.isComposite && shape.parts) {
-              shape.parts.forEach((part) => {
-                this.emit({
-                  type: 'physics:body:added',
-                  timestamp: Date.now(),
-                  bodyId: part.id.toString(),
-                  shape,
-                  body: part
-                });
-              });
-            }
+            // NOTE: For composite bodies, we only add the parent body to the physics world
+            // Individual parts should NOT be added separately - Matter.js handles them automatically
           } else {
             console.log(`Shape ${shape.id} placement attempt ${attempt + 1} failed - out of bounds`);
           }
