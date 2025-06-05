@@ -19,12 +19,18 @@ import {
   getMaxScrewsForShape as getMaxScrewsFromPositions,
 } from '@/game/utils/ScrewPositionUtils';
 import {
-  ScrewPlacementStrategyFactory,
-  selectNonOverlappingPositions
+  ScrewPlacementStrategyFactory
 } from '@/shared/strategies';
 import {
-  getDistanceToNearestEdge
+  getDistanceToNearestEdge,
+  isCircleIntersectingShape,
+  isScrewAreaBlocked,
+  isPointInShapeBoundsWithMarginEnhanced
 } from '@/shared/utils/CollisionUtils';
+import {
+  calculateShapeArea,
+  selectNonOverlappingPositions
+} from '@/shared/utils/GeometryUtils';
 import {
   calculateContainerHolePosition,
   findScrewDestination,
@@ -842,42 +848,9 @@ export class ScrewManager extends BaseSystem {
     return getMaxScrewsFromPositions(shape, positions);
   }
 
+  // Use shared utility function
   private selectNonOverlappingPositions(positions: Vector2[], count: number, minSeparation: number): Vector2[] {
-    if (positions.length === 0) return [];
-    if (count === 1) return [positions[positions.length - 1]]; // Use center (last position)
-    
-    const selected: Vector2[] = [];
-    const available = [...positions];
-    
-    // Shuffle positions for random selection
-    for (let i = available.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [available[i], available[j]] = [available[j], available[i]];
-    }
-    
-    for (const position of available) {
-      if (selected.length >= count) break;
-      
-      // Check if this position overlaps with any selected position
-      const overlaps = selected.some(selected => {
-        const distance = Math.sqrt(
-          Math.pow(position.x - selected.x, 2) + 
-          Math.pow(position.y - selected.y, 2)
-        );
-        return distance < minSeparation;
-      });
-      
-      if (!overlaps) {
-        selected.push(position);
-      }
-    }
-    
-    // If we couldn't place enough screws due to overlap, ensure we have at least the center
-    if (selected.length === 0 && positions.length > 0) {
-      selected.push(positions[positions.length - 1]); // Center is typically last
-    }
-    
-    return selected;
+    return selectNonOverlappingPositions(positions, count, minSeparation);
   }
 
   private getShapeScrewLocations(shape: Shape): { corners: Vector2[], center: Vector2, alternates: Vector2[] } {
@@ -1075,42 +1048,9 @@ export class ScrewManager extends BaseSystem {
     return 0;
   }
 
+  // Use shared utility function
   private getShapeArea(shape: Shape): number {
-    switch (shape.type) {
-      case 'rectangle':
-        const width = shape.width || 60;
-        const height = shape.height || 60;
-        return width * height;
-      case 'square':
-        const size = shape.width || 60;
-        return size * size;
-      case 'circle':
-        const radius = shape.radius || 30;
-        return Math.PI * radius * radius;
-      case 'polygon':
-        const polygonRadius = shape.radius || 30;
-        const polygonSides = shape.sides || 5;
-        // General formula for regular polygon area: (n * r^2 * sin(2π/n)) / 2
-        return (polygonSides * polygonRadius * polygonRadius * Math.sin(2 * Math.PI / polygonSides)) / 2;
-      case 'capsule':
-        const capsuleWidth = shape.width || 120;
-        const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
-        const capsuleRadius = capsuleHeight / 2;
-        // Area = rectangle area + 2 semicircles (which equal one full circle)
-        const rectArea = (capsuleWidth - capsuleHeight) * capsuleHeight;
-        const circleArea = Math.PI * capsuleRadius * capsuleRadius;
-        return rectArea + circleArea;
-      case 'arrow':
-      case 'chevron':
-      case 'star':
-      case 'horseshoe':
-        // For vertex-based shapes, calculate area from bounds
-        const bounds = shape.getBounds();
-        // Use 70% of bounding box area as approximation
-        return bounds.width * bounds.height * 0.7;
-      default:
-        return 3600;
-    }
+    return calculateShapeArea(shape);
   }
 
   // Use utility functions for shape definition handling
@@ -1951,238 +1891,22 @@ export class ScrewManager extends BaseSystem {
     return blockingShapes;
   }
 
+  // Use shared utility function
   private isScrewAreaBlocked(screw: Screw, shape: Shape, precisCheck: boolean = false): boolean {
-    if (precisCheck) {
-      // Use actual screw radius plus a small margin for better blocking detection
-      return this.isCircleIntersectingShape(screw.position, UI_CONSTANTS.screws.radius + 1, shape);
-    } else {
-      return this.isPointInShapeBoundsWithMargin(screw.position, shape);
-    }
+    return isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, precisCheck);
   }
 
+  // Use shared utility function
   private isPointInShapeBoundsWithMargin(point: Vector2, shape: Shape): boolean {
-    const bounds = shape.getBounds();
-    const margin = 2;
-    return (
-      point.x >= bounds.x + margin &&
-      point.x <= bounds.x + bounds.width - margin &&
-      point.y >= bounds.y + margin &&
-      point.y <= bounds.y + bounds.height - margin
-    );
+    return isPointInShapeBoundsWithMarginEnhanced(point, shape);
   }
 
+  // Use shared utility function
   private isCircleIntersectingShape(center: Vector2, radius: number, shape: Shape): boolean {
-    switch (shape.type) {
-      case 'circle':
-        return this.isCircleIntersectingCircle(center, radius, shape);
-      case 'rectangle':
-      case 'square':
-        return this.isCircleIntersectingRectangle(center, radius, shape);
-      case 'polygon':
-        return this.isCircleIntersectingPolygon(center, radius, shape);
-      case 'capsule':
-        return this.isCircleIntersectingCapsule(center, radius, shape);
-      case 'arrow':
-      case 'chevron':
-      case 'star':
-      case 'horseshoe':
-        return this.isCircleIntersectingVertexShape(center, radius, shape);
-      default:
-        return false;
-    }
+    return isCircleIntersectingShape(center, radius, shape);
   }
 
-  private isCircleIntersectingCircle(center: Vector2, radius: number, shape: Shape): boolean {
-    const shapeRadius = shape.radius || 30;
-    const distance = Math.sqrt(
-      Math.pow(center.x - shape.position.x, 2) + 
-      Math.pow(center.y - shape.position.y, 2)
-    );
-    return distance < (radius + shapeRadius);
-  }
-
-  private isCircleIntersectingRectangle(center: Vector2, radius: number, shape: Shape): boolean {
-    const width = shape.width || 60;
-    const height = shape.height || 60;
-
-    const cos = Math.cos(-shape.rotation);
-    const sin = Math.sin(-shape.rotation);
-    const dx = center.x - shape.position.x;
-    const dy = center.y - shape.position.y;
-    const localX = dx * cos - dy * sin;
-    const localY = dx * sin + dy * cos;
-
-    const halfWidth = width / 2;
-    const halfHeight = height / 2;
-    const closestX = Math.max(-halfWidth, Math.min(halfWidth, localX));
-    const closestY = Math.max(-halfHeight, Math.min(halfHeight, localY));
-
-    const distanceSquared = Math.pow(localX - closestX, 2) + Math.pow(localY - closestY, 2);
-    return distanceSquared < (radius * radius);
-  }
-
-  private isCircleIntersectingPolygon(center: Vector2, radius: number, shape: Shape): boolean {
-    const shapeRadius = shape.radius || 30;
-    const sides = shape.sides || 5; // Default to 5 sides if not specified
-    
-    // Transform screw center to local coordinates (same as rectangle method)
-    const cos = Math.cos(-shape.rotation);
-    const sin = Math.sin(-shape.rotation);
-    const dx = center.x - shape.position.x;
-    const dy = center.y - shape.position.y;
-    const localX = dx * cos - dy * sin;
-    const localY = dx * sin + dy * cos;
-    
-    // For precise polygon intersection, we need to check if the circle intersects with the polygon
-    // Generate the polygon vertices in local space
-    const vertices: Vector2[] = [];
-    for (let i = 0; i < sides; i++) {
-      const angle = (i * Math.PI * 2) / sides - Math.PI / 2; // Start from top
-      vertices.push({
-        x: Math.cos(angle) * shapeRadius,
-        y: Math.sin(angle) * shapeRadius
-      });
-    }
-    
-    // Check if circle center is inside polygon
-    if (this.isPointInPolygon({ x: localX, y: localY }, vertices)) {
-      return true;
-    }
-    
-    // Check if circle intersects any edge of the polygon
-    for (let i = 0; i < vertices.length; i++) {
-      const v1 = vertices[i];
-      const v2 = vertices[(i + 1) % vertices.length];
-      
-      if (this.isCircleIntersectingLineSegment({ x: localX, y: localY }, radius, v1, v2)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
-  
-  private isPointInPolygon(point: Vector2, vertices: Vector2[]): boolean {
-    let inside = false;
-    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
-      if (((vertices[i].y > point.y) !== (vertices[j].y > point.y)) &&
-          (point.x < (vertices[j].x - vertices[i].x) * (point.y - vertices[i].y) / (vertices[j].y - vertices[i].y) + vertices[i].x)) {
-        inside = !inside;
-      }
-    }
-    return inside;
-  }
-  
-  private isCircleIntersectingLineSegment(center: Vector2, radius: number, p1: Vector2, p2: Vector2): boolean {
-    // Find the closest point on the line segment to the circle center
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    const lengthSquared = dx * dx + dy * dy;
-    
-    if (lengthSquared === 0) {
-      // Degenerate case: line segment is a point
-      const distanceSquared = Math.pow(center.x - p1.x, 2) + Math.pow(center.y - p1.y, 2);
-      return distanceSquared <= radius * radius;
-    }
-    
-    // Project center onto the line
-    const t = Math.max(0, Math.min(1, ((center.x - p1.x) * dx + (center.y - p1.y) * dy) / lengthSquared));
-    const closestPoint = {
-      x: p1.x + t * dx,
-      y: p1.y + t * dy
-    };
-    
-    // Check distance from center to closest point
-    const distanceSquared = Math.pow(center.x - closestPoint.x, 2) + Math.pow(center.y - closestPoint.y, 2);
-    return distanceSquared <= radius * radius;
-  }
-
-  private isCircleIntersectingCapsule(center: Vector2, radius: number, shape: Shape): boolean {
-    const capsuleWidth = shape.width || 120;
-    const capsuleHeight = shape.height || (UI_CONSTANTS.screws.radius * 2 + 10);
-    const capsuleRadius = capsuleHeight / 2; // Radius of the semicircle ends
-    
-    // Transform screw center to local coordinates (same as rectangle method)
-    const cos = Math.cos(-shape.rotation);
-    const sin = Math.sin(-shape.rotation);
-    const dx = center.x - shape.position.x;
-    const dy = center.y - shape.position.y;
-    const localX = dx * cos - dy * sin;
-    const localY = dx * sin + dy * cos;
-    
-    // Capsule geometry: rectangle in the middle + two circles at the ends
-    const rectWidth = capsuleWidth - (2 * capsuleRadius);
-    
-    // Check intersection with the middle rectangle (in local coordinates)
-    const halfRectWidth = rectWidth / 2;
-    const halfCapsuleHeight = capsuleHeight / 2;
-    const closestX = Math.max(-halfRectWidth, Math.min(halfRectWidth, localX));
-    const closestY = Math.max(-halfCapsuleHeight, Math.min(halfCapsuleHeight, localY));
-    
-    const rectDistanceSquared = Math.pow(localX - closestX, 2) + Math.pow(localY - closestY, 2);
-    if (rectDistanceSquared < (radius * radius)) {
-      return true;
-    }
-    
-    // Check intersection with left semicircle (in local coordinates)
-    const leftCircleLocalX = -rectWidth / 2;
-    const leftCircleLocalY = 0;
-    const leftDistanceSquared = Math.pow(localX - leftCircleLocalX, 2) + Math.pow(localY - leftCircleLocalY, 2);
-    if (leftDistanceSquared < Math.pow(radius + capsuleRadius, 2)) {
-      return true;
-    }
-    
-    // Check intersection with right semicircle (in local coordinates)
-    const rightCircleLocalX = rectWidth / 2;
-    const rightCircleLocalY = 0;
-    const rightDistanceSquared = Math.pow(localX - rightCircleLocalX, 2) + Math.pow(localY - rightCircleLocalY, 2);
-    if (rightDistanceSquared < Math.pow(radius + capsuleRadius, 2)) {
-      return true;
-    }
-    
-    return false;
-  }
-
-  private isCircleIntersectingVertexShape(center: Vector2, radius: number, shape: Shape): boolean {
-    // For shapes defined by vertices (arrow, chevron, star, horseshoe)
-    if (!shape.body.vertices || shape.body.vertices.length === 0) {
-      return false;
-    }
-    
-    const vertices = shape.body.vertices;
-    
-    // Transform screw center to local coordinates
-    const cos = Math.cos(-shape.rotation);
-    const sin = Math.sin(-shape.rotation);
-    const dx = center.x - shape.position.x;
-    const dy = center.y - shape.position.y;
-    const localX = dx * cos - dy * sin;
-    const localY = dx * sin + dy * cos;
-    const localCenter = { x: localX, y: localY };
-    
-    // Transform vertices to local coordinates relative to shape position
-    const localVertices: Vector2[] = vertices.map(v => ({
-      x: (v.x - shape.position.x) * cos - (v.y - shape.position.y) * sin,
-      y: (v.x - shape.position.x) * sin + (v.y - shape.position.y) * cos
-    }));
-    
-    // Check if circle center is inside the polygon
-    if (this.isPointInPolygon(localCenter, localVertices)) {
-      return true;
-    }
-    
-    // Check if circle intersects any edge of the polygon
-    for (let i = 0; i < localVertices.length; i++) {
-      const v1 = localVertices[i];
-      const v2 = localVertices[(i + 1) % localVertices.length];
-      
-      if (this.isCircleIntersectingLineSegment(localCenter, radius, v1, v2)) {
-        return true;
-      }
-    }
-    
-    return false;
-  }
+  // All collision detection methods moved to shared utilities
 
   public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }): boolean {
     return this.executeIfActive(() => {

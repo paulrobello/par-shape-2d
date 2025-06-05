@@ -5,7 +5,7 @@
 
 import { Vector2 } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
-import { isCircleIntersectingPolygon as isCircleIntersectingVertices } from './GeometryUtils';
+// Import removed - using local implementation instead
 
 /**
  * Check if a point is within shape bounds with margin
@@ -69,27 +69,75 @@ export function isCircleIntersectingCircle(center: Vector2, radius: number, shap
 }
 
 /**
- * Check if a circle intersects with a rectangle
+ * Check if a circle intersects with a rectangle (rotation-aware)
  */
 export function isCircleIntersectingRectangle(center: Vector2, radius: number, shape: Shape): boolean {
-  const bounds = shape.body.bounds;
-  
-  // Find the closest point on the rectangle to the circle center
-  const closestX = Math.max(bounds.min.x, Math.min(center.x, bounds.max.x));
-  const closestY = Math.max(bounds.min.y, Math.min(center.y, bounds.max.y));
-  
-  // Calculate distance from circle center to closest point
-  const distance = Math.sqrt(
-    Math.pow(center.x - closestX, 2) + Math.pow(center.y - closestY, 2)
-  );
-  
-  return distance <= radius;
+  const width = shape.width || 60;
+  const height = shape.height || 60;
+
+  // Handle rotation by transforming circle center to local coordinates
+  const cos = Math.cos(-shape.body.angle);
+  const sin = Math.sin(-shape.body.angle);
+  const dx = center.x - shape.body.position.x;
+  const dy = center.y - shape.body.position.y;
+  const localX = dx * cos - dy * sin;
+  const localY = dx * sin + dy * cos;
+
+  const halfWidth = width / 2;
+  const halfHeight = height / 2;
+  const closestX = Math.max(-halfWidth, Math.min(halfWidth, localX));
+  const closestY = Math.max(-halfHeight, Math.min(halfHeight, localY));
+
+  const distanceSquared = Math.pow(localX - closestX, 2) + Math.pow(localY - closestY, 2);
+  return distanceSquared < (radius * radius);
 }
 
 /**
- * Check if a circle intersects with a polygon
+ * Check if a circle intersects with a polygon (rotation-aware for regular polygons)
  */
 export function isCircleIntersectingPolygon(center: Vector2, radius: number, shape: Shape): boolean {
+  // For regular polygons, generate vertices in local space
+  if (shape.radius && shape.sides) {
+    const shapeRadius = shape.radius;
+    const sides = shape.sides;
+    
+    // Transform circle center to local coordinates
+    const cos = Math.cos(-shape.body.angle);
+    const sin = Math.sin(-shape.body.angle);
+    const dx = center.x - shape.body.position.x;
+    const dy = center.y - shape.body.position.y;
+    const localX = dx * cos - dy * sin;
+    const localY = dx * sin + dy * cos;
+    
+    // Generate polygon vertices in local space
+    const vertices: Vector2[] = [];
+    for (let i = 0; i < sides; i++) {
+      const angle = (i * Math.PI * 2) / sides - Math.PI / 2; // Start from top
+      vertices.push({
+        x: Math.cos(angle) * shapeRadius,
+        y: Math.sin(angle) * shapeRadius
+      });
+    }
+    
+    // Check if circle center is inside polygon
+    if (isPointInPolygon({ x: localX, y: localY }, vertices)) {
+      return true;
+    }
+    
+    // Check if circle intersects any edge of the polygon
+    for (let i = 0; i < vertices.length; i++) {
+      const v1 = vertices[i];
+      const v2 = vertices[(i + 1) % vertices.length];
+      
+      if (isCircleIntersectingLineSegment({ x: localX, y: localY }, radius, v1, v2)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Fallback to using body vertices for irregular polygons
   if (!shape.body.vertices || shape.body.vertices.length < 3) {
     return isCircleIntersectingRectangle(center, radius, shape);
   }
@@ -115,28 +163,96 @@ export function isCircleIntersectingPolygon(center: Vector2, radius: number, sha
 }
 
 /**
- * Check if a circle intersects with a capsule shape
+ * Check if a circle intersects with a capsule shape (rotation-aware)
  */
 export function isCircleIntersectingCapsule(center: Vector2, radius: number, shape: Shape): boolean {
-  // For now, treat capsule as rectangle - can be enhanced later
-  return isCircleIntersectingRectangle(center, radius, shape);
+  const capsuleWidth = shape.width || 120;
+  const capsuleHeight = shape.height || 34;
+  const capsuleRadius = capsuleHeight / 2; // Radius of the semicircle ends
+  
+  // Transform circle center to local coordinates
+  const cos = Math.cos(-shape.body.angle);
+  const sin = Math.sin(-shape.body.angle);
+  const dx = center.x - shape.body.position.x;
+  const dy = center.y - shape.body.position.y;
+  const localX = dx * cos - dy * sin;
+  const localY = dx * sin + dy * cos;
+  
+  // Capsule geometry: rectangle in the middle + two circles at the ends
+  const rectWidth = capsuleWidth - (2 * capsuleRadius);
+  
+  // Check intersection with the middle rectangle (in local coordinates)
+  const halfRectWidth = rectWidth / 2;
+  const halfCapsuleHeight = capsuleHeight / 2;
+  const closestX = Math.max(-halfRectWidth, Math.min(halfRectWidth, localX));
+  const closestY = Math.max(-halfCapsuleHeight, Math.min(halfCapsuleHeight, localY));
+  
+  const rectDistanceSquared = Math.pow(localX - closestX, 2) + Math.pow(localY - closestY, 2);
+  if (rectDistanceSquared < (radius * radius)) {
+    return true;
+  }
+  
+  // Check intersection with left semicircle (in local coordinates)
+  const leftCircleLocalX = -rectWidth / 2;
+  const leftCircleLocalY = 0;
+  const leftDistanceSquared = Math.pow(localX - leftCircleLocalX, 2) + Math.pow(localY - leftCircleLocalY, 2);
+  if (leftDistanceSquared < Math.pow(radius + capsuleRadius, 2)) {
+    return true;
+  }
+  
+  // Check intersection with right semicircle (in local coordinates)
+  const rightCircleLocalX = rectWidth / 2;
+  const rightCircleLocalY = 0;
+  const rightDistanceSquared = Math.pow(localX - rightCircleLocalX, 2) + Math.pow(localY - rightCircleLocalY, 2);
+  if (rightDistanceSquared < Math.pow(radius + capsuleRadius, 2)) {
+    return true;
+  }
+  
+  return false;
 }
 
 /**
- * Check if a circle intersects with a vertex-based shape
+ * Check if a circle intersects with a vertex-based shape (rotation-aware)
  */
 export function isCircleIntersectingVertexShape(center: Vector2, radius: number, shape: Shape): boolean {
-  if (!shape.vertices || shape.vertices.length < 3) {
+  // For shapes defined by vertices (arrow, chevron, star, horseshoe)
+  if (!shape.body.vertices || shape.body.vertices.length === 0) {
     return false;
   }
   
-  // Convert relative vertices to world coordinates
-  const worldVertices = shape.vertices.map(vertex => ({
-    x: shape.body.position.x + vertex.x,
-    y: shape.body.position.y + vertex.y
+  const vertices = shape.body.vertices;
+  
+  // Transform circle center to local coordinates
+  const cos = Math.cos(-shape.body.angle);
+  const sin = Math.sin(-shape.body.angle);
+  const dx = center.x - shape.body.position.x;
+  const dy = center.y - shape.body.position.y;
+  const localX = dx * cos - dy * sin;
+  const localY = dx * sin + dy * cos;
+  const localCenter = { x: localX, y: localY };
+  
+  // Transform vertices to local coordinates relative to shape position
+  const localVertices: Vector2[] = vertices.map(v => ({
+    x: (v.x - shape.body.position.x) * cos - (v.y - shape.body.position.y) * sin,
+    y: (v.x - shape.body.position.x) * sin + (v.y - shape.body.position.y) * cos
   }));
   
-  return isCircleIntersectingVertices(center, radius, worldVertices);
+  // Check if circle center is inside the polygon
+  if (isPointInPolygon(localCenter, localVertices)) {
+    return true;
+  }
+  
+  // Check if circle intersects any edge of the polygon
+  for (let i = 0; i < localVertices.length; i++) {
+    const v1 = localVertices[i];
+    const v2 = localVertices[(i + 1) % localVertices.length];
+    
+    if (isCircleIntersectingLineSegment(localCenter, radius, v1, v2)) {
+      return true;
+    }
+  }
+  
+  return false;
 }
 
 /**
@@ -219,4 +335,35 @@ export function getDistanceToNearestEdge(point: Vector2, vertices: Vector2[]): n
   }
   
   return minDistance;
+}
+
+/**
+ * Check if a screw area is blocked by a shape
+ */
+export function isScrewAreaBlocked(
+  screwPosition: Vector2, 
+  screwRadius: number, 
+  shape: Shape, 
+  precisCheck: boolean = false
+): boolean {
+  if (precisCheck) {
+    // Use actual screw radius plus a small margin for better blocking detection
+    return isCircleIntersectingShape(screwPosition, screwRadius + 1, shape);
+  } else {
+    return isPointInShapeBoundsWithMargin(screwPosition, shape);
+  }
+}
+
+/**
+ * Enhanced point-in-bounds check with margin (using shape bounds)
+ */
+export function isPointInShapeBoundsWithMarginEnhanced(point: Vector2, shape: Shape): boolean {
+  const bounds = shape.getBounds();
+  const margin = 2;
+  return (
+    point.x >= bounds.x + margin &&
+    point.x <= bounds.x + bounds.width - margin &&
+    point.y >= bounds.y + margin &&
+    point.y <= bounds.y + bounds.height - margin
+  );
 }

@@ -288,3 +288,89 @@ export function generatePerimeterPoints(vertices: Vector2[], count: number, marg
   
   return points;
 }
+
+/**
+ * Calculate area of a shape based on its type and properties
+ */
+export function calculateShapeArea(shape: Shape): number {
+  switch (shape.type) {
+    case 'rectangle':
+      const width = shape.width || 60;
+      const height = shape.height || 60;
+      return width * height;
+    case 'square':
+      const size = shape.width || 60;
+      return size * size;
+    case 'circle':
+      const radius = shape.radius || 30;
+      return Math.PI * radius * radius;
+    case 'polygon':
+      const polygonRadius = shape.radius || 30;
+      const polygonSides = shape.sides || 5;
+      // General formula for regular polygon area: (n * r^2 * sin(2π/n)) / 2
+      return (polygonSides * polygonRadius * polygonRadius * Math.sin(2 * Math.PI / polygonSides)) / 2;
+    case 'capsule':
+      const capsuleWidth = shape.width || 120;
+      const capsuleHeight = shape.height || 34; // Default capsule height
+      const capsuleRadius = capsuleHeight / 2;
+      // Area = rectangle area + 2 semicircles (which equal one full circle)
+      const rectArea = (capsuleWidth - capsuleHeight) * capsuleHeight;
+      const circleArea = Math.PI * capsuleRadius * capsuleRadius;
+      return rectArea + circleArea;
+    case 'arrow':
+    case 'chevron':
+    case 'star':
+    case 'horseshoe':
+      // For vertex-based shapes, calculate area from bounds
+      const bounds = shape.getBounds();
+      // Use 70% of bounding box area as approximation for complex shapes
+      return bounds.width * bounds.height * 0.7;
+    default:
+      return 3600; // Default fallback area
+  }
+}
+
+/**
+ * Select non-overlapping positions from a list of candidate positions
+ */
+export function selectNonOverlappingPositions(
+  positions: Vector2[], 
+  count: number, 
+  minSeparation: number
+): Vector2[] {
+  if (positions.length === 0) return [];
+  if (count === 1) return [positions[positions.length - 1]]; // Use center (last position)
+  
+  const selected: Vector2[] = [];
+  const available = [...positions];
+  
+  // Shuffle positions for random selection
+  for (let i = available.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [available[i], available[j]] = [available[j], available[i]];
+  }
+  
+  for (const position of available) {
+    if (selected.length >= count) break;
+    
+    // Check if this position overlaps with any selected position
+    const overlaps = selected.some(selected => {
+      const distance = Math.sqrt(
+        Math.pow(position.x - selected.x, 2) + 
+        Math.pow(position.y - selected.y, 2)
+      );
+      return distance < minSeparation;
+    });
+    
+    if (!overlaps) {
+      selected.push(position);
+    }
+  }
+  
+  // If we couldn't place enough screws due to overlap, ensure we have at least the center
+  if (selected.length === 0 && positions.length > 0) {
+    selected.push(positions[positions.length - 1]); // Center is typically last
+  }
+  
+  return selected;
+}
