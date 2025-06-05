@@ -774,6 +774,21 @@ export class ScrewManager extends BaseSystem {
         // Wake up the body
         Sleeping.set(shape.body, false);
         
+        // For composite bodies (like capsules), ensure they are properly positioned
+        if (shape.isComposite && shape.body.parts && shape.body.parts.length > 1) {
+          // The composite body's position might have shifted to center of mass
+          // Update the shape's position to match the body's actual position
+          shape.updateFromBody();
+          
+          if (DEBUG_CONFIG.logPhysicsDebug) {
+            console.log(`🔧 Composite body (${shape.type}) with single screw:`);
+            console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+            console.log(`  Body.position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+            console.log(`  Body.mass: ${shape.body.mass.toFixed(3)}`);
+            console.log(`  Body.inertia: ${shape.body.inertia.toFixed(3)}`);
+          }
+        }
+        
         // Add a very small rotational nudge to get things moving
         // This helps when the screw is perfectly centered on the x-axis
         const nudgeDirection = Math.random() > 0.5 ? 1 : -1;
@@ -814,6 +829,15 @@ export class ScrewManager extends BaseSystem {
 
   // Calculate screw positions using shared strategy system or legacy fallback
   private calculateScrewPositions(shape: Shape, count: number): Vector2[] {
+    // For composite bodies, ensure we're using the correct position
+    // The body position might have shifted to center of mass after creation
+    if (shape.isComposite && shape.body) {
+      shape.updateFromBody();
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`🔧 Updated composite shape position before screw calculation: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+      }
+    }
+    
     // Get shape definition to determine strategy
     const definition = getShapeDefinition(shape);
     
