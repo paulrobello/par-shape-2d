@@ -4,7 +4,7 @@
  */
 
 import { BaseSystem } from '../core/BaseSystem';
-import { Constraint, Bodies, Body, Sleeping } from 'matter-js';
+import { Body, Sleeping } from 'matter-js';
 import { Screw } from '@/game/entities/Screw';
 import { Shape } from '@/game/entities/Shape';
 import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
@@ -33,6 +33,7 @@ import {
   determineDestinationType
 } from '@/game/utils/ScrewContainerUtils';
 import { ShapeDefinition } from '@/types/shapes';
+import { ConstraintUtils, ScrewConstraintResult } from '@/shared/physics/ConstraintUtils';
 import {
   ShapeCreatedEvent,
   ShapeDestroyedEvent,
@@ -49,7 +50,7 @@ import {
 
 interface ScrewManagerState {
   screws: Map<string, Screw>;
-  constraints: Map<string, Constraint>;
+  constraints: Map<string, ScrewConstraintResult>;
   screwCounter: number;
   containerColors: ScrewColor[];
   containers: Container[]; // Actual container state from GameState
@@ -996,69 +997,43 @@ export class ScrewManager extends BaseSystem {
       console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
     }
     
-    // For composite bodies, we should use the shape's position for offset calculation
-    // because the body.position is the center of mass which may differ from the shape's position
-    const referencePosition = shape.position;
-    const offsetX = screw.position.x - referencePosition.x;
-    const offsetY = screw.position.y - referencePosition.y;
-    
-    // Debug logging for composite bodies
-    if (shape.isComposite) {
-      if (DEBUG_CONFIG.logPhysicsDebug) {
-        console.log(`🔧 COMPOSITE CONSTRAINT DEBUG:`);
-        console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-        console.log(`  Body.position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
-        console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
-        console.log(`  Using shape.position for offset calculation`);
-        console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+    // Use shared ConstraintUtils to create the constraint
+    const constraintResult = ConstraintUtils.createSingleScrewConstraint(
+      shape.body,
+      screw,
+      {
+        stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
+        damping: PHYSICS_CONSTANTS.constraint.damping,
       }
-    }
+    );
 
-    const screwAnchor = Bodies.circle(screw.position.x, screw.position.y, 1, {
-      isStatic: true,
-      render: { visible: false },
-      collisionFilter: { group: -1, category: 0, mask: 0 },
-    });
+    // Store the constraint and anchor body
+    screw.setConstraint(constraintResult.constraint);
+    screw.anchorBody = constraintResult.anchorBody;
+    this.state.constraints.set(screw.id, constraintResult);
 
     // Emit physics body added event with unique source to avoid loop detection
     this.emit({
       type: 'physics:body:added',
       timestamp: Date.now(),
       source: `ScrewManager-${screw.id}`,
-      bodyId: screwAnchor.id.toString(),
+      bodyId: constraintResult.anchorBody.id.toString(),
       shape,
-      body: screwAnchor
+      body: constraintResult.anchorBody
     });
-
-    const constraint = Constraint.create({
-      bodyA: shape.body,
-      bodyB: screwAnchor,
-      pointA: { x: offsetX, y: offsetY },
-      pointB: { x: 0, y: 0 },
-      length: 0,
-      stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
-      damping: PHYSICS_CONSTANTS.constraint.damping,
-      render: { visible: false },
-    });
-
-    screw.setConstraint(constraint);
-    this.state.constraints.set(screw.id, constraint);
-
-    // Store anchor body reference
-    screw.anchorBody = screwAnchor;
 
     // Emit constraint added event
     this.emit({
       type: 'physics:constraint:added',
       timestamp: Date.now(),
       source: `ScrewManager-${screw.id}`,
-      constraintId: constraint.id?.toString() || screw.id,
+      constraintId: constraintResult.constraint.id?.toString() || screw.id,
       screw,
-      constraint
+      constraint: constraintResult.constraint
     });
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`Constraint created for screw ${screw.id}: offset (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+      console.log(`Constraint created for screw ${screw.id} using shared ConstraintUtils`);
     }
   }
 
@@ -1068,20 +1043,20 @@ export class ScrewManager extends BaseSystem {
       if (!screw) return false;
 
       // Check if constraint already removed to prevent loops
-      const constraint = this.state.constraints.get(screwId);
+      const constraintResult = this.state.constraints.get(screwId);
       const anchorBody = screw.anchorBody;
       
       // If no constraint or anchor body exists, already removed
-      if (!constraint && !anchorBody) return false;
+      if (!constraintResult && !anchorBody) return false;
       
-      if (constraint || anchorBody) {
+      if (constraintResult || anchorBody) {
         // Emit a single atomic removal event for both constraint and anchor body
         this.emit({
           type: 'physics:screw:removed:immediate',
           timestamp: Date.now(),
           screwId: screwId,
-          constraint: constraint,
-          anchorBody: anchorBody,
+          constraint: constraintResult?.constraint,
+          anchorBody: constraintResult?.anchorBody || anchorBody,
           shape: this.state.allShapes.find(s => s.id === screw.shapeId)!
         });
         
@@ -1290,12 +1265,12 @@ export class ScrewManager extends BaseSystem {
       }
 
       // Remove constraint from physics world (only if not already removed)
-      const constraint = this.state.constraints.get(screwId);
-      if (constraint) {
+      const constraintResult = this.state.constraints.get(screwId);
+      if (constraintResult) {
         this.emit({
           type: 'physics:constraint:removed',
           timestamp: Date.now(),
-          constraintId: constraint.id?.toString() || screwId,
+          constraintId: constraintResult.constraint.id?.toString() || screwId,
           screw
         });
         this.state.constraints.delete(screwId);
@@ -1387,12 +1362,12 @@ export class ScrewManager extends BaseSystem {
         const remainingScrew = shapeScrews[0];
         const oldConstraint = this.state.constraints.get(remainingScrew.id);
 
-        if (oldConstraint && oldConstraint.bodyA) {
+        if (oldConstraint && oldConstraint.constraint) {
           // Emit constraint removed event
           this.emit({
             type: 'physics:constraint:removed',
             timestamp: Date.now(),
-            constraintId: oldConstraint.id?.toString() || remainingScrew.id,
+            constraintId: oldConstraint.constraint.id?.toString() || remainingScrew.id,
             screw: remainingScrew
           });
           this.state.constraints.delete(remainingScrew.id);
@@ -1410,65 +1385,58 @@ export class ScrewManager extends BaseSystem {
             });
           }
 
-          const shapeBody = oldConstraint.bodyA;
+          const shapeBody = oldConstraint.constraint.bodyA;
           
-          // Calculate the world position of the screw based on the current constraint
-          // This accounts for any rotation or movement of the shape
-          const cos = Math.cos(shapeBody.angle);
-          const sin = Math.sin(shapeBody.angle);
-          const localX = oldConstraint.pointA.x;
-          const localY = oldConstraint.pointA.y;
-          
-          // Transform local to world coordinates
-          const worldX = shapeBody.position.x + (localX * cos - localY * sin);
-          const worldY = shapeBody.position.y + (localX * sin + localY * cos);
-          
-          // Update the screw's position to match its actual world position
-          remainingScrew.position.x = worldX;
-          remainingScrew.position.y = worldY;
-          
-          // Use the original local position for the constraint
-          const screwLocalPosition = oldConstraint.pointA;
-
-          const newAnchor = Bodies.circle(worldX, worldY, 1, {
-            isStatic: true,
-            render: { visible: false },
-            collisionFilter: { group: -1, category: 0, mask: 0 },
-          });
-
-          // Emit physics body added event with unique source to avoid loop detection
-          this.emit({
-            type: 'physics:body:added',
-            timestamp: Date.now(),
-            source: `ScrewManager-${remainingScrew.id}-recreate`,
-            bodyId: newAnchor.id.toString(),
-            shape: this.state.allShapes.find(s => s.id === shapeId)!,
-            body: newAnchor
-          });
-
-          const newConstraint = Constraint.create({
-            bodyA: oldConstraint.bodyA,
-            bodyB: newAnchor,
-            pointA: screwLocalPosition,
-            pointB: { x: 0, y: 0 },
-            length: 0,
-            stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
-            damping: PHYSICS_CONSTANTS.constraint.damping,
-            render: { visible: false },
-          });
-
-          remainingScrew.setConstraint(newConstraint);
-          this.state.constraints.set(remainingScrew.id, newConstraint);
-          remainingScrew.anchorBody = newAnchor;
-          
-          // Emit constraint added event
-          this.emit({
-            type: 'physics:constraint:added',
-            timestamp: Date.now(),
-            constraintId: newConstraint.id?.toString() || remainingScrew.id,
-            screw: remainingScrew,
-            constraint: newConstraint
-          });
+          if (shapeBody) {
+            // Calculate the world position of the screw based on the current constraint
+            // This accounts for any rotation or movement of the shape
+            const cos = Math.cos(shapeBody.angle);
+            const sin = Math.sin(shapeBody.angle);
+            const localX = oldConstraint.constraint.pointA.x;
+            const localY = oldConstraint.constraint.pointA.y;
+            
+            // Transform local to world coordinates
+            const worldX = shapeBody.position.x + (localX * cos - localY * sin);
+            const worldY = shapeBody.position.y + (localX * sin + localY * cos);
+            
+            // Update the screw's position to match its actual world position
+            remainingScrew.position.x = worldX;
+            remainingScrew.position.y = worldY;
+            
+            // Create new constraint using shared utilities
+            const newConstraintResult = ConstraintUtils.createSingleScrewConstraint(
+              shapeBody,
+              remainingScrew,
+              {
+                stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
+                damping: PHYSICS_CONSTANTS.constraint.damping,
+              }
+            );
+            
+            // Update screw references
+            remainingScrew.setConstraint(newConstraintResult.constraint);
+            remainingScrew.anchorBody = newConstraintResult.anchorBody;
+            this.state.constraints.set(remainingScrew.id, newConstraintResult);
+            
+            // Emit physics body added event with unique source to avoid loop detection
+            this.emit({
+              type: 'physics:body:added',
+              timestamp: Date.now(),
+              source: `ScrewManager-${remainingScrew.id}-recreate`,
+              bodyId: newConstraintResult.anchorBody.id.toString(),
+              shape: this.state.allShapes.find(s => s.id === shapeId)!,
+              body: newConstraintResult.anchorBody
+            });
+            
+            // Emit constraint added event
+            this.emit({
+              type: 'physics:constraint:added',
+              timestamp: Date.now(),
+              constraintId: newConstraintResult.constraint.id?.toString() || remainingScrew.id,
+              screw: remainingScrew,
+              constraint: newConstraintResult.constraint
+            });
+          }
         }
       }
     });
@@ -1762,11 +1730,11 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Remove all constraints from physics
-      this.state.constraints.forEach((constraint, screwId) => {
+      this.state.constraints.forEach((constraintResult, screwId) => {
         this.emit({
           type: 'physics:constraint:removed',
           timestamp: Date.now(),
-          constraintId: constraint.id?.toString() || screwId,
+          constraintId: constraintResult.constraint.id?.toString() || screwId,
           screw: this.state.screws.get(screwId)!
         });
       });
