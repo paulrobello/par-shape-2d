@@ -20,15 +20,15 @@ export function calculateContainerHolePosition(
   const containerSpacing = UI_CONSTANTS.containers.spacing;
   const holeCount = UI_CONSTANTS.containers.hole.count;
   
-  // Calculate container position (at bottom of screen)
+  // Calculate container position (at bottom of screen) - matching GameManager
   const totalContainersWidth = 4 * containerWidth + 3 * containerSpacing;
   const startX = (virtualGameWidth - totalContainersWidth) / 2;
   const containerX = startX + containerIndex * (containerWidth + containerSpacing);
   const containerY = UI_CONSTANTS.containers.startY + containerHeight / 2;
   
-  // Calculate hole position within container (same formula as other systems)
+  // Calculate hole position within container - matching GameManager.renderContainers()
   const holeSpacing = containerWidth / (holeCount + 1);
-  const holeX = containerX - containerWidth / 2 + (holeIndex + 1) * holeSpacing;
+  const holeX = containerX + holeSpacing + (holeIndex * holeSpacing);
   const holeY = containerY;
   
   return { x: holeX, y: holeY };
@@ -41,15 +41,18 @@ export function calculateHoldingHolePositions(
   virtualGameWidth: number
 ): Vector2[] {
   const holeCount = GAME_CONFIG.holdingHoles.count;
-  const holeSpacing = 80;
-  const totalWidth = (holeCount - 1) * holeSpacing;
-  const startX = (virtualGameWidth - totalWidth) / 2;
+  const holeRadius = UI_CONSTANTS.holdingHoles.radius;
+  const spacing = UI_CONSTANTS.holdingHoles.spacing;
   const y = UI_CONSTANTS.holdingHoles.startY;
+  
+  // Calculate positions matching GameManager.renderHoldingHoles()
+  const totalWidth = (holeCount * holeRadius * 2) + ((holeCount - 1) * spacing);
+  const startX = (virtualGameWidth - totalWidth) / 2;
   
   const positions: Vector2[] = [];
   for (let i = 0; i < holeCount; i++) {
     positions.push({
-      x: startX + i * holeSpacing,
+      x: startX + (i * (holeRadius * 2 + spacing)) + holeRadius,
       y: y
     });
   }

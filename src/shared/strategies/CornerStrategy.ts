@@ -212,23 +212,125 @@ export class CornerStrategy extends BasePlacementStrategy {
   private applyMarginToCorners(corners: Vector2[], shape: Shape, margin: number): Vector2[] {
     if (margin <= 0) return corners;
     
-    const center = getCentroid(getShapeVertices(shape));
+    const vertices = getShapeVertices(shape);
+    const center = getCentroid(vertices);
     
-    return corners.map(corner => {
-      const dx = corner.x - center.x;
-      const dy = corner.y - center.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
+    // For regular polygons, we can use a more sophisticated approach
+    return corners.map((corner, index) => {
+      // For polygon vertices, calculate the bisector of the angle at this corner
+      const prevIndex = (index - 1 + vertices.length) % vertices.length;
+      const nextIndex = (index + 1) % vertices.length;
       
-      if (distance <= margin) {
-        return corner; // Keep as is if too close to center
+      const prev = vertices[prevIndex];
+      const next = vertices[nextIndex];
+      
+      // Calculate vectors from corner to adjacent vertices
+      const toPrev = { x: prev.x - corner.x, y: prev.y - corner.y };
+      const toNext = { x: next.x - corner.x, y: next.y - corner.y };
+      
+      // Normalize these vectors
+      const toPrevLength = Math.sqrt(toPrev.x * toPrev.x + toPrev.y * toPrev.y);
+      const toNextLength = Math.sqrt(toNext.x * toNext.x + toNext.y * toNext.y);
+      
+      if (toPrevLength === 0 || toNextLength === 0) {
+        // Fallback to centroid approach
+        const dx = corner.x - center.x;
+        const dy = corner.y - center.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance <= margin) {
+          return corner;
+        }
+        
+        const scale = (distance - margin) / distance;
+        return {
+          x: center.x + dx * scale,
+          y: center.y + dy * scale
+        };
       }
       
-      // Move inward by margin
-      const scale = (distance - margin) / distance;
-      return {
-        x: center.x + dx * scale,
-        y: center.y + dy * scale
+      toPrev.x /= toPrevLength;
+      toPrev.y /= toPrevLength;
+      toNext.x /= toNextLength;
+      toNext.y /= toNextLength;
+      
+      // Calculate the bisector direction (inward)
+      let bisector = {
+        x: toPrev.x + toNext.x,
+        y: toPrev.y + toNext.y
       };
+      
+      const bisectorLength = Math.sqrt(bisector.x * bisector.x + bisector.y * bisector.y);
+      
+      if (bisectorLength === 0) {
+        // Straight angle, move perpendicular to edge
+        bisector = { x: -toPrev.y, y: toPrev.x };
+      } else {
+        bisector.x /= bisectorLength;
+        bisector.y /= bisectorLength;
+      }
+      
+      // Ensure we're moving inward by checking against the center
+      const toCenter = { x: center.x - corner.x, y: center.y - corner.y };
+      const dotProduct = bisector.x * toCenter.x + bisector.y * toCenter.y;
+      
+      if (dotProduct < 0) {
+        // Bisector points outward, flip it
+        bisector.x = -bisector.x;
+        bisector.y = -bisector.y;
+      }
+      
+      // Calculate the actual distance to move along the bisector
+      // For acute angles, we need to move further to maintain the margin
+      const angle = calculateAngle(prev, corner, next);
+      const adjustedMargin = margin / Math.sin(angle / 2);
+      
+      // Limit the adjusted margin to prevent moving too far
+      const maxMove = Math.min(adjustedMargin, margin * 2);
+      
+      const newPosition = {
+        x: corner.x + bisector.x * maxMove,
+        y: corner.y + bisector.y * maxMove
+      };
+      
+      // Verify the new position is inside the polygon
+      // If not, fall back to simple centroid approach
+      if (!this.isPointInPolygon(newPosition, vertices)) {
+        const dx = corner.x - center.x;
+        const dy = corner.y - center.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance <= margin) {
+          return corner;
+        }
+        
+        const scale = (distance - margin) / distance;
+        return {
+          x: center.x + dx * scale,
+          y: center.y + dy * scale
+        };
+      }
+      
+      return newPosition;
     });
+  }
+  
+  private isPointInPolygon(point: Vector2, vertices: Vector2[]): boolean {
+    let inside = false;
+    const x = point.x;
+    const y = point.y;
+    
+    for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+      const xi = vertices[i].x;
+      const yi = vertices[i].y;
+      const xj = vertices[j].x;
+      const yj = vertices[j].y;
+      
+      if (((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)) {
+        inside = !inside;
+      }
+    }
+    
+    return inside;
   }
 }

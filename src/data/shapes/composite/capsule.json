@@ -6,7 +6,7 @@
   "dimensions": {
     "type": "random",
     "width": { "min": 77, "max": 227 },
-    "height": 34,
+    "height": 54,
     "reductionFactor": 0.15
   },
   "physics": {
@@ -53,7 +53,7 @@
   },
   "screwPlacement": {
     "strategy": "capsule",
-    "capsuleEndMargin": 5,
+    "capsuleEndMargin": 20,
     "minSeparation": 48,
     "maxScrews": {
       "absolute": 8

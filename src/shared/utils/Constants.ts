@@ -18,7 +18,7 @@ export const PHYSICS_CONSTANTS = {
   },
   constraint: {
     stiffness: 1,
-    damping: 0.01,
+    damping: 0.1,
   },
   world: {
     bounds: { x: 0, y: 0, width: 800, height: 600 },
@@ -286,9 +286,9 @@ export const SCREW_PLACEMENT_CONSTANTS = {
 
 export const SHAPE_VALIDATION_CONSTANTS = {
   minDimensions: {
-    width: 10,
-    height: 10,
-    radius: 5,
+    width: 54,
+    height: 54,
+    radius: 54,
   },
   maxDimensions: {
     width: 500,

@@ -1271,6 +1271,23 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
   - **Reduced Complexity**: ScrewManager file size reduced significantly with improved maintainability
   - **Better Testing**: Utility functions can be tested independently of the main system
   - **Code Reusability**: Extracted functions can be used by other systems as needed
+- ✅ **Fixed Screw Animation Targeting**: Corrected X-coordinate calculations for container and holding hole animations
+  - Container hole positions now properly calculated from container left edge
+  - Holding hole positions fixed to match rendering calculations
+- ✅ **Minimum Shape Dimensions**: Enforced minimum size of 54px (screw diameter + 30px margin)
+  - Circle minimum radius increased to 54px
+  - Capsule height increased to 54px
+  - Rectangle minimum height increased to 54px
+  - Shape validation constants updated to enforce minimums
+- ✅ **Single-Screw Physics Improvements**: Fixed crazy spinning behavior for shapes with one screw
+  - Increased rotational inertia (10x) to slow rotation
+  - Removed initial angular velocity
+  - Added angular damping through increased frictionAir
+  - Increased constraint damping from 0.01 to 0.1
+- ✅ **Polygon Screw Placement Fix**: Improved corner strategy to keep screws inside polygons
+  - Implemented angle bisector approach for proper inward offset
+  - Added polygon containment check with fallback
+  - Ensures screws respect shape boundaries for all polygon types
 - ✅ Ready for production use with polished visual experience
 
 ---

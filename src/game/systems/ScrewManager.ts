@@ -1323,13 +1323,19 @@ export class ScrewManager extends BaseSystem {
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
         
-        // Enhance rotational physics for single screw pivoting
-        shape.body.inertia = shape.body.mass * 2; // Increase rotational inertia
-        Body.setAngularVelocity(shape.body, 0.02); // Give a small initial angular velocity
+        // Increase rotational inertia to slow down spinning
+        // Higher inertia = slower rotation
+        Body.setInertia(shape.body, shape.body.inertia * 10);
+        
+        // Don't add any initial angular velocity - let physics handle it naturally
+        Body.setAngularVelocity(shape.body, 0);
+        
+        // Add some angular damping to prevent wild spinning
+        shape.body.frictionAir = 0.02; // Increase air friction for rotation damping
         
         if (DEBUG_CONFIG.logScrewDebug) {
         
-          console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with enhanced physics`);
+          console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic with controlled rotation`);
         
         }
         this.updateShapeConstraints(screw.shapeId);
@@ -1857,7 +1863,7 @@ export class ScrewManager extends BaseSystem {
       }
     });
   }
-  
+
   protected onDestroy(): void {
     this.clearAllScrews();
   }
