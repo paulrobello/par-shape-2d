@@ -225,6 +225,20 @@ export class ScrewManager extends BaseSystem {
       this.state.allShapes.push(event.shape);
       this.state.layerDepthLookup.set(event.shape.layerId, event.layer.depthIndex);
       
+      // CRITICAL: For composite bodies, sync position before generating screws
+      // The body position may have shifted to center of mass after creation
+      if (event.shape.isComposite && event.shape.body) {
+        const originalPosition = { x: event.shape.position.x, y: event.shape.position.y };
+        event.shape.updateFromBody();
+        
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`🔧 Composite shape ${event.shape.id} position sync:`);
+          console.log(`  Original: (${originalPosition.x.toFixed(1)}, ${originalPosition.y.toFixed(1)})`);
+          console.log(`  After sync: (${event.shape.position.x.toFixed(1)}, ${event.shape.position.y.toFixed(1)})`);
+          console.log(`  Body: (${event.shape.body.position.x.toFixed(1)}, ${event.shape.body.position.y.toFixed(1)})`);
+        }
+      }
+      
       // Generate screws for the new shape
       this.generateScrewsForShape(event.shape, this.state.containerColors);
     });
@@ -1021,18 +1035,17 @@ export class ScrewManager extends BaseSystem {
       console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
     }
     
-    // For composite bodies, we need to calculate the offset differently
-    // Use the shape's position instead of the body's center of mass
-    const referencePosition = shape.isComposite ? shape.position : shape.body.position;
-    const offsetX = screw.position.x - referencePosition.x;
-    const offsetY = screw.position.y - referencePosition.y;
+    // Calculate offset from body position to screw position
+    // Shape position should now be synced with body position for composite bodies
+    const offsetX = screw.position.x - shape.body.position.x;
+    const offsetY = screw.position.y - shape.body.position.y;
     
-    if (DEBUG_CONFIG.logPhysicsDebug && shape.isComposite) {
-      console.log(`🔧 Composite constraint creation:`);
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log(`🔧 Constraint creation for ${shape.isComposite ? 'composite' : 'regular'} body:`);
       console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
       console.log(`  Body.position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
       console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
-      console.log(`  Using shape position for offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+      console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
     }
     
     // Create anchor body at screw position
@@ -1081,7 +1094,7 @@ export class ScrewManager extends BaseSystem {
     });
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`Constraint created for screw ${screw.id} with ${shape.isComposite ? 'shape-based' : 'body-based'} offset`);
+      console.log(`Constraint created for screw ${screw.id} on ${shape.isComposite ? 'composite' : 'regular'} body`);
     }
   }
 
@@ -1449,10 +1462,9 @@ export class ScrewManager extends BaseSystem {
             }
             
             // DON'T update the screw's position - keep its original position
-            // Calculate constraint offset using shape position for composite bodies
-            const referencePosition = shape.isComposite ? shape.position : shapeBody.position;
-            const offsetX = remainingScrew.position.x - referencePosition.x;
-            const offsetY = remainingScrew.position.y - referencePosition.y;
+            // Calculate constraint offset using body position (should be synced for composite bodies)
+            const offsetX = remainingScrew.position.x - shapeBody.position.x;
+            const offsetY = remainingScrew.position.y - shapeBody.position.y;
             
             // Create new anchor body
             const newAnchor = Bodies.circle(remainingScrew.position.x, remainingScrew.position.y, 1, {
@@ -1477,7 +1489,7 @@ export class ScrewManager extends BaseSystem {
             const newConstraintResult = { constraint: newConstraint, anchorBody: newAnchor };
             
             if (DEBUG_CONFIG.logPhysicsDebug) {
-              console.log(`🔧 Created new constraint with ${shape.isComposite ? 'shape-based' : 'body-based'} offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+              console.log(`🔧 Created new constraint with body-based offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
             }
             
             // Update screw references
