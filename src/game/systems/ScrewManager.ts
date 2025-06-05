@@ -1410,24 +1410,24 @@ export class ScrewManager extends BaseSystem {
           }
 
           const shapeBody = oldConstraint.constraint.bodyA;
+          const shape = this.state.allShapes.find(s => s.id === shapeId);
           
-          if (shapeBody) {
-            // Calculate the world position of the screw based on the current constraint
-            // This accounts for any rotation or movement of the shape
-            const cos = Math.cos(shapeBody.angle);
-            const sin = Math.sin(shapeBody.angle);
-            const localX = oldConstraint.constraint.pointA.x;
-            const localY = oldConstraint.constraint.pointA.y;
+          if (shapeBody && shape) {
+            // For composite bodies, ensure the shape position is synchronized with the body
+            if (shape.isComposite) {
+              shape.updateFromBody();
+              if (DEBUG_CONFIG.logPhysicsDebug) {
+                console.log(`🔧 Composite body constraint recreation:`);
+                console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+                console.log(`  Body.position: (${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)})`);
+                console.log(`  Screw.position: (${remainingScrew.position.x.toFixed(1)}, ${remainingScrew.position.y.toFixed(1)})`);
+              }
+            }
             
-            // Transform local to world coordinates
-            const worldX = shapeBody.position.x + (localX * cos - localY * sin);
-            const worldY = shapeBody.position.y + (localX * sin + localY * cos);
+            // DON'T update the screw's position - keep its original position
+            // The constraint creation will calculate the correct offset
             
-            // Update the screw's position to match its actual world position
-            remainingScrew.position.x = worldX;
-            remainingScrew.position.y = worldY;
-            
-            // Create new constraint using shared utilities
+            // Create new constraint using shared utilities with screw's original position
             const newConstraintResult = ConstraintUtils.createSingleScrewConstraint(
               shapeBody,
               remainingScrew,
@@ -1436,6 +1436,10 @@ export class ScrewManager extends BaseSystem {
                 damping: PHYSICS_CONSTANTS.constraint.damping,
               }
             );
+            
+            if (DEBUG_CONFIG.logPhysicsDebug) {
+              console.log(`🔧 Created new constraint with offset: (${newConstraintResult.constraint.pointA.x.toFixed(1)}, ${newConstraintResult.constraint.pointA.y.toFixed(1)})`);
+            }
             
             // Update screw references
             remainingScrew.setConstraint(newConstraintResult.constraint);
