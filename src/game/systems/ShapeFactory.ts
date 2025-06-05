@@ -202,16 +202,6 @@ export class ShapeFactory {
               height: Math.round(baseSize),
             };
           }
-        } else if (definition.id === 'square') {
-          const widthRange = dims.width as { min: number; max: number };
-          const size = randomBetween(
-            widthRange.min,
-            widthRange.max
-          ) * reduction;
-          return {
-            width: Math.round(size),
-            height: Math.round(size),
-          };
         } else if (definition.id === 'circle') {
           const radiusRange = dims.radius as { min: number; max: number };
           return {
@@ -546,7 +536,7 @@ export class ShapeFactory {
     // Check definition ID first for specific shapes
     const typeMapping: Record<string, ShapeType> = {
       'rectangle': 'rectangle',
-      'square': 'square',
+      'square': 'polygon',  // Square is a 4-sided polygon
       'circle': 'circle',
       'triangle': 'polygon',
       'pentagon': 'polygon',

@@ -113,8 +113,9 @@ Shared physics system with game adapter pattern for event-driven Matter.js manag
 - **Runtime Safety**: Default values for all physics properties to prevent undefined errors
 
 **Enhanced Physics Properties**:
-- **Reduced Air Friction**: 10x reduction (0.0005) for maximum natural swinging motion
-- **Lower Constraint Damping**: Reduced from 0.1 to 0.02 for realistic physics behavior
+- **Reduced Air Friction**: Set to 0.001 (80% reduction from 0.005) for faster, more responsive swinging motion
+- **Lower Constraint Damping**: Reduced to 0.05 (50% reduction from 0.1) for less resistance at pivot points
+- **Natural Inertia**: Removed artificial inertia multiplier - shapes use Matter.js calculated inertia for realistic rotation
 - **Gravity-Only Forces**: Manual forces removed when screws are removed - only gravity applies
 - **Shape Border Rendering**: Fixed rendering order to prevent border thickness changes
 - **Responsive Bounds**: All systems update virtual dimensions when canvas resizes
@@ -353,7 +354,7 @@ for (let i = this.state.visibleLayers.length - 1; i >= 0; i--) {
 JSON-driven shape rendering with visual consistency:
 
 - **JSON-Based Definitions**: All shapes defined in JSON files with complete configuration
-- **Supported Shapes**: Circle, Polygon (3-8 sides, including 4 for square/rectangle), Capsule, Arrow, Chevron, Star, Horseshoe
+- **Supported Shapes**: Circle, Rectangle, Polygon (3-8 sides, with square as a 4-sided polygon), Capsule, Arrow, Chevron, Star, Horseshoe
 - **Visual Style**: Solid borders with translucent fills configured per shape
 - **Screw Holes**: Automatically positioned based on JSON-defined placement strategies
 - **Tint System**: Each layer has a unique color tint
@@ -365,9 +366,14 @@ JSON-driven shape rendering with visual consistency:
 JSON-configured dimensions with 87.5% scaling for improved visibility:
 
 - **Circle**: Radius 45-90px (from circle.json)
-- **Regular Polygons**: Radius 56-101px for triangle, pentagon, hexagon, heptagon, octagon (from polygon JSON files)
-- **Square Polygon**: Radius 63-112px for regular 4-sided polygon (from polygons/square.json)
-- **Rectangle Polygon**: Width 75-150px, height 30-120px, aspect ratio 0.4-2.5 (from polygons/rectangle.json)
+- **Regular Polygons**: Radius 56-112px for all polygons including:
+  - Triangle (3 sides): Radius 56-101px
+  - Square (4 sides): Radius 63-112px
+  - Pentagon (5 sides): Radius 56-101px
+  - Hexagon (6 sides): Radius 56-101px
+  - Heptagon (7 sides): Radius 56-101px
+  - Octagon (8 sides): Radius 56-101px
+- **Rectangle**: Width 75-150px, height 30-120px, aspect ratio 0.4-2.5 (from polygons/rectangle.json)
 - **Capsule**: Width 77-227px, height 34px (from capsule.json)
 - **Path Shapes**: Scale 0.8-1.5 applied to vertex paths defined in arrow.json, chevron.json, star.json, horseshoe.json (supports both fixed and random scale values)
 - **Size Reduction**: All shapes support 15% reduction factor during placement retries (reductionFactor: 0.15)
@@ -401,11 +407,12 @@ JSON-driven placement strategies with advanced positioning algorithms using a sh
 #### Placement Strategies (Defined in Shape JSON)
 
 **1. Corners Strategy** (`"strategy": "corners"`):
-- **Used by**: Circle, Polygons (including square and rectangle)
+- **Used by**: Circle, Polygons (including square as a 4-sided polygon), Rectangle
 - **Algorithm**: Places screws at shape corners or cardinal points
 - **Configuration**: 
   - `cornerMargin`: Distance from edges (typically 30px)
-  - Edge-center fallbacks for narrow/short shapes
+  - Uses actual physics body vertices for accurate corner detection
+  - Applies radial inward offset from shape center
 - **Examples**: Polygon corners/vertices, Circle cardinal directions (N,E,S,W)
 
 **2. Perimeter Strategy** (`"strategy": "perimeter"`):
@@ -1083,14 +1090,14 @@ src/data/shapes/
 ```typescript
 export const PHYSICS_CONSTANTS = {
   shape: {
-    friction: 0.05,        // Reduced for more sliding
-    frictionAir: 0.005,    // 4x less air resistance
-    restitution: 0.4,      // Slightly more bouncy
-    density: 0.012,        // Optimal weight for falling
+    friction: 0.1,         // Surface friction
+    frictionAir: 0.001,    // Very low air resistance for fast swinging
+    restitution: 0,        // No bounce
+    density: 5,            // Higher density for better physics
   },
   constraint: {
     stiffness: 1,
-    damping: 0.02,         // 5x less damping for swinging
+    damping: 0.05,         // Reduced damping for responsive pivoting
   },
 } as const;
 ```
@@ -1279,15 +1286,23 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
   - Capsule height increased to 54px
   - Rectangle minimum height increased to 54px
   - Shape validation constants updated to enforce minimums
-- ✅ **Single-Screw Physics Improvements**: Fixed crazy spinning behavior for shapes with one screw
-  - Increased rotational inertia (10x) to slow rotation
-  - Removed initial angular velocity
-  - Added angular damping through increased frictionAir
-  - Increased constraint damping from 0.01 to 0.1
+- ✅ **Single-Screw Physics Improvements**: Natural pendulum behavior for shapes with one screw
+  - Uses natural Matter.js calculated inertia (no artificial multipliers)
+  - Small initial perturbation to start swinging motion
+  - Low air friction (0.001) for sustained swinging
+  - Reduced constraint damping (0.05) for responsive pivoting
 - ✅ **Polygon Screw Placement Fix**: Improved corner strategy to keep screws inside polygons
-  - Implemented angle bisector approach for proper inward offset
-  - Added polygon containment check with fallback
-  - Ensures screws respect shape boundaries for all polygon types
+  - Uses actual physics body vertices for accurate corner detection
+  - Applies simple radial inward offset from shape center
+  - Ensures screws are placed at true corners with proper margin
+- ✅ **Square Shape Normalization**: Squares are now treated as regular 4-sided polygons
+  - Removed 'square' from ShapeType - now uses 'polygon' type
+  - Square physics bodies now match visual representation (45-degree rotated)
+  - Unified polygon handling throughout the codebase
+- ✅ **Physics Responsiveness Improvements**: Enhanced swinging motion for better gameplay
+  - Air friction reduced to 0.001 (80% reduction) for faster swinging
+  - Constraint damping reduced to 0.05 (50% reduction) for less resistance
+  - Removed artificial inertia multiplier - shapes use natural Matter.js inertia
 - ✅ Ready for production use with polished visual experience
 
 ---

@@ -12,13 +12,13 @@ import { GameConfig, ScrewColor } from '@/types/game';
 export const PHYSICS_CONSTANTS = {
   shape: {
     friction: 0.1,
-    frictionAir: 0.005,
+    frictionAir: 0.001,  // Reduced from 0.005 for faster swinging
     restitution: 0,
     density: 5,
   },
   constraint: {
     stiffness: 1,
-    damping: 0.1,
+    damping: 0.05,  // Reduced from 0.1 for less resistance
   },
   world: {
     bounds: { x: 0, y: 0, width: 800, height: 600 },

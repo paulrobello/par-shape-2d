@@ -18,12 +18,18 @@
     "preserveOriginalVertices": true
   },
   "screwPlacement": {
-    "strategy": "perimeter",
-    "perimeterPoints": 8,
-    "perimeterMargin": 30,
+    "strategy": "corners",
+    "cornerMargin": 30,
     "minSeparation": 48,
     "maxScrews": {
-      "absolute": 5
+      "byArea": [
+        { "maxArea": 2500, "screwCount": 1 },
+        { "maxArea": 4000, "screwCount": 2 },
+        { "maxArea": 6000, "screwCount": 3 },
+        { "maxArea": 10000, "screwCount": 4 },
+        { "maxArea": 15000, "screwCount": 5 }
+      ],
+      "absolute": 6
     }
   },
   "visual": {

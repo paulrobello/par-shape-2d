@@ -176,6 +176,7 @@ export function getShapeVertices(shape: Shape): Vector2[] {
   const width = shape.width || 0;
   const height = shape.height || 0;
   const radius = shape.radius || 0;
+  const sides = shape.sides || 0;
   const originalVertices = shape.vertices;
   
   // Use original vertices if available (path shapes)
@@ -186,8 +187,26 @@ export function getShapeVertices(shape: Shape): Vector2[] {
     }));
   }
   
+  // Handle polygon shapes
+  if (shape.type === 'polygon') {
+    if (radius > 0 && sides > 0) {
+      const vertices: Vector2[] = [];
+      
+      // Generate polygon vertices matching Matter.js orientation
+      for (let i = 0; i < sides; i++) {
+        const angle = (i * Math.PI * 2) / sides + (Math.PI / sides) + shape.rotation;
+        vertices.push({
+          x: x + Math.cos(angle) * radius,
+          y: y + Math.sin(angle) * radius
+        });
+      }
+      
+      return vertices;
+    }
+  }
+  
   // Generate vertices for basic shapes
-  if (radius > 0) {
+  if (shape.type === 'circle' && radius > 0) {
     // Circle - approximate with polygon
     const segments = Math.max(8, Math.floor(radius / 5));
     const vertices: Vector2[] = [];
@@ -204,15 +223,20 @@ export function getShapeVertices(shape: Shape): Vector2[] {
   }
   
   // Rectangle
-  const halfWidth = width / 2;
-  const halfHeight = height / 2;
+  if (shape.type === 'rectangle' && width > 0 && height > 0) {
+    const halfWidth = width / 2;
+    const halfHeight = height / 2;
+    
+    return [
+      { x: x - halfWidth, y: y - halfHeight },
+      { x: x + halfWidth, y: y - halfHeight },
+      { x: x + halfWidth, y: y + halfHeight },
+      { x: x - halfWidth, y: y + halfHeight }
+    ];
+  }
   
-  return [
-    { x: x - halfWidth, y: y - halfHeight },
-    { x: x + halfWidth, y: y - halfHeight },
-    { x: x + halfWidth, y: y + halfHeight },
-    { x: x - halfWidth, y: y + halfHeight }
-  ];
+  // Fallback to empty array
+  return [];
 }
 
 /**
@@ -298,9 +322,6 @@ export function calculateShapeArea(shape: Shape): number {
       const width = shape.width || 60;
       const height = shape.height || 60;
       return width * height;
-    case 'square':
-      const size = shape.width || 60;
-      return size * size;
     case 'circle':
       const radius = shape.radius || 30;
       return Math.PI * radius * radius;

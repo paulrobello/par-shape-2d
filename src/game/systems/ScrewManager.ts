@@ -767,25 +767,28 @@ export class ScrewManager extends BaseSystem {
         // Single screw - keep shape dynamic so it can rotate/swing around the screw
         Body.setStatic(shape.body, false);
         
-        // Ensure the shape can rotate by setting up angular properties
-        const inertiaMultiplier = behavior.rotationalInertiaMultiplier || 3;
-        shape.body.inertia = shape.body.mass * inertiaMultiplier;
+        // Keep natural inertia for realistic physics
+        // Don't modify the inertia as it can cause strange rotation behavior
         
-        // Wake up the body and give it a small initial perturbation to start physics
+        // Wake up the body
         Sleeping.set(shape.body, false);
         
-        // Give a very small initial angular velocity to start the swing motion
-        Body.setAngularVelocity(shape.body, (Math.random() - 0.5) * 0.02);
+        // Add a very small rotational nudge to get things moving
+        // This helps when the screw is perfectly centered on the x-axis
+        const nudgeDirection = Math.random() > 0.5 ? 1 : -1;
+        const nudgeAmount = 0.001; // Very small nudge
+        Body.setAngularVelocity(shape.body, nudgeDirection * nudgeAmount);
         
-        // Apply a tiny random force to ensure physics activation
+        // Also apply a tiny force to break perfect equilibrium
+        const nudgeForce = 0.0001;
         Body.applyForce(shape.body, shape.body.position, {
-          x: (Math.random() - 0.5) * 0.001,
-          y: (Math.random() - 0.5) * 0.001
+          x: nudgeDirection * nudgeForce,
+          y: 0
         });
         
         if (DEBUG_CONFIG.logShapeDebug) {
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape kept dynamic for rotation with initial motion`);
+            console.log(`Placed ${screwPositions.length} screw on ${shape.type} shape (requested ${screwCount}) - shape kept dynamic for natural rotation`);
           }
         }
       } else {
@@ -1213,9 +1216,8 @@ export class ScrewManager extends BaseSystem {
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
         
-        // Enhance rotational physics for single screw pivoting
-        const oldInertia = shape.body.inertia;
-        shape.body.inertia = shape.body.mass * 3; // Increase rotational inertia for better swinging
+        // Keep natural inertia for faster swinging
+        // Don't modify inertia - let Matter.js calculate it naturally
         
         // Give a small initial angular velocity to start the swing
         Body.setAngularVelocity(shape.body, 0.02);
@@ -1228,9 +1230,9 @@ export class ScrewManager extends BaseSystem {
         });
         
         if (DEBUG_CONFIG.logPhysicsStateChanges) {
-          console.log(`🔧 Shape ${shape.id} AFTER: isStatic=${shape.body.isStatic} (was ${wasStatic}), isSleeping=${shape.body.isSleeping}, inertia=${shape.body.inertia} (was ${oldInertia})`);
+          console.log(`🔧 Shape ${shape.id} AFTER: isStatic=${shape.body.isStatic} (was ${wasStatic}), isSleeping=${shape.body.isSleeping}, inertia=${shape.body.inertia}`);
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with enhanced physics`);
+            console.log(`Shape ${shape.id} has only 1 screw remaining - made dynamic to allow rotation with natural physics`);
           }
         }
         
@@ -1323,15 +1325,14 @@ export class ScrewManager extends BaseSystem {
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
         
-        // Increase rotational inertia to slow down spinning
-        // Higher inertia = slower rotation
-        Body.setInertia(shape.body, shape.body.inertia * 10);
+        // Keep the shape's natural inertia for realistic rotation
+        // Don't modify it too much as it can cause strange behavior
         
         // Don't add any initial angular velocity - let physics handle it naturally
         Body.setAngularVelocity(shape.body, 0);
         
-        // Add some angular damping to prevent wild spinning
-        shape.body.frictionAir = 0.02; // Increase air friction for rotation damping
+        // Add moderate angular damping to prevent wild spinning
+        shape.body.frictionAir = 0.01; // Moderate air friction for rotation damping
         
         if (DEBUG_CONFIG.logScrewDebug) {
         
@@ -1408,12 +1409,26 @@ export class ScrewManager extends BaseSystem {
           }
 
           const shapeBody = oldConstraint.bodyA;
-          const screwLocalPosition = {
-            x: remainingScrew.position.x - shapeBody.position.x,
-            y: remainingScrew.position.y - shapeBody.position.y
-          };
+          
+          // Calculate the world position of the screw based on the current constraint
+          // This accounts for any rotation or movement of the shape
+          const cos = Math.cos(shapeBody.angle);
+          const sin = Math.sin(shapeBody.angle);
+          const localX = oldConstraint.pointA.x;
+          const localY = oldConstraint.pointA.y;
+          
+          // Transform local to world coordinates
+          const worldX = shapeBody.position.x + (localX * cos - localY * sin);
+          const worldY = shapeBody.position.y + (localX * sin + localY * cos);
+          
+          // Update the screw's position to match its actual world position
+          remainingScrew.position.x = worldX;
+          remainingScrew.position.y = worldY;
+          
+          // Use the original local position for the constraint
+          const screwLocalPosition = oldConstraint.pointA;
 
-          const newAnchor = Bodies.circle(remainingScrew.position.x, remainingScrew.position.y, 1, {
+          const newAnchor = Bodies.circle(worldX, worldY, 1, {
             isStatic: true,
             render: { visible: false },
             collisionFilter: { group: -1, category: 0, mask: 0 },

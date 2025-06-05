@@ -132,7 +132,6 @@ export class Shape implements IShape {
 
     switch (this.type) {
       case 'rectangle':
-      case 'square':
         return this.createRectanglePath();
       case 'circle':
         return this.createCirclePath();
@@ -287,7 +286,6 @@ export class Shape implements IShape {
         break;
 
       case 'rectangle':
-      case 'square':
         const w = this.width || 60;
         const h = this.height || 60;
         const perimeter = 2 * (w + h);

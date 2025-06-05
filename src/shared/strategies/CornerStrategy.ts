@@ -42,9 +42,14 @@ export class CornerStrategy extends BasePlacementStrategy {
     // Handle different shape types
     if (['arrow', 'chevron', 'star', 'horseshoe'].includes(shape.type)) {
       corners = this.calculatePathShapeCorners(shape, margin);
-    } else if (shape.radius && shape.radius > 0) {
+    } else if (shape.type === 'circle') {
       corners = this.calculateCircleCorners(shape, margin);
+    } else if (shape.type === 'polygon') {
+      corners = this.calculatePolygonCorners(shape, margin);
+    } else if (shape.type === 'rectangle') {
+      corners = this.calculateRectangleCorners(shape, margin);
     } else {
+      // Fallback - try to use body vertices
       corners = this.calculatePolygonCorners(shape, margin);
     }
     
@@ -204,9 +209,52 @@ export class CornerStrategy extends BasePlacementStrategy {
     ];
   }
 
+  private calculateRectangleCorners(shape: Shape, margin: number): Vector2[] {
+    const { x, y } = shape.position;
+    const width = shape.width || 60;
+    const height = shape.height || 60;
+    const halfWidth = width / 2 - margin;
+    const halfHeight = height / 2 - margin;
+    
+    // Four corners of rectangle
+    return [
+      { x: x - halfWidth, y: y - halfHeight }, // Top-left
+      { x: x + halfWidth, y: y - halfHeight }, // Top-right
+      { x: x + halfWidth, y: y + halfHeight }, // Bottom-right
+      { x: x - halfWidth, y: y + halfHeight }  // Bottom-left
+    ];
+  }
+
   private calculatePolygonCorners(shape: Shape, margin: number): Vector2[] {
-    const vertices = getShapeVertices(shape);
-    return this.applyMarginToCorners(vertices, shape, margin);
+    // For polygons, use the actual physics body vertices
+    if (!shape.body || !shape.body.vertices || shape.body.vertices.length === 0) {
+      return [];
+    }
+    
+    const bodyVertices = shape.body.vertices;
+    const center = shape.position;
+    
+    // Convert Matter.js vertices to our Vector2 format and apply margin
+    const corners: Vector2[] = bodyVertices.map(vertex => {
+      // Calculate local position relative to shape center
+      const localX = vertex.x - center.x;
+      const localY = vertex.y - center.y;
+      const distance = Math.sqrt(localX * localX + localY * localY);
+      
+      if (distance <= margin) {
+        // Too close to center, return as is
+        return { x: vertex.x, y: vertex.y };
+      }
+      
+      // Move inward by margin amount
+      const scale = (distance - margin) / distance;
+      return {
+        x: center.x + localX * scale,
+        y: center.y + localY * scale
+      };
+    });
+    
+    return corners;
   }
 
   private applyMarginToCorners(corners: Vector2[], shape: Shape, margin: number): Vector2[] {
