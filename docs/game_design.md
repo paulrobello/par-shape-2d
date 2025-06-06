@@ -722,41 +722,7 @@ Three-stage coordinate system:
 
 ## Save System
 
-### Local Storage Persistence
-**File**: `src/game/core/GameState.ts` (save/load methods)
-
-Comprehensive state persistence with full game restoration:
-
-### Save Data Structure
-```typescript
-interface FullGameSave {
-  gameState: GameState;
-  level: Level;
-  containers: Container[];
-  holdingHoles: HoldingHole[];
-  layerManagerState: SerializableLayerManagerState;
-  screwManagerState: { animatingScrews: SerializableScrew[] };
-}
-```
-
-### Serialization Strategy
-- **Matter.js Bodies**: Converted to serializable format with physics properties
-- **Constraint Recreation**: Screws rebuild constraints on load
-- **Animation State**: In-progress animations preserved
-- **Position Accuracy**: Exact body positions and velocities saved
-
-### Save Triggers
-Automatic saving at key moments:
-- New layer creation
-- Layer clearing
-- Container creation/removal
-- Screw collection completion
-
-### State Restoration
-- **Automatic Resume**: Games resume automatically on page load
-- **Physics Rebuilding**: Matter.js bodies recreated from serialized data
-- **Bounds Updating**: Layer bounds recalculated for current screen size
-- **Animation Continuity**: Ongoing animations restored
+Needs to be implemented
 
 ## Animation System
 
