@@ -22,6 +22,7 @@ export class ContainerStrategyManager extends BaseSystem {
   private readonly HOLDING_HOLE_COUNT = GAME_CONFIG.holdingHoles.count; // 5 holding holes
   
   private currentPlan: ContainerReplacementPlan | null = null;
+  private screwColorDistribution: import('../../types/precomputed').ScrewColorDistribution | null = null;
   private screwsCollected = 0;
   private nextReplacementIndex = 0;
   private activeContainers: Container[] = [];
@@ -32,7 +33,72 @@ export class ContainerStrategyManager extends BaseSystem {
   }
 
   async onInitialize(): Promise<void> {
-    // TODO: Set up event handlers for container strategy management
+    this.setupEventHandlers();
+    
+    this.emit({
+      type: 'system:ready',
+      timestamp: Date.now()
+    });
+  }
+
+  private setupEventHandlers(): void {
+    // Listen for level precomputation to set up the plan
+    this.subscribe('level:precomputed', (event: import('../events/EventTypes').LevelPrecomputedEvent) => {
+      this.setPlan(event.levelData.containerReplacementPlan);
+      this.screwColorDistribution = event.levelData.screwColorDistribution;
+    });
+
+    // Listen for screw collection to track progress
+    this.subscribe('screw:collected', () => {
+      this.screwsCollected++;
+      this.onScrewCollected(this.screwsCollected);
+    });
+
+    // Listen for container state updates
+    this.subscribe('container:state:updated', (event: import('../events/EventTypes').ContainerStateUpdatedEvent) => {
+      this.updateContainerState(event.containers, this.holdingHoles);
+    });
+
+    // Listen for holding hole state updates
+    this.subscribe('holding_hole:state:updated', (event: import('../events/EventTypes').HoldingHoleStateUpdatedEvent) => {
+      this.holdingHoles = [...event.holdingHoles];
+    });
+
+    // Listen for container filled events to check if replacement is needed
+    this.subscribe('container:filled', (event: import('../events/EventTypes').ContainerFilledEvent) => {
+      if (this.currentPlan && event.containerIndex >= 0 && event.containerIndex < this.activeContainers.length) {
+        // Get the filled container
+        const container = this.activeContainers[event.containerIndex];
+        
+        // Check if we should trigger a strategic replacement
+        const remainingScrews = this.calculateRemainingScrews();
+        if (this.shouldReplaceContainer(container, remainingScrews)) {
+          const nextReplacement = this.getNextPlannedReplacement();
+          if (nextReplacement) {
+            this.emit({
+              type: 'container:replacement:planned',
+              timestamp: Date.now(),
+              atScrewCount: nextReplacement.atScrewCount,
+              newColors: nextReplacement.newColors
+            });
+          }
+        }
+      }
+    });
+
+    // Listen for level completion to generate final stats
+    this.subscribe('level:complete', () => {
+      if (this.currentPlan) {
+        const stats = this.generatePerfectBalanceStats();
+        if (stats.performance.finalBalanceAchieved) {
+          this.emit({
+            type: 'perfect:balance:achieved',
+            timestamp: Date.now(),
+            finalStats: stats
+          });
+        }
+      }
+    });
   }
 
   /**
@@ -305,9 +371,52 @@ export class ContainerStrategyManager extends BaseSystem {
    * Execute a specific replacement
    */
   private executeReplacement(replacement: ContainerReplacement): void {
-    // TODO: This would be handled by GameState in the actual implementation
-    // For now, this is scaffolding code
-    console.log('[ContainerStrategyManager] Container replacement executed:', replacement.newColors);
+    // Emit event to request GameState to execute the replacement
+    this.emit({
+      type: 'container:replacement:planned',
+      timestamp: Date.now(),
+      atScrewCount: replacement.atScrewCount,
+      newColors: replacement.newColors
+    });
+  }
+
+  /**
+   * Calculate remaining screws by color
+   */
+  private calculateRemainingScrews(): Map<string, number> {
+    // This is an approximation based on current state
+    // In a real implementation, this would query the actual remaining screws
+    const colorCounts = new Map<string, number>();
+    
+    // Initialize with all possible colors
+    getAllScrewColors().forEach(color => {
+      colorCounts.set(color, 0);
+    });
+
+    // Add screws from containers
+    this.activeContainers.forEach(container => {
+      const screwsInContainer = container.holes.filter(hole => hole !== null).length;
+      const currentCount = colorCounts.get(container.color) || 0;
+      // Estimate remaining based on container capacity
+      colorCounts.set(container.color, currentCount + (this.CONTAINER_CAPACITY - screwsInContainer));
+    });
+
+    // If we have a plan, use its color distribution for better accuracy
+    if (this.currentPlan && this.screwColorDistribution) {
+      const distribution = this.screwColorDistribution;
+      const totalCollected = this.screwsCollected;
+      const totalScrews = this.currentPlan.finalState.totalScrewsCollected;
+      
+      // Calculate approximate remaining for each color
+      distribution.colorCounts.forEach((total, color) => {
+        const percentageCollected = totalCollected / totalScrews;
+        const estimatedCollected = Math.floor(total * percentageCollected);
+        const remaining = Math.max(0, total - estimatedCollected);
+        colorCounts.set(color, remaining);
+      });
+    }
+
+    return colorCounts;
   }
 
   /**
