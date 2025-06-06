@@ -15,6 +15,7 @@ import { CapsuleTool } from '../drawing/tools/CapsuleTool';
 import { PathTool } from '../drawing/tools/PathTool';
 import { EditorEventPriority } from './EditorEventBus';
 import { EditorTheme } from '../utils/theme';
+import { toast } from 'react-toastify';
 import { 
   EditorErrorValidationEvent, 
   EditorErrorPhysicsEvent, 
@@ -393,14 +394,13 @@ export class EditorManager extends BaseEditorSystem {
   }
 
   private showError(message: string): void {
-    // TODO: Implement proper error display UI
     console.error(message);
-    alert(message);
+    toast.error(message);
   }
 
   private showMessage(message: string): void {
-    // TODO: Implement proper message display UI
     console.log(message);
+    toast.success(message);
   }
 
   // Public API
