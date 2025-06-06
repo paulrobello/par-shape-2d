@@ -254,7 +254,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
             activeShapes: activeShapes,
             activeScrews: activeScrews,
             physicsBodies: physicsStats.bodyCount,
-            gameOverTimer: null // TODO: Implement game over timer if needed
+            gameOverTimer: null
           });
         }
       }

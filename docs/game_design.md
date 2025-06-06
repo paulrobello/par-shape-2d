@@ -162,21 +162,30 @@ interface GameState {
 ### Layer Management
 **File**: `src/game/systems/LayerManager.ts`
 
-Event-driven layer system with complete autonomy:
+Event-driven layer system with visibility-based progressive revelation:
 
 **Event-Driven Features**:
 - **Event Handlers**: Responds to level start, bounds changes, shape events
-- **Layer Events**: Emits layer creation, clearing, visibility changes
+- **Layer Events**: Emits layer creation, clearing, visibility changes, layers:updated
 - **Shape Coordination**: Coordinates with ScrewManager through events
 - **Bounds Events**: Handles responsive design through event system
 
 **Core Functionality**:
-- **Layer Generation**: Lazy loading of 4 visible layers
+- **Upfront Generation**: All layers for a level generated at initialization
+- **Visibility Management**: Only first 4 layers visible initially, others hidden with physics disabled
+- **Progressive Revelation**: Hidden layers become visible with fade-in when active layers are cleared
+- **Physics Control**: Hidden layers have disabled physics bodies to prevent interactions
 - **Depth Ordering**: Back-to-front rendering with `depthIndex`
-- **Visibility Management**: Only visible layers are processed
 - **Bounds Management**: Dynamic layer sizing for responsive design
 - **Physics Separation**: Each layer uses separate collision groups
 - **Fade-in Animation**: New layers fade in over 1 second with ease-in-out curve
+
+**Visibility System**:
+- **Initial State**: First `GAME_CONFIG.layer.maxVisible` (4) layers visible on level start
+- **Hidden Layers**: Generated but invisible with `layer.makeHidden()` and disabled physics
+- **Progressive Show**: `showNextHiddenLayer()` reveals next layer when current layers cleared
+- **Physics Integration**: `enableLayerPhysics()` and `disableLayerPhysics()` manage physics state
+- **Event Coordination**: Emits `layers:updated` events for screw blocking logic updates
 
 ### Screw Management  
 **File**: `src/game/systems/ScrewManager.ts`
@@ -184,22 +193,33 @@ Event-driven layer system with complete autonomy:
 Event-driven screw system managing all screw interactions:
 
 **Event-Driven Features**:
-- **Event Handlers**: Responds to shape creation, screw clicks, container updates
+- **Event Handlers**: Responds to shape creation, screw clicks, container updates, layer visibility changes
 - **Screw Events**: Emits screw creation, removal, blocking state changes
 - **Physics Events**: Coordinates constraint management through physics events
 - **Animation Events**: Manages collection animations with event feedback
+- **Layer Events**: Listens to `layers:updated` events to track visible layer changes
 
 **Core Functionality**:
 - **Constraint Management**: Creating/removing Matter.js constraints
 - **Animation System**: Smooth screw collection animations
-- **Rotation-Aware Blocking Detection**: Shape collision detection with proper coordinate transformation
+- **Visibility-Aware Blocking Detection**: Only screws on visible layers can be removed or block other screws
 - **Smart Selection**: Prioritizing screws for container matching
+
+**Visibility-Based Blocking System**:
+- **Visible Layer Tracking**: Maintains `visibleLayers` set updated via `layers:updated` events
+- **Screw Removability Rules**: 
+  - Screws on invisible layers are never removable
+  - Only shapes from visible layers can block screws
+  - Blocking only occurs when blocking shape is in front (higher depth index)
+- **Dynamic Updates**: Re-evaluates all screw removability when layer visibility changes
+- **Container Color Integration**: Only uses colors from screws on visible layers for container replacement
 
 **Blocking Detection Features**:
 - **Coordinate Transformation**: Converts screw positions to shape-local coordinates using rotation matrix
 - **Shape-Specific Algorithms**: Rectangle, Circle, Polygon, and Capsule each use optimized intersection methods
 - **Polygon Support**: Point-in-polygon and line-segment intersection for precise n-sided polygon collision
 - **Capsule Rotation**: Fixed missing rotation handling for composite capsule shapes
+- **Depth-Aware Logic**: Only front layers (higher `depthIndex`) can block screws from back layers
 
 ## Event System
 

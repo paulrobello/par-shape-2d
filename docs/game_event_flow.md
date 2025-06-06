@@ -71,7 +71,7 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `layer:created` | Layer instantiation | LayerManager | EventFlowValidator |
 | `layer:cleared` | Layer completion | LayerManager | GameState |
 | `layer:visibility:changed` | Layer visibility toggle | LayerManager | None |
-| `layers:updated` | Visible layers changed | LayerManager | GameManager |
+| `layers:updated` | Visible layers changed | LayerManager | GameManager, GameState, ScrewManager |
 | `layer:bounds:changed` | Layer boundary updates | LayerManager | None |
 | `layer:shapes:ready` | Layer shape setup complete | LayerManager | GameState |
 | `all_layers:cleared` | All layers in level cleared | LayerManager | GameState |
@@ -325,6 +325,33 @@ If perfect balance achieved:
     ContainerStrategyManager → perfect:balance:achieved
 ```
 
+### Layer Visibility Flow (Progressive Revelation)
+```
+Level Start → LayerManager generates ALL layers upfront
+    ↓
+LayerManager → Only first 4 layers visible, others hidden with physics disabled
+    ↓
+LayerManager → layers:updated (with visible layers array)
+    ↓
+ScrewManager → handleLayersUpdated() updates visibleLayers set
+    ↓
+ScrewManager → updateScrewRemovability() with visibility-aware blocking
+    ↓
+GameState → handleLayersUpdated() tracks visible screw colors for container replacement
+    ↓
+Current visible layers cleared → LayerManager → showNextHiddenLayer()
+    ↓
+Layer → makeVisible() + fade-in animation + enableLayerPhysics()
+    ↓
+LayerManager → layers:updated (with updated visible layers)
+    ↓
+ScrewManager → Re-evaluates all screw removability based on new visibility
+    ↓
+GameState → Updates available screw colors from visible layers
+    ↓
+Process repeats until all layers revealed and cleared
+```
+
 ## Event Dependencies
 
 ### Critical Event Chains
@@ -340,6 +367,7 @@ If perfect balance achieved:
 10. **Physics Activation Chain**: `layer:activation:needed` → `physics:body:added` → `physics:constraint:added` → PhysicsWorld integration
 11. **Container Strategy Chain**: `level:precomputed` → `container:strategy:initialized` → `screw:collected` → `container:replacement:planned` → `container:replacement:executed`
 12. **Perfect Balance Chain**: `level:precomputed` → strategy tracking → `level:complete` → `perfect:balance:achieved` (conditional)
+13. **Layer Visibility Chain**: `layers:updated` → `ScrewManager.handleLayersUpdated()` + `GameState.handleLayersUpdated()` → screw removability updates + container color tracking
 
 ### Event Priority Analysis
 - **EventFlowValidator**: Uses EventPriority.CRITICAL (3) for monitoring all major events
