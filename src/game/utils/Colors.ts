@@ -8,10 +8,7 @@ export function getAllScrewColors(): ScrewColor[] {
 export function getRandomScrewColor(preferredColors?: ScrewColor[]): ScrewColor {
   // If preferred colors are provided and not empty, use them with higher probability
   if (preferredColors && preferredColors.length > 0) {
-    // 80% chance to use preferred colors, 20% chance for any color
-    if (Math.random() < 0.8) {
-      return preferredColors[Math.floor(Math.random() * preferredColors.length)];
-    }
+    return preferredColors[Math.floor(Math.random() * preferredColors.length)];
   }
   
   // Fallback to any random color

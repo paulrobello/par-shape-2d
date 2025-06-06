@@ -173,38 +173,6 @@ export class GameState extends BaseSystem {
     }
   }
 
-  private handleScrewToHoldingHole(screw: ScrewInterface, points: number): void {
-    const hole = this.findAvailableHoldingHole();
-    if (!hole) return;
-
-    if (this.addScrewToHoldingHole(hole.id, screw)) {
-      this.addScore(points);
-      
-      // Emit holding hole state update
-      this.emit({
-        type: 'holding_hole:state:updated',
-        timestamp: Date.now(),
-        holdingHoles: this.holdingHoles
-      });
-      
-      this.emit({
-        type: 'holding_hole:filled',
-        timestamp: Date.now(),
-        holeIndex: this.holdingHoles.indexOf(hole),
-        screwId: screw.id,
-        screwColor: screw.color
-      });
-
-      if (this.isHoldingAreaFull()) {
-        this.emit({
-          type: 'holding_holes:full',
-          timestamp: Date.now(),
-          countdown: 5000 // 5 second countdown
-        });
-      }
-    }
-  }
-
   private handleHoldingHoleFilled(event: HoldingHoleFilledEvent): void {
     this.executeIfActive(() => {
       if (DEBUG_CONFIG.logScrewDebug) {
@@ -794,10 +762,6 @@ export class GameState extends BaseSystem {
     }) || null;
   }
 
-  public findAvailableHoldingHole(): HoldingHole | null {
-    return this.holdingHoles.find(hole => hole.screwId === null) || null;
-  }
-
   private addScrewToContainer(containerId: string, screw: ScrewInterface): boolean {
     const container = this.containers.find(c => c.id === containerId);
     if (!container || container.isFull) return false;
@@ -818,15 +782,6 @@ export class GameState extends BaseSystem {
     }
 
     container.isFull = container.holes.every(hole => hole !== null);
-    return true;
-  }
-
-  private addScrewToHoldingHole(holeId: string, screw: ScrewInterface): boolean {
-    const hole = this.holdingHoles.find(h => h.id === holeId);
-    if (!hole || hole.screwId !== null) return false;
-
-    hole.screwId = screw.id;
-    hole.screwColor = screw.color; // Store the screw color for container generation
     return true;
   }
 
@@ -1037,7 +992,6 @@ export class GameState extends BaseSystem {
         }
       }
     });
-
   }
 
   private requestScrewTransfer(screwId: string, holeIndex: number, targetContainer: Container): void {
@@ -1296,22 +1250,6 @@ export class GameState extends BaseSystem {
 
   public getLevel(): Level {
     return { ...this.level, layers: [...this.level.layers] };
-  }
-
-  public getContainers(): Container[] {
-    return this.containers.map(container => ({
-      ...container,
-      holes: [...container.holes],
-      reservedHoles: [...container.reservedHoles],
-    }));
-  }
-
-  public getHoldingHoles(): HoldingHole[] {
-    return this.holdingHoles.map(hole => ({ ...hole }));
-  }
-
-  public getActiveContainerColors(): ScrewColor[] {
-    return this.containers.map(container => container.color);
   }
 
   // Override BaseSystem update method to handle container animations

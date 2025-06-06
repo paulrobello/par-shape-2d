@@ -140,7 +140,7 @@ export class ShapeRenderer {
     ctx.fillText(`${shape.id} (${shape.type})`, shape.position.x, shape.position.y - 20);
     
     // Enhanced physics body debug rendering for path-based shapes
-    if (shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'star' || shape.type === 'horseshoe') {
+    if (shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'star' || shape.type === 'horseshoe') { // TODO make this check more general so it works with all path based shapes not just the ones named here.
       // For path-based shapes using fromVertices, the body might have multiple parts
       if (shape.body.parts && shape.body.parts.length > 1) {
         // Draw each decomposed part with different colors

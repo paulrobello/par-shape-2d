@@ -27,7 +27,7 @@ import { Vector2 } from '../../types/game';
 /**
  * Core system for pre-computing entire levels with perfect balance
  */
-export class LevelPrecomputer extends BaseSystem {
+export class LevelPrecomputer extends BaseSystem { // TODO is this still being used?
   private balanceCalculator: PerfectBalanceCalculator;
   private shapeRegistry?: ShapeRegistry;
   private shapeFactory?: ShapeFactory;
