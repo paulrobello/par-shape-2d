@@ -276,6 +276,31 @@ Each level has 4 containers with specific colors:
 - **Responsive Positioning**: Container and hole positions calculated using current virtual dimensions
 - **Consistent Calculations**: All systems use identical hole spacing formula: `containerWidth / (holeCount + 1)`
 
+### Container Strategy Management
+**File**: `src/game/utils/ContainerStrategyManager.ts`
+
+Smart container replacement system for perfect balance achievement:
+
+**Features**:
+- **Strategic Planning**: Implements container replacement plans for optimal screw distribution
+- **Perfect Balance Tracking**: Monitors progress toward ideal container fill ratios
+- **Event-Driven Integration**: Listens to level precomputed data and screw collection events
+- **Intelligent Replacement**: Triggers container replacements based on remaining screw distribution
+- **Balance Status Monitoring**: Tracks deviation from perfect balance plan
+
+**Event Handlers**:
+- `level:precomputed` - Sets up container replacement plan from precomputed level data
+- `screw:collected` - Updates progress and checks for planned replacements
+- `container:state:updated` - Maintains current container state for calculations
+- `container:filled` - Triggers strategic replacement evaluation
+- `level:complete` - Generates final perfect balance statistics
+
+**Key Methods**:
+- `shouldReplaceContainer()` - Evaluates if strategic replacement needed
+- `calculateOptimalColors()` - Determines best colors for new containers
+- `generatePerfectBalanceStats()` - Creates final achievement statistics
+- `validatePerfectEnding()` - Verifies plan execution success
+
 ### Holding Holes System
 
 Emergency storage for non-matching screws:
@@ -906,14 +931,23 @@ src/game/systems/
 │   ├── Filters enabled shapes based on JSON enabled field
 │   └── Manages shape type registry and availability
 │
-└── ShapeLoader.ts       # Shape JSON loading and validation
-    ├── Deterministic 3-phase placement algorithm
-    ├── Retry system with progressive size reduction
-    ├── Enhanced collision detection and separation
-    ├── Shape type selection and sizing
-    ├── Screw hole placement algorithms
-    ├── Physics body creation
-    └── Visual property assignment
+├── ShapeLoader.ts       # Shape JSON loading and validation
+│   ├── Deterministic 3-phase placement algorithm
+│   ├── Retry system with progressive size reduction
+│   ├── Enhanced collision detection and separation
+│   ├── Shape type selection and sizing
+│   ├── Screw hole placement algorithms
+│   ├── Physics body creation
+│   └── Visual property assignment
+│
+└── PhysicsActivationManager.ts # Event-driven physics activation for dormant layers
+    ├── Lazy physics body creation using PhysicsBodyFactory
+    ├── Constraint management with ConstraintUtils
+    ├── Shape and Screw entity creation from precomputed data
+    ├── Event-driven physics integration
+    ├── Memory optimization through selective activation
+    ├── Physics body and constraint lifecycle management
+    └── Integration with shared physics utilities
 ```
 
 ### Rendering Layer
@@ -996,6 +1030,14 @@ src/game/utils/
 │   ├── Color matching and transfer validation
 │   ├── Holding hole position management
 │   └── Active screw color tracking
+│
+├── ContainerStrategyManager.ts # Smart container replacement strategy
+│   ├── Perfect balance achievement planning
+│   ├── Strategic container replacement logic
+│   ├── Event-driven integration with game systems
+│   ├── Balance status monitoring and validation
+│   ├── Optimal color calculation for new containers
+│   └── Perfect balance statistics generation
 │
 └── DeviceDetection.ts      # Device and platform detection
     ├── Mobile/desktop identification using react-device-detect
@@ -1160,6 +1202,28 @@ export const PHYSICS_CONSTANTS = {
 - **Reduced Damping**: Natural swinging motion with minimal energy loss
 - **No Manual Forces**: Pure gravity-based falling without artificial impulses
 
+### Physics Activation System
+**File**: `src/game/systems/PhysicsActivationManager.ts`
+
+Event-driven physics activation for dormant layer management:
+
+**Features**:
+- **Lazy Physics Loading**: Creates physics bodies only when layers become active
+- **Shared Library Integration**: Uses PhysicsBodyFactory and ConstraintUtils for all physics operations
+- **Entity Creation**: Properly creates Shape and Screw entities from precomputed data
+- **Event-Driven Architecture**: Full integration with game event system
+- **Constraint Management**: Creates and removes physics constraints with proper event emissions
+- **Memory Optimization**: Deactivates physics for cleared layers
+
+**Implementation Details**:
+- Creates physics bodies using `PhysicsBodyFactory.createShapeBodyFromDefinition()`
+- Manages constraints with `ConstraintUtils.createSingleScrewConstraint()`
+- Emits proper events for physics world integration:
+  - `physics:body:added` when creating shape bodies
+  - `physics:constraint:added` when creating screw constraints
+  - `physics:body:removed` and `physics:constraint:removed` for cleanup
+- Handles both shape activation and screw constraint creation from precomputed data
+
 ## Development Features
 
 ### Debug System
@@ -1253,7 +1317,7 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
 - ✅ Enhanced physics with natural motion (10x reduced air friction, 5x less damping)
 - ✅ Zero shape overlaps with deterministic 3-phase placement algorithm
 - ✅ Layer fade-in animations (1s duration with ease-in-out curve)
-- ✅ Container fade animations (0.5s fade-out/fade-in transitions)
+- ✅ Container fade animations (0.5s fade-out/fade-in transitions with fadeOpacity rendering)
 - ✅ Fixed shape border rendering (prevents thickness changes)
 - ✅ No manual forces - pure gravity-based falling motion
 - ✅ Proper GameState update loop integration via SystemCoordinator
@@ -1307,6 +1371,22 @@ The PAR Shape 2D codebase underwent a comprehensive 6-phase migration from a tig
   - Air friction reduced to 0.001 (80% reduction) for faster swinging
   - Constraint damping reduced to 0.05 (50% reduction) for less resistance
   - Removed artificial inertia multiplier - shapes use natural Matter.js inertia
+- ✅ **PhysicsActivationManager Implementation**: Complete physics system for dormant layer activation
+  - Implemented all 7 physics TODOs using shared libraries (PhysicsBodyFactory, ConstraintUtils)
+  - Event-driven physics body and constraint creation/removal
+  - Proper Shape and Screw entity creation from precomputed data
+  - Full integration with game event system
+  - Creates physics bodies using `PhysicsBodyFactory.createShapeBodyFromDefinition()`
+  - Manages constraints with `ConstraintUtils.createSingleScrewConstraint()`
+  - Emits proper physics events: `physics:body:added`, `physics:constraint:added`, removal events
+- ✅ **ContainerStrategyManager Integration**: Smart container replacement for perfect balance
+  - Complete event handler setup listening to game events
+  - Strategic container replacement logic based on remaining screws
+  - Perfect balance statistics generation and tracking
+  - Integration with precomputed level data and color distribution
+  - Event handlers for `level:precomputed`, `screw:collected`, `container:filled`, `level:complete`
+  - Strategic replacement evaluation with `shouldReplaceContainer()` method
+  - Optimal color calculation for new containers based on remaining screw distribution
 - ✅ Ready for production use with polished visual experience
 
 ---
