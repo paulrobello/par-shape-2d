@@ -315,9 +315,9 @@ ContainerStrategyManager → onScrewCollected() checks plan
 If replacement needed:
     ContainerStrategyManager → container:replacement:planned
     ↓
-    GameState → executeContainerReplacement()
+    GameState → handleContainerReplacementPlanned() → executeContainerReplacement()
     ↓
-    ContainerStrategyManager → container:replacement:executed
+    GameState → container:replacement:executed (with fade animations)
     ↓
 Level complete → ContainerStrategyManager → generatePerfectBalanceStats()
     ↓
@@ -405,6 +405,7 @@ The EventBus includes loop detection (max 50 loops per event type/source) to pre
 8. **Physics Activation System**: Lazy physics loading with shared library integration reduces memory overhead
 9. **Container Strategy Events**: Strategic container replacement with perfect balance tracking
 10. **Shared Physics Integration**: PhysicsActivationManager uses PhysicsBodyFactory and ConstraintUtils for consistency
+11. **GameState Container Integration**: Complete integration of container replacement strategy with proper screw ID type safety
 
 ### Orphaned/Unused Events
 The following events are defined in EventTypes.ts but have no active emitters or subscribers:
