@@ -18,7 +18,6 @@ import { ShapeDefinition } from '../../types/shapes';
 import { PerfectBalanceCalculator } from '../utils/PerfectBalanceCalculator';
 import { ShapeRegistry } from './ShapeRegistry';
 import { ShapeFactory } from './ShapeFactory';
-import { getAllScrewColors } from '../utils/Colors';
 import { distance } from '../utils/MathUtils';
 import { UI_CONSTANTS } from '@/shared/utils/Constants';
 import { ScrewPlacementStrategyFactory } from '../../shared/strategies';
@@ -517,9 +516,9 @@ export class LevelPrecomputer extends BaseSystem {
    * Generate visual properties for a shape
    */
   private generateVisualProperties(): { color: string; tint: string; borderWidth: number; alpha: number } {
-    const colors = getAllScrewColors();
-    const baseColor = colors[Math.floor(Math.random() * colors.length)];
-    const tint = '#ffffff'; // Default tint
+    // Use a neutral color - will be overridden by layer color assignment
+    const baseColor = '#888888'; // Gray - will be replaced by layer color
+    const tint = '#ffffff'; // White tint - will be replaced by layer tint
     
     return {
       color: baseColor,

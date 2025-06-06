@@ -101,6 +101,26 @@ Example workflow:
 2. Read file_path: "/path/to/screenshot.png"
 ```
 
+## Layer Generation System
+
+The game uses a **robust layer generation system** that creates multiple colored layers with proper physics and screw placement:
+
+- **Layer Colors**: Each visible layer uses distinct colors from the SHAPE_TINTS array: ['#FFE6E6', '#E6FFE6', '#E6F3FF', '#FFFFE6', '#F0E6FF']
+- **Screw Placement**: Uses proven placement strategies (corner, perimeter, grid) for accurate screw positioning
+- **Physics Integration**: Full Matter.js physics with proper collision detection and bounds checking
+- **Event-Driven**: Layers are managed through the SharedEventBus with proper event sequencing
+
+### Pre-Computation System Status
+
+The **Level Pre-computation system is currently DISABLED** due to fundamental architectural issues:
+
+- **Issue**: LevelPrecomputer used placeholder random screw positioning instead of proper placement strategies
+- **Impact**: Caused screws to be unclickable and shapes to appear out of bounds
+- **Status**: Disabled in GameManager.ts (line 260) until proper integration with existing systems
+- **Current Mode**: Using proven normal layer generation for reliable gameplay
+
+**Note**: If re-enabling pre-computation, it must be redesigned to integrate with existing screw placement strategies rather than bypass them.
+
 ## Shape Editor
 
 The Shape Editor includes a fully implemented drawing system for creating new shapes with all advanced tools. The UI features icon-based controls with organized groupings, toast notifications for user feedback, and a streamlined toolbar without the Select tool.

@@ -255,6 +255,8 @@ export class LayerManager extends BaseSystem {
       layer.colorIndex = colorIndex;
       layer.tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
       
+      console.log(`🎨 Normal layer creation: ${layer.id} index=${index} colorIndex=${colorIndex} tint=${layer.tint} visible=${layer.isVisible}`);
+      
       // Always increment the generation counter
       this.state.layersGeneratedThisLevel++;
       
@@ -523,7 +525,9 @@ export class LayerManager extends BaseSystem {
     
     // Generate a new layer if we haven't reached the total for this level
     // AND we still have visible layers (not at the end of the level)
-    const shouldGenerateNewLayer = this.state.layersGeneratedThisLevel < this.state.totalLayersForLevel && 
+    // BUT don't generate new layers when using pre-computed data
+    const shouldGenerateNewLayer = !this.state.isUsingPrecomputedData &&
+                                   this.state.layersGeneratedThisLevel < this.state.totalLayersForLevel && 
                                    this.state.layers.length > 0;
     
     if (shouldGenerateNewLayer) {
@@ -536,20 +540,21 @@ export class LayerManager extends BaseSystem {
         console.log(`After generation - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
       }
     } else {
+      const reason = this.state.isUsingPrecomputedData ? 'using pre-computed data' : 
+                     this.state.layersGeneratedThisLevel >= this.state.totalLayersForLevel ? 'reached total layers' :
+                     this.state.layers.length === 0 ? 'no active layers' : 'unknown';
+      console.log(`🚫 No new layer generated (${reason}): ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} layers generated, ${this.state.layers.length} active layers remaining`);
+    }
+    
+    // Check if level is complete (no more active layers)
+    if (this.state.layers.length === 0) {
       if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`No new layer generated: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} layers generated, ${this.state.layers.length} active layers remaining`);
+        console.log('🎉 All layers cleared! Level complete!');
       }
-      
-      // Check if level is complete (no more active layers)
-      if (this.state.layers.length === 0) {
-        if (DEBUG_CONFIG.logLayerDebug) {
-          console.log('🎉 All layers cleared! Level complete!');
-        }
-        this.emit({
-          type: 'all_layers:cleared',
-          timestamp: Date.now()
-        });
-      }
+      this.emit({
+        type: 'all_layers:cleared',
+        timestamp: Date.now()
+      });
     }
   }
 
@@ -706,6 +711,8 @@ export class LayerManager extends BaseSystem {
 
   public clearAllLayers(): void {
     this.executeIfActive(() => {
+      console.log(`🗑️ Clearing all layers - currently have ${this.state.layers.length} layers`);
+      
       // Emit physics body removed events for all shapes
       this.state.layers.forEach(layer => {
         layer.getAllShapes().forEach(shape => {
@@ -849,6 +856,7 @@ export class LayerManager extends BaseSystem {
 
   private handleLevelPrecomputed(event: import('../events/EventTypes').LevelPrecomputedEvent): void {
     this.executeIfActive(() => {
+      console.log(`🎯 Level pre-computed event received - switching to pre-computed mode`);
       this.state.precomputedLevel = event.levelData;
       this.state.isUsingPrecomputedData = true;
       
@@ -894,6 +902,7 @@ export class LayerManager extends BaseSystem {
   private createLayersFromPrecomputedData(): void {
     if (!this.state.precomputedLevel) return;
 
+    console.log(`📊 Creating layers from pre-computed data - ${this.state.precomputedLevel.layers.length} layers to create`);
     this.clearAllLayers();
 
     this.state.precomputedLevel.layers.forEach((precomputedLayer, index) => {
@@ -914,6 +923,9 @@ export class LayerManager extends BaseSystem {
         layer.updateBounds(precomputedLayer.bounds);
       }
 
+      // Add layer to state BEFORE processing shapes so events can find it
+      this.state.layers.push(layer);
+
       // Create dormant shapes from pre-computed data
       precomputedLayer.shapes.forEach(precomputedShape => {
         const shape = this.createShapeFromPrecomputedData(precomputedShape);
@@ -921,10 +933,19 @@ export class LayerManager extends BaseSystem {
           // Set the layer ID after creation
           shape.layerId = layer.id;
           layer.addShape(shape);
+          
+          // Now emit screws ready event since shape is properly added to layer
+          if (shape.getAllScrews().length > 0) {
+            this.emit({
+              type: 'shape:screws:ready',
+              timestamp: Date.now(),
+              source: 'LayerManager',
+              shape,
+              screws: shape.getAllScrews()
+            });
+          }
         }
       });
-
-      this.state.layers.push(layer);
       
       this.emit({
         type: 'layer:created',
@@ -937,16 +958,36 @@ export class LayerManager extends BaseSystem {
     // Update layer visibility first
     this.updateLayerVisibility();
 
-    // Assign colors to all layers based on their final index order
-    // This ensures consistent colors regardless of creation order
-    this.state.layers.forEach((layer) => {
-      if (layer.isVisible) {
-        // Use the layer's final index for color assignment
-        const colorIndex = layer.index % SHAPE_TINTS.length;
-        layer.colorIndex = colorIndex;
-        layer.tint = SHAPE_TINTS[colorIndex];
-        console.log(`🎨 Pre-computed layer color assignment: ${layer.id} index=${layer.index} colorIndex=${colorIndex} tint=${layer.tint} visible=${layer.isVisible} shapes=${layer.getAllShapes().length}`);
-      }
+    // Assign colors to visible layers sequentially to ensure distinct colors
+    // This ensures all visible layers get different colors when possible
+    const visibleLayers = this.getVisibleLayers();
+    visibleLayers.forEach((layer, visibleIndex) => {
+      const colorIndex = visibleIndex % SHAPE_TINTS.length;
+      layer.colorIndex = colorIndex;
+      layer.tint = SHAPE_TINTS[colorIndex];
+      
+      // Get proper layer stroke color (same logic as ShapeFactory)
+      const layerColors = [
+        '#E74C3C', // Red
+        '#2ECC71', // Green  
+        '#3498DB', // Blue
+        '#F1C40F', // Yellow
+        '#9B59B6', // Purple
+      ];
+      const strokeColor = layerColors[colorIndex % layerColors.length];
+      
+      // Apply both stroke color and tint to all shapes in the layer
+      layer.getAllShapes().forEach(shape => {
+        shape.color = strokeColor;
+        shape.tint = layer.tint;
+      });
+      
+      console.log(`🎨 Pre-computed layer color assignment: ${layer.id} visibleIndex=${visibleIndex} colorIndex=${colorIndex} strokeColor=${strokeColor} tint=${layer.tint} shapes=${layer.getAllShapes().length}`);
+      
+      // Log each shape's color assignment for debugging
+      layer.getAllShapes().forEach((shape, shapeIndex) => {
+        console.log(`  🔸 Shape ${shape.id} [${shapeIndex}]: color=${shape.color} tint=${shape.tint}`);
+      });
     });
     
     // Also log all layers for complete picture
@@ -1011,7 +1052,7 @@ export class LayerManager extends BaseSystem {
       // Map definition ID to ShapeType (using same logic as ShapeFactory)
       const shapeType = this.getShapeTypeFromDefinition(precomputedShape.definition);
       
-      // Create the shape entity
+      // Create the shape entity (tint will be set by layer after creation)
       const shape = new Shape(
         precomputedShape.id,
         shapeType,
@@ -1019,7 +1060,7 @@ export class LayerManager extends BaseSystem {
         body,
         '', // layerId will be set by caller
         precomputedShape.visual.color,
-        precomputedShape.visual.tint,
+        '#FFFFFF', // Temporary tint - will be overridden by layer tint
         precomputedShape.definition.id, // Pass the definition ID for strategy lookup
         {
           width: precomputedShape.dimensions.width as number,
@@ -1040,6 +1081,29 @@ export class LayerManager extends BaseSystem {
       // For composite bodies, sync the Shape position after Matter.js positioning
       if (parts) {
         shape.updateFromBody();
+      }
+      
+      // Add screws from pre-computed data
+      if (precomputedShape.screws && precomputedShape.screws.length > 0) {
+        const { Screw } = require('@/game/entities/Screw'); // eslint-disable-line @typescript-eslint/no-require-imports
+        
+        precomputedShape.screws.forEach(precomputedScrew => {
+          const screw = new Screw(
+            precomputedScrew.id,
+            shape.id,
+            precomputedScrew.position,
+            precomputedScrew.color
+          );
+          
+          // Set any additional screw properties from pre-computed data
+          screw.isRemovable = true; // Pre-computed screws should be removable
+          screw.isCollected = false;
+          screw.isBeingCollected = false;
+          
+          shape.addScrew(screw);
+        });
+        
+        // Note: Don't emit screws:ready event here - will emit after shape is added to layer
       }
       
       if (DEBUG_CONFIG.logLayerDebug) {
@@ -1325,6 +1389,8 @@ export class LayerManager extends BaseSystem {
    * Update layer visibility based on current state
    */
   public updateLayerVisibility(): void {
+    console.log(`👁️ Updating layer visibility - using pre-computed: ${this.state.isUsingPrecomputedData}, visible indices: [${Array.from(this.state.visibleLayerIndices).join(', ')}]`);
+    
     if (!this.state.isUsingPrecomputedData) {
       // Use original visibility logic for non-pre-computed layers
       this.updateLayerVisibilityOriginal();

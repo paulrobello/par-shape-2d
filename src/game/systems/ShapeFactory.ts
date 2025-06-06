@@ -140,7 +140,8 @@ export class ShapeFactory {
     
     // Create the shape entity
     const color = this.getLayerColor(colorIndex);
-    const tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
+    // Use offset tint to avoid same-color stroke and fill (better visual distinction)
+    const tint = SHAPE_TINTS[(colorIndex + 2) % SHAPE_TINTS.length];
     
     // Map definition ID to ShapeType
     const shapeType = this.getShapeType(definition);
@@ -719,7 +720,8 @@ export class ShapeFactory {
     };
     
     const color = this.getLayerColor(colorIndex);
-    const tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
+    // Use offset tint to avoid same-color stroke and fill (better visual distinction)
+    const tint = SHAPE_TINTS[(colorIndex + 2) % SHAPE_TINTS.length];
     
     return new Shape(
       id,

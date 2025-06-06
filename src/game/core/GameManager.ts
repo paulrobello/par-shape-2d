@@ -255,8 +255,9 @@ export class GameManager extends BaseSystem {
       eventBus.resetLoopDetection();
       console.log('Reset event loop detection for level initialization');
 
-      // Trigger level pre-computation
-      this.startLevelPrecomputation(event.level);
+      // Trigger level pre-computation - DISABLED temporarily due to broken screw placement
+      // TODO: Fix LevelPrecomputer to use proper screw placement strategies instead of random positioning
+      // this.startLevelPrecomputation(event.level);
     });
   }
 
