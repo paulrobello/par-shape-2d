@@ -26,6 +26,8 @@ export interface PhysicsWorldState {
   isPaused: boolean;
   bodies: Set<string>;
   constraints: Set<string>;
+  dormantBodies: Map<string, Body>; // Bodies not added to world yet
+  dormantConstraints: Map<string, Constraint>; // Constraints not added to world yet
 }
 
 export interface CollisionEvent {
@@ -74,6 +76,8 @@ export class PhysicsWorld {
       isPaused: false,
       bodies: new Set(),
       constraints: new Set(),
+      dormantBodies: new Map(),
+      dormantConstraints: new Map(),
     };
 
     this.initialize();
@@ -484,11 +488,118 @@ export class PhysicsWorld {
     };
   }
 
+  // Dormant object management for selective physics activation
+  public storeDormantBodies(bodies: Body[]): void {
+    bodies.forEach(body => {
+      this.state.dormantBodies.set(body.id.toString(), body);
+    });
+  }
+
+  public storeDormantConstraints(constraints: Constraint[]): void {
+    constraints.forEach(constraint => {
+      if (constraint.id) {
+        this.state.dormantConstraints.set(constraint.id.toString(), constraint);
+      }
+    });
+  }
+
+  public activateDormantBodies(bodyIds: string[]): Body[] {
+    const bodiesToActivate: Body[] = [];
+    
+    bodyIds.forEach(bodyId => {
+      const body = this.state.dormantBodies.get(bodyId);
+      if (body) {
+        bodiesToActivate.push(body);
+        this.state.dormantBodies.delete(bodyId);
+      }
+    });
+
+    if (bodiesToActivate.length > 0) {
+      this.addBodies(bodiesToActivate);
+    }
+
+    return bodiesToActivate;
+  }
+
+  public activateDormantConstraints(constraintIds: string[]): Constraint[] {
+    const constraintsToActivate: Constraint[] = [];
+    
+    constraintIds.forEach(constraintId => {
+      const constraint = this.state.dormantConstraints.get(constraintId);
+      if (constraint) {
+        constraintsToActivate.push(constraint);
+        this.state.dormantConstraints.delete(constraintId);
+      }
+    });
+
+    if (constraintsToActivate.length > 0) {
+      this.addConstraints(constraintsToActivate);
+    }
+
+    return constraintsToActivate;
+  }
+
+  public deactivateBodies(bodyIds: string[]): Body[] {
+    const bodiesToDeactivate: Body[] = [];
+    
+    bodyIds.forEach(bodyId => {
+      const allBodies = Composite.allBodies(this.state.world);
+      const body = allBodies.find(b => b.id.toString() === bodyId);
+      if (body) {
+        bodiesToDeactivate.push(body);
+        this.state.bodies.delete(bodyId);
+      }
+    });
+
+    if (bodiesToDeactivate.length > 0) {
+      Composite.remove(this.state.world, bodiesToDeactivate);
+      // Store as dormant
+      this.storeDormantBodies(bodiesToDeactivate);
+    }
+
+    return bodiesToDeactivate;
+  }
+
+  public deactivateConstraints(constraintIds: string[]): Constraint[] {
+    const constraintsToDeactivate: Constraint[] = [];
+    
+    constraintIds.forEach(constraintId => {
+      const allConstraints = Composite.allConstraints(this.state.world);
+      const constraint = allConstraints.find(c => c.id?.toString() === constraintId);
+      if (constraint) {
+        constraintsToDeactivate.push(constraint);
+        this.state.constraints.delete(constraintId);
+      }
+    });
+
+    if (constraintsToDeactivate.length > 0) {
+      Composite.remove(this.state.world, constraintsToDeactivate);
+      // Store as dormant
+      this.storeDormantConstraints(constraintsToDeactivate);
+    }
+
+    return constraintsToDeactivate;
+  }
+
+  public getDormantBodyCount(): number {
+    return this.state.dormantBodies.size;
+  }
+
+  public getDormantConstraintCount(): number {
+    return this.state.dormantConstraints.size;
+  }
+
+  public clearDormantObjects(): void {
+    this.state.dormantBodies.clear();
+    this.state.dormantConstraints.clear();
+  }
+
   public destroy(): void {
     Events.off(this.state.engine, 'collisionStart');
     Events.off(this.state.engine, 'beforeUpdate');
     Events.off(this.state.engine, 'afterUpdate');
     this.clear();
+    this.clearDormantObjects();
     World.clear(this.state.world, false);
     Engine.clear(this.state.engine);
     this.eventCallbacks.clear();

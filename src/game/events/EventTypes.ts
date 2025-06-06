@@ -7,6 +7,7 @@ import { Layer } from '../entities/Layer';
 import { Screw, ScrewColor } from '@/types/game';
 import Matter from 'matter-js';
 import { BaseEvent, EventPriority, EventHandler, EventSubscriptionOptions } from '@/shared/events';
+import { PrecomputedLevel, ContainerReplacementPlan, PerfectBalanceStats } from '../../types/precomputed';
 
 // Re-export shared types for backward compatibility
 export { EventPriority, type EventHandler, type EventSubscriptionOptions };
@@ -41,9 +42,52 @@ export interface LevelStartedEvent extends BaseEvent {
   level: number;
 }
 
+export interface LevelPrecomputedEvent extends BaseEvent {
+  type: 'level:precomputed';
+  levelData: PrecomputedLevel;
+}
+
+
+export interface PhysicsActivationRequestedEvent extends BaseEvent {
+  type: 'physics:activation:requested';
+  layerIndex: number;
+}
+
+export interface PhysicsActivationErrorEvent extends BaseEvent {
+  type: 'physics:activation:error';
+  layerIndex: number;
+  error: string;
+}
+
+export interface PhysicsActivationCleanupCompletedEvent extends BaseEvent {
+  type: 'physics:activation:cleanup:completed';
+}
+
+export interface PhysicsDormantLayersSetEvent extends BaseEvent {
+  type: 'physics:dormant:layers:set';
+  layerCount: number;
+  totalShapes: number;
+  totalScrews: number;
+}
+
+export interface ContainerStrategyInitializedEvent extends BaseEvent {
+  type: 'container:strategy:initialized';
+  plan: ContainerReplacementPlan;
+  totalReplacements: number;
+}
+
+export interface LevelPrecomputationRequestedEvent extends BaseEvent {
+  type: 'level:precomputation:requested';
+  level: number;
+  config: import('../../types/precomputed').PrecomputationConfig;
+}
+
 export interface LevelProgressUpdatedEvent extends BaseEvent {
   type: 'level:progress:updated';
-  shapesRemoved: number;
+  screwsRemoved: number;
+  totalScrews: number;
+  percentage: number;
+  perfectBalanceStatus: 'on_track' | 'minor_deviation' | 'major_deviation' | 'achieved';
 }
 
 export interface NextLevelRequestedEvent extends BaseEvent {
@@ -422,6 +466,61 @@ export interface SystemReadyEvent extends BaseEvent {
   type: 'system:ready';
 }
 
+// Pre-computation events
+export interface LevelPrecomputedEvent extends BaseEvent {
+  type: 'level:precomputed';
+  levelData: PrecomputedLevel;
+}
+
+export interface LevelBalanceCalculatedEvent extends BaseEvent {
+  type: 'level:balance:calculated';
+  plan: ContainerReplacementPlan;
+}
+
+export interface ScrewProgressUpdatedEvent extends BaseEvent {
+  type: 'screw:progress:updated';
+  removed: number;
+  total: number;
+  percentage: number;
+}
+
+export interface PerfectBalanceStatusEvent extends BaseEvent {
+  type: 'perfect:balance:status';
+  status: 'on_track' | 'minor_deviation' | 'major_deviation' | 'achieved';
+}
+
+export interface ContainerReplacementPlannedEvent extends BaseEvent {
+  type: 'container:replacement:planned';
+  atScrewCount: number;
+  newColors: string[];
+}
+
+export interface ContainerReplacementExecutedEvent extends BaseEvent {
+  type: 'container:replacement:executed';
+  containerId: string;
+  newColors: string[];
+}
+
+export interface PerfectBalanceAchievedEvent extends BaseEvent {
+  type: 'perfect:balance:achieved';
+  finalStats: PerfectBalanceStats;
+}
+
+// Physics activation events
+export interface LayerPhysicsActivatedEvent extends BaseEvent {
+  type: 'layer:physics:activated';
+  layerIndex: number;
+  shapesActivated: number;
+  constraintsCreated: number;
+}
+
+export interface LayerPhysicsDeactivatedEvent extends BaseEvent {
+  type: 'layer:physics:deactivated';
+  layerIndex: number;
+  shapesDeactivated: number;
+  constraintsRemoved: number;
+}
+
 
 // Union type of all events
 export type GameEvent = 
@@ -491,7 +590,22 @@ export type GameEvent =
   | SaveErrorEvent
   | RenderRequestedEvent
   | BoundsChangedEvent
-  | SystemReadyEvent;
+  | SystemReadyEvent
+  | LevelPrecomputedEvent
+  | LevelBalanceCalculatedEvent
+  | ScrewProgressUpdatedEvent
+  | PerfectBalanceStatusEvent
+  | ContainerReplacementPlannedEvent
+  | ContainerReplacementExecutedEvent
+  | PerfectBalanceAchievedEvent
+  | LayerPhysicsActivatedEvent
+  | LayerPhysicsDeactivatedEvent
+  | PhysicsActivationRequestedEvent
+  | PhysicsActivationErrorEvent
+  | PhysicsActivationCleanupCompletedEvent
+  | PhysicsDormantLayersSetEvent
+  | ContainerStrategyInitializedEvent
+  | LevelPrecomputationRequestedEvent;
 
 // Game-specific event handler type
 export type GameEventHandler<T extends GameEvent = GameEvent> = EventHandler<T>;

@@ -148,12 +148,34 @@ export class SharedEventBus<TEvent extends BaseEvent = BaseEvent> {
       event.timestamp = Date.now();
     }
 
-    // Loop detection
-    const loopKey = `${event.type}_${event.source || 'unknown'}`;
+    // Enhanced loop detection with contextual keys
+    const eventSource = event.source || this.namespace || 'unknown';
+    const eventWithIds = event as TEvent & { 
+      bodyId?: string; 
+      screwId?: string; 
+      shapeId?: string;
+      constraintId?: string;
+      screw?: { id: string };
+      shape?: { id: string };
+      layer?: { id: string };
+    };
+    
+    // Extract unique identifier from various event properties
+    const eventId = eventWithIds.bodyId || 
+                   eventWithIds.screwId || 
+                   eventWithIds.shapeId || 
+                   eventWithIds.constraintId ||
+                   eventWithIds.screw?.id ||
+                   eventWithIds.shape?.id ||
+                   eventWithIds.layer?.id ||
+                   'generic';
+    const loopKey = `${event.type}_${eventSource}_${eventId}`;
     const loopCount = this.loopDetection.get(loopKey) || 0;
     
     if (loopCount >= this.maxLoopCount) {
-      console.error(`[${this.namespace}] Event loop detected for ${event.type} from ${event.source || 'unknown'}`);
+      console.error(`[${this.namespace}] Event loop detected for ${event.type} from ${eventSource} (ID: ${eventId})`);
+      // Add detailed trace for debugging
+      console.trace('Event loop stack trace');
       return;
     }
     

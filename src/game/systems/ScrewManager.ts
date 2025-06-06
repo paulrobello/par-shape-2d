@@ -122,6 +122,7 @@ export class ScrewManager extends BaseSystem {
             this.emit({
               type: 'screw:collected',
               timestamp: Date.now(),
+              source: 'ScrewManager',
               screw,
               destination: determineDestinationType(screw, this.state.containers, this.state.holdingHoles, this.state.virtualGameWidth, this.state.virtualGameHeight),
               points: 10 // Fixed 10 points per screw removed from shape
@@ -346,6 +347,7 @@ export class ScrewManager extends BaseSystem {
         this.emit({
           type: 'screw:blocked:clicked',
           timestamp: Date.now(),
+          source: 'ScrewManager',
           screw,
           position: event.position
         });
@@ -449,6 +451,7 @@ export class ScrewManager extends BaseSystem {
           this.emit({
             type: 'screw:removed',
             timestamp: Date.now(),
+            source: 'ScrewManager',
             screw,
             shape
           });
@@ -517,6 +520,7 @@ export class ScrewManager extends BaseSystem {
           this.emit({
             type: 'screw:transfer:failed',
             timestamp: Date.now(),
+            source: 'ScrewManager',
             screwId: event.screwId,
             fromHoleIndex: event.fromHoleIndex,
             toContainerIndex: event.toContainerIndex,
@@ -566,6 +570,7 @@ export class ScrewManager extends BaseSystem {
         this.emit({
           type: 'screw:transfer:failed',
           timestamp: Date.now(),
+          source: 'ScrewManager',
           screwId: event.screwId,
           fromHoleIndex: event.fromHoleIndex,
           toContainerIndex: event.toContainerIndex,
@@ -856,6 +861,7 @@ export class ScrewManager extends BaseSystem {
       this.emit({
         type: 'shape:screws:ready',
         timestamp: Date.now(),
+        source: 'ScrewManager',
         shape,
         screws: shape.getAllScrews()
       });
@@ -989,6 +995,7 @@ export class ScrewManager extends BaseSystem {
         this.emit({
           type: 'holding_hole:filled',
           timestamp: Date.now(),
+          source: 'ScrewManager',
           holeIndex,
           screwId: screw.id
         });
@@ -1034,6 +1041,7 @@ export class ScrewManager extends BaseSystem {
           this.emit({
             type: 'container:filled',
             timestamp: Date.now(),
+            source: 'ScrewManager',
             containerIndex,
             color: screw.color,
             screws: [...container.holes].filter(s => s !== null) as string[]
@@ -1113,6 +1121,7 @@ export class ScrewManager extends BaseSystem {
         this.emit({
           type: 'physics:screw:removed:immediate',
           timestamp: Date.now(),
+          source: 'ScrewManager',
           screwId: screwId,
           constraint: constraintResult?.constraint,
           anchorBody: constraintResult?.anchorBody || anchorBody,
@@ -1354,6 +1363,7 @@ export class ScrewManager extends BaseSystem {
         this.emit({
           type: 'physics:constraint:removed',
           timestamp: Date.now(),
+          source: 'ScrewManager',
           constraintId: constraintResult.constraint.id?.toString() || screwId,
           screw
         });
@@ -1367,6 +1377,7 @@ export class ScrewManager extends BaseSystem {
         this.emit({
           type: 'physics:body:removed:immediate',
           timestamp: Date.now(),
+          source: 'ScrewManager',
           bodyId: anchorBody.id.toString(),
           anchorBody: anchorBody, // Pass the actual body for immediate removal
           shape: shape!
@@ -1451,6 +1462,7 @@ export class ScrewManager extends BaseSystem {
           this.emit({
             type: 'physics:constraint:removed',
             timestamp: Date.now(),
+            source: 'ScrewManager',
             constraintId: oldConstraint.constraint.id?.toString() || remainingScrew.id,
             screw: remainingScrew
           });
@@ -1463,6 +1475,7 @@ export class ScrewManager extends BaseSystem {
             this.emit({
               type: 'physics:body:removed:immediate',
               timestamp: Date.now(),
+              source: 'ScrewManager',
               bodyId: oldAnchorBody.id.toString(),
               anchorBody: oldAnchorBody, // Pass the actual body for immediate removal
               shape: this.state.allShapes.find(s => s.id === shapeId)!
@@ -1513,6 +1526,7 @@ export class ScrewManager extends BaseSystem {
             this.emit({
               type: 'physics:constraint:added',
               timestamp: Date.now(),
+              source: `ScrewManager-${remainingScrew.id}-recreate`,
               constraintId: newConstraintResult.constraint.id?.toString() || remainingScrew.id,
               screw: remainingScrew,
               constraint: newConstraintResult.constraint
@@ -1592,6 +1606,7 @@ export class ScrewManager extends BaseSystem {
             this.emit({
               type: 'screw:unblocked',
               timestamp: Date.now(),
+              source: 'ScrewManager',
               screw
             });
           } else {
@@ -1599,6 +1614,7 @@ export class ScrewManager extends BaseSystem {
             this.emit({
               type: 'screw:blocked',
               timestamp: Date.now(),
+              source: 'ScrewManager',
               screw,
               blockingShapes
             });
@@ -1702,6 +1718,7 @@ export class ScrewManager extends BaseSystem {
       this.emit({
         type: 'screw:animation:started',
         timestamp: Date.now(),
+        source: 'ScrewManager',
         screw,
         targetPosition
       });
@@ -1725,6 +1742,7 @@ export class ScrewManager extends BaseSystem {
             this.emit({
               type: 'screw:animation:completed',
               timestamp: Date.now(),
+              source: 'ScrewManager',
               screw
             });
             
@@ -1761,6 +1779,7 @@ export class ScrewManager extends BaseSystem {
             this.emit({
               type: 'screw:transfer:completed',
               timestamp: Date.now(),
+              source: 'ScrewManager',
               screwId: screw.id,
               fromHoleIndex: screw.transferFromHoleIndex ?? -1,
               toContainerIndex: screw.transferToContainerIndex ?? -1,
@@ -1833,6 +1852,7 @@ export class ScrewManager extends BaseSystem {
         this.emit({
           type: 'physics:constraint:removed',
           timestamp: Date.now(),
+          source: 'ScrewManager',
           constraintId: constraintResult.constraint.id?.toString() || screwId,
           screw: this.state.screws.get(screwId)!
         });
@@ -1844,6 +1864,7 @@ export class ScrewManager extends BaseSystem {
           this.emit({
             type: 'physics:body:removed:immediate',
             timestamp: Date.now(),
+            source: 'ScrewManager',
             bodyId: screw.anchorBody.id.toString(),
             anchorBody: screw.anchorBody,
             shape: this.state.allShapes.find(s => s.id === screw.shapeId)!
@@ -1858,6 +1879,7 @@ export class ScrewManager extends BaseSystem {
           this.emit({
             type: 'holding_hole:filled',
             timestamp: Date.now(),
+            source: 'ScrewManager',
             holeIndex: index,
             screwId: null
           });
@@ -1928,6 +1950,7 @@ export class ScrewManager extends BaseSystem {
           this.emit({
             type: 'screw:transfer:started',
             timestamp: Date.now(),
+            source: 'ScrewManager',
             screwId: screw.id,
             fromHoleIndex: holeIndex,
             toContainerIndex: containerIndex,
@@ -1940,6 +1963,7 @@ export class ScrewManager extends BaseSystem {
           this.emit({
             type: 'holding_hole:filled',
             timestamp: Date.now(),
+            source: 'ScrewManager',
             holeIndex,
             screwId: null
           });

@@ -10,6 +10,8 @@ import { LayerManager } from '../systems/LayerManager';
 import { ScrewManager } from '../systems/ScrewManager';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { ShapeRegistry } from '../systems/ShapeRegistry';
+import { LevelPrecomputer } from '../systems/LevelPrecomputer';
+import { PhysicsActivationManager } from '../systems/PhysicsActivationManager';
 import { eventBus } from '../events/EventBus';
 import { DEBUG_CONFIG } from '../utils/Constants';
 
@@ -24,6 +26,8 @@ export class SystemCoordinator {
   private layerManager: LayerManager | null = null;
   private screwManager: ScrewManager | null = null;
   private physicsWorld: PhysicsWorld | null = null;
+  private levelPrecomputer: LevelPrecomputer | null = null;
+  private physicsActivationManager: PhysicsActivationManager | null = null;
 
   constructor() {
     console.log('SystemCoordinator created');
@@ -82,6 +86,8 @@ export class SystemCoordinator {
     // Create systems (no initialization yet)
     this.physicsWorld = new PhysicsWorld();
     this.gameState = new GameState();
+    this.levelPrecomputer = new LevelPrecomputer();
+    this.physicsActivationManager = new PhysicsActivationManager();
     this.screwManager = new ScrewManager();
     this.layerManager = new LayerManager();
     this.gameManager = new GameManager();
@@ -89,6 +95,8 @@ export class SystemCoordinator {
     // Register systems
     this.systems.set('PhysicsWorld', this.physicsWorld);
     this.systems.set('GameState', this.gameState);
+    this.systems.set('LevelPrecomputer', this.levelPrecomputer);
+    this.systems.set('PhysicsActivationManager', this.physicsActivationManager);
     this.systems.set('ScrewManager', this.screwManager);
     this.systems.set('LayerManager', this.layerManager);
     this.systems.set('GameManager', this.gameManager);
@@ -101,11 +109,13 @@ export class SystemCoordinator {
    */
   private async initializeSystems(): Promise<void> {
     const initOrder = [
-      'PhysicsWorld',   // No dependencies
-      'GameState',      // No dependencies  
-      'ScrewManager',   // Depends on PhysicsWorld events
-      'LayerManager',   // Depends on PhysicsWorld and ScrewManager events
-      'GameManager'     // Depends on all other systems
+      'PhysicsWorld',              // No dependencies
+      'GameState',                 // No dependencies  
+      'LevelPrecomputer',          // No dependencies
+      'PhysicsActivationManager',  // Depends on PhysicsWorld
+      'ScrewManager',              // Depends on PhysicsWorld events
+      'LayerManager',              // Depends on PhysicsWorld and ScrewManager events
+      'GameManager'                // Depends on all other systems
     ];
 
     for (const systemName of initOrder) {

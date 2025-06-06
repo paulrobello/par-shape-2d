@@ -8,6 +8,7 @@ import { BaseSystem } from './BaseSystem';
 import { GameLoop } from './GameLoop';
 import { eventBus } from '@/game/events/EventBus';
 import { ScrewManager } from '@/game/systems/ScrewManager';
+import { PrecomputationConfig } from '../../types/precomputed';
 import { GAME_CONFIG, SCREW_COLORS, LAYOUT_CONSTANTS, UI_CONSTANTS, getTotalLayersForLevel, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { Vector2, Container, HoldingHole, RenderContext, Screw } from '@/types/game';
@@ -54,7 +55,7 @@ interface GameManagerState {
   currentLevel: number;
   levelScore: number;
   totalScore: number;
-  shapesRemovedThisLevel: number;
+  screwsRemovedThisLevel: number;
   
   // Rendering data
   visibleLayers: Layer[];
@@ -92,7 +93,7 @@ export class GameManager extends BaseSystem {
       currentLevel: 1,
       levelScore: 0,
       totalScore: 0,
-      shapesRemovedThisLevel: 0,
+      screwsRemovedThisLevel: 0,
       visibleLayers: [],
       containers: [],
       holdingHoles: [],
@@ -248,17 +249,20 @@ export class GameManager extends BaseSystem {
       this.state.currentLevel = event.level;
       this.state.levelScore = 0;
       this.state.levelComplete = false;
-      this.state.shapesRemovedThisLevel = 0;
+      this.state.screwsRemovedThisLevel = 0;
       
       // Reset event loop detection for level initialization
       eventBus.resetLoopDetection();
       console.log('Reset event loop detection for level initialization');
+
+      // Trigger level pre-computation
+      this.startLevelPrecomputation(event.level);
     });
   }
 
   private handleLevelProgressUpdated(event: import('../events/EventTypes').LevelProgressUpdatedEvent): void {
     this.executeIfActive(() => {
-      this.state.shapesRemovedThisLevel = event.shapesRemoved;
+      this.state.screwsRemovedThisLevel = event.screwsRemoved;
     });
   }
 
@@ -1070,7 +1074,7 @@ export class GameManager extends BaseSystem {
     const totalLayersInLevel = getTotalLayersForLevel(this.state.currentLevel);
     const avgShapesPerLayer = (GAME_CONFIG.shapes.minPerLayer + GAME_CONFIG.shapes.maxPerLayer) / 2; // 4.5
     const totalShapesEstimate = totalLayersInLevel * avgShapesPerLayer;
-    const progressPercent = Math.min(100, Math.floor((this.state.shapesRemovedThisLevel / totalShapesEstimate) * 100));
+    const progressPercent = Math.min(100, Math.floor((this.state.screwsRemovedThisLevel / totalShapesEstimate) * 100));
 
     // Render score and level info
     this.state.ctx.fillStyle = '#FFFFFF';
@@ -1482,6 +1486,40 @@ export class GameManager extends BaseSystem {
     // Draw border rectangle (inside canvas bounds)
     const half = borderWidth / 2;
     ctx.strokeRect(half, half, this.state.virtualGameWidth - borderWidth, this.state.virtualGameHeight - borderWidth);
+  }
+
+  /**
+   * Start level pre-computation for perfect balance
+   */
+  private async startLevelPrecomputation(level: number): Promise<void> {
+    // Create pre-computation configuration
+    const config: PrecomputationConfig = {
+      targetLayers: getTotalLayersForLevel(level),
+      balanceRequirements: {
+        strictBalance: level > 3, // Allow some tolerance for early levels
+        tolerance: level <= 3 ? 2 : 0 // 2 screws tolerance for levels 1-3
+      },
+      performance: {
+        maxComputationTime: 5000, // 5 seconds max
+        enablePhysicsPreview: false
+      },
+      debug: {
+        logProgress: DEBUG_CONFIG.enableVerboseLogging,
+        validateMath: true,
+        saveComputationPlan: DEBUG_CONFIG.enableVerboseLogging
+      }
+    };
+
+    // Emit event to trigger pre-computation
+    // This will be handled by the LevelPrecomputer system
+    this.emit({
+      type: 'level:precomputation:requested',
+      timestamp: Date.now(),
+      level,
+      config
+    });
+
+    console.log(`[GameManager] Level ${level} pre-computation requested`);
   }
 
   protected onDestroy(): void {

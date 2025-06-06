@@ -6,6 +6,11 @@
 import { BaseSystem } from './BaseSystem';
 import { GameState as IGameState, Level, Container, HoldingHole, ScrewColor, Screw as ScrewInterface, FullGameSave } from '@/types/game';
 import { GAME_CONFIG, UI_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
+import { 
+  PrecomputedLevel, 
+  ScrewProgressState
+} from '../../types/precomputed';
+import { ContainerStrategyManager } from '../utils/ContainerStrategyManager';
 import { getRandomScrewColors, getRandomColorsFromList } from '@/game/utils/Colors';
 import {
   SaveRequestedEvent,
@@ -31,14 +36,26 @@ export class GameState extends BaseSystem {
   private virtualGameWidth = GAME_CONFIG.canvas.width;
   private virtualGameHeight = GAME_CONFIG.canvas.height;
 
+  // New pre-computation and progress tracking
+  private precomputedLevel: PrecomputedLevel | null = null;
+  private screwProgress: ScrewProgressState = {
+    removed: 0,
+    total: 0,
+    percentage: 0,
+    balanceStatus: 'on_track'
+  };
+  private containerStrategy: ContainerStrategyManager;
+
   constructor() {
     super('GameState');
     this.state = this.createInitialState();
     this.level = this.createInitialLevel();
+    this.containerStrategy = new ContainerStrategyManager();
   }
 
   protected async onInitialize(): Promise<void> {
     this.setupEventHandlers();
+    await this.containerStrategy.initialize();
     // Containers will be initialized when shapes are ready
     // Holding holes are initialized at game start
   }
@@ -66,6 +83,10 @@ export class GameState extends BaseSystem {
     
     // Shape events
     this.subscribe('shape:destroyed', this.handleShapeDestroyed.bind(this));
+
+    // Pre-computation events
+    this.subscribe('level:precomputed', this.handleLevelPrecomputed.bind(this));
+    this.subscribe('container:replacement:planned', this.handleContainerReplacementPlanned.bind(this));
   }
 
   private createInitialState(): IGameState {
@@ -98,6 +119,15 @@ export class GameState extends BaseSystem {
       this.addScore(points);
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`Added ${points} points for removing screw ${screw.id} from shape (destination: ${destination})`);
+      }
+
+      // Update screw-based progress
+      this.screwProgress.removed++;
+      this.updateScrewProgress();
+
+      // Check for screw-based level completion
+      if (this.checkScrewBasedLevelCompletion()) {
+        this.handleScrewBasedLevelComplete();
       }
       
       this.markUnsavedChanges();
@@ -478,7 +508,10 @@ export class GameState extends BaseSystem {
       this.emit({
         type: 'level:progress:updated',
         timestamp: Date.now(),
-        shapesRemoved: this.state.shapesRemovedThisLevel
+        screwsRemoved: this.screwProgress.removed,
+        totalScrews: this.screwProgress.total,
+        percentage: this.screwProgress.percentage,
+        perfectBalanceStatus: this.screwProgress.balanceStatus
       });
       
       this.markUnsavedChanges();
@@ -1256,5 +1289,200 @@ export class GameState extends BaseSystem {
         }
       }
     });
+  }
+
+  // New event handlers for pre-computation and perfect balance
+
+  private handleLevelPrecomputed(event: import('../events/EventTypes').LevelPrecomputedEvent): void {
+    this.executeIfActive(() => {
+      this.precomputedLevel = event.levelData;
+      
+      // Initialize screw progress tracking
+      this.screwProgress = {
+        removed: 0,
+        total: this.precomputedLevel.totalScrews,
+        percentage: 0,
+        balanceStatus: 'on_track'
+      };
+
+      // Set up container strategy
+      this.containerStrategy.setPlan(this.precomputedLevel.containerReplacementPlan);
+      this.containerStrategy.updateContainerState(this.containers, this.holdingHoles);
+
+      console.log(`[GameState] Level pre-computed: ${this.precomputedLevel.totalScrews} total screws, ${this.precomputedLevel.layers.length} layers`);
+    });
+  }
+
+  private handleContainerReplacementPlanned(event: import('../events/EventTypes').ContainerReplacementPlannedEvent): void {
+    this.executeIfActive(() => {
+      // TODO: Execute container replacement based on strategy
+      // For now, this is scaffolding code
+      console.log(`[GameState] Container replacement planned at screw count ${event.atScrewCount} with colors:`, event.newColors);
+    });
+  }
+
+  /**
+   * Update screw-based progress tracking
+   */
+  private updateScrewProgress(): void {
+    if (!this.precomputedLevel) return;
+
+    this.screwProgress.percentage = (this.screwProgress.removed / this.screwProgress.total) * 100;
+    
+    // Update container strategy with progress
+    this.containerStrategy.onScrewCollected(this.screwProgress.removed);
+    
+    // Emit progress update event
+    this.emit({
+      type: 'screw:progress:updated',
+      timestamp: Date.now(),
+      removed: this.screwProgress.removed,
+      total: this.screwProgress.total,
+      percentage: this.screwProgress.percentage
+    });
+
+    // Update level progress event with new screw-based data
+    this.emit({
+      type: 'level:progress:updated',
+      timestamp: Date.now(),
+      screwsRemoved: this.screwProgress.removed,
+      totalScrews: this.screwProgress.total,
+      percentage: this.screwProgress.percentage,
+      perfectBalanceStatus: this.screwProgress.balanceStatus
+    });
+  }
+
+  /**
+   * Execute container replacement based on strategy
+   */
+  private executeContainerReplacement(replacement: { newColors: string[] }): void {
+    // Generate new containers with specified colors
+    const newContainers = this.generateContainersWithColors(replacement.newColors);
+    
+    // Start fade-out for current containers
+    this.containers.forEach(container => {
+      const screwCount = container.holes.filter(hole => hole !== null).length;
+      if (screwCount === 0) {
+        // TODO: Implement container fade-out animation
+        container.isMarkedForRemoval = true;
+      }
+    });
+
+    // Schedule fade-in for new containers
+    setTimeout(() => {
+      // Replace empty containers with new ones
+      this.containers = this.containers.filter(c => {
+        const screwCount = c.holes.filter(hole => hole !== null).length;
+        return screwCount > 0 || !c.isMarkedForRemoval;
+      }).concat(newContainers);
+      
+      newContainers.forEach(container => {
+        // TODO: Implement container fade-in animation
+        console.log(`New container added: ${container.color}`);
+      });
+
+      this.containerStrategy.updateContainerState(this.containers, this.holdingHoles);
+      
+      this.emit({
+        type: 'container:replacement:executed',
+        timestamp: Date.now(),
+        containerId: 'multiple',
+        newColors: replacement.newColors
+      });
+
+    }, 500); // Wait for fade-out to complete
+  }
+
+  /**
+   * Generate containers with specific colors
+   */
+  private generateContainersWithColors(colors: string[]): Container[] {
+    const containers: Container[] = [];
+    
+    colors.forEach((color, index) => {
+      containers.push({
+        id: `container_${Date.now()}_${index}`,
+        color: color as ScrewColor,
+        holes: [null, null, null], // 3 empty holes
+        reservedHoles: [null, null, null],
+        maxHoles: 3,
+        isFull: false,
+        position: { x: index * 100, y: 50 }, // Placeholder position
+        isMarkedForRemoval: false,
+        fadeOpacity: 0,
+        fadeStartTime: 0,
+        fadeDuration: 500,
+        isFadingOut: false,
+        isFadingIn: true
+      });
+    });
+
+    return containers;
+  }
+
+  /**
+   * Check if level is complete based on screws (not layers)
+   */
+  private checkScrewBasedLevelCompletion(): boolean {
+    if (!this.precomputedLevel) return false;
+    
+    return this.screwProgress.removed >= this.screwProgress.total;
+  }
+
+  /**
+   * Get screw progress state for external access
+   */
+  public getScrewProgress(): ScrewProgressState {
+    return { ...this.screwProgress };
+  }
+
+  /**
+   * Get pre-computed level data
+   */
+  public getPrecomputedLevel(): PrecomputedLevel | null {
+    return this.precomputedLevel;
+  }
+
+  /**
+   * Handle level completion based on screws (not layers)
+   */
+  private handleScrewBasedLevelComplete(): void {
+    if (!this.precomputedLevel) return;
+
+    // Check if perfect balance is achieved
+    const perfectBalance = this.isPerfectBalanceAchieved();
+    const finalStats = this.containerStrategy.generatePerfectBalanceStats();
+
+    // Update state
+    this.state.levelComplete = true;
+
+    // Emit perfect balance achievement if applicable
+    if (perfectBalance) {
+      this.emit({
+        type: 'perfect:balance:achieved',
+        timestamp: Date.now(),
+        finalStats
+      });
+    }
+
+    // Emit level complete with enhanced data
+    this.emit({
+      type: 'level:complete',
+      timestamp: Date.now(),
+      level: this.state.currentLevel,
+      score: this.state.levelScore
+    });
+
+    console.log(`[GameState] Level ${this.state.currentLevel} completed with screw-based system. Perfect balance: ${perfectBalance}`);
+  }
+
+  /**
+   * Check if perfect balance is achieved
+   */
+  public isPerfectBalanceAchieved(): boolean {
+    if (!this.precomputedLevel) return false;
+    
+    const stats = this.containerStrategy.generatePerfectBalanceStats();
+    return stats.performance.finalBalanceAchieved;
   }
 }
