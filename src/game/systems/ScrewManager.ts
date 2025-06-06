@@ -30,6 +30,7 @@ import {
 import { ConstraintUtils, ScrewConstraintResult } from '@/shared/physics/ConstraintUtils';
 import {
   calculateContainerHolePosition,
+  calculateHoldingHolePositions,
   findScrewDestination,
   determineDestinationType
 } from '@/game/utils/ScrewContainerUtils';
@@ -1055,6 +1056,46 @@ export class ScrewManager extends BaseSystem {
         }
       } else {
         console.error(`❌ Failed to find container for screw ${screw.id} - containerIndex: ${containerIndex}, targetHoleIndex: ${screw.targetHoleIndex}`);
+        
+        // Container was removed (probably because it was full) - redirect to holding hole
+        console.log(`🔄 Container no longer exists - redirecting screw ${screw.id} to holding hole`);
+        
+        // Find an available holding hole
+        const holdingHoleIndex = this.state.holdingHoles.findIndex(h => !h.screwId && !h.reservedBy);
+        if (holdingHoleIndex !== -1) {
+          const holdingHole = this.state.holdingHoles[holdingHoleIndex];
+          
+          // Reserve the holding hole
+          holdingHole.reservedBy = screw.id;
+          
+          // Update screw's target
+          screw.targetType = 'holding_hole';
+          screw.targetContainerId = holdingHole.id;
+          screw.targetHoleIndex = undefined;
+          
+          // Calculate holding hole position
+          const holdingPositions = calculateHoldingHolePositions(this.state.virtualGameWidth);
+          screw.targetPosition = holdingPositions[holdingHoleIndex];
+          
+          // Place in holding hole
+          this.emit({
+            type: 'holding_hole:filled',
+            timestamp: Date.now(),
+            source: 'ScrewManager',
+            holeIndex: holdingHoleIndex,
+            screwId: screw.id
+          });
+          
+          console.log(`✅ Redirected screw ${screw.id} to holding hole ${holdingHoleIndex}`);
+          
+          // Clear the reservation after placing
+          holdingHole.reservedBy = undefined;
+          
+          // Check if there's now a matching container available
+          this.checkAndTransferFromHoldingHole(screw, holdingHoleIndex);
+        } else {
+          console.error(`❌ No holding holes available for screw ${screw.id} - this should not happen!`);
+        }
       }
     }
   }

@@ -72,10 +72,15 @@ export function findScrewDestination(
   // First, try to find a matching container with space
   for (let i = 0; i < containers.length; i++) {
     const container = containers[i];
+    // Skip full containers or containers without proper structure
+    if (container.isFull || !container.holes || !container.reservedHoles) {
+      continue;
+    }
+    
     if (container.color === screw.color) {
-      // Find first available hole in this container
+      // Find first available hole in this container (not occupied and not reserved)
       for (let holeIndex = 0; holeIndex < container.holes.length; holeIndex++) {
-        if (!container.holes[holeIndex]) {
+        if (!container.holes[holeIndex] && !container.reservedHoles[holeIndex]) {
           return {
             type: 'container',
             position: calculateContainerHolePosition(i, holeIndex, virtualGameWidth),
@@ -91,7 +96,8 @@ export function findScrewDestination(
   const holdingPositions = calculateHoldingHolePositions(virtualGameWidth);
   for (let i = 0; i < holdingHoles.length; i++) {
     const hole = holdingHoles[i];
-    if (!hole.screwId) {
+    // Check that hole is not occupied and not reserved
+    if (!hole.screwId && !hole.reservedBy) {
       return {
         type: 'holding_hole',
         position: holdingPositions[i],
