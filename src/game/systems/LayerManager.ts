@@ -523,28 +523,8 @@ export class LayerManager extends BaseSystem {
       console.log(`After removal - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
     }
     
-    // Generate a new layer if we haven't reached the total for this level
-    // AND we still have visible layers (not at the end of the level)
-    // BUT don't generate new layers when using pre-computed data
-    const shouldGenerateNewLayer = !this.state.isUsingPrecomputedData &&
-                                   this.state.layersGeneratedThisLevel < this.state.totalLayersForLevel && 
-                                   this.state.layers.length > 0;
-    
-    if (shouldGenerateNewLayer) {
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`Generating new layer: ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} generated, ${this.state.layers.length} active layers`);
-      }
-      const newLayer = this.createLayer(true); // Create with fade-in animation
-      this.generateShapesForLayer(newLayer);
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`After generation - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
-      }
-    } else {
-      const reason = this.state.isUsingPrecomputedData ? 'using pre-computed data' : 
-                     this.state.layersGeneratedThisLevel >= this.state.totalLayersForLevel ? 'reached total layers' :
-                     this.state.layers.length === 0 ? 'no active layers' : 'unknown';
-      console.log(`🚫 No new layer generated (${reason}): ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} layers generated, ${this.state.layers.length} active layers remaining`);
-    }
+    // Show the next hidden layer if one exists
+    this.showNextHiddenLayer();
     
     // Check if level is complete (no more active layers)
     if (this.state.layers.length === 0) {
@@ -696,15 +676,68 @@ export class LayerManager extends BaseSystem {
       this.state.layersGeneratedThisLevel = 0;
       this.state.totalLayersForLevel = getTotalLayersForLevel(levelNumber);
       
-      // Create initial visible layers
-      const initialLayers = Math.min(GAME_CONFIG.layer.maxVisible, this.state.maxLayers);
-      for (let i = 0; i < initialLayers; i++) {
+      // Generate ALL layers for the level upfront, but only make some visible
+      console.log(`[LayerManager] Generating all ${this.state.totalLayersForLevel} layers for level ${levelNumber}`);
+      
+      for (let i = 0; i < this.state.totalLayersForLevel; i++) {
         const layer = this.createLayer();
         this.generateShapesForLayer(layer);
+        
+        // Only make the first few layers visible initially
+        if (i >= GAME_CONFIG.layer.maxVisible) {
+          layer.makeHidden();
+          // Disable physics for hidden layers
+          this.disableLayerPhysics(layer);
+          console.log(`[LayerManager] Layer ${i + 1} generated but hidden with physics disabled`);
+        } else {
+          console.log(`[LayerManager] Layer ${i + 1} generated and visible`);
+        }
       }
       
+      this.state.layersGeneratedThisLevel = this.state.totalLayersForLevel;
+      
       if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`Initialized level ${levelNumber} with ${initialLayers} layers. ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} total generated.`);
+        console.log(`Initialized level ${levelNumber} with ${this.state.totalLayersForLevel} total layers. ${GAME_CONFIG.layer.maxVisible} visible initially.`);
+      }
+    });
+  }
+
+  /**
+   * Show the next hidden layer (make it visible with fade-in animation)
+   */
+  private showNextHiddenLayer(): void {
+    this.executeIfActive(() => {
+      // Find the first hidden layer
+      const hiddenLayer = this.state.layers.find(layer => !layer.isVisible);
+      
+      if (hiddenLayer) {
+        // Make the layer visible
+        hiddenLayer.makeVisible();
+        
+        // Enable physics for all shapes in the now-visible layer
+        this.enableLayerPhysics(hiddenLayer);
+        
+        console.log(`[LayerManager] Made layer ${hiddenLayer.id} visible with fade-in and enabled physics`);
+        
+        // Emit layer visibility changed event
+        this.emit({
+          type: 'layer:visibility:changed',
+          timestamp: Date.now(),
+          layer: hiddenLayer,
+          visible: true
+        });
+        
+        // Emit layers updated event to refresh the visible layers list
+        this.emit({
+          type: 'layers:updated',
+          timestamp: Date.now(),
+          visibleLayers: this.getVisibleLayers(),
+          totalLayers: this.state.layers.length
+        });
+      } else {
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log(`[LayerManager] No hidden layers to show`);
+        }
       }
     });
   }
@@ -1465,6 +1498,53 @@ export class LayerManager extends BaseSystem {
         ? this.state.visibleLayerIndices.has(layer.index)
         : layer.isVisible
     );
+  }
+
+  /**
+   * Enable physics for all shapes in a layer
+   */
+  private enableLayerPhysics(layer: Layer): void {
+    layer.getAllShapes().forEach(shape => {
+      // Emit physics body added event
+      this.emit({
+        type: 'physics:body:added',
+        timestamp: Date.now(),
+        source: 'LayerManager',
+        bodyId: shape.body.id.toString(),
+        shape,
+        body: shape.body
+      });
+      
+      // For composite shapes, the body already includes all parts
+      // No need to add parts separately as Matter.js handles them automatically
+    });
+  }
+
+  /**
+   * Disable physics for all shapes in a layer
+   */
+  private disableLayerPhysics(layer: Layer): void {
+    layer.getAllShapes().forEach(shape => {
+      // Emit physics body removed event
+      this.emit({
+        type: 'physics:body:removed',
+        timestamp: Date.now(),
+        bodyId: shape.body.id.toString(),
+        shape
+      });
+      
+      // For composite shapes, also remove parts from physics
+      if (shape.isComposite && shape.parts) {
+        shape.parts.forEach(part => {
+          this.emit({
+            type: 'physics:body:removed',
+            timestamp: Date.now(),
+            bodyId: part.id.toString(),
+            shape
+          });
+        });
+      }
+    });
   }
 
   protected onDestroy(): void {

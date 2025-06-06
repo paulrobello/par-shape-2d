@@ -97,6 +97,7 @@ export interface HoldingHole {
   id: string;
   position: Vector2;
   screwId: string | null; // ID of screw in this hole - get actual screw from ScrewManager
+  screwColor?: ScrewColor; // Color of screw in this hole for container generation
   reservedBy?: string; // Screw ID that has reserved this hole
 }
 

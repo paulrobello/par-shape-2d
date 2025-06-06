@@ -29,7 +29,16 @@ export class PerfectBalanceCalculator extends BaseSystem {
   }
 
   async onInitialize(): Promise<void> {
-    // TODO: Initialize perfect balance calculator
+    // Initialize perfect balance calculator
+    console.log('[PerfectBalanceCalculator] Initialized with:');
+    console.log(`  - Container capacity: ${this.CONTAINER_CAPACITY} screws`);
+    console.log(`  - Holding holes: ${this.HOLDING_HOLE_COUNT}`);
+    console.log(`  - Available colors: ${this.AVAILABLE_COLORS.length}`);
+    
+    this.emit({
+      type: 'system:ready',
+      timestamp: Date.now()
+    });
   }
 
   /**
@@ -47,7 +56,16 @@ export class PerfectBalanceCalculator extends BaseSystem {
     // Ensure minimum viable level size
     const minimumScrews = this.CONTAINER_CAPACITY * 2; // At least 2 filled containers
     
-    return Math.max(perfectScrewCount, minimumScrews);
+    const finalCount = Math.max(perfectScrewCount, minimumScrews);
+    
+    console.log(`[PerfectBalanceCalculator] Screw count calculation:`);
+    console.log(`  - Target layers: ${targetLayers}`);
+    console.log(`  - Base screws per layer: ${baseScrewsPerLayer}`);
+    console.log(`  - Raw screw count: ${rawScrewCount}`);
+    console.log(`  - Perfect screw count: ${perfectScrewCount}`);
+    console.log(`  - Final count: ${finalCount}`);
+    
+    return finalCount;
   }
 
   /**

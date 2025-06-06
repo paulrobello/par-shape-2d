@@ -21,6 +21,8 @@ import { ShapeFactory } from './ShapeFactory';
 import { distance } from '../utils/MathUtils';
 import { UI_CONSTANTS } from '@/shared/utils/Constants';
 import { ScrewPlacementStrategyFactory } from '../../shared/strategies';
+import { Shape } from '../entities/Shape';
+import { Vector2 } from '../../types/game';
 
 /**
  * Core system for pre-computing entire levels with perfect balance
@@ -29,23 +31,33 @@ export class LevelPrecomputer extends BaseSystem {
   private balanceCalculator: PerfectBalanceCalculator;
   private shapeRegistry?: ShapeRegistry;
   private shapeFactory?: ShapeFactory;
-  private strategyFactory?: ScrewPlacementStrategyFactory;
 
   constructor() {
     super('LevelPrecomputer');
     this.balanceCalculator = new PerfectBalanceCalculator();
     // Initialize shape registry to get shape definitions
     this.shapeRegistry = ShapeRegistry.getInstance();
-    // this.strategyFactory = new ScrewPlacementStrategyFactory();
+    // No need to instantiate factory - uses static methods
   }
 
   /**
    * Initialize the pre-computer system
    */
   async onInitialize(): Promise<void> {
-    // TODO: Initialize dependencies if needed
-    // await this.shapeRegistry.initialize();
-    // await this.shapeFactory.initialize();
+    // Initialize dependencies
+    console.log('[LevelPrecomputer] Initializing dependencies...');
+    
+    // Initialize balance calculator
+    await this.balanceCalculator.onInitialize();
+    
+    // Initialize shape registry if needed
+    if (this.shapeRegistry && typeof this.shapeRegistry.initialize === 'function') {
+      await this.shapeRegistry.initialize();
+    }
+    
+    // Strategy factory is ready to use (no initialization needed)
+    
+    console.log('[LevelPrecomputer] Dependencies initialized successfully');
     
     // Set up event handlers
     this.subscribe('level:precomputation:requested', this.handlePrecomputationRequest.bind(this));
@@ -180,8 +192,15 @@ export class LevelPrecomputer extends BaseSystem {
     const screwsPerLayer = Math.ceil(totalScrews / layerCount);
     let remainingScrews = totalScrews;
 
+    console.log(`[LevelPrecomputer] Generating layers:`);
+    console.log(`  - Layer count: ${layerCount}`);
+    console.log(`  - Total screws: ${totalScrews}`);
+    console.log(`  - Screws per layer: ${screwsPerLayer}`);
+
     for (let i = 0; i < layerCount; i++) {
       const layerScrewCount = Math.min(screwsPerLayer, remainingScrews);
+      
+      console.log(`[LevelPrecomputer] Generating layer ${i} with ${layerScrewCount} target screws`);
       
       const layer = await this.precomputeLayer(
         i,
@@ -189,6 +208,8 @@ export class LevelPrecomputer extends BaseSystem {
         colorDistribution
       );
 
+      console.log(`[LevelPrecomputer] Layer ${i} generated with ${layer.shapes.length} shapes and ${layer.screwCount} actual screws`);
+      
       layers.push(layer);
       remainingScrews -= layerScrewCount;
 
@@ -213,7 +234,9 @@ export class LevelPrecomputer extends BaseSystem {
     const bounds = this.calculateLayerBounds();
 
     // Generate shapes until we have enough screws
-    while (currentScrewCount < targetScrews) {
+    let shapeAttempts = 0;
+    while (currentScrewCount < targetScrews && shapeAttempts < 20) {
+      shapeAttempts++;
       const shape = await this.precomputeShape(
         layerIndex,
         bounds,
@@ -227,6 +250,8 @@ export class LevelPrecomputer extends BaseSystem {
           this.calculateMaxScrewsForShape(shape)
         );
 
+        console.log(`  Shape ${shapes.length + 1}: max screws = ${this.calculateMaxScrewsForShape(shape)}, assigning = ${screwsNeeded}`);
+
         // Generate screws for this shape
         shape.screws = this.precomputeScrewsForShape(
           shape,
@@ -237,11 +262,19 @@ export class LevelPrecomputer extends BaseSystem {
 
         shapes.push(shape);
         currentScrewCount += shape.screws.length;
+        
+        console.log(`  Added shape with ${shape.screws.length} screws, total now: ${currentScrewCount}/${targetScrews}`);
       } else {
+        console.log(`  Failed to place shape ${shapeAttempts}, distributing remaining screws`);
         // Failed to place more shapes, distribute remaining screws
         this.distributeRemainingScrews(shapes, targetScrews - currentScrewCount, colorDistribution);
         break;
       }
+    }
+    
+    if (shapeAttempts >= 20) {
+      console.log(`  Reached maximum shape attempts (20), distributing remaining screws`);
+      this.distributeRemainingScrews(shapes, targetScrews - currentScrewCount, colorDistribution);
     }
 
     return {
@@ -270,7 +303,7 @@ export class LevelPrecomputer extends BaseSystem {
       return null;
     }
     
-    const maxAttempts = 50;
+    const maxAttempts = 100; // Increased from 50
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       // Select random shape definition
@@ -311,19 +344,56 @@ export class LevelPrecomputer extends BaseSystem {
   ): PrecomputedScrew[] {
     const screws: PrecomputedScrew[] = [];
     
-    // TODO: Get placement strategy for this shape
-    // const strategy = this.strategyFactory?.createStrategy(
-    //   shape.definition.screwPlacement.strategy,
-    //   shape.definition.screwPlacement
-    // );
-
-    // Generate screw positions (placeholder)
-    const positions: Array<{ x: number; y: number }> = [];
-    for (let i = 0; i < screwCount; i++) {
-      positions.push({
-        x: shape.position.x + (Math.random() - 0.5) * 100,
-        y: shape.position.y + (Math.random() - 0.5) * 100
-      });
+    // Get placement strategy for this shape
+    let positions: Vector2[] = [];
+    
+    if (shape.definition.screwPlacement) {
+      try {
+        const strategy = ScrewPlacementStrategyFactory.create(
+          shape.definition.screwPlacement.strategy
+        );
+        
+        if (strategy) {
+          // Create temporary Shape object for strategy calculations
+          const tempShape = this.createTemporaryShape(shape);
+          
+          console.log(`[LevelPrecomputer] Created temp shape for ${shape.id}: type=${tempShape.type}, position=(${tempShape.position.x}, ${tempShape.position.y})`);
+          
+          // Create placement context
+          const context = {
+            shape: tempShape,
+            config: shape.definition.screwPlacement,
+            canvasWidth: 800, // Updated to match our bounds
+            canvasHeight: 1000, // Updated to match our bounds
+            existingScrews: []
+          };
+          
+          console.log(`[LevelPrecomputer] Using strategy config:`, shape.definition.screwPlacement);
+          
+          // Get positions from strategy
+          const allPositions = strategy.calculatePositions(context);
+          
+          console.log(`[LevelPrecomputer] Strategy generated ${allPositions.length} total positions:`, allPositions);
+          
+          // Limit to requested screw count
+          positions = allPositions.slice(0, screwCount);
+          
+          console.log(`[LevelPrecomputer] Selected ${positions.length} positions for ${screwCount} requested screws using ${strategy.getName()} strategy`);
+        }
+      } catch (error) {
+        console.warn(`[LevelPrecomputer] Failed to use placement strategy for shape ${shape.id}:`, error);
+      }
+    }
+    
+    // Fallback to random positioning if strategy failed or unavailable
+    if (positions.length === 0) {
+      console.warn(`[LevelPrecomputer] Falling back to random positioning for shape ${shape.id}`);
+      for (let i = 0; i < screwCount; i++) {
+        positions.push({
+          x: shape.position.x + (Math.random() - 0.5) * 100,
+          y: shape.position.y + (Math.random() - 0.5) * 100
+        });
+      }
     }
 
     // Create screws with colors and targeting
@@ -382,15 +452,19 @@ export class LevelPrecomputer extends BaseSystem {
    * Calculate layer bounds for shape placement
    */
   private calculateLayerBounds(): { x: number; y: number; width: number; height: number } {
-    // Use virtual dimensions for bounds calculation
-    const width = 640; // Default virtual width
-    const height = 800; // Default virtual height
+    // Use larger bounds to give shapes more space
+    const width = 800; // Increased from 640
+    const height = 1000; // Increased from 800
+    
+    // Use the same logic as LayerManager for shape area
+    const shapeAreaY = 200; // Similar to LAYOUT_CONSTANTS.shapeArea.startY
+    const shapeAreaHeight = height - shapeAreaY;
     
     return {
-      width: width * 0.9, // Leave margins
-      height: height * 0.8,
-      x: width * 0.05,
-      y: height * 0.1
+      x: 0,
+      y: shapeAreaY,
+      width: width,
+      height: shapeAreaHeight
     };
   }
 
@@ -471,8 +545,8 @@ export class LevelPrecomputer extends BaseSystem {
     dimensions: Record<string, unknown>,
     existingShapes: PrecomputedShape[]
   ): { x: number; y: number } | null {
-    const maxAttempts = 100;
-    const minSeparation = 30;
+    const maxAttempts = 200; // Increased attempts
+    const minSeparation = 20; // Reduced separation
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       const width = typeof dimensions.width === 'number' ? dimensions.width : 50;
@@ -618,6 +692,116 @@ export class LevelPrecomputer extends BaseSystem {
       
       shapeIndex++;
     }
+  }
+
+  /**
+   * Create a temporary Shape object for strategy placement calculations
+   */
+  private createTemporaryShape(precomputedShape: PrecomputedShape): Shape {
+    const { position, dimensions, rotation, definition } = precomputedShape;
+    
+    // Determine shape type from definition
+    let shapeType: string = definition.id;
+    if (definition.category === 'polygon' && definition.id === 'rectangle') {
+      shapeType = 'rectangle';
+    } else if (definition.category === 'basic' && definition.id === 'circle') {
+      shapeType = 'circle';
+    } else if (definition.category === 'polygon') {
+      shapeType = 'polygon';
+    } else if (definition.category === 'composite') {
+      shapeType = definition.id; // capsule
+    } else if (definition.category === 'path') {
+      shapeType = definition.id; // arrow, chevron, star, horseshoe
+    }
+    
+    // Create a minimal Shape object with the necessary properties
+    const tempShape = {
+      id: precomputedShape.id,
+      type: shapeType,
+      definitionId: definition.id,
+      position: position,
+      rotation: rotation,
+      
+      // Extract dimensions based on shape type
+      ...dimensions,
+      
+      // Minimal physics body interface for strategy calculations
+      body: {
+        position: { x: position.x, y: position.y },
+        angle: rotation,
+        vertices: this.generateVerticesForShape(precomputedShape)
+      }
+    } as unknown as Shape;
+    
+    return tempShape;
+  }
+  
+  /**
+   * Generate vertices for the temporary shape physics body
+   */
+  private generateVerticesForShape(precomputedShape: PrecomputedShape): Vector2[] {
+    const { position, dimensions, definition } = precomputedShape;
+    const vertices: Vector2[] = [];
+    
+    // Generate basic vertices based on shape type
+    switch (definition.category) {
+      case 'basic':
+        if (definition.id === 'circle') {
+          const radius = dimensions.radius as number || 50;
+          // Generate circular vertices (8 points)
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            vertices.push({
+              x: position.x + Math.cos(angle) * radius,
+              y: position.y + Math.sin(angle) * radius
+            });
+          }
+        }
+        break;
+        
+      case 'polygon':
+        const sides = dimensions.sides as number || 4;
+        const radius = dimensions.radius as number || 50;
+        for (let i = 0; i < sides; i++) {
+          const angle = (i / sides) * Math.PI * 2;
+          vertices.push({
+            x: position.x + Math.cos(angle) * radius,
+            y: position.y + Math.sin(angle) * radius
+          });
+        }
+        break;
+        
+      case 'composite':
+        // For capsule, create rectangle with rounded ends
+        const width = dimensions.width as number || 100;
+        const height = dimensions.height as number || 50;
+        const halfWidth = width / 2;
+        const halfHeight = height / 2;
+        
+        vertices.push(
+          { x: position.x - halfWidth, y: position.y - halfHeight },
+          { x: position.x + halfWidth, y: position.y - halfHeight },
+          { x: position.x + halfWidth, y: position.y + halfHeight },
+          { x: position.x - halfWidth, y: position.y + halfHeight }
+        );
+        break;
+        
+      default:
+        // Default rectangle
+        const defaultWidth = dimensions.width as number || 100;
+        const defaultHeight = dimensions.height as number || 50;
+        const halfW = defaultWidth / 2;
+        const halfH = defaultHeight / 2;
+        
+        vertices.push(
+          { x: position.x - halfW, y: position.y - halfH },
+          { x: position.x + halfW, y: position.y - halfH },
+          { x: position.x + halfW, y: position.y + halfH },
+          { x: position.x - halfW, y: position.y + halfH }
+        );
+    }
+    
+    return vertices;
   }
 
   /**

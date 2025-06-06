@@ -23,7 +23,8 @@ import {
   ScrewTransferFailedEvent,
   LayerShapesReadyEvent,
   NextLevelRequestedEvent,
-  AllLayersClearedEvent
+  AllLayersClearedEvent,
+  LayersUpdatedEvent
 } from '../events/EventTypes';
 
 export class GameState extends BaseSystem {
@@ -35,6 +36,7 @@ export class GameState extends BaseSystem {
   private containersInitialized = false;
   private virtualGameWidth = GAME_CONFIG.canvas.width;
   private virtualGameHeight = GAME_CONFIG.canvas.height;
+  private isResetting = false;
 
   // New pre-computation and progress tracking
   private precomputedLevel: PrecomputedLevel | null = null;
@@ -80,6 +82,7 @@ export class GameState extends BaseSystem {
     this.subscribe('layer:cleared', this.handleLayerCleared.bind(this));
     this.subscribe('all_layers:cleared', this.handleAllLayersCleared.bind(this));
     this.subscribe('next_level:requested', this.handleNextLevelRequested.bind(this));
+    this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     
     // Shape events
     this.subscribe('shape:destroyed', this.handleShapeDestroyed.bind(this));
@@ -113,6 +116,14 @@ export class GameState extends BaseSystem {
   // Event Handlers
   private handleScrewCollected(event: ScrewCollectedEvent): void {
     this.executeIfActive(() => {
+      if (this.isResetting) {
+        // Skip screw collection handling during reset to prevent event loops
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`⚠️ Skipping screw collection for ${event.screw.id} during reset`);
+        }
+        return;
+      }
+      
       const { screw, destination, points } = event;
       
       // Award points for screw removal (regardless of destination)
@@ -180,7 +191,8 @@ export class GameState extends BaseSystem {
         type: 'holding_hole:filled',
         timestamp: Date.now(),
         holeIndex: this.holdingHoles.indexOf(hole),
-        screwId: screw.id
+        screwId: screw.id,
+        screwColor: screw.color
       });
 
       if (this.isHoldingAreaFull()) {
@@ -208,6 +220,7 @@ export class GameState extends BaseSystem {
         if (screwId === null) {
           // Screw was transferred out of hole (hole now empty)
           hole.screwId = null;
+          hole.screwColor = undefined; // Clear the stored color
           console.log(`🕳️ Holding hole ${holeIndex} is now empty`);
           
           // If holes were full before but not anymore, cancel the timer
@@ -221,8 +234,9 @@ export class GameState extends BaseSystem {
         } else {
           // Screw was placed in hole
           hole.screwId = screwId;
+          hole.screwColor = event.screwColor; // Store the screw color from the event
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`✅ GameState: Placed screw ${screwId} in holding hole ${holeIndex}`);
+            console.log(`✅ GameState: Placed screw ${screwId} (color: ${event.screwColor}) in holding hole ${holeIndex}`);
           }
           if (DEBUG_CONFIG.logScrewDebug) {
             console.log(`🏠 GameState: Total screws in holding holes:`, this.holdingHoles.filter(h => h.screwId !== null).length);
@@ -497,6 +511,26 @@ export class GameState extends BaseSystem {
     });
   }
 
+  private handleLayersUpdated(event: LayersUpdatedEvent): void {
+    this.executeIfActive(() => {
+      if (this.isResetting || !this.containersInitialized) {
+        // Skip during reset or before initial container setup
+        return;
+      }
+
+      // Get colors from all visible screws (visible layers + holding holes)
+      const visibleScrewColors = this.getVisibleScrewColors(event.visibleLayers);
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`GameState: Layers updated, visible screw colors:`, visibleScrewColors);
+      }
+
+      // Update available colors for future container replacements
+      // This ensures that when containers are replaced, they only use colors from visible screws
+      this.updateAvailableScrewColors(visibleScrewColors);
+    });
+  }
+
   private handleShapeDestroyed(_event: import('../events/EventTypes').ShapeDestroyedEvent): void {
     void _event;
     this.executeIfActive(() => {
@@ -637,6 +671,41 @@ export class GameState extends BaseSystem {
     }
   }
 
+  // Helper methods for visible screw color tracking
+  private getVisibleScrewColors(visibleLayers: import('../entities/Layer').Layer[]): ScrewColor[] {
+    const colors = new Set<ScrewColor>();
+
+    // Get colors from all screws on visible layers
+    visibleLayers.forEach(layer => {
+      layer.getAllShapes().forEach(shape => {
+        shape.getAllScrews().forEach(screw => {
+          if (!screw.isCollected) {
+            colors.add(screw.color);
+          }
+        });
+      });
+    });
+
+    // For holding holes, we'll store the screw colors when they're placed
+    // This avoids the complexity of requesting colors from ScrewManager
+    this.holdingHoles.forEach(hole => {
+      if (hole.screwColor) {
+        colors.add(hole.screwColor);
+      }
+    });
+
+    return Array.from(colors);
+  }
+
+  private availableScrewColors: ScrewColor[] = [];
+
+  private updateAvailableScrewColors(colors: ScrewColor[]): void {
+    this.availableScrewColors = [...colors];
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`Updated available screw colors for container replacement:`, this.availableScrewColors);
+    }
+  }
+
   // Container Management Methods
   private initializeContainers(activeScrewColors?: ScrewColor[], virtualGameWidth?: number, virtualGameHeight?: number): void {
     void virtualGameHeight; // Currently unused
@@ -757,6 +826,7 @@ export class GameState extends BaseSystem {
     if (!hole || hole.screwId !== null) return false;
 
     hole.screwId = screw.id;
+    hole.screwColor = screw.color; // Store the screw color for container generation
     return true;
   }
 
@@ -788,30 +858,17 @@ export class GameState extends BaseSystem {
       .filter((_, index) => index !== containerIndex)
       .map(c => c.color);
 
-    // Note: We can't easily get screw colors from holding holes anymore since we only store IDs
-    // ScrewManager will provide all active screw colors including those in holding holes
-    const holdingHoleScrewColors: ScrewColor[] = [];
+    // Use the tracked available screw colors from visible layers and holding holes
+    const availableColors: ScrewColor[] = this.availableScrewColors.length > 0 
+      ? this.availableScrewColors 
+      : ['red', 'green', 'blue', 'yellow', 'purple'] as ScrewColor[]; // Fallback to all colors if none tracked yet
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🎯 Container replacement: Using available colors from visible screws: [${availableColors.join(', ')}]`);
+      console.log(`🎯 Existing container colors: [${existingColors.join(', ')}]`);
+    }
 
-    // Request active screw colors from ScrewManager to prioritize those colors
-    this.emit({
-      type: 'screw_colors:requested',
-      timestamp: Date.now(),
-      containerIndex,
-      existingColors,
-      callback: (activeScrewColors: ScrewColor[]) => {
-        // Combine active screw colors with holding hole screw colors
-        const allAvailableScrewColors = [...activeScrewColors];
-        for (const color of holdingHoleScrewColors) {
-          if (!allAvailableScrewColors.includes(color)) {
-            allAvailableScrewColors.push(color);
-          }
-        }
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`🎯 Container replacement: Active screws: [${activeScrewColors.join(', ')}], Holding holes: [${holdingHoleScrewColors.join(', ')}], Combined: [${allAvailableScrewColors.join(', ')}]`);
-        }
-        this.finishContainerReplacement(containerIndex, oldContainer, existingColors, allAvailableScrewColors);
-      }
-    });
+    this.finishContainerReplacement(containerIndex, oldContainer, existingColors, availableColors);
   }
 
   private finishContainerReplacement(containerIndex: number, oldContainer: Container, existingColors: ScrewColor[], activeScrewColors: ScrewColor[]): void {
@@ -1202,6 +1259,18 @@ export class GameState extends BaseSystem {
 
   public reset(): void {
     this.executeIfActive(() => {
+      console.log('🔄 GameState: Starting reset operation');
+      this.isResetting = true;
+      
+      // Reset screw progress to prevent stale data
+      this.screwProgress = {
+        removed: 0,
+        total: 0,
+        percentage: 0,
+        balanceStatus: 'on_track'
+      };
+      this.precomputedLevel = null;
+      
       this.state = this.createInitialState();
       this.level = this.createInitialLevel();
       this.initializeContainers();
@@ -1214,6 +1283,9 @@ export class GameState extends BaseSystem {
         timestamp: Date.now(),
         hasUnsavedChanges: false
       });
+      
+      this.isResetting = false;
+      console.log('✅ GameState: Reset operation completed');
     });
   }
 
@@ -1326,7 +1398,10 @@ export class GameState extends BaseSystem {
    * Update screw-based progress tracking
    */
   private updateScrewProgress(): void {
-    if (!this.precomputedLevel) return;
+    if (!this.precomputedLevel || this.isResetting) {
+      // Skip progress updates when no precomputed level exists or during reset
+      return;
+    }
 
     this.screwProgress.percentage = (this.screwProgress.removed / this.screwProgress.total) * 100;
     

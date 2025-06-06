@@ -267,6 +267,7 @@ export interface HoldingHoleFilledEvent extends BaseEvent {
   type: 'holding_hole:filled';
   holeIndex: number;
   screwId: string | null; // null when hole is emptied
+  screwColor?: ScrewColor; // Color of screw being placed (undefined when hole is emptied)
 }
 
 export interface HoldingHolesFullEvent extends BaseEvent {

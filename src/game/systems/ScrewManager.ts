@@ -47,7 +47,8 @@ import {
   ScrewTransferStartedEvent,
   ScrewTransferCompletedEvent,
   ScrewColorsRequestedEvent,
-  ScrewTransferColorCheckEvent
+  ScrewTransferColorCheckEvent,
+  LayersUpdatedEvent
 } from '../events/EventTypes';
 
 interface ScrewManagerState {
@@ -61,6 +62,7 @@ interface ScrewManagerState {
   layerDepthLookup: Map<string, number>;
   virtualGameWidth: number;
   virtualGameHeight: number;
+  visibleLayers: Set<string>; // Track which layers are currently visible
 }
 
 export class ScrewManager extends BaseSystem {
@@ -79,7 +81,8 @@ export class ScrewManager extends BaseSystem {
       virtualGameWidth: GAME_CONFIG.canvas.width,
       virtualGameHeight: GAME_CONFIG.canvas.height,
       allShapes: [],
-      layerDepthLookup: new Map()
+      layerDepthLookup: new Map(),
+      visibleLayers: new Set()
     };
   }
 
@@ -222,6 +225,9 @@ export class ScrewManager extends BaseSystem {
     // Screw color requests
     this.subscribe('screw_colors:requested', this.handleScrewColorsRequested.bind(this));
     this.subscribe('screw:transfer:color_check', this.handleScrewTransferColorCheck.bind(this));
+    
+    // Layer visibility events
+    this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
   }
 
   // Event Handlers
@@ -762,6 +768,23 @@ export class ScrewManager extends BaseSystem {
     });
   }
 
+  private handleLayersUpdated(event: LayersUpdatedEvent): void {
+    this.executeIfActive(() => {
+      // Update visible layers tracking
+      this.state.visibleLayers.clear();
+      event.visibleLayers.forEach(layer => {
+        this.state.visibleLayers.add(layer.id);
+      });
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔍 ScrewManager: Updated visible layers: [${Array.from(this.state.visibleLayers).join(', ')}]`);
+      }
+      
+      // Re-evaluate screw removability since layer visibility changed
+      this.updateScrewRemovability();
+    });
+  }
+
   // Core Screw Management Methods
   public generateScrewsForShape(shape: Shape, preferredColors?: ScrewColor[]): void {
     this.executeIfActive(() => {
@@ -998,7 +1021,8 @@ export class ScrewManager extends BaseSystem {
           timestamp: Date.now(),
           source: 'ScrewManager',
           holeIndex,
-          screwId: screw.id
+          screwId: screw.id,
+          screwColor: screw.color
         });
         
         if (DEBUG_CONFIG.logScrewPlacement) {
@@ -1083,7 +1107,8 @@ export class ScrewManager extends BaseSystem {
             timestamp: Date.now(),
             source: 'ScrewManager',
             holeIndex: holdingHoleIndex,
-            screwId: screw.id
+            screwId: screw.id,
+            screwColor: screw.color
           });
           
           console.log(`✅ Redirected screw ${screw.id} to holding hole ${holdingHoleIndex}`);
@@ -1678,10 +1703,20 @@ export class ScrewManager extends BaseSystem {
       return false;
     }
 
+    // If the screw's own layer is not visible, the screw should not be removable
+    if (!this.state.visibleLayers.has(screwShape.layerId)) {
+      return false;
+    }
+
     const screwLayerDepth = this.state.layerDepthLookup.get(screwShape.layerId) || -1;
 
     for (const shape of this.state.allShapes) {
       if (shape.id === screw.shapeId) continue;
+
+      // CRITICAL FIX: Only check shapes from visible layers
+      if (!this.state.visibleLayers.has(shape.layerId)) {
+        continue; // Skip shapes from invisible layers - they cannot block screws
+      }
 
       // Only check shapes that are in front of the screw's layer
       const shapeLayerDepth = this.state.layerDepthLookup.get(shape.layerId) || -1;
@@ -1714,6 +1749,11 @@ export class ScrewManager extends BaseSystem {
 
     for (const shape of this.state.allShapes) {
       if (shape.id === screw.shapeId) continue;
+
+      // CRITICAL FIX: Only check shapes from visible layers
+      if (!this.state.visibleLayers.has(shape.layerId)) {
+        continue; // Skip shapes from invisible layers - they cannot block screws
+      }
 
       // Only check shapes that are in front of the screw's layer
       const shapeLayerDepth = this.state.layerDepthLookup.get(shape.layerId) || -1;

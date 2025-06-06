@@ -123,6 +123,30 @@ export class Layer implements ILayer {
     return this.shapes.some(shape => shape.hasAnyScrews());
   }
 
+  /**
+   * Make this layer visible and start fade-in animation
+   */
+  public makeVisible(): void {
+    if (!this.isVisible) {
+      this.isVisible = true;
+      this.startFadeIn();
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`Layer ${this.id} made visible with fade-in animation`);
+      }
+    }
+  }
+
+  /**
+   * Hide this layer (disable physics and interactions)
+   */
+  public makeHidden(): void {
+    this.isVisible = false;
+    this.fadeOpacity = 0;
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`Layer ${this.id} made hidden`);
+    }
+  }
+
   public isCleared(): boolean {
     // Layer is cleared if it's completely empty
     if (this.isEmpty()) {
