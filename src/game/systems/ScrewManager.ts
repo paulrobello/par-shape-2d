@@ -4,11 +4,11 @@
  */
 
 import { BaseSystem } from '../core/BaseSystem';
-import { Body, Sleeping, Bodies, Constraint } from 'matter-js';
+import { Body, Sleeping } from 'matter-js';
 import { Screw } from '@/game/entities/Screw';
 import { Shape } from '@/game/entities/Shape';
 import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
-import { GAME_CONFIG, PHYSICS_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { getRandomScrewColor } from '@/game/utils/Colors';
 import { randomIntBetween } from '@/game/utils/MathUtils';
 import {
@@ -27,13 +27,13 @@ import {
   selectNonOverlappingPositions,
   calculateShapeArea
 } from '@/shared/utils/GeometryUtils';
+import { ConstraintUtils, ScrewConstraintResult } from '@/shared/physics/ConstraintUtils';
 import {
   calculateContainerHolePosition,
   findScrewDestination,
   determineDestinationType
 } from '@/game/utils/ScrewContainerUtils';
 import { ShapeDefinition } from '@/types/shapes';
-import { ScrewConstraintResult } from '@/shared/physics/ConstraintUtils';
 import {
   ShapeCreatedEvent,
   ShapeDestroyedEvent,
@@ -1054,54 +1054,31 @@ export class ScrewManager extends BaseSystem {
   private createScrewConstraint(screw: Screw, shape: Shape): void {
     if (DEBUG_CONFIG.logPhysicsDebug) {
       console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
-    }
-    
-    // Calculate offset from body position to screw position
-    // Shape position should now be synced with body position for composite bodies
-    const offsetX = screw.position.x - shape.body.position.x;
-    const offsetY = screw.position.y - shape.body.position.y;
-    
-    if (DEBUG_CONFIG.logPhysicsDebug) {
       console.log(`🔧 Constraint creation for ${shape.isComposite ? 'composite' : 'regular'} body:`);
       console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
       console.log(`  Body.position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
       console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
-      console.log(`  Calculated offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
     }
     
-    // Create anchor body at screw position
-    const anchorBody = Bodies.circle(screw.position.x, screw.position.y, 1, {
-      isStatic: true,
-      isSensor: true,
-      render: { visible: false },
-      collisionFilter: { group: -1, category: 0, mask: 0 },
-    });
-    
-    // Create constraint using calculated offset
-    const constraint = Constraint.create({
-      bodyA: shape.body,
-      bodyB: anchorBody,
-      pointA: { x: offsetX, y: offsetY },
-      pointB: { x: 0, y: 0 },
-      length: 0,
-      stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
-      damping: PHYSICS_CONSTANTS.constraint.damping,
-      render: { visible: false },
-    });
+    // Use shared utilities to create constraint
+    const constraintResult = ConstraintUtils.createSingleScrewConstraint(
+      shape.body,
+      screw
+    );
 
     // Store the constraint and anchor body
-    screw.setConstraint(constraint);
-    screw.anchorBody = anchorBody;
-    this.state.constraints.set(screw.id, { constraint, anchorBody });
+    screw.setConstraint(constraintResult.constraint);
+    screw.anchorBody = constraintResult.anchorBody;
+    this.state.constraints.set(screw.id, constraintResult);
 
     // Emit physics body added event with unique source to avoid loop detection
     this.emit({
       type: 'physics:body:added',
       timestamp: Date.now(),
       source: `ScrewManager-${screw.id}`,
-      bodyId: anchorBody.id.toString(),
+      bodyId: constraintResult.anchorBody.id.toString(),
       shape,
-      body: anchorBody
+      body: constraintResult.anchorBody
     });
 
     // Emit constraint added event
@@ -1109,9 +1086,9 @@ export class ScrewManager extends BaseSystem {
       type: 'physics:constraint:added',
       timestamp: Date.now(),
       source: `ScrewManager-${screw.id}`,
-      constraintId: constraint.id?.toString() || screw.id,
+      constraintId: constraintResult.constraint.id?.toString() || screw.id,
       screw,
-      constraint: constraint
+      constraint: constraintResult.constraint
     });
     
     if (DEBUG_CONFIG.logScrewDebug) {
@@ -1177,10 +1154,17 @@ export class ScrewManager extends BaseSystem {
         
         if (DEBUG_CONFIG.logPhysicsStateChanges) {
           console.log(`🔧 Shape ${shape.id} BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${capturedVelocity.x.toFixed(2)}, ${capturedVelocity.y.toFixed(2)}), angularVel=${capturedAngularVelocity.toFixed(3)}, position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+          if (shape.isComposite) {
+            console.log(`🔧 COMPOSITE BODY - parts: ${shape.body.parts.length}, type: ${shape.body.type}`);
+          }
         }
         
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
+        
+        if (DEBUG_CONFIG.logPhysicsStateChanges && shape.isComposite) {
+          console.log(`🔧 Shape ${shape.id} AFTER setStatic(false): position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+        }
         
         // Use captured angular velocity
         const currentAngularVelocity = capturedAngularVelocity;
@@ -1267,24 +1251,42 @@ export class ScrewManager extends BaseSystem {
         // Only one screw left - make shape dynamic so it can swing/rotate
         if (DEBUG_CONFIG.logPhysicsStateChanges) {
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`🔧 Shape ${shape.id} has 1 screw - making dynamic for rotation. BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}`);
+            console.log(`🔧 Shape ${shape.id} has 1 screw - making dynamic for rotation. BEFORE: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+          }
+          if (shape.isComposite) {
+            console.log(`🔧 COMPOSITE BODY - parts: ${shape.body.parts.length}, type: ${shape.body.type}`);
           }
         }
         
         const wasStatic = shape.body.isStatic;
+        const positionBefore = { x: shape.body.position.x, y: shape.body.position.y };
+        
         Body.setStatic(shape.body, false);
         Sleeping.set(shape.body, false);
+        
+        if (DEBUG_CONFIG.logPhysicsStateChanges && shape.isComposite) {
+          console.log(`🔧 Shape ${shape.id} AFTER setStatic(false): position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+          const posDiff = Math.sqrt(
+            Math.pow(shape.body.position.x - positionBefore.x, 2) + 
+            Math.pow(shape.body.position.y - positionBefore.y, 2)
+          );
+          if (posDiff > 0.1) {
+            console.log(`⚠️ POSITION SHIFTED by ${posDiff.toFixed(1)} units when becoming dynamic!`);
+          }
+        }
         
         // Keep natural inertia for faster swinging
         // Don't modify inertia - let Matter.js calculate it naturally
         
-        // Give a small initial angular velocity to start the swing
-        Body.setAngularVelocity(shape.body, 0.02);
+        // For composite bodies, use a gentler initial angular velocity to prevent oscillation
+        const initialAngularVelocity = shape.isComposite ? 0.01 : 0.02;
+        Body.setAngularVelocity(shape.body, initialAngularVelocity);
         
         // Apply a small horizontal perturbation force to ensure physics activation
-        // Avoid any upward force that could cause jumping
+        // For composite bodies, use an even smaller force to prevent instability
+        const forceMagnitude = shape.isComposite ? 0.0005 : 0.001;
         Body.applyForce(shape.body, shape.body.position, {
-          x: (Math.random() - 0.5) * 0.001,
+          x: (Math.random() - 0.5) * forceMagnitude,
           y: 0  // No vertical force to prevent jumping
         });
         
@@ -1482,35 +1484,14 @@ export class ScrewManager extends BaseSystem {
               }
             }
             
-            // DON'T update the screw's position - keep its original position
-            // Calculate constraint offset using body position (should be synced for composite bodies)
-            const offsetX = remainingScrew.position.x - shapeBody.position.x;
-            const offsetY = remainingScrew.position.y - shapeBody.position.y;
-            
-            // Create new anchor body
-            const newAnchor = Bodies.circle(remainingScrew.position.x, remainingScrew.position.y, 1, {
-              isStatic: true,
-              isSensor: true,
-              render: { visible: false },
-              collisionFilter: { group: -1, category: 0, mask: 0 },
-            });
-            
-            // Create new constraint with correct offset
-            const newConstraint = Constraint.create({
-              bodyA: shapeBody,
-              bodyB: newAnchor,
-              pointA: { x: offsetX, y: offsetY },
-              pointB: { x: 0, y: 0 },
-              length: 0,
-              stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
-              damping: PHYSICS_CONSTANTS.constraint.damping,
-              render: { visible: false },
-            });
-            
-            const newConstraintResult = { constraint: newConstraint, anchorBody: newAnchor };
+            // Use shared utilities to recreate constraint
+            const newConstraintResult = ConstraintUtils.createSingleScrewConstraint(
+              shapeBody,
+              remainingScrew
+            );
             
             if (DEBUG_CONFIG.logPhysicsDebug) {
-              console.log(`🔧 Created new constraint with body-based offset: (${offsetX.toFixed(1)}, ${offsetY.toFixed(1)})`);
+              console.log(`🔧 Recreated constraint for composite body`);
             }
             
             // Update screw references
@@ -1563,6 +1544,24 @@ export class ScrewManager extends BaseSystem {
 
             screw.position.x = shape.position.x + (offsetX * cos - offsetY * sin);
             screw.position.y = shape.position.y + (offsetX * sin + offsetY * cos);
+          }
+        }
+      }
+      
+      // Debug logging for single-screw composite bodies
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        for (const shape of this.state.allShapes) {
+          const shapeScrews = this.getScrewsForShape(shape.id).filter(s => !s.isCollected && !s.isBeingCollected);
+          if (shapeScrews.length === 1 && shape.isComposite && shape.body && !shape.body.isStatic) {
+            const screw = shapeScrews[0];
+            const constraint = this.state.constraints.get(screw.id);
+            if (constraint) {
+              const distance = Math.sqrt(
+                Math.pow(screw.position.x - shape.body.position.x, 2) +
+                Math.pow(screw.position.y - shape.body.position.y, 2)
+              );
+              console.log(`🔄 Composite ${shape.id}: body=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)}), angle=${(shape.body.angle * 180 / Math.PI).toFixed(1)}°, screw=(${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), distance=${distance.toFixed(1)}`);
+            }
           }
         }
       }

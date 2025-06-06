@@ -619,6 +619,10 @@ Complete JSON-based shape definition system with the following structure:
 - **Initial Perturbation**: Small random angular velocity and force applied to activate physics
 - **Wake-up Control**: Explicit sleeping prevention to ensure continuous motion
 - **Pendulum Motion**: Natural swinging behavior around the single attachment point
+- **Composite Body Handling**: Special constraint handling for composite bodies (like capsules) to prevent high-speed revolving:
+  - Constraint offsets calculated in local body coordinates accounting for rotation
+  - Reduced constraint stiffness (0.9) for dynamic composite bodies to prevent oscillation
+  - Gentler initial angular velocity (0.01) and perturbation force (0.0005) for stability
 
 #### Multi-Screw Statics
 - **Static Bodies**: Shapes with multiple screws become static for stability

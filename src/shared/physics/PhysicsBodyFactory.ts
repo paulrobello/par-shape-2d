@@ -7,7 +7,7 @@ import { Bodies, Body, Constraint, IBodyDefinition } from 'matter-js';
 import { Vector2 } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
-import { PHYSICS_CONSTANTS } from '@/shared/utils/Constants';
+import { PHYSICS_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export interface BodyOptions {
   isStatic?: boolean;
@@ -293,18 +293,55 @@ export class PhysicsBodyFactory {
     screwPosition: Vector2,
     options: ConstraintOptions = {}
   ): Constraint {
-    // Calculate offset from physics body center to screw position
+    // For composite bodies, we need to ensure we're using the actual center of mass
+    // Matter.js composite bodies have their position at the calculated center of mass
     const bodyPosition = shapeBody.position;
-    const offsetX = screwPosition.x - bodyPosition.x;
-    const offsetY = screwPosition.y - bodyPosition.y;
+    
+    // Calculate offset from physics body center to screw position in world coordinates
+    const worldOffsetX = screwPosition.x - bodyPosition.x;
+    const worldOffsetY = screwPosition.y - bodyPosition.y;
+    
+    // Convert world offset to body's local coordinates
+    // This accounts for the body's current rotation
+    const angle = shapeBody.angle;
+    const cos = Math.cos(-angle);
+    const sin = Math.sin(-angle);
+    
+    // Rotate the offset by the negative angle to get local coordinates
+    const localOffsetX = worldOffsetX * cos - worldOffsetY * sin;
+    const localOffsetY = worldOffsetX * sin + worldOffsetY * cos;
+    
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log(`🔧 PhysicsBodyFactory.createScrewConstraint:`);
+      console.log(`  Body position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
+      console.log(`  Body angle: ${(angle * 180 / Math.PI).toFixed(1)}°`);
+      console.log(`  Screw position: (${screwPosition.x.toFixed(1)}, ${screwPosition.y.toFixed(1)})`);
+      console.log(`  World offset: (${worldOffsetX.toFixed(1)}, ${worldOffsetY.toFixed(1)})`);
+      console.log(`  Local offset: (${localOffsetX.toFixed(1)}, ${localOffsetY.toFixed(1)})`);
+      console.log(`  Body isStatic: ${shapeBody.isStatic}`);
+      console.log(`  Body type: ${shapeBody.type}`);
+      if (shapeBody.parts && shapeBody.parts.length > 1) {
+        console.log(`  Composite body with ${shapeBody.parts.length} parts`);
+        // Log center of mass info
+        const mass = shapeBody.mass;
+        const inertia = shapeBody.inertia;
+        console.log(`  Body mass: ${mass.toFixed(2)}, inertia: ${inertia.toFixed(2)}`);
+      }
+    }
+
+    // For dynamic composite bodies, we need to ensure the constraint stiffness is appropriate
+    // to prevent oscillation/orbiting behavior
+    const constraintStiffness = (shapeBody.parts && shapeBody.parts.length > 1 && !shapeBody.isStatic) 
+      ? 0.9  // Slightly lower stiffness for composite bodies to reduce oscillation
+      : (options.stiffness ?? PHYSICS_CONSTANTS.constraint.stiffness);
 
     return Constraint.create({
       bodyA: shapeBody,
       bodyB: screwAnchor,
-      pointA: { x: offsetX, y: offsetY },
+      pointA: { x: localOffsetX, y: localOffsetY },
       pointB: { x: 0, y: 0 },
       length: options.length ?? 0,
-      stiffness: options.stiffness ?? PHYSICS_CONSTANTS.constraint.stiffness,
+      stiffness: constraintStiffness,
       damping: options.damping ?? PHYSICS_CONSTANTS.constraint.damping,
       render: options.render ?? { 
         visible: false,
