@@ -90,15 +90,30 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `screw_colors:requested` | Request for active screw colors | GameState | ScrewManager |
 | `screw:transfer:color_check` | Validate screw colors for automated transfers | GameState | ScrewManager |
 
+### Container Strategy Events
+| Event Type | Purpose | Emitters | Subscribers |
+|------------|---------|----------|-------------|
+| `container:strategy:initialized` | Container strategy plan set up | ContainerStrategyManager | None |
+| `container:replacement:planned` | Strategic container replacement trigger | ContainerStrategyManager | GameState |
+| `container:replacement:executed` | Container replacement completed | ContainerStrategyManager, GameState | None |
+| `perfect:balance:achieved` | Perfect balance completion | ContainerStrategyManager, GameState | None |
+| `perfect:balance:status` | Balance status update | ContainerStrategyManager | None |
+
+### Level Precomputation Events
+| Event Type | Purpose | Emitters | Subscribers |
+|------------|---------|----------|-------------|
+| `level:precomputed` | Level data precomputed | LevelPrecomputer | GameState, ContainerStrategyManager |
+| `screw:progress:updated` | Screw-based progress tracking | GameState | None |
+
 ### Physics Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
-| `physics:body:added` | Physics body creation | ScrewManager, LayerManager | PhysicsWorld, EventFlowValidator |
-| `physics:body:removed` | Physics body removal | ScrewManager, LayerManager | PhysicsWorld |
+| `physics:body:added` | Physics body creation | ScrewManager, LayerManager, PhysicsActivationManager | PhysicsWorld, EventFlowValidator |
+| `physics:body:removed` | Physics body removal | ScrewManager, LayerManager, PhysicsActivationManager | PhysicsWorld |
 | `physics:body:removed:immediate` | Immediate anchor body removal | ScrewManager | PhysicsWorld |
 | `physics:screw:removed:immediate` | Atomic screw constraint/body removal | ScrewManager | PhysicsWorld |
-| `physics:constraint:added` | Constraint creation | ScrewManager | PhysicsWorld, EventFlowValidator |
-| `physics:constraint:removed` | Constraint removal | ScrewManager | PhysicsWorld |
+| `physics:constraint:added` | Constraint creation | ScrewManager, PhysicsActivationManager | PhysicsWorld, EventFlowValidator |
+| `physics:constraint:removed` | Constraint removal | ScrewManager, PhysicsActivationManager | PhysicsWorld |
 | `physics:collision:detected` | Collision detection | PhysicsWorld | GameManager |
 | `physics:step:completed` | Physics step completion | PhysicsWorld | None |
 
@@ -136,7 +151,7 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 ### System Coordination Events
 | Event Type | Purpose | Emitters | Subscribers |
 |------------|---------|----------|-------------|
-| `system:ready` | System initialization complete | SystemCoordinator | EventFlowValidator |
+| `system:ready` | System initialization complete | SystemCoordinator, ContainerStrategyManager | EventFlowValidator |
 
 ### Validation and Monitoring Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -264,6 +279,52 @@ GameManager → handleHoldingHolesAvailable() cancels timer
 Game continues without game over threat
 ```
 
+### PhysicsActivation Flow (Dormant Layer Activation)
+```
+LayerManager → layer:activation:needed (dormant layer)
+    ↓
+PhysicsActivationManager → createShapeFromPrecomputedData()
+    ↓
+PhysicsActivationManager → PhysicsBodyFactory.createShapeBodyFromDefinition()
+    ↓
+PhysicsActivationManager → physics:body:added
+    ↓
+PhysicsWorld (receives shape physics body)
+    ↓
+PhysicsActivationManager → ConstraintUtils.createSingleScrewConstraint()
+    ↓
+PhysicsActivationManager → physics:constraint:added
+    ↓
+PhysicsWorld (receives screw constraints)
+    ↓
+Layer becomes active with proper physics entities
+```
+
+### Container Strategy Flow (Perfect Balance)
+```
+LevelPrecomputer → level:precomputed
+    ↓
+ContainerStrategyManager → setPlan() + container:strategy:initialized
+    ↓
+GameState → setupContainerStrategy()
+    ↓
+Screw collected → GameState → screw:collected
+    ↓
+ContainerStrategyManager → onScrewCollected() checks plan
+    ↓
+If replacement needed:
+    ContainerStrategyManager → container:replacement:planned
+    ↓
+    GameState → executeContainerReplacement()
+    ↓
+    ContainerStrategyManager → container:replacement:executed
+    ↓
+Level complete → ContainerStrategyManager → generatePerfectBalanceStats()
+    ↓
+If perfect balance achieved:
+    ContainerStrategyManager → perfect:balance:achieved
+```
+
 ## Event Dependencies
 
 ### Critical Event Chains
@@ -276,6 +337,9 @@ Game continues without game over threat
 7. **Holding Holes Timer Chain**: `holding_holes:full` → timer started → `holding_holes:available` → timer cancelled
 8. **Physics Cleanup Chain**: `screw:removed` → `physics:constraint:removed` + `physics:body:removed:immediate` → PhysicsWorld cleanup
 9. **Atomic Physics Removal**: `screw:removed` → `physics:screw:removed:immediate` → PhysicsWorld atomic cleanup (preferred)
+10. **Physics Activation Chain**: `layer:activation:needed` → `physics:body:added` → `physics:constraint:added` → PhysicsWorld integration
+11. **Container Strategy Chain**: `level:precomputed` → `container:strategy:initialized` → `screw:collected` → `container:replacement:planned` → `container:replacement:executed`
+12. **Perfect Balance Chain**: `level:precomputed` → strategy tracking → `level:complete` → `perfect:balance:achieved` (conditional)
 
 ### Event Priority Analysis
 - **EventFlowValidator**: Uses EventPriority.CRITICAL (3) for monitoring all major events
@@ -295,21 +359,27 @@ The EventBus includes loop detection (max 50 loops per event type/source) to pre
 
 ### Event Frequency Classification
 1. **High-Frequency Events**: 
-   - `physics:body:added/removed` (frequent during gameplay)
+   - `physics:body:added/removed` (frequent during gameplay and activation)
+   - `physics:constraint:added/removed` (PhysicsActivationManager operations)
    - `physics:screw:removed:immediate` (atomic screw removal operations)
    - `screw:clicked/removed/collected` (user-driven)
    - `bounds:changed` (responsive design)
    - `container:state:updated` (frequent state changes)
+   - `screw:progress:updated` (screw-based progress tracking)
 
 2. **Medium-Frequency Events**:
    - `save:requested/completed` (auto-save triggers)
    - `shape:created/destroyed` (level progression)
    - `layer:created/cleared` (level progression)
-   - `physics:constraint:added/removed` (shape attachment changes)
+   - `container:replacement:planned/executed` (strategic container changes)
+   - `perfect:balance:status` (balance monitoring)
 
 3. **Low-Frequency Events**:
    - `game:started/over` (game lifecycle)
    - `level:started/complete` (level progression)
+   - `level:precomputed` (level setup)
+   - `container:strategy:initialized` (strategy setup)
+   - `perfect:balance:achieved` (achievement events)
    - `debug:*` (debug operations)
    - `physics:error` (error conditions)
 
@@ -332,6 +402,9 @@ The EventBus includes loop detection (max 50 loops per event type/source) to pre
 5. **Coordinate System Fix**: Fixed screw container/holding hole positioning to use proper Canvas coordinates (y=0 at top)
 6. **Strategy System Integration**: Shape type determination now prioritizes definition ID over physics type for accurate strategy selection
 7. **Code Deduplication**: Eliminated redundant wrapper methods throughout game and editor systems
+8. **Physics Activation System**: Lazy physics loading with shared library integration reduces memory overhead
+9. **Container Strategy Events**: Strategic container replacement with perfect balance tracking
+10. **Shared Physics Integration**: PhysicsActivationManager uses PhysicsBodyFactory and ConstraintUtils for consistency
 
 ### Orphaned/Unused Events
 The following events are defined in EventTypes.ts but have no active emitters or subscribers:
