@@ -9,6 +9,13 @@ import {
   PrecomputedShape
 } from '../../types/precomputed';
 import { Body, Constraint } from 'matter-js';
+import { PhysicsBodyFactory } from '../../shared/physics/PhysicsBodyFactory';
+import { ConstraintUtils } from '../../shared/physics/ConstraintUtils';
+import { Shape } from '../entities/Shape';
+import { Screw } from '../entities/Screw';
+import { ShapeType, ScrewColor } from '../../types/game';
+import { PHYSICS_CONSTANTS } from '../../shared/utils/Constants';
+import { ShapeDefinition } from '../../types/shapes';
 
 /**
  * Manages physics activation and deactivation for performance optimization
@@ -18,6 +25,9 @@ export class PhysicsActivationManager extends BaseSystem {
   private dormantLayers = new Map<number, PrecomputedLayer>();
   private activeBodies = new Map<string, Body>();
   private activeConstraints = new Map<string, Constraint>();
+  private activeShapes = new Map<string, Shape>();
+  private activeScrews = new Map<string, Screw>();
+  
   constructor() {
     super('PhysicsActivationManager');
     this.setupEventHandlers();
@@ -163,6 +173,46 @@ export class PhysicsActivationManager extends BaseSystem {
   }
 
   /**
+   * Helper method to determine ShapeType from definition
+   */
+  private getShapeTypeFromDefinition(definition: ShapeDefinition): ShapeType {
+    // Check physics type first for most accurate determination
+    const physicsType = definition.physics?.type;
+    
+    if (physicsType === 'circle') return 'circle';
+    if (physicsType === 'composite') return 'capsule';
+    
+    // For path-based shapes (fromVertices), determine specific type
+    if (physicsType === 'fromVertices' || definition.category === 'path') {
+      if (definition.id === 'arrow' || definition.id.includes('arrow')) return 'arrow';
+      if (definition.id === 'chevron' || definition.id.includes('chevron')) return 'chevron';
+      if (definition.id === 'star' || definition.id.includes('star')) return 'star';
+      if (definition.id === 'horseshoe' || definition.id.includes('horseshoe')) return 'horseshoe';
+      // Default path shape to star
+      return 'star';
+    }
+    
+    // For polygon types, check the sides
+    if (physicsType === 'polygon' && definition.dimensions?.sides) {
+      return 'polygon';
+    }
+    
+    // Check category for additional hints
+    if (definition.category === 'composite') return 'capsule';
+    
+    // Default fallback based on id
+    if (definition.id === 'circle') return 'circle';
+    if (definition.id === 'capsule') return 'capsule';
+    if (definition.id === 'rectangle') return 'rectangle';
+    
+    // Check if it has sides defined (polygon)
+    if (definition.dimensions?.sides) return 'polygon';
+    
+    // Default to polygon for unknown types
+    return 'polygon';
+  }
+
+  /**
    * Create physics bodies from pre-computed shape data
    */
   createPhysicsBodiesFromData(shapes: PrecomputedShape[]): Body[] {
@@ -170,27 +220,71 @@ export class PhysicsActivationManager extends BaseSystem {
 
     shapes.forEach(shape => {
       try {
-        // TODO: Create physics body using the factory
-        // This would need a proper Shape entity, not just data
-        // For now, this is scaffolding code
-        const body = null;
-
-        if (body) {
-          // Set additional properties from serialized data
-          if (shape.physicsData) {
-            Body.setAngle(body, shape.physicsData.angle);
-            Body.setVelocity(body, shape.physicsData.velocity);
-            Body.setAngularVelocity(body, shape.physicsData.angularVelocity);
+        // Determine shape type from definition
+        const shapeType = this.getShapeTypeFromDefinition(shape.definition);
+        
+        // Create physics body using the factory
+        const bodyResult = PhysicsBodyFactory.createShapeBodyFromDefinition(
+          shape.definition.physics.type,
+          shape.position,
+          {
+            radius: shape.dimensions.radius as number | undefined,
+            width: shape.dimensions.width as number | undefined,
+            height: shape.dimensions.height as number | undefined,
+          },
+          {
+            isStatic: shape.physicsData?.options?.isStatic ?? false,
+            density: shape.physicsData?.options?.density,
+            friction: shape.physicsData?.options?.friction,
+            frictionAir: shape.physicsData?.options?.frictionAir,
+            restitution: shape.physicsData?.options?.restitution,
+            collisionFilter: shape.physicsData?.collisionFilter,
+            render: shape.physicsData?.render,
           }
+        );
 
-          // Store body reference
-          this.activeBodies.set(shape.id, body);
-          createdBodies.push(body);
+        const { body, parts } = bodyResult;
 
-          // TODO: Emit event for physics world to add the body
-          // This would need a proper Shape entity
-          // For now, this is scaffolding code
+        // Set additional properties from serialized data
+        if (shape.physicsData) {
+          Body.setAngle(body, shape.physicsData.angle);
+          Body.setVelocity(body, shape.physicsData.velocity);
+          Body.setAngularVelocity(body, shape.physicsData.angularVelocity);
         }
+
+        // Create Shape entity
+        const shapeEntity = new Shape(
+          shape.id,
+          shapeType,
+          shape.position,
+          body,
+          `layer-${shape.screws[0]?.layerIndex ?? 0}`, // Get layer from screw data
+          shape.visual.color,
+          shape.visual.tint,
+          shape.definition.id,
+          {
+            width: shape.dimensions.width as number | undefined,
+            height: shape.dimensions.height as number | undefined,
+            radius: shape.dimensions.radius as number | undefined,
+            sides: shape.dimensions.sides as number | undefined,
+            vertices: shape.dimensions.vertices as { x: number; y: number }[] | undefined,
+          },
+          parts ? { isComposite: true, parts } : undefined
+        );
+
+        // Store references
+        this.activeBodies.set(shape.id, body);
+        this.activeShapes.set(shape.id, shapeEntity);
+        createdBodies.push(body);
+
+        // Emit event for physics world to add the body
+        this.emit({
+          type: 'physics:body:added',
+          timestamp: Date.now(),
+          bodyId: shape.id,
+          shape: shapeEntity,
+          body: body
+        });
 
       } catch (error) {
         console.error(`[PhysicsActivationManager] Failed to create body for shape ${shape.id}:`, error);
@@ -208,32 +302,68 @@ export class PhysicsActivationManager extends BaseSystem {
 
     layer.shapes.forEach(shape => {
       const shapeBody = this.activeBodies.get(shape.id);
-      if (!shapeBody) {
-        console.warn(`[PhysicsActivationManager] No body found for shape ${shape.id}`);
+      const shapeEntity = this.activeShapes.get(shape.id);
+      
+      if (!shapeBody || !shapeEntity) {
+        console.warn(`[PhysicsActivationManager] No body or entity found for shape ${shape.id}`);
         return;
       }
 
-      shape.screws.forEach(screw => {
+      shape.screws.forEach(precomputedScrew => {
         try {
-          // TODO: Create anchor body for the screw
-          // This would need a proper Screw entity, not just data
-          // For now, this is scaffolding code
-          const anchorBody = null;
-          const constraint = null;
+          // Create Screw entity
+          const screwEntity = new Screw(
+            precomputedScrew.id,
+            precomputedScrew.shapeId,
+            precomputedScrew.position,
+            precomputedScrew.color as ScrewColor
+          );
 
-          if (constraint && anchorBody) {
-            // Store references
-            this.activeBodies.set(`anchor_${screw.id}`, anchorBody);
-            this.activeConstraints.set(screw.id, constraint);
-            createdConstraints.push(constraint);
+          // Use ConstraintUtils to create constraint and anchor body
+          const constraintResult = ConstraintUtils.createSingleScrewConstraint(
+            shapeBody,
+            screwEntity,
+            {
+              stiffness: PHYSICS_CONSTANTS.constraint.stiffness,
+              damping: PHYSICS_CONSTANTS.constraint.damping,
+            }
+          );
 
-            // TODO: Emit events for physics world
-            // This would need proper Shape and Screw entities
-            // For now, this is scaffolding code
-          }
+          const { constraint, anchorBody } = constraintResult;
+
+          // Update screw entity with constraint
+          screwEntity.setConstraint(constraint);
+          screwEntity.anchorBody = anchorBody;
+
+          // Add screw to shape
+          shapeEntity.addScrew(screwEntity);
+
+          // Store references
+          this.activeBodies.set(`anchor_${precomputedScrew.id}`, anchorBody);
+          this.activeConstraints.set(precomputedScrew.id, constraint);
+          this.activeScrews.set(precomputedScrew.id, screwEntity);
+          createdConstraints.push(constraint);
+
+          // Emit event for physics world to add the anchor body
+          this.emit({
+            type: 'physics:body:added',
+            timestamp: Date.now(),
+            bodyId: `anchor_${precomputedScrew.id}`,
+            shape: shapeEntity,
+            body: anchorBody
+          });
+
+          // Emit event for physics world to add the constraint
+          this.emit({
+            type: 'physics:constraint:added',
+            timestamp: Date.now(),
+            constraintId: precomputedScrew.id,
+            screw: screwEntity,
+            constraint: constraint
+          });
 
         } catch (error) {
-          console.error(`[PhysicsActivationManager] Failed to create constraint for screw ${screw.id}:`, error);
+          console.error(`[PhysicsActivationManager] Failed to create constraint for screw ${precomputedScrew.id}:`, error);
         }
       });
     });
@@ -251,21 +381,42 @@ export class PhysicsActivationManager extends BaseSystem {
     let constraintsRemoved = 0;
 
     layer.shapes.forEach(shape => {
+      const shapeEntity = this.activeShapes.get(shape.id);
+      
       shape.screws.forEach(screw => {
         const constraint = this.activeConstraints.get(screw.id);
         const anchorBody = this.activeBodies.get(`anchor_${screw.id}`);
+        const screwEntity = this.activeScrews.get(screw.id);
 
-        if (constraint) {
-          // TODO: Emit removal event
-          // This would need proper event types
+        if (constraint && screwEntity) {
+          // Emit removal event for constraint
+          this.emit({
+            type: 'physics:constraint:removed',
+            timestamp: Date.now(),
+            constraintId: screw.id,
+            screw: screwEntity
+          });
+
           this.activeConstraints.delete(screw.id);
           constraintsRemoved++;
         }
 
-        if (anchorBody) {
-          // TODO: Emit anchor body removal
-          // This would need proper event types
+        if (anchorBody && shapeEntity) {
+          // Emit anchor body removal using immediate removal event
+          this.emit({
+            type: 'physics:body:removed:immediate',
+            timestamp: Date.now(),
+            bodyId: `anchor_${screw.id}`,
+            anchorBody: anchorBody,
+            shape: shapeEntity
+          });
+
           this.activeBodies.delete(`anchor_${screw.id}`);
+        }
+
+        // Clean up screw entity
+        if (screwEntity) {
+          this.activeScrews.delete(screw.id);
         }
       });
     });
@@ -284,10 +435,19 @@ export class PhysicsActivationManager extends BaseSystem {
 
     layer.shapes.forEach(shape => {
       const body = this.activeBodies.get(shape.id);
-      if (body) {
-        // TODO: Emit removal event
-        // This would need proper event types
+      const shapeEntity = this.activeShapes.get(shape.id);
+      
+      if (body && shapeEntity) {
+        // Emit removal event for shape body
+        this.emit({
+          type: 'physics:body:removed',
+          timestamp: Date.now(),
+          bodyId: shape.id,
+          shape: shapeEntity
+        });
+
         this.activeBodies.delete(shape.id);
+        this.activeShapes.delete(shape.id);
         bodiesRemoved++;
       }
     });
@@ -380,6 +540,8 @@ export class PhysicsActivationManager extends BaseSystem {
     this.activeLayerIndices.clear();
     this.activeBodies.clear();
     this.activeConstraints.clear();
+    this.activeShapes.clear();
+    this.activeScrews.clear();
 
     this.emit({
       type: 'physics:activation:cleanup:completed',

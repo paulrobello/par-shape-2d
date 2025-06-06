@@ -1,0 +1,127 @@
+# TODOs and Tasks Still Needed
+
+This checklist contains all TODO comments, FIXME items, and incomplete implementations found in the PAR Shape 2D codebase.
+
+## 🔴 Critical TODOs (Functionality Issues)
+
+### GameManager.ts
+- [ ] **Line 259**: Fix LevelPrecomputer to use proper screw placement strategies instead of random positioning
+  ```
+  // TODO: Fix LevelPrecomputer to use proper screw placement strategies instead of random positioning
+  ```
+
+### GameState.ts  
+- [ ] **Line 157**: Fix type conflict between Screw interface and entity
+  ```
+  screws: [] // TODO: Fix type conflict between Screw interface and entity
+  ```
+- [ ] **Line 1318**: Execute container replacement based on strategy
+  ```
+  // TODO: Execute container replacement based on strategy
+  ```
+- [ ] **Line 1366**: Implement container fade-out animation
+  ```
+  // TODO: Implement container fade-out animation
+  ```
+- [ ] **Line 1380**: Implement container fade-in animation
+  ```
+  // TODO: Implement container fade-in animation
+  ```
+
+## 🟡 System Implementation TODOs
+
+### PerfectBalanceCalculator.ts
+- [ ] **Line 32**: Initialize perfect balance calculator
+  ```
+  // TODO: Initialize perfect balance calculator
+  ```
+
+### ContainerStrategyManager.ts
+- [ ] **Line 35**: Set up event handlers for container strategy management
+  ```
+  // TODO: Set up event handlers for container strategy management
+  ```
+- [ ] **Line 308**: Handle container strategy logic properly (currently placeholder)
+  ```
+  // TODO: This would be handled by GameState in the actual implementation
+  ```
+
+### LevelPrecomputer.ts
+- [ ] **Line 46**: Initialize dependencies if needed
+  ```
+  // TODO: Initialize dependencies if needed
+  ```
+- [ ] **Line 314**: Get placement strategy for this shape
+  ```
+  // TODO: Get placement strategy for this shape
+  ```
+
+## 🟠 Physics System TODOs
+
+### PhysicsActivationManager.ts
+- [x] **Line 173**: Create physics body using the factory ✅ COMPLETED
+- [x] **Line 190**: Emit event for physics world to add the body ✅ COMPLETED
+- [x] **Line 218**: Create anchor body for the screw ✅ COMPLETED
+- [x] **Line 230**: Emit events for physics world ✅ COMPLETED
+- [x] **Line 259**: Emit removal event ✅ COMPLETED
+- [x] **Line 266**: Emit anchor body removal ✅ COMPLETED
+- [x] **Line 288**: Emit removal event ✅ COMPLETED
+
+**Note**: All Physics System TODOs have been implemented using shared libraries (PhysicsBodyFactory, ConstraintUtils) and proper event emissions.
+
+## 🔵 UI/UX TODOs
+
+### GameCanvas.tsx
+- [ ] **Line 257**: Implement game over timer if needed
+  ```
+  gameOverTimer: null // TODO: Implement game over timer if needed
+  ```
+
+### EditorManager.ts
+- [ ] **Line 396**: Implement proper error display UI
+  ```
+  // TODO: Implement proper error display UI
+  ```
+- [ ] **Line 402**: Implement proper message display UI
+  ```
+  // TODO: Implement proper message display UI
+  ```
+
+## 📊 Summary
+
+**Total TODO items: 18**
+- Critical functionality issues: 5
+- System implementation gaps: 5
+- Physics system placeholders: 7 ✅ (ALL COMPLETED)
+- UI/Editor improvements: 3
+
+**Completed: 7 items**
+**Remaining: 11 items**
+
+## 🎯 Recommended Priority Order
+
+1. **HIGH PRIORITY**
+   - [ ] Fix type conflict in GameState.ts line 157 (Screw interface/entity mismatch)
+   - [ ] Re-enable and fix LevelPrecomputer screw placement strategies (GameManager.ts line 259)
+   - [ ] Implement container fade animations (GameState.ts lines 1366, 1380)
+
+2. **MEDIUM PRIORITY**
+   - [ ] Implement container strategy management (ContainerStrategyManager.ts lines 35, 308)
+   - [ ] Complete LevelPrecomputer implementation (lines 46, 314)
+
+3. **LOW PRIORITY**
+   - [ ] Add proper error/message display UI in editor (EditorManager.ts lines 396, 402)
+   - [ ] Initialize PerfectBalanceCalculator (line 32)
+   - [ ] Implement game over timer if needed (GameCanvas.tsx line 257)
+
+## 📝 Notes
+
+- The LevelPrecomputer system is currently **DISABLED** due to architectural issues with screw placement
+- ✅ **UPDATE**: All physics system TODOs in PhysicsActivationManager have been completed using shared libraries
+- Container animation system is partially implemented but missing fade effects
+- Editor error handling UI components are not implemented
+
+---
+
+*Generated from codebase analysis on 6/6/2025*
+*Updated on 6/6/2025 - Completed all Physics System TODOs*
