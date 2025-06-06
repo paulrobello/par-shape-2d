@@ -154,7 +154,7 @@ export class GameState extends BaseSystem {
           timestamp: Date.now(),
           containerIndex: this.containers.indexOf(container),
           color: container.color,
-          screws: [] // TODO: Fix type conflict between Screw interface and entity
+          screws: container.holes.filter(id => id !== null) as string[]
         });
         
         this.markContainerForRemoval(container.id);
@@ -1315,9 +1315,10 @@ export class GameState extends BaseSystem {
 
   private handleContainerReplacementPlanned(event: import('../events/EventTypes').ContainerReplacementPlannedEvent): void {
     this.executeIfActive(() => {
-      // TODO: Execute container replacement based on strategy
-      // For now, this is scaffolding code
-      console.log(`[GameState] Container replacement planned at screw count ${event.atScrewCount} with colors:`, event.newColors);
+      console.log(`[GameState] Executing container replacement at screw count ${event.atScrewCount} with colors:`, event.newColors);
+      
+      // Execute the container replacement strategy
+      this.executeContainerReplacement({ newColors: event.newColors });
     });
   }
 
@@ -1363,8 +1364,10 @@ export class GameState extends BaseSystem {
     this.containers.forEach(container => {
       const screwCount = container.holes.filter(hole => hole !== null).length;
       if (screwCount === 0) {
-        // TODO: Implement container fade-out animation
+        // Start fade-out animation (already implemented)
         container.isMarkedForRemoval = true;
+        container.isFadingOut = true;
+        container.fadeStartTime = Date.now();
       }
     });
 
@@ -1377,7 +1380,7 @@ export class GameState extends BaseSystem {
       }).concat(newContainers);
       
       newContainers.forEach(container => {
-        // TODO: Implement container fade-in animation
+        // Container fade-in animation is already implemented in generateContainersWithColors
         console.log(`New container added: ${container.color}`);
       });
 
