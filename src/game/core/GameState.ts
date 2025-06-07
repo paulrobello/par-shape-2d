@@ -935,18 +935,28 @@ export class GameState extends BaseSystem {
     }
 
     // Get screw colors for smart replacement - combine shapes and holding holes
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_REPLACEMENT] Requesting screw colors for smart replacement...`);
+    }
+    
     this.emit({
       type: 'screw_colors:requested',
       timestamp: Date.now(),
       containerIndex: -1, // Special flag for getting all remaining screws
       existingColors: [],
       callback: (shapeScrewColors: ScrewColor[]) => {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[CONTAINER_REPLACEMENT] ✅ Received screw colors callback with ${shapeScrewColors.length} colors`);
+        }
         // Add holding hole colors to get complete picture
         const holdingHoleColors = this.getHoldingHoleColors();
         const allScrewColors = [...shapeScrewColors, ...holdingHoleColors];
         
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`[CONTAINER_REPLACEMENT] Shape screws: ${shapeScrewColors.length}, Holding hole screws: ${holdingHoleColors.length}, Total: ${allScrewColors.length}`);
+          console.log(`[CONTAINER_REPLACEMENT] Container ${containerIndex} (${this.containers[containerIndex]?.color}) being removed`);
+          console.log(`[CONTAINER_REPLACEMENT] Shape screws by color:`, this.countColorArray(shapeScrewColors));
+          console.log(`[CONTAINER_REPLACEMENT] Holding hole screws by color:`, this.countColorArray(holdingHoleColors));
+          console.log(`[CONTAINER_REPLACEMENT] Combined total: ${allScrewColors.length} screws`);
         }
         
         this.handleSmartContainerReplacement(containerIndex, allScrewColors, remainingScrews);
@@ -975,6 +985,16 @@ export class GameState extends BaseSystem {
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`[SMART_REPLACEMENT] Remaining screws by color:`, Array.from(remainingScrewsByColor.entries()));
       console.log(`[SMART_REPLACEMENT] Available space by color:`, Array.from(availableSpaceByColor.entries()));
+      
+      // Show detailed container info
+      console.log(`[SMART_REPLACEMENT] Current containers (excluding ${containerIndex}):`);
+      this.containers.forEach((container, index) => {
+        if (index !== containerIndex) {
+          const available = this.getAvailableHoleCount(container.id);
+          const filled = container.holes.filter(h => h !== null).length;
+          console.log(`  Container ${index}: ${container.color}, ${filled}/${container.maxHoles} filled, ${available} available`);
+        }
+      });
     }
     
     // Find colors that need additional container space
@@ -1031,7 +1051,7 @@ export class GameState extends BaseSystem {
     if (containerIndex < 0 || containerIndex >= this.containers.length) return;
 
     const oldContainer = this.containers[containerIndex];
-    const optimalContainer = this.createOptimalContainer(color, remainingScrewsByColor);
+    const optimalContainer = this.createOptimalContainer(color, remainingScrewsByColor, containerIndex);
     
     // Replace the container
     this.containers[containerIndex] = optimalContainer;
@@ -1065,6 +1085,10 @@ export class GameState extends BaseSystem {
   }
 
   private replaceContainer(containerIndex: number): void {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[OLD_REPLACEMENT] ⚠️ Using OLD container replacement logic for container ${containerIndex}`);
+    }
+    
     if (containerIndex < 0 || containerIndex >= this.containers.length) return;
 
     const oldContainer = this.containers[containerIndex];
@@ -1888,6 +1912,17 @@ export class GameState extends BaseSystem {
   }
 
   /**
+   * Helper to count colors in an array for debugging
+   */
+  private countColorArray(colors: ScrewColor[]): Record<string, number> {
+    const counts: Record<string, number> = {};
+    colors.forEach(color => {
+      counts[color] = (counts[color] || 0) + 1;
+    });
+    return counts;
+  }
+
+  /**
    * Get available space in existing containers by color
    */
   private getAvailableSpaceByColor(excludeContainerIndex?: number): Map<ScrewColor, number> {
@@ -1911,11 +1946,11 @@ export class GameState extends BaseSystem {
    * Create container with optimal hole count based on remaining screws
    * Only creates holes for screws that don't already have space in existing containers
    */
-  private createOptimalContainer(color: ScrewColor, remainingScrews: Map<ScrewColor, number>): Container {
+  private createOptimalContainer(color: ScrewColor, remainingScrews: Map<ScrewColor, number>, excludeContainerIndex?: number): Container {
     const totalScrewsOfThisColor = remainingScrews.get(color) || 0;
     
-    // Calculate how much space already exists for this color
-    const existingSpace = this.getAvailableSpaceByColor().get(color) || 0;
+    // Calculate how much space already exists for this color (excluding container being removed)
+    const existingSpace = this.getAvailableSpaceByColor(excludeContainerIndex).get(color) || 0;
     
     // Only create holes for screws that don't have existing space
     const additionalHolesNeeded = Math.max(0, totalScrewsOfThisColor - existingSpace);
