@@ -1681,25 +1681,28 @@ export class GameState extends BaseSystem {
 
     this.isEmittingProgressUpdate = true;
 
-    const percentage = this.containerProgress.totalScrewsToContainers > 0 
-      ? this.containerProgress.totalScrewsCollected / this.containerProgress.totalScrewsToContainers * 100
-      : 0;
+    // Defer emission to next tick to break synchronous event chains
+    setTimeout(() => {
+      const percentage = this.containerProgress.totalScrewsToContainers > 0 
+        ? this.containerProgress.totalScrewsCollected / this.containerProgress.totalScrewsToContainers * 100
+        : 0;
 
-    this.emit({
-      type: 'container:progress:updated',
-      timestamp: Date.now(),
-      screwsInContainers: this.containerProgress.screwsInContainers,
-      containersRemoved: this.containerProgress.containersRemoved,
-      totalScrewsToContainers: this.containerProgress.totalScrewsToContainers,
-      totalScrewsCollected: this.containerProgress.totalScrewsCollected,
-      percentage
-    });
+      this.emit({
+        type: 'container:progress:updated',
+        timestamp: Date.now(),
+        screwsInContainers: this.containerProgress.screwsInContainers,
+        containersRemoved: this.containerProgress.containersRemoved,
+        totalScrewsToContainers: this.containerProgress.totalScrewsToContainers,
+        totalScrewsCollected: this.containerProgress.totalScrewsCollected,
+        percentage
+      });
 
-    if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`[CONTAINER_PROGRESS] Progress update: ${this.containerProgress.totalScrewsCollected}/${this.containerProgress.totalScrewsToContainers} screws collected (${percentage.toFixed(1)}%)`);
-    }
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[CONTAINER_PROGRESS] Progress update: ${this.containerProgress.totalScrewsCollected}/${this.containerProgress.totalScrewsToContainers} screws collected (${percentage.toFixed(1)}%)`);
+      }
 
-    this.isEmittingProgressUpdate = false;
+      this.isEmittingProgressUpdate = false;
+    }, 0);
   }
 
   /**
