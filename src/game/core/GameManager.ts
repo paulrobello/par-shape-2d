@@ -1297,7 +1297,7 @@ export class GameManager extends BaseSystem {
       // Draw holes in the container and render any screws in them
       ctx.fillStyle = '#000';
       const holeRadius = UI_CONSTANTS.containers.hole.radius;
-      const holeCount = UI_CONSTANTS.containers.hole.count;
+      const holeCount = container.maxHoles; // Use container's actual hole count
       // Calculate hole spacing based on container width and number of holes
       const holeSpacing = containerWidth / (holeCount + 1); // +1 for proper spacing
       for (let i = 0; i < holeCount; i++) {
