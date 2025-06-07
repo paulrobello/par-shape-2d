@@ -166,6 +166,13 @@ export class GameState extends BaseSystem {
       // Emit container progress update event
       this.emitContainerProgressUpdate();
 
+      // Try to transfer screws from holding holes after each collection
+      // This helps ensure screws don't get stuck in holding holes
+      if (this.containerProgress.totalScrewsCollected > 0 && 
+          this.containerProgress.totalScrewsCollected % 3 === 0) { // Check every 3 screws
+        setTimeout(() => this.tryTransferFromHoldingHoles(), 50);
+      }
+      
       // Check for level completion after each screw collection
       // This ensures completion happens when all screws are collected, regardless of container state
       if (this.checkContainerBasedLevelCompletion()) {
@@ -904,33 +911,43 @@ export class GameState extends BaseSystem {
   private checkAndReplaceContainer(containerIndex: number): void {
     if (containerIndex < 0 || containerIndex >= this.containers.length) return;
 
-    // Calculate remaining screws to be collected (from shapes)
+    // Calculate remaining screws to be collected (from shapes only - screws not yet clicked)
     const remainingScrews = this.containerProgress.totalScrewsToContainers - this.containerProgress.totalScrewsCollected;
     
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_REPLACEMENT] Container filled. Remaining screws on shapes: ${remainingScrews}`);
+    }
+    
+    // If no more screws to collect, just remove container without replacement
+    if (remainingScrews <= 0) {
+      this.containers.splice(containerIndex, 1);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[CONTAINER_REPLACEMENT] No more screws left - removed container without replacement`);
+      }
+      
+      // Emit container state update
+      this.emit({
+        type: 'container:state:updated',
+        timestamp: Date.now(),
+        containers: this.containers
+      });
+      return;
+    }
+
     // Calculate available space in existing containers (excluding the one being removed)
     const availableSpace = this.containers
       .filter((_, index) => index !== containerIndex)
       .reduce((total, container) => total + this.getAvailableHoleCount(container.id), 0);
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`[CONTAINER_REPLACEMENT] Checking if replacement needed:`);
-      console.log(`  - Remaining screws to collect: ${remainingScrews}`);
-      console.log(`  - Available space in existing containers: ${availableSpace}`);
-      console.log(`  - Replacement needed: ${availableSpace < remainingScrews ? 'YES' : 'NO'}`);
+      console.log(`[CONTAINER_REPLACEMENT] Available space in remaining containers: ${availableSpace}`);
+      console.log(`[CONTAINER_REPLACEMENT] Replacement needed: ${availableSpace < remainingScrews ? 'YES' : 'NO'}`);
     }
     
     // Only replace if existing containers don't have enough space for remaining screws
     if (availableSpace < remainingScrews) {
-      // Get screw colors for smart replacement
-      this.emit({
-        type: 'screw_colors:requested',
-        timestamp: Date.now(),
-        containerIndex: -1, // Special flag for getting all remaining screws
-        existingColors: [],
-        callback: (activeScrewColors: ScrewColor[]) => {
-          this.handleSmartContainerReplacement(containerIndex, activeScrewColors, remainingScrews);
-        }
-      });
+      // For now, use the old container replacement to test basic logic
+      this.replaceContainer(containerIndex);
     } else {
       // Just remove the container without replacement
       this.containers.splice(containerIndex, 1);
@@ -951,10 +968,35 @@ export class GameState extends BaseSystem {
     // Count remaining screws by color (from shapes only for now - simplified approach)
     const remainingScrewsByColor = new Map<ScrewColor, number>();
     
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[SMART_REPLACEMENT] Raw activeScrewColors array:`, activeScrewColors);
+      console.log(`[SMART_REPLACEMENT] Array length: ${activeScrewColors.length}`);
+      console.log(`[SMART_REPLACEMENT] Total remaining screws from shapes: ${totalRemainingScrews}`);
+    }
+    
     // Count screws still on shapes (activeScrewColors is array where each element = 1 screw)
     activeScrewColors.forEach(color => {
       remainingScrewsByColor.set(color, (remainingScrewsByColor.get(color) || 0) + 1);
     });
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[SMART_REPLACEMENT] Counted screws by color from shapes:`, Array.from(remainingScrewsByColor.entries()));
+      
+      // Also count screws in holding holes for complete picture
+      const holdingScrews = this.holdingHoles.filter(hole => hole.screwId !== null);
+      console.log(`[SMART_REPLACEMENT] Screws in holding holes: ${holdingScrews.length}`, holdingScrews.map(h => h.screwId));
+      
+      // Count screws in remaining containers
+      const containersTotal = this.containers.reduce((total, container, index) => {
+        if (index !== containerIndex) { // Exclude the one being removed
+          const filledHoles = container.holes.filter(hole => hole !== null).length;
+          console.log(`[SMART_REPLACEMENT] Container ${index} (${container.color}): ${filledHoles}/${container.maxHoles} holes filled`);
+          return total + filledHoles;
+        }
+        return total;
+      }, 0);
+      console.log(`[SMART_REPLACEMENT] Total screws in remaining containers: ${containersTotal}`);
+    }
     
     // For now, ignore holding hole screws to simplify - focus on main issue
     // TODO: Add holding hole screw counting in future iteration
@@ -1793,14 +1835,19 @@ export class GameState extends BaseSystem {
 
     // Defer emission to next tick to break synchronous event chains
     setTimeout(() => {
+      // Calculate progress based on screws actually in containers, not just collected from shapes
+      const screwsInContainers = this.containers.reduce((total, container) => {
+        return total + container.holes.filter(hole => hole !== null).length;
+      }, 0);
+      
       const percentage = this.containerProgress.totalScrewsToContainers > 0 
-        ? this.containerProgress.totalScrewsCollected / this.containerProgress.totalScrewsToContainers * 100
+        ? screwsInContainers / this.containerProgress.totalScrewsToContainers * 100
         : 0;
 
       this.emit({
         type: 'container:progress:updated',
         timestamp: Date.now(),
-        screwsInContainers: this.containerProgress.screwsInContainers,
+        screwsInContainers: screwsInContainers,
         containersRemoved: this.containerProgress.containersRemoved,
         totalScrewsToContainers: this.containerProgress.totalScrewsToContainers,
         totalScrewsCollected: this.containerProgress.totalScrewsCollected,
@@ -1808,7 +1855,8 @@ export class GameState extends BaseSystem {
       });
 
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`[CONTAINER_PROGRESS] Progress update: ${this.containerProgress.totalScrewsCollected}/${this.containerProgress.totalScrewsToContainers} screws collected (${percentage.toFixed(1)}%)`);
+        console.log(`[CONTAINER_PROGRESS] Progress update: ${screwsInContainers}/${this.containerProgress.totalScrewsToContainers} screws in containers (${percentage.toFixed(1)}% complete)`);
+        console.log(`[CONTAINER_PROGRESS] Note: ${this.containerProgress.totalScrewsCollected} screws collected from shapes, but progress based on container placement`);
       }
 
       this.isEmittingProgressUpdate = false;
@@ -1865,15 +1913,16 @@ export class GameState extends BaseSystem {
   private createOptimalContainer(color: ScrewColor, remainingScrews: Map<ScrewColor, number>): Container {
     const screwsOfThisColor = remainingScrews.get(color) || 0;
     
-    // For now, be more generous with hole allocation to ensure screws can be placed
-    // Calculate needed holes: at least what we have, but at least 1, at most 3
+    // Calculate optimal holes based on actual screws remaining
     let optimalHoles: number;
     if (screwsOfThisColor >= 3) {
-      optimalHoles = 3; // Full container for 3+ screws
-    } else if (screwsOfThisColor >= 1) {
-      optimalHoles = Math.max(2, screwsOfThisColor); // At least 2 holes for 1-2 screws (room for more)
+      optimalHoles = 3;
+    } else if (screwsOfThisColor === 2) {
+      optimalHoles = 2;
+    } else if (screwsOfThisColor === 1) {
+      optimalHoles = 1;
     } else {
-      optimalHoles = 3; // Default to 3 if no specific count
+      optimalHoles = 1; // Minimum 1 hole
     }
     
     const container: Container = {
@@ -1892,7 +1941,7 @@ export class GameState extends BaseSystem {
     };
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`[SMART_CONTAINER] Created container for ${color} with ${optimalHoles} holes (${screwsOfThisColor} screws remaining of this color)`);
+      console.log(`[SMART_CONTAINER] Created container for ${color} with ${optimalHoles} holes (${screwsOfThisColor} screws remaining of this color) - ALWAYS 3 FOR TESTING`);
     }
     
     return container;
@@ -1911,20 +1960,57 @@ export class GameState extends BaseSystem {
     // Count screws in holding holes
     const screwsInHoldingHoles = this.holdingHoles.filter(hole => hole.screwId !== null).length;
     
-    // Level is complete when all screws are in containers and none are in holding holes
-    const allScrewsCollected = this.containerProgress.totalScrewsCollected >= this.containerProgress.totalScrewsToContainers;
-    const noScrewsInHoldingHoles = screwsInHoldingHoles === 0;
-    const allScrewsInContainers = screwsInContainers === this.containerProgress.totalScrewsCollected;
-    
-    const isComplete = allScrewsCollected && noScrewsInHoldingHoles && allScrewsInContainers;
+    // Level is complete ONLY when ALL screws are in containers (none in holding holes, none on shapes)
+    const totalScrewsProcessed = screwsInContainers;
+    const isComplete = totalScrewsProcessed === this.containerProgress.totalScrewsToContainers && screwsInHoldingHoles === 0;
     
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`[LEVEL_COMPLETION] Level completion check:`);
-      console.log(`  - Screws collected from shapes: ${this.containerProgress.totalScrewsCollected}/${this.containerProgress.totalScrewsToContainers}`);
-      console.log(`  - Level complete: ${isComplete ? 'YES - all screws collected from shapes' : 'NO - screws remain on shapes'}`);
+      console.log(`  - Total screws in level: ${this.containerProgress.totalScrewsToContainers}`);
+      console.log(`  - Screws collected from shapes: ${this.containerProgress.totalScrewsCollected}`);
+      console.log(`  - Screws in containers: ${screwsInContainers}`);
+      console.log(`  - Screws in holding holes: ${screwsInHoldingHoles}`);
+      console.log(`  - Level complete: ${isComplete ? 'YES - all screws in containers' : 'NO - screws still need processing'}`);
     }
     
     return isComplete;
+  }
+
+  /**
+   * Try to automatically transfer screws from holding holes to available containers
+   * This helps ensure all screws get properly processed for level completion
+   */
+  private tryTransferFromHoldingHoles(): void {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[AUTO_TRANSFER] Attempting to transfer screws from holding holes to containers`);
+    }
+    
+    // Check each holding hole for screws that can be transferred
+    this.holdingHoles.forEach((hole, holeIndex) => {
+      if (!hole.screwId || !hole.screwColor) {
+        return; // Skip empty holes
+      }
+      
+      // Find a container that matches this screw's color and has space
+      const targetContainer = this.containers.find(container => {
+        return container.color === hole.screwColor && 
+               !container.isFull && 
+               this.getAvailableHoleCount(container.id) > 0;
+      });
+      
+      if (targetContainer) {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[AUTO_TRANSFER] Found matching container for ${hole.screwColor} screw ${hole.screwId} in hole ${holeIndex}`);
+        }
+        
+        // Request the transfer
+        this.requestScrewTransfer(hole.screwId, holeIndex, targetContainer);
+      } else {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[AUTO_TRANSFER] No available container found for ${hole.screwColor} screw ${hole.screwId}`);
+        }
+      }
+    });
   }
 
   /**
@@ -1935,28 +2021,40 @@ export class GameState extends BaseSystem {
       return; // Already handled
     }
 
-    this.state.levelComplete = true;
-    this.state.totalScore += this.state.levelScore;
+    // Try to transfer any remaining screws from holding holes first
+    this.tryTransferFromHoldingHoles();
     
-    if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`[CONTAINER_PROGRESS] Level ${this.state.currentLevel} completed via container system!`);
-    }
-    
-    // Emit level complete event
-    this.emit({
-      type: 'level:complete',
-      timestamp: Date.now(),
-      level: this.state.currentLevel,
-      score: this.state.levelScore
-    });
+    // Re-check completion after attempted transfers
+    setTimeout(() => {
+      if (this.checkContainerBasedLevelCompletion()) {
+        this.state.levelComplete = true;
+        this.state.totalScore += this.state.levelScore;
+        
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[CONTAINER_PROGRESS] Level ${this.state.currentLevel} completed via container system!`);
+        }
+        
+        // Emit level complete event
+        this.emit({
+          type: 'level:complete',
+          timestamp: Date.now(),
+          level: this.state.currentLevel,
+          score: this.state.levelScore
+        });
 
-    this.emit({
-      type: 'total_score:updated',
-      timestamp: Date.now(),
-      totalScore: this.state.totalScore
-    });
-    
-    this.markUnsavedChanges();
+        this.emit({
+          type: 'total_score:updated',
+          timestamp: Date.now(),
+          totalScore: this.state.totalScore
+        });
+        
+        this.markUnsavedChanges();
+      } else {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[CONTAINER_PROGRESS] Level completion check failed after auto-transfer attempt`);
+        }
+      }
+    }, 100); // Small delay to allow transfers to complete
   }
 
   /**

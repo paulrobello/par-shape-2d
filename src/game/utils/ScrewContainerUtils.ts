@@ -13,15 +13,19 @@ import { UI_CONSTANTS, GAME_CONFIG } from '@/shared/utils/Constants';
 export function calculateContainerHolePosition(
   containerIndex: number, 
   holeIndex: number,
-  virtualGameWidth: number
+  virtualGameWidth: number,
+  containers: Container[]
 ): Vector2 {
   const containerWidth = UI_CONSTANTS.containers.width;
   const containerHeight = UI_CONSTANTS.containers.height;
   const containerSpacing = UI_CONSTANTS.containers.spacing;
-  const holeCount = UI_CONSTANTS.containers.hole.count;
+  
+  // Get the actual container to use its maxHoles
+  const container = containers[containerIndex];
+  const holeCount = container ? container.maxHoles : UI_CONSTANTS.containers.hole.count;
   
   // Calculate container position (at bottom of screen) - matching GameManager
-  const totalContainersWidth = 4 * containerWidth + 3 * containerSpacing;
+  const totalContainersWidth = containers.length * containerWidth + (containers.length - 1) * containerSpacing;
   const startX = (virtualGameWidth - totalContainersWidth) / 2;
   const containerX = startX + containerIndex * (containerWidth + containerSpacing);
   const containerY = UI_CONSTANTS.containers.startY + containerHeight / 2;
@@ -83,7 +87,7 @@ export function findScrewDestination(
         if (!container.holes[holeIndex] && !container.reservedHoles[holeIndex]) {
           return {
             type: 'container',
-            position: calculateContainerHolePosition(i, holeIndex, virtualGameWidth),
+            position: calculateContainerHolePosition(i, holeIndex, virtualGameWidth, containers),
             id: container.id,
             holeIndex
           };

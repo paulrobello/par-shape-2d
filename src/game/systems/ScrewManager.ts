@@ -2128,7 +2128,7 @@ export class ScrewManager extends BaseSystem {
           
           // Calculate positions for animation
           const fromPosition = this.state.holdingHoles[holeIndex].position;
-          const toPosition = calculateContainerHolePosition(containerIndex, emptyHoleIndex, this.state.virtualGameWidth);
+          const toPosition = calculateContainerHolePosition(containerIndex, emptyHoleIndex, this.state.virtualGameWidth, this.state.containers);
           
           // Start transfer animation
           this.emit({
