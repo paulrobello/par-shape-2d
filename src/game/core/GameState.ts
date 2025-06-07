@@ -58,6 +58,7 @@ export class GameState extends BaseSystem {
     totalScrewsCollected: 0, // Total screws collected from shapes (regardless of destination)
   };
   
+  private isEmittingProgressUpdate = false;
   private containerStrategy: ContainerStrategyManager;
 
   constructor() {
@@ -1673,6 +1674,13 @@ export class GameState extends BaseSystem {
    * Emit container progress update event
    */
   private emitContainerProgressUpdate(): void {
+    // Prevent event loops by guarding against duplicate emissions
+    if (this.isEmittingProgressUpdate) {
+      return;
+    }
+
+    this.isEmittingProgressUpdate = true;
+
     const percentage = this.containerProgress.totalScrewsToContainers > 0 
       ? this.containerProgress.totalScrewsCollected / this.containerProgress.totalScrewsToContainers * 100
       : 0;
@@ -1690,6 +1698,8 @@ export class GameState extends BaseSystem {
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`[CONTAINER_PROGRESS] Progress update: ${this.containerProgress.totalScrewsCollected}/${this.containerProgress.totalScrewsToContainers} screws collected (${percentage.toFixed(1)}%)`);
     }
+
+    this.isEmittingProgressUpdate = false;
   }
 
   /**

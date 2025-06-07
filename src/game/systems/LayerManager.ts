@@ -24,7 +24,6 @@ import {
 interface LayerManagerState {
   layers: Layer[];
   layerCounter: number;
-  depthCounter: number;
   physicsGroupCounter: number;
   colorCounter: number;
   totalLayersForLevel: number;
@@ -52,7 +51,6 @@ export class LayerManager extends BaseSystem {
     this.state = {
       layers: [],
       layerCounter: 0,
-      depthCounter: 100, // Start high so new layers appear behind existing ones
       physicsGroupCounter: 0,
       colorCounter: 0,
       totalLayersForLevel: 10,
@@ -245,19 +243,11 @@ export class LayerManager extends BaseSystem {
     return this.executeIfActive(() => {
       const id = `layer-${++this.state.layerCounter}`;
       const index = this.state.layers.length;
-      
-      // Ensure new layer depth is lower than any existing layer (so it appears behind)
-      const minExistingDepth = this.state.layers.length > 0 
-        ? Math.min(...this.state.layers.map(l => l.depthIndex)) 
-        : this.state.depthCounter; // Use depthCounter as starting point
-      const depthIndex = minExistingDepth - 1;
-      
-      // Update depthCounter to track the lowest depth used
-      this.state.depthCounter = Math.min(this.state.depthCounter, depthIndex);
       const physicsLayerGroup = ++this.state.physicsGroupCounter;
       
-      // Create layer with temporary color index (will be updated after insertion)
-      const layer = new Layer(id, index, depthIndex, physicsLayerGroup, 0, fadeIn, isRestored);
+      // Create layer with simple index-based ordering (no complex depth system!)
+      // index = 0 → back layer, index = 1 → in front of layer 0, etc.
+      const layer = new Layer(id, index, index, physicsLayerGroup, 0, fadeIn, isRestored);
       
       // Update bounds immediately if available, or use shape area default
       if (this.state.currentBounds) {
@@ -274,8 +264,8 @@ export class LayerManager extends BaseSystem {
         console.warn(`No current bounds available for layer ${layer.id}, using default shape area bounds`);
       }
       
-      // Insert layer sorted by depth and update indices
-      this.insertLayerByDepth(layer);
+      // Simply add layer to the end (layers are created in order)
+      this.state.layers.push(layer);
       this.updateLayerVisibility();
       
       // Now assign color based on final visibility state
@@ -288,15 +278,15 @@ export class LayerManager extends BaseSystem {
       // Always increment the generation counter
       this.state.layersGeneratedThisLevel++;
       
-      const existingDepths = this.state.layers.map(l => `${l.id}:${l.depthIndex}:${l.colorIndex}`).join(', ');
+      const existingLayers = this.state.layers.map(l => `${l.id}:${l.index}:${l.colorIndex}`).join(', ');
       const visibleColorIndices = this.getVisibleLayers().map(l => l.colorIndex).join(', ');
       if (fadeIn) {
         if (DEBUG_CONFIG.logPhysicsDebug) {
-          console.log(`🎨 Generated layer ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} with fade-in at index ${index}, depth ${depthIndex}, color ${colorIndex}, physics group ${physicsLayerGroup}. Existing: [${existingDepths}]. Visible colors: [${visibleColorIndices}]`);
+          console.log(`🎨 Generated layer ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} with fade-in at index ${index}, color ${colorIndex}, physics group ${physicsLayerGroup}. Existing: [${existingLayers}]. Visible colors: [${visibleColorIndices}]`);
         }
       } else {
         if (DEBUG_CONFIG.logPhysicsDebug) {
-          console.log(`🎨 Created initial layer ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} at index ${index}, depth ${depthIndex}, color ${colorIndex}, physics group ${physicsLayerGroup}. Existing: [${existingDepths}]. Visible colors: [${visibleColorIndices}]`);
+          console.log(`🎨 Created initial layer ${this.state.layersGeneratedThisLevel}/${this.state.totalLayersForLevel} at index ${index}, color ${colorIndex}, physics group ${physicsLayerGroup}. Existing: [${existingLayers}]. Visible colors: [${visibleColorIndices}]`);
         }
       }
       
@@ -416,12 +406,12 @@ export class LayerManager extends BaseSystem {
   }
 
 
-  public getLayersSortedByDepth(): Layer[] {
-    return [...this.state.layers].sort((a, b) => b.depthIndex - a.depthIndex);
+  public getLayersSortedByIndex(): Layer[] {
+    return [...this.state.layers].sort((a, b) => a.index - b.index);
   }
 
-  public getVisibleLayersSortedByDepth(): Layer[] {
-    return this.getLayersSortedByDepth().filter(layer => layer.isVisible);
+  public getVisibleLayersSortedByIndex(): Layer[] {
+    return this.getLayersSortedByIndex().filter(layer => layer.isVisible);
   }
 
   public getLayer(layerId: string): Layer | null {
@@ -587,18 +577,6 @@ export class LayerManager extends BaseSystem {
     return fallbackIndex;
   }
 
-  private insertLayerByDepth(layer: Layer): void {
-    let insertIndex = 0;
-    for (let i = 0; i < this.state.layers.length; i++) {
-      if (this.state.layers[i].depthIndex < layer.depthIndex) {
-        insertIndex = i;
-        break;
-      }
-      insertIndex = i + 1;
-    }
-    this.state.layers.splice(insertIndex, 0, layer);
-    this.updateLayerIndices();
-  }
 
   private updateLayerIndices(): void {
     this.state.layers.forEach((layer, layerIndex) => {
@@ -798,7 +776,6 @@ export class LayerManager extends BaseSystem {
       this.state.layers.forEach(layer => layer.dispose());
       this.state.layers = [];
       this.state.layerCounter = 0;
-      this.state.depthCounter = 100; // Reset to high value for new layers to appear behind
       this.state.physicsGroupCounter = 0;
       this.state.colorCounter = 0;
       this.state.layersGeneratedThisLevel = 0;
@@ -883,7 +860,7 @@ export class LayerManager extends BaseSystem {
       const layer = new Layer(
         `layer_${index}`,
         index,
-        precomputedLayer.depthIndex,
+        index, // Use simple index instead of complex depth
         0, // Physics group - will be set when physics activates
         0, // Color index - temporary, will be set based on visibility
         false, // No fade in
