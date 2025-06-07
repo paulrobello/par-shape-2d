@@ -1797,10 +1797,10 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Skip if shape is not in front of the screw
-      // Lower depth = front (newer layers), higher depth = back (older layers)
+      // Lower depth = front (newer layers), higher depth = back (older layers)  
       // Shape blocks screw only if shape is in front (shape depth < screw depth)
-      if (shapeLayerDepth > screwLayerDepth) {
-        continue; // Skip shapes behind the screw
+      if (shapeLayerDepth >= screwLayerDepth) {
+        continue; // Skip shapes behind or on same layer as the screw
       }
 
       const isBlocked = isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true);
@@ -1854,10 +1854,10 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Skip if shape is not in front of the screw
-      // Lower depth = front (newer layers), higher depth = back (older layers)
+      // Lower depth = front (newer layers), higher depth = back (older layers)  
       // Shape blocks screw only if shape is in front (shape depth < screw depth)
-      if (shapeLayerDepth > screwLayerDepth) {
-        continue; // Skip shapes behind the screw
+      if (shapeLayerDepth >= screwLayerDepth) {
+        continue; // Skip shapes behind or on same layer as the screw
       }
 
       if (isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true)) {

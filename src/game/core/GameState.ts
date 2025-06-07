@@ -54,6 +54,7 @@ export class GameState extends BaseSystem {
     screwsInContainers: 0,  // Screws currently in containers (waiting to be filled)
     containersRemoved: 0,   // Full containers that have been removed
     totalScrewsToContainers: 0, // Total screws that need to go to containers for level completion
+    totalScrewsCollected: 0, // Total screws collected from shapes (regardless of destination)
   };
   
   private containerStrategy: ContainerStrategyManager;
@@ -144,11 +145,14 @@ export class GameState extends BaseSystem {
         console.log(`Added ${points} points for removing screw ${screw.id} from shape (destination: ${destination})`);
       }
 
+      // Track total screws collected (regardless of destination)
+      this.containerProgress.totalScrewsCollected++;
+
       // Update container-based progress if screw goes to container
       if (destination === 'container') {
         this.containerProgress.screwsInContainers++;
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`[CONTAINER_PROGRESS] Screw ${screw.id} added to container. Progress: ${this.containerProgress.screwsInContainers}/${this.containerProgress.totalScrewsToContainers} screws in containers, ${this.containerProgress.containersRemoved} containers removed`);
+          console.log(`[CONTAINER_PROGRESS] Screw ${screw.id} added to container. Progress: ${this.containerProgress.totalScrewsCollected}/${this.containerProgress.totalScrewsToContainers} total collected, ${this.containerProgress.screwsInContainers} in containers, ${this.containerProgress.containersRemoved} containers removed`);
         }
       }
 
@@ -159,10 +163,8 @@ export class GameState extends BaseSystem {
       // Emit container progress update event
       this.emitContainerProgressUpdate();
 
-      // Check for level completion based on container progress
-      if (this.checkContainerBasedLevelCompletion()) {
-        this.handleContainerBasedLevelComplete();
-      }
+      // NOTE: Level completion check is now ONLY done in handleContainerFilled
+      // when the final screw goes into the final container
       
       this.markUnsavedChanges();
     });
@@ -488,6 +490,9 @@ export class GameState extends BaseSystem {
         this.emitContainerProgressUpdate();
         
         // Check for level completion after container removal
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[CONTAINER_PROGRESS] Checking level completion after container filled: totalCollected=${this.containerProgress.totalScrewsCollected}, totalToContainers=${this.containerProgress.totalScrewsToContainers}`);
+        }
         if (this.checkContainerBasedLevelCompletion()) {
           this.handleContainerBasedLevelComplete();
         }
@@ -1586,7 +1591,8 @@ export class GameState extends BaseSystem {
     this.containerProgress = {
       screwsInContainers: 0,
       containersRemoved: 0,
-      totalScrewsToContainers: 0
+      totalScrewsToContainers: 0,
+      totalScrewsCollected: 0
     };
     
     if (DEBUG_CONFIG.logScrewDebug) {
@@ -1612,7 +1618,7 @@ export class GameState extends BaseSystem {
    */
   private emitContainerProgressUpdate(): void {
     const percentage = this.containerProgress.totalScrewsToContainers > 0 
-      ? (this.containerProgress.containersRemoved * 3) / this.containerProgress.totalScrewsToContainers * 100
+      ? this.containerProgress.totalScrewsCollected / this.containerProgress.totalScrewsToContainers * 100
       : 0;
 
     this.emit({
@@ -1621,24 +1627,40 @@ export class GameState extends BaseSystem {
       screwsInContainers: this.containerProgress.screwsInContainers,
       containersRemoved: this.containerProgress.containersRemoved,
       totalScrewsToContainers: this.containerProgress.totalScrewsToContainers,
+      totalScrewsCollected: this.containerProgress.totalScrewsCollected,
       percentage
     });
 
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`[CONTAINER_PROGRESS] Progress update: ${this.containerProgress.containersRemoved * 3}/${this.containerProgress.totalScrewsToContainers} screws processed (${percentage.toFixed(1)}%)`);
+      console.log(`[CONTAINER_PROGRESS] Progress update: ${this.containerProgress.totalScrewsCollected}/${this.containerProgress.totalScrewsToContainers} screws collected (${percentage.toFixed(1)}%)`);
     }
   }
 
   /**
    * Check if level is complete based on container progress
-   * Level is complete when the last container is removed with the final screw
+   * Level completes only when ALL screws have been collected from shapes
+   * This check is called from handleContainerFilled, ensuring completion happens
+   * exactly when the final screw fills the final container
    */
   private checkContainerBasedLevelCompletion(): boolean {
-    const totalScrewsProcessed = this.containerProgress.containersRemoved * 3;
-    const isComplete = totalScrewsProcessed >= this.containerProgress.totalScrewsToContainers;
+    // Level completion requires TWO conditions:
+    // 1. ALL screws have been collected from shapes
+    // 2. ALL collected screws have been processed (either in containers or removed via containers)
     
-    if (DEBUG_CONFIG.logScrewDebug && isComplete) {
-      console.log(`[CONTAINER_PROGRESS] Level completion check: ${totalScrewsProcessed}/${this.containerProgress.totalScrewsToContainers} screws processed - COMPLETE!`);
+    const allScrewsCollected = this.containerProgress.totalScrewsCollected >= this.containerProgress.totalScrewsToContainers;
+    const allScrewsProcessed = (this.containerProgress.screwsInContainers + (this.containerProgress.containersRemoved * 3)) >= this.containerProgress.totalScrewsCollected;
+    
+    const isComplete = allScrewsCollected && allScrewsProcessed;
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_PROGRESS] Level completion check (called from container filled):`);
+      console.log(`  - Screws collected from shapes: ${this.containerProgress.totalScrewsCollected}/${this.containerProgress.totalScrewsToContainers}`);
+      console.log(`  - Screws in containers: ${this.containerProgress.screwsInContainers}`);
+      console.log(`  - Containers removed: ${this.containerProgress.containersRemoved} (= ${this.containerProgress.containersRemoved * 3} screws processed)`);
+      console.log(`  - Total screws processed: ${this.containerProgress.screwsInContainers + (this.containerProgress.containersRemoved * 3)}/${this.containerProgress.totalScrewsCollected}`);
+      console.log(`  - All screws collected: ${allScrewsCollected}`);
+      console.log(`  - All screws processed: ${allScrewsProcessed}`);
+      console.log(`  - Level complete: ${isComplete ? 'YES - all screws collected AND all processed through containers' : 'NO - either screws remain or not all processed'}`);
     }
     
     return isComplete;

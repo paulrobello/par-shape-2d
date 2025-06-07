@@ -331,6 +331,7 @@ export interface ContainerProgressUpdatedEvent extends BaseEvent {
   screwsInContainers: number;
   containersRemoved: number;
   totalScrewsToContainers: number;
+  totalScrewsCollected: number;
   percentage: number;
 }
 
