@@ -48,7 +48,8 @@ import {
   ScrewTransferCompletedEvent,
   ScrewColorsRequestedEvent,
   ScrewTransferColorCheckEvent,
-  LayersUpdatedEvent
+  LayersUpdatedEvent,
+  ScrewCountRequestedEvent
 } from '../events/EventTypes';
 
 interface ScrewManagerState {
@@ -228,6 +229,9 @@ export class ScrewManager extends BaseSystem {
     
     // Layer visibility events
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
+    
+    // Screw count requests
+    this.subscribe('screw_count:requested', this.handleScrewCountRequested.bind(this));
   }
 
   // Event Handlers
@@ -333,6 +337,28 @@ export class ScrewManager extends BaseSystem {
           console.log(`Screw ${event.screw.id} not found`);
         }
         return;
+      }
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[SCREW_CLICK] Screw ${event.screw.id} clicked:`, {
+          isRemovable: screw.isRemovable,
+          isCollected: screw.isCollected,
+          isBeingCollected: screw.isBeingCollected,
+          screwPosition: screw.position,
+          clickPosition: event.position
+        });
+        
+        // Also check blocking shapes when clicked
+        const blockingShapes = this.getBlockingShapes(screw);
+        if (blockingShapes.length > 0) {
+          console.log(`[SCREW_CLICK] Blocking shapes found:`, blockingShapes.map(shape => ({
+            id: shape.id,
+            type: shape.type,
+            layerId: shape.layerId,
+            position: shape.body.position,
+            bounds: shape.body.bounds
+          })));
+        }
       }
       
       // If screw is blocked, start shake animation
@@ -782,6 +808,24 @@ export class ScrewManager extends BaseSystem {
       
       // Re-evaluate screw removability since layer visibility changed
       this.updateScrewRemovability();
+    });
+  }
+
+  private handleScrewCountRequested(event: ScrewCountRequestedEvent): void {
+    this.executeIfActive(() => {
+      const totalScrews = this.getAllScrews().length;
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`ScrewManager: Responding to screw count request from ${event.source}. Total screws: ${totalScrews}`);
+      }
+      
+      // Respond with screw count
+      this.emit({
+        type: 'screw_count:response',
+        timestamp: Date.now(),
+        totalScrews,
+        requestSource: event.source
+      });
     });
   }
 
@@ -1650,22 +1694,28 @@ export class ScrewManager extends BaseSystem {
 
   public updateScrewRemovability(): void {
     this.executeIfActive(() => {
-      // let removableCount = 0;
-      // let totalCount = 0;
+      let removableCount = 0;
+      let totalCount = 0;
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[SCREW_REMOVABILITY] Updating removability for all screws...`);
+        console.log(`[SCREW_REMOVABILITY] Layer depth lookup:`, Array.from(this.state.layerDepthLookup.entries()));
+        console.log(`[SCREW_REMOVABILITY] Visible layers:`, Array.from(this.state.visibleLayers));
+      }
 
       for (const screw of this.state.screws.values()) {
         if (screw.isCollected) continue;
 
-        // totalCount++;
+        totalCount++;
         const wasRemovable = screw.isRemovable;
         const isRemovable = this.checkScrewRemovability(screw.id);
         screw.setRemovable(isRemovable);
 
-        // if (isRemovable) removableCount++;
+        if (isRemovable) removableCount++;
 
         if (wasRemovable !== isRemovable) {
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`Screw ${screw.id} removability changed: ${wasRemovable} -> ${isRemovable}`);
+            console.log(`[SCREW_REMOVABILITY] Screw ${screw.id} removability changed: ${wasRemovable} -> ${isRemovable}`);
           }
           
           if (isRemovable) {
@@ -1677,6 +1727,11 @@ export class ScrewManager extends BaseSystem {
             });
           } else {
             const blockingShapes = this.getBlockingShapes(screw);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`[SCREW_REMOVABILITY] Screw ${screw.id} blocked by ${blockingShapes.length} shapes:`, 
+                blockingShapes.map(s => ({ id: s.id, type: s.type, layerId: s.layerId }))
+              );
+            }
             this.emit({
               type: 'screw:blocked',
               timestamp: Date.now(),
@@ -1688,7 +1743,9 @@ export class ScrewManager extends BaseSystem {
         }
       }
 
-      // console.log(`Screw removability: ${removableCount}/${totalCount} screws are removable`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[SCREW_REMOVABILITY] Update complete: ${removableCount}/${totalCount} screws are removable`);
+      }
     });
   }
 
@@ -1705,10 +1762,23 @@ export class ScrewManager extends BaseSystem {
 
     // If the screw's own layer is not visible, the screw should not be removable
     if (!this.state.visibleLayers.has(screwShape.layerId)) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[SCREW_BLOCKING] Screw ${screwId} not removable - layer ${screwShape.layerId} not visible`);
+      }
       return false;
     }
 
     const screwLayerDepth = this.state.layerDepthLookup.get(screwShape.layerId) || -1;
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[SCREW_BLOCKING] Checking removability for screw ${screwId}:`, {
+        screwPosition: screw.position,
+        screwRadius: UI_CONSTANTS.screws.radius,
+        screwLayerId: screwShape.layerId,
+        screwLayerDepth,
+        visibleLayers: Array.from(this.state.visibleLayers)
+      });
+    }
 
     for (const shape of this.state.allShapes) {
       if (shape.id === screw.shapeId) continue;
@@ -1727,16 +1797,36 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Skip if shape is not in front of the screw
-      // Higher depth = front (rendered last), lower depth = back (rendered first)
-      // Shape blocks screw only if shape is in front (shape depth > screw depth)
-      if (shapeLayerDepth < screwLayerDepth) {
+      // Lower depth = front (newer layers), higher depth = back (older layers)
+      // Shape blocks screw only if shape is in front (shape depth < screw depth)
+      if (shapeLayerDepth > screwLayerDepth) {
         continue; // Skip shapes behind the screw
       }
 
-      if (isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true)) {
+      const isBlocked = isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true);
+      
+      if (DEBUG_CONFIG.logScrewDebug && isBlocked) {
+        console.log(`[SCREW_BLOCKING] Screw ${screwId} BLOCKED by shape:`, {
+          blockingShapeId: shape.id,
+          blockingShapeType: shape.type,
+          blockingShapeLayerId: shape.layerId,
+          blockingShapeLayerDepth: shapeLayerDepth,
+          blockingShapePosition: shape.body.position,
+          blockingShapeBounds: shape.body.bounds,
+          screwLayerDepth,
+          depthComparison: `${shapeLayerDepth} < ${screwLayerDepth} (front blocks back)`
+        });
+      }
+      
+      if (isBlocked) {
         return false;
       }
     }
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[SCREW_BLOCKING] Screw ${screwId} is REMOVABLE - no blocking shapes found`);
+    }
+    
     return true;
   }
 
@@ -1764,9 +1854,9 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Skip if shape is not in front of the screw
-      // Higher depth = front (rendered last), lower depth = back (rendered first)
-      // Shape blocks screw only if shape is in front (shape depth > screw depth)
-      if (shapeLayerDepth < screwLayerDepth) {
+      // Lower depth = front (newer layers), higher depth = back (older layers)
+      // Shape blocks screw only if shape is in front (shape depth < screw depth)
+      if (shapeLayerDepth > screwLayerDepth) {
         continue; // Skip shapes behind the screw
       }
 

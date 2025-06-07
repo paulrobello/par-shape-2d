@@ -24,7 +24,9 @@ import {
   LayerShapesReadyEvent,
   NextLevelRequestedEvent,
   AllLayersClearedEvent,
-  LayersUpdatedEvent
+  LayersUpdatedEvent,
+  AllLayersScrewsReadyEvent,
+  ScrewCountResponseEvent
 } from '../events/EventTypes';
 
 export class GameState extends BaseSystem {
@@ -46,6 +48,14 @@ export class GameState extends BaseSystem {
     percentage: 0,
     balanceStatus: 'on_track'
   };
+  
+  // Container-based progress tracking (NEW)
+  private containerProgress = {
+    screwsInContainers: 0,  // Screws currently in containers (waiting to be filled)
+    containersRemoved: 0,   // Full containers that have been removed
+    totalScrewsToContainers: 0, // Total screws that need to go to containers for level completion
+  };
+  
   private containerStrategy: ContainerStrategyManager;
 
   constructor() {
@@ -69,6 +79,8 @@ export class GameState extends BaseSystem {
     this.subscribe('save:requested', this.handleSaveRequested.bind(this));
     this.subscribe('restore:requested', this.handleRestoreRequested.bind(this));
     this.subscribe('layer:shapes:ready', this.handleLayerShapesReady.bind(this));
+    this.subscribe('all_layers:screws:ready', this.handleAllLayersScrewsReady.bind(this));
+    this.subscribe('screw_count:response', this.handleScrewCountResponse.bind(this));
     
     // Container events
     this.subscribe('container:filled', this.handleContainerFilled.bind(this));
@@ -132,13 +144,24 @@ export class GameState extends BaseSystem {
         console.log(`Added ${points} points for removing screw ${screw.id} from shape (destination: ${destination})`);
       }
 
-      // Update screw-based progress
+      // Update container-based progress if screw goes to container
+      if (destination === 'container') {
+        this.containerProgress.screwsInContainers++;
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[CONTAINER_PROGRESS] Screw ${screw.id} added to container. Progress: ${this.containerProgress.screwsInContainers}/${this.containerProgress.totalScrewsToContainers} screws in containers, ${this.containerProgress.containersRemoved} containers removed`);
+        }
+      }
+
+      // Update screw-based progress (legacy)
       this.screwProgress.removed++;
       this.updateScrewProgress();
 
-      // Check for screw-based level completion
-      if (this.checkScrewBasedLevelCompletion()) {
-        this.handleScrewBasedLevelComplete();
+      // Emit container progress update event
+      this.emitContainerProgressUpdate();
+
+      // Check for level completion based on container progress
+      if (this.checkContainerBasedLevelCompletion()) {
+        this.handleContainerBasedLevelComplete();
       }
       
       this.markUnsavedChanges();
@@ -452,6 +475,23 @@ export class GameState extends BaseSystem {
       const container = this.containers[event.containerIndex];
       if (container && container.isFull && !container.isMarkedForRemoval) {
         console.log(`Container ${container.id} filled - marking for removal`);
+        
+        // Track container removal for progress
+        this.containerProgress.containersRemoved++;
+        this.containerProgress.screwsInContainers -= 3; // Container had 3 screws
+        
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[CONTAINER_PROGRESS] Container ${container.id} removed. Progress: ${this.containerProgress.screwsInContainers}/${this.containerProgress.totalScrewsToContainers} screws in containers, ${this.containerProgress.containersRemoved} containers removed`);
+        }
+        
+        // Emit container progress update
+        this.emitContainerProgressUpdate();
+        
+        // Check for level completion after container removal
+        if (this.checkContainerBasedLevelCompletion()) {
+          this.handleContainerBasedLevelComplete();
+        }
+        
         this.markContainerForRemoval(container.id);
       }
     });
@@ -475,6 +515,34 @@ export class GameState extends BaseSystem {
           timestamp: Date.now(),
           colors: this.containers.map(c => c.color)
         });
+      }
+    });
+  }
+
+  private handleAllLayersScrewsReady(event: AllLayersScrewsReadyEvent): void {
+    this.executeIfActive(() => {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`GameState: All layers screws ready. Total layers: ${event.totalLayers}, Total shapes: ${event.totalShapes}`);
+      }
+      
+      // Get total screw count from ScrewManager via event bus
+      this.emit({
+        type: 'screw_count:requested',
+        timestamp: Date.now(),
+        source: 'GameState'
+      });
+    });
+  }
+
+  private handleScrewCountResponse(event: ScrewCountResponseEvent): void {
+    this.executeIfActive(() => {
+      if (event.requestSource === 'GameState') {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`GameState: Received screw count response: ${event.totalScrews} total screws`);
+        }
+        
+        // Set the total screw count for the level
+        this.setTotalScrewsForLevel(event.totalScrews);
       }
     });
   }
@@ -581,6 +649,9 @@ export class GameState extends BaseSystem {
         layersGenerated: 0,
         layers: [],
       };
+      
+      // Initialize container progress for new level
+      this.initializeContainerProgress();
       
       // Reinitialize containers and holding holes
       this.initializeContainers();
@@ -1500,5 +1571,115 @@ export class GameState extends BaseSystem {
     
     const stats = this.containerStrategy.generatePerfectBalanceStats();
     return stats.performance.finalBalanceAchieved;
+  }
+
+  // =============================================================================
+  // CONTAINER-BASED PROGRESS TRACKING (NEW SYSTEM)
+  // =============================================================================
+
+  /**
+   * Initialize container progress tracking for a new level
+   */
+  private initializeContainerProgress(): void {
+    // Calculate total screws that need to be removed to containers
+    // This will be updated when layers are ready and we know the total screw count
+    this.containerProgress = {
+      screwsInContainers: 0,
+      containersRemoved: 0,
+      totalScrewsToContainers: 0
+    };
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_PROGRESS] Initialized container progress tracking`);
+    }
+  }
+
+  /**
+   * Update the total screws count when layer data is available
+   */
+  public setTotalScrewsForLevel(totalScrews: number): void {
+    this.containerProgress.totalScrewsToContainers = totalScrews;
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_PROGRESS] Set total screws for level: ${totalScrews}`);
+    }
+    
+    this.emitContainerProgressUpdate();
+  }
+
+  /**
+   * Emit container progress update event
+   */
+  private emitContainerProgressUpdate(): void {
+    const percentage = this.containerProgress.totalScrewsToContainers > 0 
+      ? (this.containerProgress.containersRemoved * 3) / this.containerProgress.totalScrewsToContainers * 100
+      : 0;
+
+    this.emit({
+      type: 'container:progress:updated',
+      timestamp: Date.now(),
+      screwsInContainers: this.containerProgress.screwsInContainers,
+      containersRemoved: this.containerProgress.containersRemoved,
+      totalScrewsToContainers: this.containerProgress.totalScrewsToContainers,
+      percentage
+    });
+
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_PROGRESS] Progress update: ${this.containerProgress.containersRemoved * 3}/${this.containerProgress.totalScrewsToContainers} screws processed (${percentage.toFixed(1)}%)`);
+    }
+  }
+
+  /**
+   * Check if level is complete based on container progress
+   * Level is complete when the last container is removed with the final screw
+   */
+  private checkContainerBasedLevelCompletion(): boolean {
+    const totalScrewsProcessed = this.containerProgress.containersRemoved * 3;
+    const isComplete = totalScrewsProcessed >= this.containerProgress.totalScrewsToContainers;
+    
+    if (DEBUG_CONFIG.logScrewDebug && isComplete) {
+      console.log(`[CONTAINER_PROGRESS] Level completion check: ${totalScrewsProcessed}/${this.containerProgress.totalScrewsToContainers} screws processed - COMPLETE!`);
+    }
+    
+    return isComplete;
+  }
+
+  /**
+   * Handle level completion based on container progress
+   */
+  private handleContainerBasedLevelComplete(): void {
+    if (this.state.levelComplete) {
+      return; // Already handled
+    }
+
+    this.state.levelComplete = true;
+    this.state.totalScore += this.state.levelScore;
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_PROGRESS] Level ${this.state.currentLevel} completed via container system!`);
+    }
+    
+    // Emit level complete event
+    this.emit({
+      type: 'level:complete',
+      timestamp: Date.now(),
+      level: this.state.currentLevel,
+      score: this.state.levelScore
+    });
+
+    this.emit({
+      type: 'total_score:updated',
+      timestamp: Date.now(),
+      totalScore: this.state.totalScore
+    });
+    
+    this.markUnsavedChanges();
+  }
+
+  /**
+   * Get container progress state for external access
+   */
+  public getContainerProgress() {
+    return { ...this.containerProgress };
   }
 }

@@ -34,6 +34,8 @@ interface LayerManagerState {
   containerColors: string[];
   isRestoringFlag: boolean;
   shapesWithScrewsReady: Map<string, Set<string>>; // layerId -> Set of shapeIds that have screws ready
+  layersWithScrewsReady: Set<string>; // Set of layerIds that have completed screw generation
+  allLayersScrewsReadyEmitted: boolean; // Flag to prevent multiple emissions
   
   // Pre-computation support
   precomputedLevel: PrecomputedLevel | null;
@@ -60,6 +62,8 @@ export class LayerManager extends BaseSystem {
       containerColors: [],
       isRestoringFlag: false,
       shapesWithScrewsReady: new Map(),
+      layersWithScrewsReady: new Set(),
+      allLayersScrewsReadyEmitted: false,
       
       // Pre-computation support
       precomputedLevel: null,
@@ -208,6 +212,30 @@ export class LayerManager extends BaseSystem {
           layer,
           screwColors
         });
+        
+        // Track that this layer has completed screw generation
+        this.state.layersWithScrewsReady.add(layer.id);
+        
+        // Check if ALL layers have completed screw generation
+        if (this.state.layersWithScrewsReady.size === this.state.layers.length && !this.state.allLayersScrewsReadyEmitted) {
+          // All layers have completed screw generation
+          const totalShapes = this.state.layers.reduce((total, l) => total + l.getAllShapes().length, 0);
+          
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`LayerManager: ALL layers have completed screw generation. Total layers: ${this.state.layers.length}, Total shapes: ${totalShapes}`);
+          }
+          
+          // Mark as emitted to prevent loops
+          this.state.allLayersScrewsReadyEmitted = true;
+          
+          // Emit all layers screws ready event
+          this.emit({
+            type: 'all_layers:screws:ready',
+            timestamp: Date.now(),
+            totalLayers: this.state.layers.length,
+            totalShapes
+          });
+        }
       }
     });
   }
@@ -774,6 +802,9 @@ export class LayerManager extends BaseSystem {
       this.state.physicsGroupCounter = 0;
       this.state.colorCounter = 0;
       this.state.layersGeneratedThisLevel = 0;
+      this.state.shapesWithScrewsReady.clear();
+      this.state.layersWithScrewsReady.clear();
+      this.state.allLayersScrewsReadyEmitted = false;
     });
   }
 

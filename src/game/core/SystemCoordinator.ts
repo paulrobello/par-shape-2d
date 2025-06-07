@@ -10,7 +10,7 @@ import { LayerManager } from '../systems/LayerManager';
 import { ScrewManager } from '../systems/ScrewManager';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { ShapeRegistry } from '../systems/ShapeRegistry';
-import { LevelPrecomputer } from '../systems/LevelPrecomputer';
+// LevelPrecomputer removed - not used in current implementation
 import { PhysicsActivationManager } from '../systems/PhysicsActivationManager';
 import { eventBus } from '../events/EventBus';
 import { DEBUG_CONFIG } from '../utils/Constants';
@@ -26,7 +26,7 @@ export class SystemCoordinator {
   private layerManager: LayerManager | null = null;
   private screwManager: ScrewManager | null = null;
   private physicsWorld: PhysicsWorld | null = null;
-  private levelPrecomputer: LevelPrecomputer | null = null;
+  // levelPrecomputer removed - not used in current implementation
   private physicsActivationManager: PhysicsActivationManager | null = null;
 
   constructor() {
@@ -86,7 +86,7 @@ export class SystemCoordinator {
     // Create systems (no initialization yet)
     this.physicsWorld = new PhysicsWorld();
     this.gameState = new GameState();
-    this.levelPrecomputer = new LevelPrecomputer();
+    // LevelPrecomputer removed - not used in current implementation
     this.physicsActivationManager = new PhysicsActivationManager();
     this.screwManager = new ScrewManager();
     this.layerManager = new LayerManager();
@@ -95,7 +95,7 @@ export class SystemCoordinator {
     // Register systems
     this.systems.set('PhysicsWorld', this.physicsWorld);
     this.systems.set('GameState', this.gameState);
-    this.systems.set('LevelPrecomputer', this.levelPrecomputer);
+    // LevelPrecomputer removed - not used in current implementation
     this.systems.set('PhysicsActivationManager', this.physicsActivationManager);
     this.systems.set('ScrewManager', this.screwManager);
     this.systems.set('LayerManager', this.layerManager);
@@ -111,7 +111,7 @@ export class SystemCoordinator {
     const initOrder = [
       'PhysicsWorld',              // No dependencies
       'GameState',                 // No dependencies  
-      'LevelPrecomputer',          // No dependencies
+      // LevelPrecomputer removed - not used in current implementation
       'PhysicsActivationManager',  // Depends on PhysicsWorld
       'ScrewManager',              // Depends on PhysicsWorld events
       'LayerManager',              // Depends on PhysicsWorld and ScrewManager events

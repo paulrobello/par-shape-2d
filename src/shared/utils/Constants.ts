@@ -327,7 +327,7 @@ export const DEBUG_CONFIG = {
   logPhysicsUpdates: false,
   logShapeCreation: false,
   logShapeDebug: false,
-  logScrewDebug: false,
+  logScrewDebug: false,  // Disabled after fixing screw blocking issues
   logEventFlow: false,
   logPhysicsDebug: false,
   logLayerDebug: false,

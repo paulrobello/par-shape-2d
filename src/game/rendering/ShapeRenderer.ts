@@ -2,6 +2,7 @@ import { Shape } from '@/game/entities/Shape';
 import { RenderContext } from '@/types/game';
 import { UI_CONSTANTS } from '@/shared/utils/Constants';
 import { hexToRgba } from '@/game/utils/Colors';
+import { ShapeRegistry } from '@/game/systems/ShapeRegistry';
 
 export class ShapeRenderer {
   public static renderShape(shape: Shape, context: RenderContext): void {
@@ -140,7 +141,13 @@ export class ShapeRenderer {
     ctx.fillText(`${shape.id} (${shape.type})`, shape.position.x, shape.position.y - 20);
     
     // Enhanced physics body debug rendering for path-based shapes
-    if (shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'star' || shape.type === 'horseshoe') { // TODO make this check more general so it works with all path based shapes not just the ones named here.
+    const shapeRegistry = ShapeRegistry.getInstance();
+    const definition = shapeRegistry.getDefinition(shape.definitionId);
+    const isPathBasedShape = definition?.category === 'path' || 
+                           definition?.physics.type === 'fromVertices' ||
+                           definition?.rendering.type === 'path';
+    
+    if (isPathBasedShape) {
       // For path-based shapes using fromVertices, the body might have multiple parts
       if (shape.body.parts && shape.body.parts.length > 1) {
         // Draw each decomposed part with different colors

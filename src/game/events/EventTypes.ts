@@ -248,6 +248,23 @@ export interface LayerShapesReadyEvent extends BaseEvent {
   screwColors: ScrewColor[];
 }
 
+export interface AllLayersScrewsReadyEvent extends BaseEvent {
+  type: 'all_layers:screws:ready';
+  totalLayers: number;
+  totalShapes: number;
+}
+
+export interface ScrewCountRequestedEvent extends BaseEvent {
+  type: 'screw_count:requested';
+  source: string;
+}
+
+export interface ScrewCountResponseEvent extends BaseEvent {
+  type: 'screw_count:response';
+  totalScrews: number;
+  requestSource: string;
+}
+
 // Container system events
 export interface ContainerFilledEvent extends BaseEvent {
   type: 'container:filled';
@@ -307,6 +324,14 @@ export interface ScrewTransferColorCheckEvent extends BaseEvent {
   targetColor: import('@/types/game').ScrewColor;
   holdingHoleScrews: { screwId: string; holeIndex: number }[];
   callback: (validTransfers: { screwId: string; holeIndex: number }[]) => void;
+}
+
+export interface ContainerProgressUpdatedEvent extends BaseEvent {
+  type: 'container:progress:updated';
+  screwsInContainers: number;
+  containersRemoved: number;
+  totalScrewsToContainers: number;
+  percentage: number;
 }
 
 // Physics events
@@ -557,6 +582,9 @@ export type GameEvent =
   | LayersUpdatedEvent
   | LayerBoundsChangedEvent
   | LayerShapesReadyEvent
+  | AllLayersScrewsReadyEvent
+  | ScrewCountRequestedEvent
+  | ScrewCountResponseEvent
   | ContainerFilledEvent
   | ContainerReplacedEvent
   | HoldingHoleFilledEvent
@@ -567,6 +595,7 @@ export type GameEvent =
   | HoldingHoleStateUpdatedEvent
   | ScrewColorsRequestedEvent
   | ScrewTransferColorCheckEvent
+  | ContainerProgressUpdatedEvent
   | PhysicsBodyAddedEvent
   | PhysicsBodyRemovedEvent
   | PhysicsBodyRemovedImmediateEvent
