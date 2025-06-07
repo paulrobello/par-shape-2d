@@ -54,6 +54,7 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `screw:transfer:completed` | Transfer to container end | ScrewManager | GameState, ScrewManager |
 | `screw:transfer:failed` | Transfer failure with cleanup | ScrewManager | GameState |
 | `screw:transfer:color_check` | Color validation for transfer | GameState | ScrewManager |
+| `screws:generated` | Screw generation tracking | ScrewManager | GameState |
 
 ### Shape System Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -232,13 +233,38 @@ GameState → container:state:updated, holding_hole:state:updated
 GameManager (updates UI)
 ```
 
+### Smart Container Replacement Flow
+```
+Container filled → GameState → checkAndReplaceContainer()
+    ↓
+GameState calculates remainingScrews and availableSpace in other containers
+    ↓
+If availableSpace < remainingScrews:
+    GameState → replaceContainer() creates new container
+Else:
+    GameState → remove container without replacement
+    ↓
+Optimized container management prevents unnecessary container creation
+```
+
+### Screw Generation and Counting Flow
+```
+ScrewManager → generateScrewsForShape()
+    ↓
+ScrewManager → screws:generated (with screwCount and totalScrewsGenerated)
+    ↓
+GameState → handleScrewsGenerated() updates containerProgress.totalScrewsToContainers
+    ↓
+Accurate total screw count maintained for level completion
+```
+
 ### Level Completion Flow
 ```
-LayerManager → layer:cleared
+Screw collected → GameState → checkContainerBasedLevelCompletion()
     ↓
-LayerManager → all_layers:cleared (when all layers cleared)
+GameState checks: totalScrewsCollected >= totalScrewsToContainers
     ↓
-GameState → level:complete (with correct level and score data)
+If complete → GameState → level:complete (with correct level and score data)
     ↓
 GameManager (handles completion UI)
     ↓
@@ -357,7 +383,7 @@ Process repeats until all layers revealed and cleared
 ### Critical Event Chains
 1. **Game Start Chain**: `game:started` → `level:started` → `layer:created` → `layer:shapes:ready` → `shape:created` → `shape:screws:ready`
 2. **Screw Interaction Chain**: `screw:clicked` → `screw:removed` → `physics:constraint:removed` → `screw:collected` → `score:updated`
-3. **Level Progression Chain**: `layer:cleared` → `all_layers:cleared` → `level:complete` → `next_level:requested` → `level:started`
+3. **Level Progression Chain**: `screws:generated` → `screw:collected` → `level:complete` → `next_level:requested` → `level:started`
 4. **Save Chain**: `save:requested` → (multiple handlers) → `save:completed`
 5. **Container Chain**: `screw:collected` → `container:filled` → `container:replaced` → `container:colors:updated`
 6. **Container Transfer Chain**: `screw:transfer:color_check` → `screw:transfer:started` → `screw:transfer:completed/failed` → `container:state:updated`
@@ -368,6 +394,8 @@ Process repeats until all layers revealed and cleared
 11. **Container Strategy Chain**: `level:precomputed` → `container:strategy:initialized` → `screw:collected` → `container:replacement:planned` → `container:replacement:executed`
 12. **Perfect Balance Chain**: `level:precomputed` → strategy tracking → `level:complete` → `perfect:balance:achieved` (conditional)
 13. **Layer Visibility Chain**: `layers:updated` → `ScrewManager.handleLayersUpdated()` + `GameState.handleLayersUpdated()` → screw removability updates + container color tracking
+14. **Screw Generation Chain**: `shape:created` → `ScrewManager.generateScrewsForShape()` → `screws:generated` → `GameState.handleScrewsGenerated()` → accurate total screw counting
+15. **Smart Container Replacement Chain**: `container:filled` → `GameState.checkAndReplaceContainer()` → space calculation → conditional replacement or removal
 
 ### Event Priority Analysis
 - **EventFlowValidator**: Uses EventPriority.CRITICAL (3) for monitoring all major events

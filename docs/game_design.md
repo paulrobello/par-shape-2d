@@ -275,8 +275,8 @@ Abstract base class providing event-aware functionality to all systems:
 2. **Screw Removal**: Constraint removed, screw animates to destination
 3. **Shape Physics**: Shapes fall when all screws removed
 4. **Collection System**: Screws go to matching containers or holding holes
-5. **Container Management**: Full containers (3 screws) are replaced after delay
-6. **Level Progression**: Level complete when all layers cleared
+5. **Container Management**: Full containers (3 screws) are replaced after delay (with smart space checking)
+6. **Level Progression**: Level complete when all screws collected from shapes
 
 ### Scoring System
 
@@ -284,6 +284,13 @@ Abstract base class providing event-aware functionality to all systems:
 - **Level Completion**: Level score added to total score
 - **Score Display**: HUD shows "Level Score" for current level and "Grand Total" for cumulative score
 - **Progressive Difficulty**: Layer count increases every 3 levels (levels 1-3: 10 layers, 4-6: 11 layers, 7-9: 12 layers, etc.)
+
+### Progress Tracking System
+
+- **Container-Based Progress**: Level progress tracked by screws collected from shapes and processed through containers
+- **Total Screw Counting**: Screws counted during generation via `screws:generated` events for accurate tracking
+- **Level Completion**: Level completes when all screws have been collected from shapes (simplified from complex container-based logic)
+- **Progress Display**: Shows percentage based on screws collected vs total screws in level
 
 ### Container System
 
@@ -295,6 +302,13 @@ Each level has 4 containers with specific colors:
 - **Visual Polish**: Containers use `globalAlpha` for opacity during animations
 - **Responsive Positioning**: Container and hole positions calculated using current virtual dimensions
 - **Consistent Calculations**: All systems use identical hole spacing formula: `containerWidth / (holeCount + 1)`
+
+### Smart Container Replacement
+
+- **Space-Aware Logic**: Before creating new containers, system checks if existing containers have enough space for remaining screws
+- **Efficient Management**: Only replaces containers when necessary, preventing unnecessary container creation
+- **Available Space Calculation**: Counts empty holes across all existing containers before replacement
+- **Optimized Flow**: Reduces container churn and improves gameplay experience
 
 ### Container Strategy Management
 **File**: `src/game/utils/ContainerStrategyManager.ts`
@@ -341,12 +355,13 @@ Emergency storage for non-matching screws:
 
 ### Layer Blocking System
 
-Strategic depth-based gameplay:
-- **Z-Order Blocking**: Screws blocked by shapes in front layers
+Strategic index-based gameplay:
+- **Layer Index Blocking**: Screws blocked by shapes in front layers using simple index comparison
+- **Simplified Logic**: Layer-1 → index 0 (FRONT), Layer-2 → index 1, etc. for intuitive ordering
+- **Front-to-Back Blocking**: Shapes with higher or equal layer index can block screws from lower index layers
 - **Visual Feedback**: Blocked screws show shake animation when clicked to indicate they cannot be removed
 - **Haptic Feedback**: Mobile devices vibrate briefly (50ms) when blocked screws are clicked
 - **Layer Transparency**: Back layers visible through front layers
-- **Depth Index**: Numerical ordering for consistent rendering
 - **Rotation-Aware Blocking**: All shapes use proper coordinate transformation for accurate collision detection
 - **Composite Shape Support**: Capsules (rectangle + 2 circles) have specialized blocking detection
 - **Precise Collision**: Each shape type uses geometry-specific intersection algorithms with rotation handling
