@@ -179,6 +179,13 @@ export interface ShapeScrewsReadyEvent extends BaseEvent {
   screws: Screw[];
 }
 
+export interface ScrewsGeneratedEvent extends BaseEvent {
+  type: 'screws:generated';
+  shapeId: string;
+  screwCount: number;
+  totalScrewsGenerated: number;
+}
+
 // Shape system events
 export interface ShapeCreatedEvent extends BaseEvent {
   type: 'shape:created';
@@ -572,6 +579,7 @@ export type GameEvent =
   | ScrewTransferCompletedEvent
   | ScrewTransferFailedEvent
   | ShapeScrewsReadyEvent
+  | ScrewsGeneratedEvent
   | ShapeCreatedEvent
   | ShapeDestroyedEvent
   | ShapeFellOffScreenEvent

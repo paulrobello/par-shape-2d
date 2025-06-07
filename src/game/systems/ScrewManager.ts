@@ -60,7 +60,7 @@ interface ScrewManagerState {
   containers: Container[]; // Actual container state from GameState
   holdingHoles: HoldingHole[]; // Actual holding hole state from GameState
   allShapes: Shape[];
-  layerDepthLookup: Map<string, number>;
+  layerIndexLookup: Map<string, number>;
   virtualGameWidth: number;
   virtualGameHeight: number;
   visibleLayers: Set<string>; // Track which layers are currently visible
@@ -82,7 +82,7 @@ export class ScrewManager extends BaseSystem {
       virtualGameWidth: GAME_CONFIG.canvas.width,
       virtualGameHeight: GAME_CONFIG.canvas.height,
       allShapes: [],
-      layerDepthLookup: new Map(),
+      layerIndexLookup: new Map(),
       visibleLayers: new Set()
     };
   }
@@ -239,7 +239,7 @@ export class ScrewManager extends BaseSystem {
     this.executeIfActive(() => {
       // Add shape to our tracking
       this.state.allShapes.push(event.shape);
-      this.state.layerDepthLookup.set(event.shape.layerId, event.layer.depthIndex);
+      this.state.layerIndexLookup.set(event.shape.layerId, event.layer.index);
       
       // DON'T generate screws here - wait for physics:body:added event
       // when the body is actually added to the physics world
@@ -284,7 +284,7 @@ export class ScrewManager extends BaseSystem {
       if (shapeIndex !== -1) {
         this.state.allShapes.splice(shapeIndex, 1);
       }
-      this.state.layerDepthLookup.delete(event.shape.id);
+      this.state.layerIndexLookup.delete(event.shape.layerId);
       
       // Clean up any screws that still belong to this shape
       // (Collected screws will have empty shapeId, so they won't be affected)
@@ -813,10 +813,14 @@ export class ScrewManager extends BaseSystem {
 
   private handleScrewCountRequested(event: ScrewCountRequestedEvent): void {
     this.executeIfActive(() => {
-      const totalScrews = this.getAllScrews().length;
+      // Count only active screws (not collected and not being collected)
+      // This ensures level completion only counts screws that actually need to be collected
+      const activeScrews = this.getAllScrews().filter(screw => !screw.isCollected && !screw.isBeingCollected);
+      const totalScrews = activeScrews.length;
       
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`ScrewManager: Responding to screw count request from ${event.source}. Total screws: ${totalScrews}`);
+        const allScrews = this.getAllScrews().length;
+        console.log(`ScrewManager: Responding to screw count request from ${event.source}. Active screws: ${totalScrews} (out of ${allScrews} total)`);
       }
       
       // Respond with screw count
@@ -858,6 +862,15 @@ export class ScrewManager extends BaseSystem {
 
         // Create constraint and emit events
         this.createScrewConstraint(screw, shape);
+      });
+
+      // Emit screw generation event with actual count for proper tracking
+      this.emit({
+        type: 'screws:generated',
+        timestamp: Date.now(),
+        shapeId: shape.id,
+        screwCount: screwPositions.length,
+        totalScrewsGenerated: this.getAllScrews().length
       });
 
       // Apply physics configuration based on shape definition
@@ -1699,7 +1712,7 @@ export class ScrewManager extends BaseSystem {
       
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`[SCREW_REMOVABILITY] Updating removability for all screws...`);
-        console.log(`[SCREW_REMOVABILITY] Layer depth lookup:`, Array.from(this.state.layerDepthLookup.entries()));
+        console.log(`[SCREW_REMOVABILITY] Layer index lookup:`, Array.from(this.state.layerIndexLookup.entries()));
         console.log(`[SCREW_REMOVABILITY] Visible layers:`, Array.from(this.state.visibleLayers));
       }
 
@@ -1768,14 +1781,14 @@ export class ScrewManager extends BaseSystem {
       return false;
     }
 
-    const screwLayerDepth = this.state.layerDepthLookup.get(screwShape.layerId) || -1;
+    const screwLayerIndex = this.state.layerIndexLookup.get(screwShape.layerId) ?? -1;
     
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`[SCREW_BLOCKING] Checking removability for screw ${screwId}:`, {
         screwPosition: screw.position,
         screwRadius: UI_CONSTANTS.screws.radius,
         screwLayerId: screwShape.layerId,
-        screwLayerDepth,
+        screwLayerIndex,
         visibleLayers: Array.from(this.state.visibleLayers)
       });
     }
@@ -1789,7 +1802,7 @@ export class ScrewManager extends BaseSystem {
       }
 
       // Only check shapes that are in front of the screw's layer
-      const shapeLayerDepth = this.state.layerDepthLookup.get(shape.layerId) || -1;
+      const shapeLayerIndex = this.state.layerIndexLookup.get(shape.layerId) ?? -1;
       
       // Skip if shape is in the same layer as the screw
       if (shape.layerId === screwShape.layerId) {
@@ -1797,9 +1810,9 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Skip if shape is not in front of the screw
-      // Lower depth = front (newer layers), higher depth = back (older layers)  
-      // Shape blocks screw only if shape is in front (shape depth < screw depth)
-      if (shapeLayerDepth >= screwLayerDepth) {
+      // Lower index = front (earlier layers), higher index = back (later layers)  
+      // Shape blocks screw only if shape is in front (shape index < screw index)
+      if (shapeLayerIndex >= screwLayerIndex) {
         continue; // Skip shapes behind or on same layer as the screw
       }
 
@@ -1810,11 +1823,11 @@ export class ScrewManager extends BaseSystem {
           blockingShapeId: shape.id,
           blockingShapeType: shape.type,
           blockingShapeLayerId: shape.layerId,
-          blockingShapeLayerDepth: shapeLayerDepth,
+          blockingShapeLayerIndex: shapeLayerIndex,
           blockingShapePosition: shape.body.position,
           blockingShapeBounds: shape.body.bounds,
-          screwLayerDepth,
-          depthComparison: `${shapeLayerDepth} < ${screwLayerDepth} (front blocks back)`
+          screwLayerIndex,
+          indexComparison: `${shapeLayerIndex} < ${screwLayerIndex} (front blocks back)`
         });
       }
       
@@ -1834,7 +1847,7 @@ export class ScrewManager extends BaseSystem {
     const screwShape = this.state.allShapes.find(shape => shape.id === screw.shapeId);
     if (!screwShape) return [];
 
-    const screwLayerDepth = this.state.layerDepthLookup.get(screwShape.layerId) || -1;
+    const screwLayerIndex = this.state.layerIndexLookup.get(screwShape.layerId) ?? -1;
     const blockingShapes: Shape[] = [];
 
     for (const shape of this.state.allShapes) {
@@ -1846,7 +1859,7 @@ export class ScrewManager extends BaseSystem {
       }
 
       // Only check shapes that are in front of the screw's layer
-      const shapeLayerDepth = this.state.layerDepthLookup.get(shape.layerId) || -1;
+      const shapeLayerIndex = this.state.layerIndexLookup.get(shape.layerId) ?? -1;
       
       // Skip if shape is in the same layer as the screw
       if (shape.layerId === screwShape.layerId) {
@@ -1854,9 +1867,9 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Skip if shape is not in front of the screw
-      // Lower depth = front (newer layers), higher depth = back (older layers)  
-      // Shape blocks screw only if shape is in front (shape depth < screw depth)
-      if (shapeLayerDepth >= screwLayerDepth) {
+      // Lower index = front (earlier layers), higher index = back (later layers)  
+      // Shape blocks screw only if shape is in front (shape index < screw index)
+      if (shapeLayerIndex >= screwLayerIndex) {
         continue; // Skip shapes behind or on same layer as the screw
       }
 
