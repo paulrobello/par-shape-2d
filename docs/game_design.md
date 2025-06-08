@@ -287,10 +287,27 @@ Abstract base class providing event-aware functionality to all systems:
 
 ### Progress Tracking System
 
-- **Container-Based Progress**: Level progress tracked by screws collected from shapes and processed through containers
-- **Total Screw Counting**: Screws counted during generation via `screws:generated` events for accurate tracking
-- **Level Completion**: Level completes when all screws have been collected from shapes (simplified from complex container-based logic)
-- **Progress Display**: Shows percentage based on screws collected vs total screws in level
+The game includes a dedicated progress tracking system that provides accurate level progress information:
+
+**System Architecture** (`src/game/systems/ProgressTracker.ts`):
+- **Centralized Progress Management**: Dedicated system handling all progress calculations
+- **Event-Driven Integration**: Listens to `total_screw_count:set` and `screw:collected` events
+- **Container-Only Tracking**: Only counts screws that reach containers (not holding holes)
+- **Progress Percentage**: Calculates completion percentage based on containers filled
+- **Real-Time Updates**: Emits `progress:updated` events for immediate UI feedback
+
+**Event Flow**:
+1. **Total Count Setup**: LayerManager emits `total_screw_count:set` after all layer generation
+2. **Screw Collection**: ScrewManager emits `screw:collected` with destination type
+3. **Progress Calculation**: ProgressTracker counts only `destination: 'container'` screws
+4. **UI Updates**: GameManager receives `progress:updated` events for HUD rendering
+
+**Features**:
+- **Immediate Progress Display**: Shows correct screw count from game start
+- **Container Focus**: Progress based on meaningful game objective (container filling)
+- **Level Completion**: Automatic level completion when progress reaches 100%
+- **Reset Management**: Properly resets progress data for new levels
+- **Debug Support**: Comprehensive logging for troubleshooting progress issues
 
 ### Container System
 
@@ -925,6 +942,13 @@ src/game/systems/
 │   ├── Integration with shared placement strategies from src/shared/strategies/
 │   ├── Integration with ScrewCollisionUtils for blocking detection
 │   └── Integration with ScrewContainerUtils for destination finding
+│
+├── ProgressTracker.ts   # Dedicated progress tracking system
+│   ├── Container-based progress calculations
+│   ├── Event-driven total screw count handling
+│   ├── Real-time progress percentage updates
+│   ├── Level completion detection and event emission
+│   └── Integration with GameManager for UI updates
 │
 ├── ShapeFactory.ts      # JSON-driven shape generation with overlap prevention
 │   ├── Shape definition loading from JSON
