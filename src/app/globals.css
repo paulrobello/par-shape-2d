@@ -202,6 +202,15 @@ body {
   }
 }
 
+/* Debug mode overrides */
+.debug-mode {
+  overflow: visible !important;
+}
+
+.debug-mode .game-canvas-container {
+  overflow: visible !important;
+}
+
 /* Desktop-specific styles */
 @media (pointer: fine) {
   html, body {
@@ -220,5 +229,14 @@ body {
     position: static !important; /* Reset mobile positioning */
     display: block !important;
     margin: 0 auto !important; /* Center on desktop */
+  }
+  
+  /* Allow debug overflow on desktop */
+  .debug-mode {
+    overflow: visible !important;
+  }
+  
+  .debug-mode .game-canvas-container {
+    overflow: visible !important;
   }
 }

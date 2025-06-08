@@ -6,6 +6,5 @@ Items are in order of priority and should be addressed in the order they are in.
 
 ## Items
 
-[ ] Progress should be tracked by number of screws moved to container. Now that all layers are generated at start of game, the total screws is known.
 
 

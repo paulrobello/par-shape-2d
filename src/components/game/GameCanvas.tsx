@@ -190,6 +190,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     };
   }, []);
 
+  // Apply debug mode class to body for CSS overflow control
+  useEffect(() => {
+    if (debugMode) {
+      document.body.classList.add('debug-mode');
+    } else {
+      document.body.classList.remove('debug-mode');
+    }
+    
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('debug-mode');
+    };
+  }, [debugMode]);
+
   // Handle keyboard shortcuts - simplified since GameManager handles most of them now
   useEffect(() => {
     const handleKeyPress = (event: KeyboardEvent) => {
@@ -404,12 +418,12 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
   };
 
   return (
-    <div className={`game-canvas-container ${className}`} style={{
+    <div className={`game-canvas-container ${className} ${debugMode ? 'debug-mode' : ''}`} style={{
       width: '100%',
       height: '100%',
       maxWidth: '100vw',
       maxHeight: '100vh',
-      overflow: 'hidden',
+      overflow: debugMode ? 'visible' : 'hidden', // Allow overflow when debug mode is enabled
       position: 'relative'
     }}>
       <div style={{ 

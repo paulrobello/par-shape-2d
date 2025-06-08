@@ -837,6 +837,22 @@ export class GameManager extends BaseSystem {
           console.log(`Debug button clicked. Current debugMode: ${this.state.debugMode}, will toggle to: ${!this.state.debugMode}`);
           // Toggle debug mode immediately in our state
           this.state.debugMode = !this.state.debugMode;
+          
+          // If enabling debug mode, run the out-of-bounds check and force cleanup
+          if (this.state.debugMode && this.state.systemCoordinator) {
+            const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+            if (layerManager) {
+              if (typeof layerManager.debugOutOfBoundsShapes === 'function') {
+                console.log('🔍 Running out-of-bounds shapes debug check...');
+                layerManager.debugOutOfBoundsShapes();
+              }
+              if (typeof layerManager.forceCleanupOutOfBoundsShapes === 'function') {
+                console.log('🧹 Running force cleanup of out-of-bounds shapes...');
+                layerManager.forceCleanupOutOfBoundsShapes();
+              }
+            }
+          }
+          
           // Then emit the event for other systems
           this.emit({
             type: 'debug:mode:toggled',
@@ -1224,7 +1240,10 @@ export class GameManager extends BaseSystem {
     if (!this.state.ctx) return;
 
     this.state.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    this.state.ctx.fillRect(10, this.state.virtualGameHeight - 135, 300, 125);
+    // Position debug info at top-right to avoid being cut off by overflow hidden
+    const debugX = this.state.virtualGameWidth - 310; // 10px margin from right
+    const debugY = 10; // 10px margin from top
+    this.state.ctx.fillRect(debugX, debugY, 300, 125);
 
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '14px Arial';
@@ -1253,7 +1272,9 @@ export class GameManager extends BaseSystem {
 
     debugInfo.forEach((info, index) => {
       if (this.state.ctx) {
-        this.state.ctx.fillText(info, 15, this.state.virtualGameHeight - 120 + (index * 15));
+        const debugX = this.state.virtualGameWidth - 310; // Match the box position
+        const debugY = 10; // Match the box position
+        this.state.ctx.fillText(info, debugX + 5, debugY + 20 + (index * 15)); // 5px padding from box edge, 20px from top
       }
     });
   }
