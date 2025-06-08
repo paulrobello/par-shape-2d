@@ -438,7 +438,7 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Start the collection animation instead of immediately removing
-      if (this.startScrewCollection(event.screw.id, destination.position, destination)) {
+      if (this.startScrewCollection(event.screw.id, destination.position, destination, forceRemoval)) {
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`Started collection animation for screw ${event.screw.id} to ${destination.type} at (${destination.position.x.toFixed(1)}, ${destination.position.y.toFixed(1)})`);
         }
@@ -1898,10 +1898,10 @@ export class ScrewManager extends BaseSystem {
 
   // All collision detection methods moved to shared utilities
 
-  public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }): boolean {
+  public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }, forceRemoval = false): boolean {
     return this.executeIfActive(() => {
       const screw = this.state.screws.get(screwId);
-      if (!screw || !screw.isRemovable || screw.isCollected || screw.isBeingCollected) {
+      if (!screw || (!screw.isRemovable && !forceRemoval) || screw.isCollected || screw.isBeingCollected) {
         return false;
       }
 
