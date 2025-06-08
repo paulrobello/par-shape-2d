@@ -357,6 +357,7 @@ export interface CollisionDetectedEvent extends BaseEvent {
   bodyA: string;
   bodyB: string;
   force: number;
+  collisionId?: string; // Unique ID to prevent event loop detection
 }
 
 export interface ConstraintAddedEvent extends BaseEvent {

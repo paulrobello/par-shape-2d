@@ -79,6 +79,9 @@ interface GameManagerState {
   
   // Keyboard state for debug bypass
   shiftKeyPressed: boolean;
+  
+  // Throttling for collision logging
+  lastCollisionLogTime: number;
 }
 
 export class GameManager extends BaseSystem {
@@ -116,7 +119,8 @@ export class GameManager extends BaseSystem {
       allScrews: [],
       systemCoordinator: null,
       gameOverCountdown: null,
-      shiftKeyPressed: false
+      shiftKeyPressed: false,
+      lastCollisionLogTime: 0
     };
   }
 
@@ -337,8 +341,13 @@ export class GameManager extends BaseSystem {
 
   private handleCollisionDetected(event: CollisionDetectedEvent): void {
     this.executeIfActive(() => {
+      // Throttle collision logging to prevent event loop detection (max 1 log per 100ms)
       if (DEBUG_CONFIG.logPhysicsDebug) {
-        console.log(`🔥 Collision detected between bodies ${event.bodyA} and ${event.bodyB} with force ${event.force.toFixed(2)}`);
+        const now = Date.now();
+        if (now - this.state.lastCollisionLogTime >= 100) {
+          console.log(`🔥 Collision detected between bodies ${event.bodyA} and ${event.bodyB} with force ${event.force.toFixed(2)}`);
+          this.state.lastCollisionLogTime = now;
+        }
       }
     });
   }

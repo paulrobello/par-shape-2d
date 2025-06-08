@@ -59,12 +59,15 @@ export class PhysicsWorld extends BaseSystem {
   private setupPhysicsWorldEvents(): void {
     // Bridge shared physics world events to game events
     this.sharedPhysicsWorld.on('collision', (event) => {
+      // Create unique collision ID to prevent false event loop detection
+      const collisionId = `${String(event.bodyA || '')}-${String(event.bodyB || '')}-${Date.now()}`;
       this.emit({
         type: 'physics:collision:detected',
         timestamp: Date.now(),
         bodyA: String(event.bodyA || ''),
         bodyB: String(event.bodyB || ''),
         force: Number(event.force || 0),
+        collisionId, // Add unique ID for event loop detection
       });
     });
 
