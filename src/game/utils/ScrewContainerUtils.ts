@@ -73,7 +73,9 @@ export function findScrewDestination(
   holdingHoles: HoldingHole[],
   virtualGameWidth: number
 ): { type: 'container' | 'holding_hole'; position: Vector2; id: string; holeIndex?: number } | null {
-  // First, try to find a matching container with space
+  // First, collect all matching containers with available space
+  const matchingContainers: { container: Container; index: number; availableHoles: number }[] = [];
+  
   for (let i = 0; i < containers.length; i++) {
     const container = containers[i];
     // Skip full containers or containers without proper structure
@@ -82,16 +84,38 @@ export function findScrewDestination(
     }
     
     if (container.color === screw.color) {
-      // Find first available hole in this container (not occupied and not reserved)
+      // Count available holes in this container
+      let availableHoles = 0;
       for (let holeIndex = 0; holeIndex < container.holes.length; holeIndex++) {
         if (!container.holes[holeIndex] && !container.reservedHoles[holeIndex]) {
-          return {
-            type: 'container',
-            position: calculateContainerHolePosition(i, holeIndex, virtualGameWidth, containers),
-            id: container.id,
-            holeIndex
-          };
+          availableHoles++;
         }
+      }
+      
+      if (availableHoles > 0) {
+        matchingContainers.push({ container, index: i, availableHoles });
+      }
+    }
+  }
+  
+  // If we found matching containers, choose the one with fewest available holes
+  if (matchingContainers.length > 0) {
+    // Sort by available holes (ascending) to get container with fewest holes first
+    matchingContainers.sort((a, b) => a.availableHoles - b.availableHoles);
+    
+    const chosen = matchingContainers[0];
+    const container = chosen.container;
+    const containerIndex = chosen.index;
+    
+    // Find first available hole in the chosen container
+    for (let holeIndex = 0; holeIndex < container.holes.length; holeIndex++) {
+      if (!container.holes[holeIndex] && !container.reservedHoles[holeIndex]) {
+        return {
+          type: 'container',
+          position: calculateContainerHolePosition(containerIndex, holeIndex, virtualGameWidth, containers),
+          id: container.id,
+          holeIndex
+        };
       }
     }
   }

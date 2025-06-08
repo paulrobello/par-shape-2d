@@ -314,6 +314,7 @@ The game includes a dedicated progress tracking system that provides accurate le
 Each level has 4 containers with specific colors:
 - **Capacity**: 3 screws per container (uses UI_CONSTANTS.containers.hole.count)
 - **Color Matching**: Screws must match container color
+- **Smart Selection**: When multiple containers match a screw's color, the system chooses the container with the fewest available holes to enable faster container replacement
 - **Fade Animations**: Smooth 0.5-second fade-out when full, followed by 0.5-second fade-in for replacements
 - **Dynamic Colors**: New containers use colors from active screws prioritizing those in holding holes
 - **Visual Polish**: Containers use `globalAlpha` for opacity during animations
