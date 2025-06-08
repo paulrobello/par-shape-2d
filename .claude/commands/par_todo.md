@@ -1,0 +1,1 @@
+read todos.md and ultrathink about how to adapt the current game systems for the requested functionality
