@@ -83,6 +83,7 @@ export interface ScrewClickedEvent extends BaseEvent {
   type: 'screw:clicked';
   screw: Screw;
   position: { x: number; y: number };
+  forceRemoval?: boolean; // True when Shift is held in debug mode
 }
 
 export interface ScrewRemovedEvent extends BaseEvent {

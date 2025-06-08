@@ -11,10 +11,6 @@ export default function Home() {
                     the best experience.</p>
             </div>
 
-            <header className="mb-1 text-center hidden md:block">
-                <h1 className="font-bold text-white mb-2">PAR Shape 2D</h1>
-            </header>
-
             <main className="flex flex-col items-center w-full h-full md:w-auto md:h-auto">
                 <GameCanvas/>
             </main>

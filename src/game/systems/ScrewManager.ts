@@ -364,8 +364,11 @@ export class ScrewManager extends BaseSystem {
         }
       }
       
-      // If screw is blocked, start shake animation
-      if (!screw.isRemovable && !screw.isCollected && !screw.isBeingCollected) {
+      // Check if force removal is enabled (Shift+click in debug mode)
+      const forceRemoval = event.forceRemoval || false;
+      
+      // If screw is blocked and not force removal, start shake animation
+      if (!screw.isRemovable && !screw.isCollected && !screw.isBeingCollected && !forceRemoval) {
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`🔒 Screw ${event.screw.id} is blocked - starting shake animation`);
         }
@@ -390,7 +393,12 @@ export class ScrewManager extends BaseSystem {
         return;
       }
       
-      // Continue with normal click handling for removable screws
+      // Log force removal if enabled
+      if (forceRemoval) {
+        console.log(`🚀 Force removal enabled! Bypassing blocked check for screw ${event.screw.id}`);
+      }
+      
+      // Continue with normal click handling for removable screws or force removal
       if (screw.isCollected || screw.isBeingCollected) {
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`Screw ${event.screw.id} is already collected or being collected`);

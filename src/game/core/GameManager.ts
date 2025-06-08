@@ -76,6 +76,9 @@ interface GameManagerState {
   
   // Game over countdown timer
   gameOverCountdown: NodeJS.Timeout | null;
+  
+  // Keyboard state for debug bypass
+  shiftKeyPressed: boolean;
 }
 
 export class GameManager extends BaseSystem {
@@ -112,7 +115,8 @@ export class GameManager extends BaseSystem {
       holdingHoles: [],
       allScrews: [],
       systemCoordinator: null,
-      gameOverCountdown: null
+      gameOverCountdown: null,
+      shiftKeyPressed: false
     };
   }
 
@@ -490,6 +494,7 @@ export class GameManager extends BaseSystem {
 
     // Keyboard events for debug
     window.addEventListener('keydown', this.handleKeyDown.bind(this));
+    window.addEventListener('keyup', this.handleKeyUp.bind(this));
   }
 
   private handleClick(event: MouseEvent): void {
@@ -590,6 +595,14 @@ export class GameManager extends BaseSystem {
 
   private handleKeyDown(event: KeyboardEvent): void {
     this.executeIfActive(() => {
+      // Track Shift key state for debug bypass
+      if (event.key === 'Shift') {
+        this.state.shiftKeyPressed = true;
+        if (this.state.debugMode && DEBUG_CONFIG.logScrewDebug) {
+          console.log('🔧 Shift key pressed - blocked screw bypass enabled');
+        }
+      }
+      
       switch (event.key.toLowerCase()) {
         case 'd':
           // Toggle debug mode immediately
@@ -656,6 +669,18 @@ export class GameManager extends BaseSystem {
     });
   }
 
+  private handleKeyUp(event: KeyboardEvent): void {
+    this.executeIfActive(() => {
+      // Track Shift key release
+      if (event.key === 'Shift') {
+        this.state.shiftKeyPressed = false;
+        if (this.state.debugMode && DEBUG_CONFIG.logScrewDebug) {
+          console.log('🔧 Shift key released - blocked screw bypass disabled');
+        }
+      }
+    });
+  }
+
   private handleGameInput(point: Vector2, inputType: 'mouse' | 'touch'): void {
     if (!this.state.gameStarted || this.state.gameOver) {
       return;
@@ -671,12 +696,13 @@ export class GameManager extends BaseSystem {
         console.log(`Found screw ${screwWithId.id} at distance from click`);
       }
       
-      // Emit screw clicked event
+      // Emit screw clicked event with debug bypass info
       this.emit({
         type: 'screw:clicked',
         timestamp: Date.now(),
         screw: screw,
-        position: point
+        position: point,
+        forceRemoval: this.state.debugMode && this.state.shiftKeyPressed
       });
     } else {
       if (DEBUG_CONFIG.logScrewDebug) {
@@ -1243,7 +1269,7 @@ export class GameManager extends BaseSystem {
     // Position debug info at top-right to avoid being cut off by overflow hidden
     const debugX = this.state.virtualGameWidth - 310; // 10px margin from right
     const debugY = 10; // 10px margin from top
-    this.state.ctx.fillRect(debugX, debugY, 300, 125);
+    this.state.ctx.fillRect(debugX, debugY, 300, 140);
 
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '14px Arial';
@@ -1267,7 +1293,8 @@ export class GameManager extends BaseSystem {
       `Game State: Started=${this.state.gameStarted}, Over=${this.state.gameOver}`,
       `Level: ${this.state.currentLevel}, Score: ${this.state.levelScore}/${this.state.totalScore}`,
       physicsStats || 'Physics: N/A',
-      `Debug Keys: D(debug) R(restart) G(game over) S(save) I(inspect) C(clear)`
+      `Debug Keys: D(debug) R(restart) G(game over) S(save) I(inspect) C(clear)`,
+      `Shift Bypass: ${this.state.shiftKeyPressed ? 'ENABLED (Hold Shift+Click)' : 'Disabled'}`
     ];
 
     debugInfo.forEach((info, index) => {
@@ -1576,5 +1603,6 @@ export class GameManager extends BaseSystem {
     }
     
     window.removeEventListener('keydown', this.handleKeyDown.bind(this));
+    window.removeEventListener('keyup', this.handleKeyUp.bind(this));
   }
 }
