@@ -155,13 +155,15 @@ export class SharedEventBus<TEvent extends BaseEvent = BaseEvent> {
       screwId?: string; 
       shapeId?: string;
       constraintId?: string;
+      collisionId?: string;
       screw?: { id: string };
       shape?: { id: string };
       layer?: { id: string };
     };
     
     // Extract unique identifier from various event properties
-    const eventId = eventWithIds.bodyId || 
+    const eventId = eventWithIds.collisionId ||
+                   eventWithIds.bodyId || 
                    eventWithIds.screwId || 
                    eventWithIds.shapeId || 
                    eventWithIds.constraintId ||
