@@ -409,7 +409,9 @@ export class ScrewManager extends BaseSystem {
       // Determine where the screw should go (container or holding hole)
       const destination = this.findScrewDestination(screw);
       if (!destination) {
-        if (DEBUG_CONFIG.logScrewDebug) {
+        if (forceRemoval) {
+          console.log(`🚀 Force removal: No destination available for screw ${event.screw.id}, ignoring click`);
+        } else if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`No available destination for screw ${event.screw.id}`);
         }
         return;
