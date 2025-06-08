@@ -636,15 +636,8 @@ export class LayerManager extends BaseSystem {
         // Check for shapes that have fallen off screen and remove them
         this.cleanupOffScreenShapes(layer);
         
-        // For invisible layers, clean up all shapes with screws (they shouldn't count)
-        if (!layer.isVisible && layer.hasShapesWithScrews()) {
-          console.warn(`⚠️ Invisible layer ${layer.id} has shapes with screws - cleaning up`);
-          const shapesToRemove = layer.getAllShapes().filter(shape => shape.hasAnyScrews());
-          shapesToRemove.forEach(shape => {
-            console.log(`Removing shape ${shape.id} from invisible layer ${layer.id}`);
-            this.removeShape(shape.id);
-          });
-        }
+        // Note: Invisible layers are intentionally pre-generated and will be revealed later
+        // Only clean up shapes that are actually out of bounds, not just invisible
         
         // Check if layer is now cleared
         if (layer.isCleared()) {
@@ -970,44 +963,33 @@ export class LayerManager extends BaseSystem {
     console.log('🧹 Force cleaning up out-of-bounds shapes...');
     
     let totalRemoved = 0;
-    let invisibleLayerShapes = 0;
     
     this.state.layers.forEach(layer => {
       const shapesToRemove: string[] = [];
       
-      // If layer is invisible, remove ALL shapes with screws
-      if (!layer.isVisible) {
-        layer.getAllShapes().forEach(shape => {
-          if (shape.hasAnyScrews()) {
-            console.log(`Force removing shape ${shape.id} from invisible layer ${layer.id}`);
-            shapesToRemove.push(shape.id);
-            invisibleLayerShapes++;
-            totalRemoved++;
-          }
-        });
-      } else {
-        // For visible layers, check bounds
-        layer.getAllShapes().forEach(shape => {
-          const pos = shape.position;
-          const shapeBounds = shape.getBounds();
-          
-          // Very generous cleanup - remove anything that's clearly not in the main game area
-          const isOutOfBounds = (
-            pos.x < -500 ||
-            pos.x > layer.bounds.x + layer.bounds.width + 500 ||
-            pos.y < -500 ||
-            pos.y > layer.bounds.y + layer.bounds.height + 800 ||
-            shapeBounds.y > layer.bounds.y + layer.bounds.height + 200 ||
-            pos.y < LAYOUT_CONSTANTS.shapeArea.startY - 100 // Check for shapes hiding in HUD area
-          );
-          
-          if (isOutOfBounds) {
-            console.log(`Force removing out-of-bounds shape ${shape.id} at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`);
-            shapesToRemove.push(shape.id);
-            totalRemoved++;
-          }
-        });
-      }
+      // Check bounds for all layers (visible and invisible)
+      // Note: Invisible layers should only have shapes removed if they're truly out of bounds
+      layer.getAllShapes().forEach(shape => {
+        const pos = shape.position;
+        const shapeBounds = shape.getBounds();
+        
+        // Very generous cleanup - remove anything that's clearly not in the main game area
+        const isOutOfBounds = (
+          pos.x < -500 ||
+          pos.x > layer.bounds.x + layer.bounds.width + 500 ||
+          pos.y < -500 ||
+          pos.y > layer.bounds.y + layer.bounds.height + 800 ||
+          shapeBounds.y > layer.bounds.y + layer.bounds.height + 200 ||
+          pos.y < LAYOUT_CONSTANTS.shapeArea.startY - 100 // Check for shapes hiding in HUD area
+        );
+        
+        if (isOutOfBounds) {
+          const layerType = layer.isVisible ? 'visible' : 'invisible';
+          console.log(`Force removing out-of-bounds shape ${shape.id} from ${layerType} layer ${layer.id} at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`);
+          shapesToRemove.push(shape.id);
+          totalRemoved++;
+        }
+      });
       
       // Remove the shapes
       shapesToRemove.forEach(shapeId => {
@@ -1015,7 +997,7 @@ export class LayerManager extends BaseSystem {
       });
     });
     
-    console.log(`🧹 Force cleanup complete - removed ${totalRemoved} shapes (${invisibleLayerShapes} from invisible layers)`);
+    console.log(`🧹 Force cleanup complete - removed ${totalRemoved} out-of-bounds shapes`);
   }
 
   /**
@@ -1044,12 +1026,14 @@ export class LayerManager extends BaseSystem {
         const shapeBounds = shape.getBounds();
         const pos = shape.position;
         
-        // Check if shape is in a visible layer
+        // Check if shape is in a visible layer (invisible layers are normal and will be revealed)
         if (!layer.isVisible) {
           invisibleShapes++;
-          console.warn(`👻 Shape in invisible layer: ${shape.id} in layer ${layer.id} (layer visible: ${layer.isVisible})
-            Position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})
-            Screws: ${screws.length} (Active: ${shape.getActiveScrews().length})`);
+          if (DEBUG_CONFIG.logLayerDebug) {
+            console.log(`👻 Shape in invisible layer (normal): ${shape.id} in layer ${layer.id}
+              Position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})
+              Screws: ${screws.length} (Active: ${shape.getActiveScrews().length})`);
+          }
         } else {
           visibleShapes++;
         }
