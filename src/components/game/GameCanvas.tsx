@@ -112,6 +112,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     eventsBySources: Record<string, number>;
     recentEvents: GameEvent[];
   } | null>(null);
+  
 
   useEffect(() => {
     // Initialize poly-decomp for Matter.js Bodies.fromVertices support
@@ -155,15 +156,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         // Start the coordinator
         coordinator.start();
 
-        // Automatically start the game
+        // Automatically start the game after a longer delay to allow progress data to be set
         setTimeout(() => {
           const gameManager = coordinator.getGameManager();
           if (gameManager) {
-            // Emit game started event to begin gameplay
-            console.log('Auto-starting game...');
+            const progressData = gameManager.getState().progressData;
+            console.log(`Auto-starting game with progress data: ${progressData.totalScrews} total screws`);
             handleStart();
           }
-        }, 500);
+        }, 1500);
 
         // Validate event flow
         setTimeout(() => {
@@ -268,6 +269,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
 
     return () => clearInterval(interval);
   }, [debugMode]);
+
 
   // Monitor game state to show/hide instructions
   useEffect(() => {
@@ -433,6 +435,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         />
         
       </div>
+      
       
       {/* Game Controls */}
       <div className="hidden md:flex" style={{ 

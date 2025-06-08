@@ -7,7 +7,7 @@ import { Layer } from '../entities/Layer';
 import { Screw, ScrewColor } from '@/types/game';
 import Matter from 'matter-js';
 import { BaseEvent, EventPriority, EventHandler, EventSubscriptionOptions } from '@/shared/events';
-import { PrecomputedLevel, ContainerReplacementPlan, PerfectBalanceStats } from '../../types/precomputed';
+// Removed precomputation imports - no longer using precomputation system
 
 // Re-export shared types for backward compatibility
 export { EventPriority, type EventHandler, type EventSubscriptionOptions };
@@ -42,26 +42,14 @@ export interface LevelStartedEvent extends BaseEvent {
   level: number;
 }
 
-export interface LevelPrecomputedEvent extends BaseEvent {
-  type: 'level:precomputed';
-  levelData: PrecomputedLevel;
-}
+// Removed LevelPrecomputedEvent - no longer using precomputation system
 
 
-export interface PhysicsActivationRequestedEvent extends BaseEvent {
-  type: 'physics:activation:requested';
-  layerIndex: number;
-}
+// Removed PhysicsActivationRequestedEvent - no longer using precomputation system
 
-export interface PhysicsActivationErrorEvent extends BaseEvent {
-  type: 'physics:activation:error';
-  layerIndex: number;
-  error: string;
-}
+// Removed PhysicsActivationErrorEvent - no longer using precomputation system
 
-export interface PhysicsActivationCleanupCompletedEvent extends BaseEvent {
-  type: 'physics:activation:cleanup:completed';
-}
+// Removed PhysicsActivationCleanupCompletedEvent - no longer using precomputation system
 
 export interface PhysicsDormantLayersSetEvent extends BaseEvent {
   type: 'physics:dormant:layers:set';
@@ -70,17 +58,9 @@ export interface PhysicsDormantLayersSetEvent extends BaseEvent {
   totalScrews: number;
 }
 
-export interface ContainerStrategyInitializedEvent extends BaseEvent {
-  type: 'container:strategy:initialized';
-  plan: ContainerReplacementPlan;
-  totalReplacements: number;
-}
+// Removed ContainerStrategyInitializedEvent - no longer using precomputation system
 
-export interface LevelPrecomputationRequestedEvent extends BaseEvent {
-  type: 'level:precomputation:requested';
-  level: number;
-  config: import('../../types/precomputed').PrecomputationConfig;
-}
+// Removed LevelPrecomputationRequestedEvent - no longer using precomputation system
 
 export interface LevelProgressUpdatedEvent extends BaseEvent {
   type: 'level:progress:updated';
@@ -501,15 +481,9 @@ export interface SystemReadyEvent extends BaseEvent {
 }
 
 // Pre-computation events
-export interface LevelPrecomputedEvent extends BaseEvent {
-  type: 'level:precomputed';
-  levelData: PrecomputedLevel;
-}
+// Removed LevelPrecomputedEvent - no longer using precomputation system
 
-export interface LevelBalanceCalculatedEvent extends BaseEvent {
-  type: 'level:balance:calculated';
-  plan: ContainerReplacementPlan;
-}
+// Removed LevelBalanceCalculatedEvent - no longer using precomputation system
 
 export interface ScrewProgressUpdatedEvent extends BaseEvent {
   type: 'screw:progress:updated';
@@ -518,42 +492,35 @@ export interface ScrewProgressUpdatedEvent extends BaseEvent {
   percentage: number;
 }
 
-export interface PerfectBalanceStatusEvent extends BaseEvent {
-  type: 'perfect:balance:status';
-  status: 'on_track' | 'minor_deviation' | 'major_deviation' | 'achieved';
+// Progress tracking events
+export interface ProgressUpdatedEvent extends BaseEvent {
+  type: 'progress:updated';
+  totalScrews: number;
+  screwsInContainer: number;
+  progress: number; // 0-100 percentage
 }
 
-export interface ContainerReplacementPlannedEvent extends BaseEvent {
-  type: 'container:replacement:planned';
-  atScrewCount: number;
-  newColors: string[];
+export interface LevelCompletedEvent extends BaseEvent {
+  type: 'level:completed';
+  totalScrews: number;
+  finalProgress: number;
 }
 
-export interface ContainerReplacementExecutedEvent extends BaseEvent {
-  type: 'container:replacement:executed';
-  containerId: string;
-  newColors: string[];
+export interface TotalScrewCountSetEvent extends BaseEvent {
+  type: 'total_screw_count:set';
+  totalScrews: number;
+  source: string;
 }
 
-export interface PerfectBalanceAchievedEvent extends BaseEvent {
-  type: 'perfect:balance:achieved';
-  finalStats: PerfectBalanceStats;
-}
+// Removed PerfectBalanceStatusEvent - no longer using precomputation system
 
-// Physics activation events
-export interface LayerPhysicsActivatedEvent extends BaseEvent {
-  type: 'layer:physics:activated';
-  layerIndex: number;
-  shapesActivated: number;
-  constraintsCreated: number;
-}
+// Removed ContainerReplacementPlannedEvent - no longer using precomputation system
 
-export interface LayerPhysicsDeactivatedEvent extends BaseEvent {
-  type: 'layer:physics:deactivated';
-  layerIndex: number;
-  shapesDeactivated: number;
-  constraintsRemoved: number;
-}
+// Removed ContainerReplacementExecutedEvent - no longer using precomputation system
+
+// Removed PerfectBalanceAchievedEvent - no longer using precomputation system
+
+// Removed physics activation events - no longer using precomputation system
 
 
 // Union type of all events
@@ -630,21 +597,11 @@ export type GameEvent =
   | RenderRequestedEvent
   | BoundsChangedEvent
   | SystemReadyEvent
-  | LevelPrecomputedEvent
-  | LevelBalanceCalculatedEvent
   | ScrewProgressUpdatedEvent
-  | PerfectBalanceStatusEvent
-  | ContainerReplacementPlannedEvent
-  | ContainerReplacementExecutedEvent
-  | PerfectBalanceAchievedEvent
-  | LayerPhysicsActivatedEvent
-  | LayerPhysicsDeactivatedEvent
-  | PhysicsActivationRequestedEvent
-  | PhysicsActivationErrorEvent
-  | PhysicsActivationCleanupCompletedEvent
-  | PhysicsDormantLayersSetEvent
-  | ContainerStrategyInitializedEvent
-  | LevelPrecomputationRequestedEvent;
+  | ProgressUpdatedEvent
+  | LevelCompletedEvent
+  | TotalScrewCountSetEvent;
+  // Removed precomputation event types from union - no longer using precomputation system
 
 // Game-specific event handler type
 export type GameEventHandler<T extends GameEvent = GameEvent> = EventHandler<T>;

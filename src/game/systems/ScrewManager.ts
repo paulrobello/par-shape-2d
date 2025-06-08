@@ -124,12 +124,15 @@ export class ScrewManager extends BaseSystem {
             screw.collect();
             
             // Emit screw collected event
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`🎯 Emitting screw:collected event for ${screwId}: targetType=${screw.targetType}, targetContainerId=${screw.targetContainerId}`);
+            }
             this.emit({
               type: 'screw:collected',
               timestamp: Date.now(),
               source: 'ScrewManager',
               screw,
-              destination: determineDestinationType(screw, this.state.containers, this.state.holdingHoles, this.state.virtualGameWidth, this.state.virtualGameHeight),
+              destination: screw.targetType || 'holding_hole', // Use the screw's target type, fallback to holding_hole
               points: 10 // Fixed 10 points per screw removed from shape
             });
             
@@ -696,6 +699,7 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Get all active screw colors (screws on shapes or in holding holes, not in containers)
+      // Return an array where each screw is represented individually
       const activeScrewColors: ScrewColor[] = [];
       const colorCounts: Map<ScrewColor, number> = new Map();
       
@@ -711,13 +715,13 @@ export class ScrewManager extends BaseSystem {
         if (isOnShape || isInHoldingHole) {
           const currentCount = colorCounts.get(screw.color) || 0;
           colorCounts.set(screw.color, currentCount + 1);
-          if (!activeScrewColors.includes(screw.color)) {
-            activeScrewColors.push(screw.color);
-          }
+          // Add this screw's color to the array (each screw represented individually)
+          activeScrewColors.push(screw.color);
         }
       }
       
-      // Sort colors by frequency (most common first) to prioritize colors with more screws
+      // Sort the array so most common colors come first
+      // This helps prioritize colors with more screws for container replacement
       activeScrewColors.sort((a, b) => {
         const countA = colorCounts.get(a) || 0;
         const countB = colorCounts.get(b) || 0;
@@ -737,8 +741,9 @@ export class ScrewManager extends BaseSystem {
         console.log(`🎨 ScrewManager: Active screws - On shapes: ${onShapeCount}, In holding holes: ${inHoldingHoleCount}`);
       
       }
-      console.log(`🎨 ScrewManager: Active screw colors (by frequency):`, 
-        activeScrewColors.map(color => `${color}(${colorCounts.get(color)})`).join(', '));
+      console.log(`🎨 ScrewManager: Active screw colors - Total: ${activeScrewColors.length} screws`);
+      console.log(`🎨 ScrewManager: By color count:`, 
+        Array.from(colorCounts.entries()).map(([color, count]) => `${color}(${count})`).join(', '));
       
       // Call the callback with the active colors
       event.callback(activeScrewColors);

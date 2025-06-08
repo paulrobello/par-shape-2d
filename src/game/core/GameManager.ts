@@ -8,8 +8,8 @@ import { BaseSystem } from './BaseSystem';
 import { GameLoop } from './GameLoop';
 import { eventBus } from '@/game/events/EventBus';
 import { ScrewManager } from '@/game/systems/ScrewManager';
-import { PrecomputationConfig } from '../../types/precomputed';
-import { GAME_CONFIG, SCREW_COLORS, LAYOUT_CONSTANTS, UI_CONSTANTS, getTotalLayersForLevel, DEBUG_CONFIG } from '@/shared/utils/Constants';
+// Removed precomputation imports - no longer using precomputation system
+import { GAME_CONFIG, SCREW_COLORS, LAYOUT_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { Vector2, Container, HoldingHole, RenderContext, Screw } from '@/types/game';
 import { Layer } from '@/game/entities/Layer';
@@ -29,7 +29,8 @@ import {
   HoldingHoleFilledEvent,
   ContainerFilledEvent,
   CollisionDetectedEvent,
-  ContainerReplacedEvent
+  ContainerReplacedEvent,
+  ProgressUpdatedEvent
 } from '../events/EventTypes';
 
 interface GameManagerState {
@@ -56,6 +57,13 @@ interface GameManagerState {
   levelScore: number;
   totalScore: number;
   screwsRemovedThisLevel: number;
+  
+  // Progress tracking data
+  progressData: {
+    totalScrews: number;
+    screwsInContainer: number;
+    progress: number;
+  };
   
   // Rendering data
   visibleLayers: Layer[];
@@ -94,6 +102,11 @@ export class GameManager extends BaseSystem {
       levelScore: 0,
       totalScore: 0,
       screwsRemovedThisLevel: 0,
+      progressData: {
+        totalScrews: 0,
+        screwsInContainer: 0,
+        progress: 0
+      },
       visibleLayers: [],
       containers: [],
       holdingHoles: [],
@@ -124,6 +137,8 @@ export class GameManager extends BaseSystem {
     this.subscribe('total_score:updated', this.handleTotalScoreUpdated.bind(this));
     this.subscribe('level:started', this.handleLevelStarted.bind(this));
     this.subscribe('level:progress:updated', this.handleLevelProgressUpdated.bind(this));
+    console.log('[GameManager] Subscribing to progress:updated events');
+    this.subscribe('progress:updated', this.handleProgressUpdated.bind(this));
     
     // Container/holding hole events (to update rendering data)
     this.subscribe('holding_hole:filled', this.handleHoldingHoleFilled.bind(this));
@@ -244,12 +259,34 @@ export class GameManager extends BaseSystem {
     });
   }
 
+  private handleProgressUpdated(event: ProgressUpdatedEvent): void {
+    this.executeIfActive(() => {
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`[GameManager] Received progress update:`, event);
+        console.log(`[GameManager] Progress updated - gameStarted: ${this.state.gameStarted}, gameOver: ${this.state.gameOver}, levelComplete: ${this.state.levelComplete}`);
+      }
+      
+      this.state.progressData = {
+        totalScrews: event.totalScrews,
+        screwsInContainer: event.screwsInContainer,
+        progress: event.progress
+      };
+      
+      // Force a render when progress data changes to ensure UI updates immediately
+      if (this.state.gameStarted && !this.state.gameOver) {
+        this.renderFrame();
+      }
+    });
+  }
+
   private handleLevelStarted(event: LevelStartedEvent): void {
     this.executeIfActive(() => {
       this.state.currentLevel = event.level;
       this.state.levelScore = 0;
       this.state.levelComplete = false;
       this.state.screwsRemovedThisLevel = 0;
+      
+      // Don't reset progress data - it will be set by ProgressTracker events
       
       // Reset event loop detection for level initialization
       eventBus.resetLoopDetection();
@@ -994,6 +1031,10 @@ export class GameManager extends BaseSystem {
     this.state.ctx.fillText('PAR Shape 2D', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 - 50);
     this.state.ctx.font = '18px Arial';
     this.state.ctx.fillText('Click the menu button to start', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 + 50);
+
+    // Also render the HUD to show progress even before game starts
+    this.renderHUD();
+    this.renderMenuButton();
   }
 
   private renderGameOver(): void {
@@ -1070,19 +1111,26 @@ export class GameManager extends BaseSystem {
   private renderHUD(): void {
     if (!this.state.ctx) return;
 
-    // Calculate level progress percentage
-    const totalLayersInLevel = getTotalLayersForLevel(this.state.currentLevel);
-    const avgShapesPerLayer = (GAME_CONFIG.shapes.minPerLayer + GAME_CONFIG.shapes.maxPerLayer) / 2; // 4.5
-    const totalShapesEstimate = totalLayersInLevel * avgShapesPerLayer;
-    const progressPercent = Math.min(100, Math.floor((this.state.screwsRemovedThisLevel / totalShapesEstimate) * 100));
+    // Use actual progress data from ProgressTracker
+    const progressPercent = this.state.progressData.progress;
+    const screwsProgress = this.state.progressData.totalScrews > 0 
+      ? `${this.state.progressData.screwsInContainer}/${this.state.progressData.totalScrews}` 
+      : '0/0';
+
+    // Debug: Log what renderHUD sees
+    if (DEBUG_CONFIG.enableVerboseLogging && Date.now() % 2000 < 50) { // Throttled logging
+      console.log(`[GameManager] renderHUD sees: totalScrews=${this.state.progressData.totalScrews}, screwsInContainer=${this.state.progressData.screwsInContainer}, display="${screwsProgress}"`);
+    }
+
 
     // Render score and level info
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '20px Arial';
     this.state.ctx.textAlign = 'left';
     this.state.ctx.fillText(`Level: ${this.state.currentLevel} (${progressPercent}%)`, 20, 30);
-    this.state.ctx.fillText(`Level Score: ${this.state.levelScore}`, 20, 60);
-    this.state.ctx.fillText(`Grand Total: ${this.state.totalScore}`, 20, 90);
+    this.state.ctx.fillText(`Progress: ${screwsProgress} screws`, 20, 60);
+    this.state.ctx.fillText(`Level Score: ${this.state.levelScore}`, 20, 90);
+    this.state.ctx.fillText(`Grand Total: ${this.state.totalScore}`, 20, 120);
   }
 
   private renderMenuButton(): void {
@@ -1488,39 +1536,7 @@ export class GameManager extends BaseSystem {
     ctx.strokeRect(half, half, this.state.virtualGameWidth - borderWidth, this.state.virtualGameHeight - borderWidth);
   }
 
-  /**
-   * Start level pre-computation for perfect balance
-   */
-  private async startLevelPrecomputation(level: number): Promise<void> {
-    // Create pre-computation configuration
-    const config: PrecomputationConfig = {
-      targetLayers: getTotalLayersForLevel(level),
-      balanceRequirements: {
-        strictBalance: level > 3, // Allow some tolerance for early levels
-        tolerance: level <= 3 ? 2 : 0 // 2 screws tolerance for levels 1-3
-      },
-      performance: {
-        maxComputationTime: 5000, // 5 seconds max
-        enablePhysicsPreview: false
-      },
-      debug: {
-        logProgress: DEBUG_CONFIG.enableVerboseLogging,
-        validateMath: true,
-        saveComputationPlan: DEBUG_CONFIG.enableVerboseLogging
-      }
-    };
-
-    // Emit event to trigger pre-computation
-    // This will be handled by the LevelPrecomputer system
-    this.emit({
-      type: 'level:precomputation:requested',
-      timestamp: Date.now(),
-      level,
-      config
-    });
-
-    console.log(`[GameManager] Level ${level} pre-computation requested`);
-  }
+  // Removed startLevelPrecomputation method - no longer using precomputation system
 
   protected onDestroy(): void {
     this.state.gameLoop.stop();

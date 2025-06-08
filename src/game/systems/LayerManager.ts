@@ -7,10 +7,10 @@ import { BaseSystem } from '../core/BaseSystem';
 import { Layer } from '@/game/entities/Layer';
 import { Shape } from '@/game/entities/Shape';
 import { ShapeFactory } from '@/game/systems/ShapeFactory';
-import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel, PHYSICS_CONSTANTS } from '@/shared/utils/Constants';
-import { ScrewColor, Vector2 } from '@/types/game';
+import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
+import { ScrewColor } from '@/types/game';
 import { randomIntBetween } from '@/game/utils/MathUtils';
-import { PrecomputedLevel, PrecomputedShape } from '../../types/precomputed';
+// Removed precomputation imports - no longer using precomputation system
 import {
   BoundsChangedEvent,
   LevelStartedEvent,
@@ -35,11 +35,7 @@ interface LayerManagerState {
   shapesWithScrewsReady: Map<string, Set<string>>; // layerId -> Set of shapeIds that have screws ready
   layersWithScrewsReady: Set<string>; // Set of layerIds that have completed screw generation
   allLayersScrewsReadyEmitted: boolean; // Flag to prevent multiple emissions
-  
-  // Pre-computation support
-  precomputedLevel: PrecomputedLevel | null;
-  visibleLayerIndices: Set<number>;
-  isUsingPrecomputedData: boolean;
+  // Removed precomputation state - no longer using precomputation system
 }
 
 export class LayerManager extends BaseSystem {
@@ -62,11 +58,7 @@ export class LayerManager extends BaseSystem {
       shapesWithScrewsReady: new Map(),
       layersWithScrewsReady: new Set(),
       allLayersScrewsReadyEmitted: false,
-      
-      // Pre-computation support
-      precomputedLevel: null,
-      visibleLayerIndices: new Set([0, 1, 2, 3]), // Initially show first 4 layers
-      isUsingPrecomputedData: false
+      // Removed precomputation initialization - no longer using precomputation system
     };
   }
 
@@ -88,9 +80,7 @@ export class LayerManager extends BaseSystem {
     this.subscribe('save:requested', this.handleSaveRequested.bind(this));
     this.subscribe('restore:requested', this.handleRestoreRequested.bind(this));
 
-    // Pre-computation events
-    this.subscribe('level:precomputed', this.handleLevelPrecomputed.bind(this));
-    this.subscribe('physics:activation:requested', this.handlePhysicsActivationRequested.bind(this));
+    // Removed precomputation event handlers - no longer using precomputation system
   }
 
   // Event Handlers
@@ -215,12 +205,19 @@ export class LayerManager extends BaseSystem {
         this.state.layersWithScrewsReady.add(layer.id);
         
         // Check if ALL layers have completed screw generation
-        if (this.state.layersWithScrewsReady.size === this.state.layers.length && !this.state.allLayersScrewsReadyEmitted) {
+        if (this.state.layersWithScrewsReady.size === this.state.totalLayersForLevel && !this.state.allLayersScrewsReadyEmitted) {
           // All layers have completed screw generation
           const totalShapes = this.state.layers.reduce((total, l) => total + l.getAllShapes().length, 0);
           
+          // Calculate total screws across all layers
+          const totalScrews = this.state.layers.reduce((total, layer) => {
+            return total + layer.getAllShapes().reduce((shapeTotal, shape) => {
+              return shapeTotal + shape.getAllScrews().length;
+            }, 0);
+          }, 0);
+          
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`LayerManager: ALL layers have completed screw generation. Total layers: ${this.state.layers.length}, Total shapes: ${totalShapes}`);
+            console.log(`LayerManager: ALL layers have completed screw generation. Total layers: ${this.state.layers.length}, Total shapes: ${totalShapes}, Total screws: ${totalScrews}`);
           }
           
           // Mark as emitted to prevent loops
@@ -232,6 +229,15 @@ export class LayerManager extends BaseSystem {
             timestamp: Date.now(),
             totalLayers: this.state.layers.length,
             totalShapes
+          });
+          
+          // Emit total screw count for progress tracking
+          console.log(`[LayerManager] Emitting total screw count: ${totalScrews}`);
+          this.emit({
+            type: 'total_screw_count:set',
+            timestamp: Date.now(),
+            totalScrews,
+            source: this.systemName
           });
         }
       }
@@ -803,577 +809,32 @@ export class LayerManager extends BaseSystem {
     return this.state.layers.filter(layer => !layer.isCleared()).length;
   }
 
-  // Pre-computation event handlers
+  // Removed precomputation event handlers - no longer using precomputation system
 
-  private handleLevelPrecomputed(event: import('../events/EventTypes').LevelPrecomputedEvent): void {
-    this.executeIfActive(() => {
-      console.log(`🎯 Level pre-computed event received - switching to pre-computed mode`);
-      this.state.precomputedLevel = event.levelData;
-      this.state.isUsingPrecomputedData = true;
-      
-      // Create layer entities from pre-computed data (without physics)
-      this.createLayersFromPrecomputedData();
-      
-      // Update visibility to show initial layers
-      this.updateLayerVisibility();
-      
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`[LayerManager] Pre-computed level loaded: ${this.state.precomputedLevel.layers.length} layers`);
-      }
-    });
-  }
+  // Removed precomputation layer creation methods - no longer using precomputation system
 
-  private handlePhysicsActivationRequested(event: import('../events/EventTypes').PhysicsActivationRequestedEvent): void {
-    this.executeIfActive(() => {
-      const { layerIndex } = event;
-      
-      // Mark layer as visible and activate its physics
-      this.state.visibleLayerIndices.add(layerIndex);
-      
-      // Emit layer visibility change for physics activation
-      const layer = this.state.layers.find(l => l.index === layerIndex);
-      if (layer) {
-        this.emit({
-          type: 'layer:visibility:changed',
-          timestamp: Date.now(),
-          layer,
-          visible: true
-        });
-      }
-      
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`[LayerManager] Physics activation requested for layer ${layerIndex}`);
-      }
-    });
-  }
+  // Removed precomputation shape creation methods - no longer using precomputation system
 
-  /**
-   * Create layer entities from pre-computed data
-   */
-  private createLayersFromPrecomputedData(): void {
-    if (!this.state.precomputedLevel) return;
+  // Removed precomputation physics body creation methods - no longer using precomputation system
 
-    console.log(`📊 Creating layers from pre-computed data - ${this.state.precomputedLevel.layers.length} layers to create`);
-    this.clearAllLayers();
+  // Removed precomputation path body creation methods - no longer using precomputation system
 
-    this.state.precomputedLevel.layers.forEach((precomputedLayer, index) => {
-      const layer = new Layer(
-        `layer_${index}`,
-        index,
-        index, // Use simple index instead of complex depth
-        0, // Physics group - will be set when physics activates
-        0, // Color index - temporary, will be set based on visibility
-        false, // No fade in
-        false  // Not restored
-      );
+  // Removed precomputation capsule body creation methods - no longer using precomputation system
 
-      // Update layer bounds
-      if (this.state.currentBounds) {
-        layer.updateBounds(this.state.currentBounds);
-      } else {
-        layer.updateBounds(precomputedLayer.bounds);
-      }
-
-      // Add layer to state BEFORE processing shapes so events can find it
-      this.state.layers.push(layer);
-
-      // Create dormant shapes from pre-computed data
-      precomputedLayer.shapes.forEach(precomputedShape => {
-        const shape = this.createShapeFromPrecomputedData(precomputedShape);
-        if (shape) {
-          // Set the layer ID after creation
-          shape.layerId = layer.id;
-          layer.addShape(shape);
-          
-          // Now emit screws ready event since shape is properly added to layer
-          if (shape.getAllScrews().length > 0) {
-            this.emit({
-              type: 'shape:screws:ready',
-              timestamp: Date.now(),
-              source: 'LayerManager',
-              shape,
-              screws: shape.getAllScrews()
-            });
-          }
-        }
-      });
-      
-      this.emit({
-        type: 'layer:created',
-        timestamp: Date.now(),
-        layer,
-        index
-      });
-    });
-
-    // Update layer visibility first
-    this.updateLayerVisibility();
-
-    // Assign colors to visible layers sequentially to ensure distinct colors
-    // This ensures all visible layers get different colors when possible
-    const visibleLayers = this.getVisibleLayers();
-    visibleLayers.forEach((layer, visibleIndex) => {
-      const colorIndex = visibleIndex % SHAPE_TINTS.length;
-      layer.colorIndex = colorIndex;
-      layer.tint = SHAPE_TINTS[colorIndex];
-      
-      // Get proper layer stroke color (same logic as ShapeFactory)
-      const layerColors = [
-        '#E74C3C', // Red
-        '#2ECC71', // Green  
-        '#3498DB', // Blue
-        '#F1C40F', // Yellow
-        '#9B59B6', // Purple
-      ];
-      const strokeColor = layerColors[colorIndex % layerColors.length];
-      
-      // Apply both stroke color and tint to all shapes in the layer
-      layer.getAllShapes().forEach(shape => {
-        shape.color = strokeColor;
-        shape.tint = layer.tint;
-      });
-      
-      console.log(`🎨 Pre-computed layer color assignment: ${layer.id} visibleIndex=${visibleIndex} colorIndex=${colorIndex} strokeColor=${strokeColor} tint=${layer.tint} shapes=${layer.getAllShapes().length}`);
-      
-      // Log each shape's color assignment for debugging
-      layer.getAllShapes().forEach((shape, shapeIndex) => {
-        console.log(`  🔸 Shape ${shape.id} [${shapeIndex}]: color=${shape.color} tint=${shape.tint}`);
-      });
-    });
-    
-    // Also log all layers for complete picture
-    console.log(`🎨 All layers summary:`, this.state.layers.map(l => `${l.id}(idx:${l.index},color:${l.colorIndex},visible:${l.isVisible},shapes:${l.getAllShapes().length})`).join(' | '));
-
-    if (DEBUG_CONFIG.logLayerDebug) {
-      console.log(`[LayerManager] Created ${this.state.layers.length} layers from pre-computed data`);
-    }
-  }
-
-  /**
-   * Create shape entity from pre-computed data
-   */
-  private createShapeFromPrecomputedData(precomputedShape: PrecomputedShape): Shape | null {
-    try {
-      // Debug log to see the structure
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`[LayerManager] Creating shape from pre-computed data:`, {
-          id: precomputedShape.id,
-          hasDefinition: !!precomputedShape.definition,
-          definitionKeys: precomputedShape.definition ? Object.keys(precomputedShape.definition) : [],
-          dimensions: precomputedShape.dimensions,
-          position: precomputedShape.position
-        });
-      }
-
-      // Create a physics body for the shape using the same methods as ShapeFactory
-      const bodyResult = this.createPhysicsBodyFromPrecomputed(precomputedShape);
-      if (!bodyResult) {
-        console.error(`[LayerManager] Failed to create physics body for pre-computed shape ${precomputedShape.id}`);
-        return null;
-      }
-      
-      const { body, parts, originalVertices } = bodyResult;
-      
-      // Configure physics properties (matching ShapeFactory approach)
-      const Matter = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
-      Matter.Body.setMass(body, body.mass * 2);
-      body.friction = PHYSICS_CONSTANTS.shape.friction;
-      body.frictionAir = PHYSICS_CONSTANTS.shape.frictionAir;
-      body.restitution = PHYSICS_CONSTANTS.shape.restitution;
-      body.density = PHYSICS_CONSTANTS.shape.density;
-      
-      // Set collision group (will be updated when physics activates)
-      body.collisionFilter = {
-        group: 0, // Dormant - no collisions initially
-        category: 1,
-        mask: 0 // No collision mask initially
-      };
-      
-      // Also set collision filter for parts if composite
-      if (parts) {
-        parts.forEach(part => {
-          part.collisionFilter = {
-            group: 0, // Dormant - no collisions initially
-            category: 1,
-            mask: 0 // No collision mask initially
-          };
-        });
-      }
-      
-      // Map definition ID to ShapeType (using same logic as ShapeFactory)
-      const shapeType = this.getShapeTypeFromDefinition(precomputedShape.definition);
-      
-      // Create the shape entity (tint will be set by layer after creation)
-      const shape = new Shape(
-        precomputedShape.id,
-        shapeType,
-        { x: precomputedShape.position.x, y: precomputedShape.position.y },
-        body,
-        '', // layerId will be set by caller
-        precomputedShape.visual.color,
-        '#FFFFFF', // Temporary tint - will be overridden by layer tint
-        precomputedShape.definition.id, // Pass the definition ID for strategy lookup
-        {
-          width: precomputedShape.dimensions.width as number,
-          height: precomputedShape.dimensions.height as number,
-          radius: precomputedShape.dimensions.radius as number,
-          sides: precomputedShape.dimensions.sides as number,
-          vertices: originalVertices,
-        },
-        parts ? { isComposite: true, parts } : undefined
-      );
-      
-      // Set rotation if specified
-      if (precomputedShape.rotation) {
-        Matter.Body.setAngle(body, precomputedShape.rotation);
-        shape.rotation = precomputedShape.rotation;
-      }
-      
-      // For composite bodies, sync the Shape position after Matter.js positioning
-      if (parts) {
-        shape.updateFromBody();
-      }
-      
-      // Add screws from pre-computed data
-      if (precomputedShape.screws && precomputedShape.screws.length > 0) {
-        const { Screw } = require('@/game/entities/Screw'); // eslint-disable-line @typescript-eslint/no-require-imports
-        
-        precomputedShape.screws.forEach(precomputedScrew => {
-          const screw = new Screw(
-            precomputedScrew.id,
-            shape.id,
-            precomputedScrew.position,
-            precomputedScrew.color
-          );
-          
-          // Set any additional screw properties from pre-computed data
-          screw.isRemovable = true; // Pre-computed screws should be removable
-          screw.isCollected = false;
-          screw.isBeingCollected = false;
-          
-          shape.addScrew(screw);
-        });
-        
-        // Note: Don't emit screws:ready event here - will emit after shape is added to layer
-      }
-      
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`[LayerManager] Created pre-computed shape ${precomputedShape.id} with ${precomputedShape.screws.length} screws`);
-      }
-      
-      return shape;
-    } catch (error) {
-      console.error(`[LayerManager] Failed to create shape from pre-computed data: ${precomputedShape.id}`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Create physics body from pre-computed shape data
-   */
-  private createPhysicsBodyFromPrecomputed(
-    precomputedShape: PrecomputedShape
-  ): { body: import('matter-js').Body; parts?: import('matter-js').Body[]; originalVertices?: Vector2[] } | null {
-    const { Bodies } = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
-    const position = precomputedShape.position;
-    const dimensions = precomputedShape.dimensions;
-    const definition = precomputedShape.definition;
-
-    // Check if definition and physics exist
-    if (!definition || !definition.physics) {
-      console.error(`[LayerManager] Pre-computed shape ${precomputedShape.id} has no definition or physics data`);
-      return null;
-    }
-
-    switch (definition.physics.type) {
-      case 'rectangle':
-        return {
-          body: Bodies.rectangle(
-            position.x,
-            position.y,
-            dimensions.width as number,
-            dimensions.height as number,
-            {
-              ...PHYSICS_CONSTANTS.shape,
-              render: { visible: false },
-            }
-          ),
-        };
-        
-      case 'circle':
-        return {
-          body: Bodies.circle(
-            position.x,
-            position.y,
-            dimensions.radius as number,
-            {
-              ...PHYSICS_CONSTANTS.shape,
-              render: { visible: false },
-            }
-          ),
-        };
-        
-      case 'polygon':
-        // Handle both regular polygons (with radius) and irregular polygons (with width/height)
-        if (dimensions.radius) {
-          // Regular polygon
-          return {
-            body: Bodies.polygon(
-              position.x,
-              position.y,
-              dimensions.sides as number,
-              dimensions.radius as number,
-              {
-                ...PHYSICS_CONSTANTS.shape,
-                render: { visible: false },
-              }
-            ),
-          };
-        } else if (dimensions.width && dimensions.height) {
-          // Irregular polygon (rectangle-like)
-          return {
-            body: Bodies.rectangle(
-              position.x,
-              position.y,
-              dimensions.width as number,
-              dimensions.height as number,
-              {
-                ...PHYSICS_CONSTANTS.shape,
-                render: { visible: false },
-              }
-            ),
-          };
-        }
-        break;
-        
-      case 'fromVertices':
-        return this.createPathBodyFromPrecomputed(position, dimensions);
-        
-      case 'composite':
-        if (definition.id === 'capsule' || definition.id.includes('capsule')) {
-          return this.createCapsuleBodyFromPrecomputed(position, dimensions);
-        }
-        break;
-    }
-    
-    return null;
-  }
-
-  /**
-   * Create path-based physics body from pre-computed data
-   */
-  private createPathBodyFromPrecomputed(
-    position: import('matter-js').Vector,
-    dimensions: Record<string, unknown>
-  ): { body: import('matter-js').Body; originalVertices: Vector2[] } | null {
-    const { Bodies, Vertices, Bounds } = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
-    
-    try {
-      // Create vertices from path
-      const vertices = Vertices.fromPath(dimensions.path as string);
-      
-      // Scale the vertices if needed
-      if (dimensions.scale && dimensions.scale !== 1 && (dimensions.scale as number) > 0) {
-        const initialBounds = Bounds.create(vertices);
-        const center = {
-          x: (initialBounds.min.x + initialBounds.max.x) / 2,
-          y: (initialBounds.min.y + initialBounds.max.y) / 2
-        };
-        Vertices.scale(vertices, dimensions.scale as number, dimensions.scale as number, center);
-      }
-      
-      // Center the vertices at origin
-      const bounds = Bounds.create(vertices);
-      const centerX = (bounds.min.x + bounds.max.x) / 2;
-      const centerY = (bounds.min.y + bounds.max.y) / 2;
-      Vertices.translate(vertices, { x: -centerX, y: -centerY }, 1);
-      
-      // Store original vertices for rendering
-      const originalVertices: Vector2[] = vertices.map((v: import('matter-js').Vector) => ({
-        x: v.x,
-        y: v.y
-      }));
-      
-      // Create the body with decomposition
-      const body = Bodies.fromVertices(
-        position.x,
-        position.y,
-        [vertices],
-        {
-          ...PHYSICS_CONSTANTS.shape,
-          render: { visible: false },
-        },
-        true // flag for decomposition
-      );
-      
-      return { body, originalVertices };
-    } catch (error) {
-      console.error('[LayerManager] Failed to create path body from pre-computed data:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Create capsule physics body from pre-computed data
-   */
-  private createCapsuleBodyFromPrecomputed(
-    position: import('matter-js').Vector,
-    dimensions: Record<string, unknown>
-  ): { body: import('matter-js').Body; parts: import('matter-js').Body[] } | null {
-    const { Bodies, Body } = require('matter-js'); // eslint-disable-line @typescript-eslint/no-require-imports
-    
-    try {
-      const width = dimensions.width as number;
-      const height = dimensions.height as number;
-      const radius = height / 2;
-      const rectWidth = width - height;
-      
-      // Create the parts
-      const rectangle = Bodies.rectangle(
-        position.x,
-        position.y,
-        rectWidth,
-        height,
-        {
-          ...PHYSICS_CONSTANTS.shape,
-          render: { visible: false },
-        }
-      );
-      
-      const leftCircle = Bodies.circle(
-        position.x - rectWidth / 2,
-        position.y,
-        radius,
-        {
-          ...PHYSICS_CONSTANTS.shape,
-          render: { visible: false },
-        }
-      );
-      
-      const rightCircle = Bodies.circle(
-        position.x + rectWidth / 2,
-        position.y,
-        radius,
-        {
-          ...PHYSICS_CONSTANTS.shape,
-          render: { visible: false },
-        }
-      );
-      
-      // Create composite body
-      const capsuleComposite = Body.create({
-        parts: [rectangle, leftCircle, rightCircle],
-        ...PHYSICS_CONSTANTS.shape,
-        render: { visible: false },
-      });
-      
-      Body.setPosition(capsuleComposite, position);
-      
-      return {
-        body: capsuleComposite,
-        parts: [rectangle, leftCircle, rightCircle]
-      };
-    } catch (error) {
-      console.error('[LayerManager] Failed to create capsule body from pre-computed data:', error);
-      return null;
-    }
-  }
-
-  /**
-   * Map definition to ShapeType (using same logic as ShapeFactory)
-   */
-  private getShapeTypeFromDefinition(definition: import('@/types/shapes').ShapeDefinition): import('@/types/game').ShapeType {
-    // Check definition ID first for specific shapes
-    const typeMapping: Record<string, import('@/types/game').ShapeType> = {
-      'rectangle': 'rectangle',
-      'square': 'polygon',  // Square is a 4-sided polygon
-      'circle': 'circle',
-      'triangle': 'polygon',
-      'pentagon': 'polygon',
-      'hexagon': 'polygon',
-      'heptagon': 'polygon',
-      'octagon': 'polygon',
-      'capsule': 'capsule',
-      'arrow': 'arrow',
-      'chevron': 'chevron',
-      'star': 'star',
-      'horseshoe': 'horseshoe',
-    };
-    
-    // Return specific type if found in mapping
-    if (typeMapping[definition.id]) {
-      return typeMapping[definition.id];
-    }
-    
-    // Fallback to physics type for unrecognized definitions
-    if (definition.physics.type === 'polygon') {
-      return 'polygon';
-    }
-    if (definition.physics.type === 'circle') {
-      return 'circle';
-    }
-    if (definition.physics.type === 'rectangle') {
-      return 'rectangle';
-    }
-    if (definition.physics.type === 'composite') {
-      return 'capsule'; // Assuming composites are capsules for now
-    }
-    if (definition.physics.type === 'fromVertices') {
-      // Map based on definition ID for path-based shapes
-      if (definition.id.includes('arrow')) return 'arrow';
-      if (definition.id.includes('chevron')) return 'chevron';
-      if (definition.id.includes('star')) return 'star';
-      if (definition.id.includes('horseshoe')) return 'horseshoe';
-      // For custom path shapes created in editor, check the name too
-      if (definition.name && definition.name.toLowerCase().includes('arrow')) return 'arrow';
-      if (definition.name && definition.name.toLowerCase().includes('chevron')) return 'chevron';
-      if (definition.name && definition.name.toLowerCase().includes('star')) return 'star';
-      if (definition.name && definition.name.toLowerCase().includes('horseshoe')) return 'horseshoe';
-      // For generic custom path shapes, use star as fallback since it has good path rendering
-      return 'star'; // Fallback for path-based shapes
-    }
-    
-    return 'circle';
-  }
+  // Removed precomputation shape type mapping methods - no longer using precomputation system
 
   /**
    * Update layer visibility based on current state
    */
   public updateLayerVisibility(): void {
-    console.log(`👁️ Updating layer visibility - using pre-computed: ${this.state.isUsingPrecomputedData}, visible indices: [${Array.from(this.state.visibleLayerIndices).join(', ')}]`);
+    console.log(`👁️ Updating layer visibility`);
     
-    if (!this.state.isUsingPrecomputedData) {
-      // Use original visibility logic for non-pre-computed layers
-      this.updateLayerVisibilityOriginal();
-      return;
-    }
-
-    // For pre-computed layers, only show what's in visibleLayerIndices
-    this.state.layers.forEach(layer => {
-      const wasVisible = layer.isVisible;
-      layer.isVisible = this.state.visibleLayerIndices.has(layer.index);
-      
-      if (layer.isVisible && !wasVisible) {
-        // Request physics activation for newly visible layer
-        this.emit({
-          type: 'physics:activation:requested',
-          timestamp: Date.now(),
-          layerIndex: layer.index
-        });
-      }
-    });
-
-    // Emit layers updated event
-    this.emit({
-      type: 'layers:updated',
-      timestamp: Date.now(),
-      visibleLayers: this.getVisibleLayers(),
-      totalLayers: this.state.layers.length
-    });
+    // Use normal visibility logic for all layers
+    this.updateLayerVisibilityOriginal();
   }
 
   /**
-   * Original layer visibility logic for non-pre-computed data
+   * Layer visibility logic
    */
   private updateLayerVisibilityOriginal(): void {
     const maxVisible = GAME_CONFIG.layer.maxVisible;
@@ -1408,14 +869,10 @@ export class LayerManager extends BaseSystem {
   }
 
   /**
-   * Get visible layers (override for pre-computed support)
+   * Get visible layers
    */
   public getVisibleLayers(): Layer[] {
-    return this.state.layers.filter(layer => 
-      this.state.isUsingPrecomputedData 
-        ? this.state.visibleLayerIndices.has(layer.index)
-        : layer.isVisible
-    );
+    return this.state.layers.filter(layer => layer.isVisible);
   }
 
   /**

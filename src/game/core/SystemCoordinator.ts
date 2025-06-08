@@ -8,12 +8,12 @@ import { GameManager } from './GameManager';
 import { GameState } from './GameState';
 import { LayerManager } from '../systems/LayerManager';
 import { ScrewManager } from '../systems/ScrewManager';
+import { ProgressTracker } from '../systems/ProgressTracker';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { ShapeRegistry } from '../systems/ShapeRegistry';
-// LevelPrecomputer removed - not used in current implementation
-import { PhysicsActivationManager } from '../systems/PhysicsActivationManager';
+// Removed precomputation system imports - no longer using precomputation system
 import { eventBus } from '../events/EventBus';
-import { DEBUG_CONFIG } from '../utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export class SystemCoordinator {
   private systems: Map<string, BaseSystem> = new Map();
@@ -25,9 +25,9 @@ export class SystemCoordinator {
   private gameState: GameState | null = null;
   private layerManager: LayerManager | null = null;
   private screwManager: ScrewManager | null = null;
+  private progressTracker: ProgressTracker | null = null;
   private physicsWorld: PhysicsWorld | null = null;
-  // levelPrecomputer removed - not used in current implementation
-  private physicsActivationManager: PhysicsActivationManager | null = null;
+  // Removed precomputation system references - no longer using precomputation system
 
   constructor() {
     console.log('SystemCoordinator created');
@@ -86,18 +86,18 @@ export class SystemCoordinator {
     // Create systems (no initialization yet)
     this.physicsWorld = new PhysicsWorld();
     this.gameState = new GameState();
-    // LevelPrecomputer removed - not used in current implementation
-    this.physicsActivationManager = new PhysicsActivationManager();
+    // Removed precomputation system creation - no longer using precomputation system
     this.screwManager = new ScrewManager();
+    this.progressTracker = new ProgressTracker();
     this.layerManager = new LayerManager();
     this.gameManager = new GameManager();
 
     // Register systems
     this.systems.set('PhysicsWorld', this.physicsWorld);
     this.systems.set('GameState', this.gameState);
-    // LevelPrecomputer removed - not used in current implementation
-    this.systems.set('PhysicsActivationManager', this.physicsActivationManager);
+    // Removed precomputation system registration - no longer using precomputation system
     this.systems.set('ScrewManager', this.screwManager);
+    this.systems.set('ProgressTracker', this.progressTracker);
     this.systems.set('LayerManager', this.layerManager);
     this.systems.set('GameManager', this.gameManager);
 
@@ -111,10 +111,10 @@ export class SystemCoordinator {
     const initOrder = [
       'PhysicsWorld',              // No dependencies
       'GameState',                 // No dependencies  
-      // LevelPrecomputer removed - not used in current implementation
-      'PhysicsActivationManager',  // Depends on PhysicsWorld
+      // Removed precomputation system from initialization order - no longer using precomputation system
       'ScrewManager',              // Depends on PhysicsWorld events
       'LayerManager',              // Depends on PhysicsWorld and ScrewManager events
+      'ProgressTracker',           // Depends on ScrewManager and LayerManager events
       'GameManager'                // Depends on all other systems
     ];
 
@@ -215,6 +215,10 @@ export class SystemCoordinator {
 
   public getScrewManager(): ScrewManager | null {
     return this.screwManager;
+  }
+
+  public getProgressTracker(): ProgressTracker | null {
+    return this.progressTracker;
   }
 
   public getPhysicsWorld(): PhysicsWorld | null {

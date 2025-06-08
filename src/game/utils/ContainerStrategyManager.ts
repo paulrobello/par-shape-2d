@@ -1,32 +1,25 @@
 /**
  * Container Strategy Manager
- * Implements smart container replacement logic for perfect balance achievement
+ * Implements smart container replacement logic based on actual game state
  */
 
 import { BaseSystem } from '../core/BaseSystem';
-import { 
-  ContainerReplacementPlan, 
-  ContainerReplacement,
-  PerfectBalanceStats,
-  PerfectBalanceStatus
-} from '../../types/precomputed';
-import { Container, HoldingHole } from '../../types/game';
-import { getAllScrewColors } from './Colors';
-import { UI_CONSTANTS, GAME_CONFIG } from '../../shared/utils/Constants';
+import { Container, HoldingHole, ScrewColor } from '../../types/game';
+import { GAME_CONFIG, DEBUG_CONFIG } from '../../shared/utils/Constants';
 
 /**
- * Manages container replacement strategy for perfect level completion
+ * Manages container replacement strategy based on actual game state
  */
 export class ContainerStrategyManager extends BaseSystem {
-  private readonly CONTAINER_CAPACITY = UI_CONSTANTS.containers.hole.count; // 3 screws per container
+  private readonly MAX_HOLES_PER_CONTAINER = 3;
+  private readonly MIN_HOLES_PER_CONTAINER = 1;
   private readonly HOLDING_HOLE_COUNT = GAME_CONFIG.holdingHoles.count; // 5 holding holes
   
-  private currentPlan: ContainerReplacementPlan | null = null;
-  private screwColorDistribution: import('../../types/precomputed').ScrewColorDistribution | null = null;
-  private screwsCollected = 0;
-  private nextReplacementIndex = 0;
   private activeContainers: Container[] = [];
   private holdingHoles: HoldingHole[] = [];
+  private visibleScrewColors: ScrewColor[] = [];
+  private totalScrewsInLevel = 0;
+  private screwsCollected = 0;
 
   constructor() {
     super('ContainerStrategyManager');
@@ -42,16 +35,9 @@ export class ContainerStrategyManager extends BaseSystem {
   }
 
   private setupEventHandlers(): void {
-    // Listen for level precomputation to set up the plan
-    this.subscribe('level:precomputed', (event: import('../events/EventTypes').LevelPrecomputedEvent) => {
-      this.setPlan(event.levelData.containerReplacementPlan);
-      this.screwColorDistribution = event.levelData.screwColorDistribution;
-    });
-
     // Listen for screw collection to track progress
     this.subscribe('screw:collected', () => {
       this.screwsCollected++;
-      this.onScrewCollected(this.screwsCollected);
     });
 
     // Listen for container state updates
@@ -64,57 +50,59 @@ export class ContainerStrategyManager extends BaseSystem {
       this.holdingHoles = [...event.holdingHoles];
     });
 
-    // Listen for container filled events to check if replacement is needed
-    this.subscribe('container:filled', (event: import('../events/EventTypes').ContainerFilledEvent) => {
-      if (this.currentPlan && event.containerIndex >= 0 && event.containerIndex < this.activeContainers.length) {
-        // Get the filled container
-        const container = this.activeContainers[event.containerIndex];
-        
-        // Check if we should trigger a strategic replacement
-        const remainingScrews = this.calculateRemainingScrews();
-        if (this.shouldReplaceContainer(container, remainingScrews)) {
-          const nextReplacement = this.getNextPlannedReplacement();
-          if (nextReplacement) {
-            this.emit({
-              type: 'container:replacement:planned',
-              timestamp: Date.now(),
-              atScrewCount: nextReplacement.atScrewCount,
-              newColors: nextReplacement.newColors
-            });
-          }
-        }
-      }
+    // Listen for screw generation to track total screws
+    this.subscribe('screws:generated', (event: import('../events/EventTypes').ScrewsGeneratedEvent) => {
+      this.totalScrewsInLevel = event.totalScrewsGenerated;
     });
 
-    // Listen for level completion to generate final stats
-    this.subscribe('level:complete', () => {
-      if (this.currentPlan) {
-        const stats = this.generatePerfectBalanceStats();
-        if (stats.performance.finalBalanceAchieved) {
-          this.emit({
-            type: 'perfect:balance:achieved',
-            timestamp: Date.now(),
-            finalStats: stats
+    // Listen for layers updated to track visible screw colors
+    this.subscribe('layers:updated', (event: import('../events/EventTypes').LayersUpdatedEvent) => {
+      // Extract screw colors from visible layers
+      const colors: ScrewColor[] = [];
+      event.visibleLayers.forEach(layer => {
+        layer.getAllShapes().forEach(shape => {
+          shape.getAllScrews().forEach(screw => {
+            if (!screw.isCollected) {
+              colors.push(screw.color);
+            }
           });
-        }
-      }
+        });
+      });
+      this.visibleScrewColors = colors;
     });
   }
 
   /**
-   * Initialize with a container replacement plan
+   * Check if container should be replaced based on smart logic
    */
-  setPlan(plan: ContainerReplacementPlan): void {
-    this.currentPlan = plan;
-    this.nextReplacementIndex = 0;
-    this.screwsCollected = 0;
+  shouldReplaceContainer(containerIndex: number): boolean {
+    // Calculate remaining screws (from shapes only - not yet collected)
+    const remainingScrews = this.totalScrewsInLevel - this.screwsCollected;
     
-    this.emit({
-      type: 'container:strategy:initialized',
-      timestamp: Date.now(),
-      plan: plan,
-      totalReplacements: plan.replacements.length
-    });
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_STRATEGY] Checking replacement for container ${containerIndex}. Remaining screws: ${remainingScrews}`);
+    }
+    
+    // No replacement if no screws remain
+    if (remainingScrews <= 0) {
+      return false;
+    }
+    
+    // Calculate available space in remaining containers (excluding the one being removed)
+    const availableSpace = this.activeContainers
+      .filter((_, index) => index !== containerIndex)
+      .reduce((total, container) => {
+        const filledHoles = container.holes.filter(hole => hole !== null).length;
+        const available = container.maxHoles - filledHoles;
+        return total + available;
+      }, 0);
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`[CONTAINER_STRATEGY] Available space in remaining containers: ${availableSpace}`);
+    }
+    
+    // Only replace if existing containers don't have enough space
+    return availableSpace < remainingScrews;
   }
 
   /**
@@ -126,191 +114,130 @@ export class ContainerStrategyManager extends BaseSystem {
   }
 
   /**
-   * Check if container should be replaced based on perfect balance strategy
+   * Get optimal replacement container configuration
+   * NOTE: This is now deprecated as GameState handles the logic directly
+   * Kept for compatibility but returns null to indicate GameState should handle it
    */
-  shouldReplaceContainer(
-    container: Container, 
-    remainingScrews: Map<string, number>
-  ): boolean {
-    if (!this.currentPlan) return false;
-
-    // Check if we have a planned replacement at this screw count
-    const nextReplacement = this.getNextPlannedReplacement();
-    if (nextReplacement && this.screwsCollected >= nextReplacement.atScrewCount) {
-      return true;
-    }
-
-    // Strategic replacement logic: prevent holding hole overflow
-    const containerColor = container.color;
-    const remainingOfThisColor = remainingScrews.get(containerColor) || 0;
-    const currentScrewsInContainer = container.holes.filter(hole => hole !== null).length;
-    const availableHolesInContainer = this.CONTAINER_CAPACITY - currentScrewsInContainer;
-    const availableHoldingHoles = this.getAvailableHoldingHoles();
-
-    // Don't replace if container can hold remaining screws of its color
-    if (remainingOfThisColor <= availableHolesInContainer) {
-      return false;
-    }
-
-    // Replace if overflow would exceed holding hole capacity
-    const totalAvailableSpace = availableHolesInContainer + availableHoldingHoles;
-    return remainingOfThisColor > totalAvailableSpace;
+  getOptimalReplacement(containerIndex: number): { color: ScrewColor, holes: number } | null {
+    void containerIndex; // Unused - GameState handles this directly
+    // GameState now handles this logic directly with real-time screw data
+    return null;
   }
 
-  /**
-   * Execute planned container replacement
-   */
-  executeReplacementPlan(plan: ContainerReplacementPlan): void {
-    if (!this.currentPlan) {
-      this.currentPlan = plan;
-    }
-
-    const replacement = this.getNextPlannedReplacement();
-    if (!replacement) return;
-
-    // Execute the replacement
-    this.executeReplacement(replacement);
-    this.nextReplacementIndex++;
-
-    this.emit({
-      type: 'container:replacement:executed',
-      timestamp: Date.now(),
-      containerId: `container_${replacement.atScrewCount}`,
-      newColors: replacement.newColors
-    });
-  }
 
   /**
-   * Calculate optimal colors for new containers
+   * Get all available screw colors from visible screws and holding holes
    */
-  calculateOptimalColors(remainingScrews: Map<string, number>): string[] {
-    // Sort colors by remaining count (descending)
-    const sortedColors = Array.from(remainingScrews.entries())
-      .filter(([, count]) => count > 0)
-      .sort(([, a], [, b]) => b - a)
-      .map(([color]) => color);
-
-    // Take top 4 colors, or all if fewer than 4
-    const selectedColors = sortedColors.slice(0, 4);
+  private getAllAvailableScrewColors(): ScrewColor[] {
+    const colors: ScrewColor[] = [...this.visibleScrewColors];
     
-    // Fill remaining slots with random colors if needed
-    while (selectedColors.length < 4) {
-      const availableColors = getAllScrewColors();
-      const randomColor = availableColors[Math.floor(Math.random() * availableColors.length)];
-      if (!selectedColors.includes(randomColor)) {
-        selectedColors.push(randomColor);
+    // Add colors from holding holes
+    this.holdingHoles.forEach(hole => {
+      if (hole.screwColor) {
+        colors.push(hole.screwColor);
       }
-    }
-
-    return selectedColors;
-  }
-
-  /**
-   * Validate that perfect ending will be achieved
-   */
-  validatePerfectEnding(
-    totalScrews: number,
-    screwsCollected: number,
-    containers: Container[],
-    holdingHoles: HoldingHole[]
-  ): boolean {
-    if (!this.currentPlan) return false;
-
-    const remainingScrews = totalScrews - screwsCollected;
+    });
     
-    // Calculate total available space
-    const containerSpace = containers.reduce((sum, container) => {
-      const currentScrews = container.holes.filter(hole => hole !== null).length;
-      return sum + (this.CONTAINER_CAPACITY - currentScrews);
-    }, 0
-    );
-    const holdingHoleSpace = holdingHoles.filter(hole => !hole.screwId).length;
-    const totalAvailableSpace = containerSpace + holdingHoleSpace;
-
-    // Check if remaining screws fit in available space
-    if (remainingScrews > totalAvailableSpace) {
-      return false;
-    }
-
-    // Check if final state matches plan
-    const expectedFinalState = this.currentPlan.finalState;
-    const projectedFilledContainers = Math.floor(totalScrews / this.CONTAINER_CAPACITY);
-    const projectedRemainder = totalScrews % this.CONTAINER_CAPACITY;
-
-    return (
-      projectedFilledContainers === expectedFinalState.filledContainers &&
-      projectedRemainder === 0 && // Perfect division
-      expectedFinalState.emptyHoldingHoles === this.HOLDING_HOLE_COUNT
-    );
+    return colors;
+  }
+  
+  /**
+   * Count screws by color
+   */
+  private countScrewsByColor(colors: ScrewColor[]): Map<ScrewColor, number> {
+    const counts = new Map<ScrewColor, number>();
+    
+    colors.forEach(color => {
+      counts.set(color, (counts.get(color) || 0) + 1);
+    });
+    
+    return counts;
+  }
+  
+  /**
+   * Get available space in containers by color
+   */
+  private getAvailableSpaceByColor(excludeContainerIndex?: number): Map<ScrewColor, number> {
+    const spaceByColor = new Map<ScrewColor, number>();
+    
+    this.activeContainers.forEach((container, index) => {
+      // Skip the container being removed
+      if (excludeContainerIndex !== undefined && index === excludeContainerIndex) {
+        return;
+      }
+      
+      const filledHoles = container.holes.filter(hole => hole !== null).length;
+      const availableSpace = container.maxHoles - filledHoles;
+      
+      if (availableSpace > 0) {
+        const currentSpace = spaceByColor.get(container.color) || 0;
+        spaceByColor.set(container.color, currentSpace + availableSpace);
+      }
+    });
+    
+    return spaceByColor;
   }
 
   /**
-   * Update progress and check for plan execution
+   * Reset state for new level
+   */
+  reset(): void {
+    this.activeContainers = [];
+    this.holdingHoles = [];
+    this.visibleScrewColors = [];
+    this.totalScrewsInLevel = 0;
+    this.screwsCollected = 0;
+  }
+
+  /**
+   * Generate statistics for level completion
+   */
+  generateCompletionStats(): {
+    containersUsed: number;
+    totalHolesCreated: number;
+    efficiency: number;
+    wastedSpace: number;
+  } {
+    const totalHoles = this.activeContainers.reduce((sum, c) => sum + c.maxHoles, 0);
+    const filledHoles = this.activeContainers.reduce((sum, c) => {
+      return sum + c.holes.filter(hole => hole !== null).length;
+    }, 0);
+    
+    const efficiency = totalHoles > 0 ? (filledHoles / totalHoles) * 100 : 0;
+    const wastedSpace = totalHoles - filledHoles;
+    
+    return {
+      containersUsed: this.activeContainers.length,
+      totalHolesCreated: totalHoles,
+      efficiency,
+      wastedSpace
+    };
+  }
+
+  /**
+   * Update progress when screw is collected
    */
   onScrewCollected(screwsCollected: number): void {
     this.screwsCollected = screwsCollected;
-
-    // Check if we need to execute next replacement
-    const nextReplacement = this.getNextPlannedReplacement();
-    if (nextReplacement && screwsCollected >= nextReplacement.atScrewCount) {
-      this.emit({
-        type: 'container:replacement:planned',
-        timestamp: Date.now(),
-        atScrewCount: nextReplacement.atScrewCount,
-        newColors: nextReplacement.newColors
-      });
-    }
-
-    // Update balance status
-    const balanceStatus = this.calculateBalanceStatus(screwsCollected);
-    this.emit({
-      type: 'perfect:balance:status',
-      timestamp: Date.now(),
-      status: balanceStatus
-    });
   }
 
-  /**
-   * Calculate current perfect balance status
-   */
-  calculateBalanceStatus(screwsCollected: number): PerfectBalanceStatus {
-    if (!this.currentPlan) return 'major_deviation';
-
-    const totalScrews = this.currentPlan.finalState.totalScrewsCollected;
-    const progress = screwsCollected / totalScrews;
-
-    // Check if we're following the plan correctly
-    const expectedReplacements = this.currentPlan.replacements.filter(r => 
-      r.atScrewCount <= screwsCollected
-    ).length;
-    
-    const actualReplacements = this.nextReplacementIndex;
-
-    if (progress >= 1.0 && this.validateCurrentState()) {
-      return 'achieved';
-    }
-
-    if (Math.abs(expectedReplacements - actualReplacements) > 1) {
-      return 'major_deviation';
-    }
-
-    if (expectedReplacements !== actualReplacements) {
-      return 'minor_deviation';
-    }
-
-    return 'on_track';
-  }
+  // Removed legacy setPlan method - no longer using precomputation system
 
   /**
-   * Generate final statistics for perfect balance achievement
+   * Legacy method - kept for compatibility but returns simplified stats
    */
-  generatePerfectBalanceStats(): PerfectBalanceStats {
+  generatePerfectBalanceStats(): {
+    containers: { filled: number; empty: number; total: number };
+    holdingHoles: { occupied: number; empty: number; total: number };
+    screws: { collected: number; total: number; wasteCount: number };
+    performance: { planExecutedPerfectly: boolean; deviationsFromPlan: number; finalBalanceAchieved: boolean };
+  } {
     const containers = this.activeContainers;
     const holdingHoles = this.holdingHoles;
 
     const filledContainers = containers.filter(c => {
       const screwCount = c.holes.filter(hole => hole !== null).length;
-      return screwCount === this.CONTAINER_CAPACITY;
+      return screwCount === c.maxHoles;
     }).length;
     const emptyContainers = containers.filter(c => {
       const screwCount = c.holes.filter(hole => hole !== null).length;
@@ -326,11 +253,8 @@ export class ContainerStrategyManager extends BaseSystem {
     const totalScrewsInHoldingHoles = occupiedHoldingHoles;
     const totalCollected = totalScrewsInContainers + totalScrewsInHoldingHoles;
 
-    const planExecutedPerfectly = this.currentPlan ? 
-      this.nextReplacementIndex === this.currentPlan.replacements.length : false;
-    
     const finalBalanceAchieved = emptyHoldingHoles === this.HOLDING_HOLE_COUNT && 
-      totalCollected % this.CONTAINER_CAPACITY === 0;
+      totalScrewsInHoldingHoles === 0; // All screws in containers
 
     return {
       containers: {
@@ -345,109 +269,16 @@ export class ContainerStrategyManager extends BaseSystem {
       },
       screws: {
         collected: totalCollected,
-        total: this.currentPlan?.finalState.totalScrewsCollected || totalCollected,
+        total: this.totalScrewsInLevel,
         wasteCount: totalScrewsInHoldingHoles
       },
       performance: {
-        planExecutedPerfectly,
-        deviationsFromPlan: this.currentPlan ? 
-          Math.abs(this.nextReplacementIndex - this.currentPlan.replacements.length) : 0,
+        planExecutedPerfectly: true, // No plan to follow
+        deviationsFromPlan: 0,
         finalBalanceAchieved
       }
     };
   }
 
-  /**
-   * Get next planned replacement
-   */
-  private getNextPlannedReplacement(): ContainerReplacement | null {
-    if (!this.currentPlan || this.nextReplacementIndex >= this.currentPlan.replacements.length) {
-      return null;
-    }
-    return this.currentPlan.replacements[this.nextReplacementIndex];
-  }
-
-  /**
-   * Execute a specific replacement
-   */
-  private executeReplacement(replacement: ContainerReplacement): void {
-    // Emit event to request GameState to execute the replacement
-    this.emit({
-      type: 'container:replacement:planned',
-      timestamp: Date.now(),
-      atScrewCount: replacement.atScrewCount,
-      newColors: replacement.newColors
-    });
-  }
-
-  /**
-   * Calculate remaining screws by color
-   */
-  private calculateRemainingScrews(): Map<string, number> {
-    // This is an approximation based on current state
-    // In a real implementation, this would query the actual remaining screws
-    const colorCounts = new Map<string, number>();
-    
-    // Initialize with all possible colors
-    getAllScrewColors().forEach(color => {
-      colorCounts.set(color, 0);
-    });
-
-    // Add screws from containers
-    this.activeContainers.forEach(container => {
-      const screwsInContainer = container.holes.filter(hole => hole !== null).length;
-      const currentCount = colorCounts.get(container.color) || 0;
-      // Estimate remaining based on container capacity
-      colorCounts.set(container.color, currentCount + (this.CONTAINER_CAPACITY - screwsInContainer));
-    });
-
-    // If we have a plan, use its color distribution for better accuracy
-    if (this.currentPlan && this.screwColorDistribution) {
-      const distribution = this.screwColorDistribution;
-      const totalCollected = this.screwsCollected;
-      const totalScrews = this.currentPlan.finalState.totalScrewsCollected;
-      
-      // Calculate approximate remaining for each color
-      distribution.colorCounts.forEach((total, color) => {
-        const percentageCollected = totalCollected / totalScrews;
-        const estimatedCollected = Math.floor(total * percentageCollected);
-        const remaining = Math.max(0, total - estimatedCollected);
-        colorCounts.set(color, remaining);
-      });
-    }
-
-    return colorCounts;
-  }
-
-  /**
-   * Get available holding holes count
-   */
-  private getAvailableHoldingHoles(): number {
-    return this.holdingHoles.filter(hole => hole.screwId === null).length;
-  }
-
-  /**
-   * Validate current state against plan expectations
-   */
-  private validateCurrentState(): boolean {
-    if (!this.currentPlan) return false;
-
-    const filledContainers = this.activeContainers.filter(c => {
-      const screwCount = c.holes.filter(hole => hole !== null).length;
-      return screwCount === this.CONTAINER_CAPACITY;
-    }).length;
-    
-    const emptyHoldingHoles = this.holdingHoles.filter(h => 
-      h.screwId === null
-    ).length;
-
-    // Allow some tolerance in validation
-    const expectedFilled = this.currentPlan.finalState.filledContainers;
-    const expectedEmpty = this.currentPlan.finalState.emptyHoldingHoles;
-
-    return (
-      Math.abs(filledContainers - expectedFilled) <= 1 &&
-      emptyHoldingHoles >= expectedEmpty - 1
-    );
-  }
+  // Removed legacy executeReplacementPlan method - no longer using precomputation system
 }

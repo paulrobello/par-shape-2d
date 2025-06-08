@@ -34,9 +34,11 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `game:paused` | Pause game execution | GameManager | PhysicsWorld |
 | `game:resumed` | Resume game execution | GameManager | PhysicsWorld |
 | `game:over` | End game state | GameManager, GameState | GameManager, EventFlowValidator |
-| `level:started` | New level initialization | GameManager, GameState | GameManager, LayerManager, EventFlowValidator |
+| `level:started` | New level initialization | GameManager, GameState | GameManager, LayerManager, ProgressTracker, EventFlowValidator |
 | `level:complete` | Level completion | GameState | GameManager, EventFlowValidator |
 | `level:progress:updated` | Level progress tracking | GameState | GameManager |
+| `progress:updated` | Global progress tracking (total screws vs containers) | ProgressTracker | GameManager |
+| `total_screw_count:set` | Total screw count for level | LayerManager | ProgressTracker |
 | `next_level:requested` | Request to advance to next level | GameManager | GameState |
 
 ### Screw System Events
@@ -44,7 +46,7 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 |------------|---------|----------|-------------|
 | `screw:clicked` | User screw interaction | GameManager | ScrewManager, EventFlowValidator |
 | `screw:removed` | Screw constraint removal | ScrewManager | EventFlowValidator |
-| `screw:collected` | Screw collection completion | ScrewManager | GameState, EventFlowValidator |
+| `screw:collected` | Screw collection completion | ScrewManager | ProgressTracker, GameState, EventFlowValidator |
 | `screw:blocked` | Screw becomes unremovable | ScrewManager | None |
 | `screw:unblocked` | Screw becomes removable | ScrewManager | None |
 | `screw:blocked:clicked` | Blocked screw clicked, triggers shake | ScrewManager | None |
