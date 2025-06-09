@@ -281,6 +281,11 @@ export class ScrewManager extends BaseSystem {
       this.state.allShapes.push(event.shape);
       this.state.layerIndexLookup.set(event.shape.layerId, event.layer.index);
       
+      // Debug logging for layer index tracking
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔄 ScrewManager: Shape created - updating layer index for ${event.shape.layerId} to ${event.layer.index}`);
+      }
+      
       // DON'T generate screws here - wait for physics:body:added event
       // when the body is actually added to the physics world
     });
@@ -414,7 +419,11 @@ export class ScrewManager extends BaseSystem {
         // Show visible layer information
         const visibleLayerIds = Array.from(this.state.visibleLayers);
         console.log(`[SCREW_CLICK]   • Visible Layers: [${visibleLayerIds.join(', ')}]`);
-        console.log(`[SCREW_CLICK]   • Layer Index Lookup:`, Array.from(this.state.layerIndexLookup.entries()));
+        const lookupEntries = Array.from(this.state.layerIndexLookup.entries());
+        console.log(`[SCREW_CLICK]   • Layer Index Lookup (${lookupEntries.length} entries):`);
+        lookupEntries.forEach(([layerId, index]) => {
+          console.log(`[SCREW_CLICK]     - ${layerId}: ${index}`);
+        });
         
         console.log(`[SCREW_CLICK] ═════════════════════════════════════════`);
       }
@@ -1883,6 +1892,13 @@ export class ScrewManager extends BaseSystem {
     }
 
     const screwLayerIndex = this.state.layerIndexLookup.get(screwShape.layerId) ?? -1;
+    
+    // Debug logging for missing layer index
+    if (screwLayerIndex === -1) {
+      console.warn(`⚠️ ScrewManager: Could not find index for layer ${screwShape.layerId} in layerIndexLookup. Current lookup:`, 
+        Array.from(this.state.layerIndexLookup.entries()));
+    }
+    
     const blockingShapeIds: string[] = [];
     
     for (const shape of this.state.allShapes) {
@@ -1925,6 +1941,12 @@ export class ScrewManager extends BaseSystem {
     if (!screwShape) return [];
 
     const screwLayerIndex = this.state.layerIndexLookup.get(screwShape.layerId) ?? -1;
+    
+    // Debug logging for missing layer index
+    if (screwLayerIndex === -1) {
+      console.warn(`⚠️ ScrewManager.getBlockingShapes: Could not find index for layer ${screwShape.layerId} in layerIndexLookup`);
+    }
+    
     const blockingShapes: Shape[] = [];
 
     for (const shape of this.state.allShapes) {

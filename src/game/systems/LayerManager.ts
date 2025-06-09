@@ -841,6 +841,9 @@ export class LayerManager extends BaseSystem {
       
       this.state.layersGeneratedThisLevel = this.state.totalLayersForLevel;
       
+      // Ensure layer indices are properly updated after all layers and shapes are created
+      this.updateLayerIndices();
+      
       if (DEBUG_CONFIG.logLayerDebug) {
         console.log(`Initialized level ${levelNumber} with ${this.state.totalLayersForLevel} total layers. ${GAME_CONFIG.layer.maxVisible} visible initially.`);
       }
