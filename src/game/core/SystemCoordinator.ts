@@ -153,9 +153,6 @@ export class SystemCoordinator {
    */
   public update(deltaTime: number): void {
     if (!this.isInitialized || this.isDestroyed) {
-      if (Date.now() % 1000 < 50) { // Log once per second
-        console.log(`⚠️ SystemCoordinator: NOT updating - initialized: ${this.isInitialized}, destroyed: ${this.isDestroyed}`);
-      }
       return;
     }
 

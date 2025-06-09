@@ -82,6 +82,9 @@ interface GameManagerState {
   
   // Throttling for collision logging
   lastCollisionLogTime: number;
+  
+  // Throttling for render logging
+  lastRenderLogTime?: number;
 }
 
 export class GameManager extends BaseSystem {
@@ -1019,9 +1022,6 @@ export class GameManager extends BaseSystem {
   public update(deltaTime: number): void {
     this.executeIfActive(() => {
       if (!this.state.gameStarted || this.state.gameOver) {
-        if (Date.now() % 2000 < 50) { // Log every 2 seconds
-          console.log(`🎮 GameManager: NOT updating - gameStarted: ${this.state.gameStarted}, gameOver: ${this.state.gameOver}`);
-        }
         return;
       }
 
@@ -1554,9 +1554,6 @@ export class GameManager extends BaseSystem {
 
   private renderShapesAndScrews(): void {
     if (!this.state.ctx || this.state.visibleLayers.length === 0) {
-      if (Date.now() % 1000 < 50) { // Log every second
-        console.log(`🎨 renderShapesAndScrews: No visible layers to render (${this.state.visibleLayers.length} layers)`);
-      }
       return;
     }
 
@@ -1566,8 +1563,9 @@ export class GameManager extends BaseSystem {
       debugMode: this.state.debugMode
     };
     
-    // Log rendering state periodically
-    if (Date.now() % 2000 < 50) { // Log every 2 seconds
+    // Log rendering state periodically (with proper throttling)
+    if (!this.state.lastRenderLogTime || Date.now() - this.state.lastRenderLogTime > 2000) {
+      this.state.lastRenderLogTime = Date.now();
       let totalShapes = 0;
       let totalScrews = 0;
       this.state.visibleLayers.forEach(layer => {
