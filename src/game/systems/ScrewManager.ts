@@ -382,26 +382,41 @@ export class ScrewManager extends BaseSystem {
       
       if (DEBUG_CONFIG.logScrewDebug) {
         const isBlockedForGameplay = this.isScrewBlockedForGameplay(screw.id);
-        console.log(`[SCREW_CLICK] Screw ${event.screw.id} clicked:`, {
-          isRemovable: screw.isRemovable,
-          isBlockedForGameplay,
-          isCollected: screw.isCollected,
-          isBeingCollected: screw.isBeingCollected,
-          screwPosition: screw.position,
-          clickPosition: event.position
-        });
+        const screwShape = this.state.allShapes.find(s => s.id === screw.shapeId);
+        const screwLayerIndex = screwShape ? this.state.layerIndexLookup.get(screwShape.layerId) ?? -1 : -1;
         
-        // Also check blocking shapes when clicked
+        console.log(`[SCREW_CLICK] ═════════════════════════════════════════`);
+        console.log(`[SCREW_CLICK] Screw ${event.screw.id} clicked:`);
+        console.log(`[SCREW_CLICK]   • Position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+        console.log(`[SCREW_CLICK]   • Shape: ${screw.shapeId} (Layer: ${screwShape?.layerId || 'unknown'})`);
+        console.log(`[SCREW_CLICK]   • Layer Index: ${screwLayerIndex}`);
+        console.log(`[SCREW_CLICK]   • Removable: ${screw.isRemovable}`);
+        console.log(`[SCREW_CLICK]   • Blocked for Gameplay: ${isBlockedForGameplay}`);
+        console.log(`[SCREW_CLICK]   • Collected: ${screw.isCollected}`);
+        console.log(`[SCREW_CLICK]   • Being Collected: ${screw.isBeingCollected}`);
+        
+        // Check blocking shapes when clicked
         const blockingShapes = this.getBlockingShapes(screw);
         if (blockingShapes.length > 0) {
-          console.log(`[SCREW_CLICK] Blocking shapes found:`, blockingShapes.map(shape => ({
-            id: shape.id,
-            type: shape.type,
-            layerId: shape.layerId,
-            position: shape.body.position,
-            bounds: shape.body.bounds
-          })));
+          console.log(`[SCREW_CLICK]   • Blocking Shapes (${blockingShapes.length}):`);
+          blockingShapes.forEach((shape, index) => {
+            const shapeLayerIndex = this.state.layerIndexLookup.get(shape.layerId) ?? -1;
+            const isVisible = this.state.visibleLayers.has(shape.layerId);
+            console.log(`[SCREW_CLICK]     ${index + 1}. ${shape.id} (${shape.type})`);
+            console.log(`[SCREW_CLICK]        Layer: ${shape.layerId} (Index: ${shapeLayerIndex})`);
+            console.log(`[SCREW_CLICK]        Visible: ${isVisible}`);
+            console.log(`[SCREW_CLICK]        Position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+            console.log(`[SCREW_CLICK]        Bounds: min(${shape.body.bounds.min.x.toFixed(1)}, ${shape.body.bounds.min.y.toFixed(1)}) max(${shape.body.bounds.max.x.toFixed(1)}, ${shape.body.bounds.max.y.toFixed(1)})`);
+          });
+        } else {
+          console.log(`[SCREW_CLICK]   • No blocking shapes found`);
         }
+        
+        // Show visible layer information
+        const visibleLayerIds = Array.from(this.state.visibleLayers);
+        console.log(`[SCREW_CLICK]   • Visible Layers: [${visibleLayerIds.join(', ')}]`);
+        
+        console.log(`[SCREW_CLICK] ═════════════════════════════════════════`);
       }
       
       // Check if force removal is enabled (Shift+click in debug mode)
