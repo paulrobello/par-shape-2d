@@ -50,7 +50,8 @@ import {
   ScrewTransferColorCheckEvent,
   LayersUpdatedEvent,
   LayerIndicesUpdatedEvent,
-  ScrewCountRequestedEvent
+  ScrewCountRequestedEvent,
+  LevelStartedEvent
 } from '../events/EventTypes';
 
 interface ScrewManagerState {
@@ -272,6 +273,9 @@ export class ScrewManager extends BaseSystem {
     // Screw count requests
     this.subscribe('screw_count:requested', this.handleScrewCountRequested.bind(this));
     this.subscribe('remaining_screws:requested', this.handleRemainingScrewCountsRequested.bind(this));
+    
+    // Level lifecycle events
+    this.subscribe('level:started', this.handleLevelStarted.bind(this));
   }
 
   // Event Handlers
@@ -948,6 +952,18 @@ export class ScrewManager extends BaseSystem {
       
       // Call the callback with the screw counts
       event.callback(screwsByColor);
+    });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  private handleLevelStarted(event: LevelStartedEvent): void {
+    this.executeIfActive(() => {
+      // Clear layer index lookup to prevent stale data from previous levels
+      this.state.layerIndexLookup.clear();
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log('ScrewManager: Cleared layer index lookup for new level');
+      }
     });
   }
 
