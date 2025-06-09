@@ -792,9 +792,9 @@ export class GameManager extends BaseSystem {
         return; // Skip collected or animating screws
       }
       
-      // Check if screw is visually occluded by shapes in front of it
-      if (this.isScrewVisuallyOccluded(screw, point)) {
-        return; // Skip screws that are visually blocked
+      // Check if screw is in a hidden layer - these should not be clickable at all
+      if (this.isScrewInHiddenLayer(screw)) {
+        return; // Skip screws in hidden layers completely
       }
 
       const dx = screw.position.x - point.x;
@@ -821,51 +821,27 @@ export class GameManager extends BaseSystem {
   }
 
   /**
-   * Check if a screw is visually occluded by shapes in layers in front of it
+   * Check if a screw is in a hidden layer
    */
-  private isScrewVisuallyOccluded(screw: Screw, clickPoint: Vector2): boolean {
+  private isScrewInHiddenLayer(screw: Screw): boolean {
     if (!screw.shapeId) {
-      return false; // Can't determine occlusion without shape reference
+      return false; // Can't determine layer without shape reference
     }
 
-    // Find the screw's parent shape to get its layer
-    let screwLayer: Layer | null = null;
+    // Check if the screw's parent shape is in a visible layer
     for (const layer of this.state.visibleLayers) {
       for (const shape of layer.shapes) {
         if (shape.id === screw.shapeId) {
-          screwLayer = layer;
-          break;
-        }
-      }
-      if (screwLayer) break;
-    }
-
-    if (!screwLayer) {
-      return false; // Can't find screw's layer
-    }
-
-    // Check if any shapes in layers in front (lower depthIndex) occlude the click point
-    for (const layer of this.state.visibleLayers) {
-      // Only check layers that are in front of (have lower depthIndex than) the screw's layer
-      if (layer.depthIndex >= screwLayer.depthIndex) {
-        continue;
-      }
-
-      // Check if any shape in this front layer occludes the click point
-      for (const shape of layer.shapes) {
-        const bounds = shape.getBounds();
-        if (bounds &&
-            clickPoint.x >= bounds.x && clickPoint.x <= bounds.x + bounds.width &&
-            clickPoint.y >= bounds.y && clickPoint.y <= bounds.y + bounds.height) {
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`Screw ${screw.id} is visually occluded by shape ${shape.id} in layer ${layer.depthIndex}`);
-          }
-          return true; // Click point is inside a shape in a front layer
+          return false; // Found in visible layer - not hidden
         }
       }
     }
 
-    return false; // No visual occlusion found
+    // Screw's parent shape not found in visible layers - it's hidden
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`Screw ${screw.id} is in a hidden layer - skipping`);
+    }
+    return true;
   }
 
   // Menu Handling
