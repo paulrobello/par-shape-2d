@@ -44,7 +44,12 @@ export class Layer implements ILayer {
         console.log(`Layer ${this.id} created as restored - no fade-in`);
       }
     } else if (startFadeIn) {
-      this.startFadeIn();
+      // Layer will fade in when made visible - start with opacity 0
+      this.fadeOpacity = 0;
+      this.fadeStartTime = 0;
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`Layer ${this.id} created with fade-in capability - fadeOpacity set to 0`);
+      }
     } else {
       this.fadeOpacity = 1; // Fully visible by default
     }
@@ -124,15 +129,22 @@ export class Layer implements ILayer {
   }
 
   /**
-   * Make this layer visible and start fade-in animation
+   * Make this layer visible with optional fade-in animation
    */
-  public makeVisible(): void {
+  public makeVisible(withFadeIn: boolean = true): void {
     if (!this.isVisible) {
+      console.log(`[Layer ${this.id}] makeVisible called: withFadeIn=${withFadeIn}, current fadeOpacity=${this.fadeOpacity}`);
       this.isVisible = true;
-      this.startFadeIn();
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`Layer ${this.id} made visible with fade-in animation`);
+      if (withFadeIn) {
+        this.startFadeIn();
+        console.log(`[Layer ${this.id}] Made visible with fade-in animation - fadeOpacity set to 0, fadeStartTime=${this.fadeStartTime}`);
+      } else {
+        this.fadeOpacity = 1.0;
+        this.fadeStartTime = 0;
+        console.log(`[Layer ${this.id}] Made visible immediately (no fade-in) - fadeOpacity set to 1.0`);
       }
+    } else {
+      console.log(`[Layer ${this.id}] makeVisible called but layer already visible (fadeOpacity=${this.fadeOpacity})`);
     }
   }
 
@@ -181,8 +193,21 @@ export class Layer implements ILayer {
   }
 
   public updateVisibility(maxVisibleLayers: number, currentLayerIndex: number): void {
+    const wasVisible = this.isVisible;
     this.isVisible = this.index >= currentLayerIndex && 
                      this.index < currentLayerIndex + maxVisibleLayers;
+    
+    // Debug logging for visibility changes
+    if (DEBUG_CONFIG.logLayerDebug || this.isVisible !== wasVisible) {
+      console.log(`[Layer ${this.id}] updateVisibility: wasVisible=${wasVisible}, isVisible=${this.isVisible}, fadeOpacity=${this.fadeOpacity}, index=${this.index}, maxVisible=${maxVisibleLayers}, currentIndex=${currentLayerIndex}`);
+    }
+    
+    // If layer became visible through updateVisibility AND it was previously set as hidden
+    // (i.e., it has fadeOpacity = 0), start fade-in animation
+    if (this.isVisible && !wasVisible && this.fadeOpacity === 0) {
+      console.log(`[Layer ${this.id}] Starting fade-in animation: wasVisible=${wasVisible} → isVisible=${this.isVisible}, fadeOpacity=${this.fadeOpacity}`);
+      this.startFadeIn();
+    }
   }
 
   public setGenerated(generated: boolean): void {

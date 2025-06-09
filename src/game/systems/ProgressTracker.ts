@@ -6,6 +6,7 @@
 import { BaseSystem } from '../core/BaseSystem';
 import {
   TotalScrewCountSetEvent,
+  TotalScrewCountAddEvent,
   ProgressUpdatedEvent,
   LevelCompletedEvent,
   LevelStartedEvent,
@@ -42,8 +43,9 @@ export class ProgressTracker extends BaseSystem {
     console.log('[ProgressTracker] Setting up event listeners...');
     
     // Listen for total screw count
-    console.log('[ProgressTracker] Subscribing to total_screw_count:set');
+    console.log('[ProgressTracker] Subscribing to total_screw_count:set and total_screw_count:add');
     this.subscribe('total_screw_count:set', this.handleTotalScrewCountSet.bind(this));
+    this.subscribe('total_screw_count:add', this.handleTotalScrewCountAdd.bind(this));
     
     // Listen for screws being collected to containers
     console.log('[ProgressTracker] Subscribing to screw:collected');
@@ -65,6 +67,15 @@ export class ProgressTracker extends BaseSystem {
     this.executeIfActive(() => {
       console.log(`[ProgressTracker] Total screw count set: ${event.totalScrews}`);
       this.state.totalScrews = event.totalScrews;
+      this.calculateAndEmitProgress();
+    });
+  }
+
+  private handleTotalScrewCountAdd(event: TotalScrewCountAddEvent): void {
+    this.executeIfActive(() => {
+      console.log(`[ProgressTracker] Adding ${event.additionalScrews} screws to total count (was ${this.state.totalScrews})`);
+      this.state.totalScrews += event.additionalScrews;
+      console.log(`[ProgressTracker] New total screw count: ${this.state.totalScrews}`);
       this.calculateAndEmitProgress();
     });
   }

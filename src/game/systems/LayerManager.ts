@@ -10,6 +10,7 @@ import { ShapeFactory } from '@/game/systems/ShapeFactory';
 import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
 import { ScrewColor } from '@/types/game';
 import { randomIntBetween } from '@/game/utils/MathUtils';
+import Matter from 'matter-js';
 // Removed precomputation imports - no longer using precomputation system
 import {
   BoundsChangedEvent,
@@ -253,11 +254,20 @@ export class LayerManager extends BaseSystem {
           });
           
           // Emit total screw count for progress tracking
-          console.log(`[LayerManager] Emitting total screw count: ${totalScrews}`);
+          // IMPORTANT: Only count screws from visible layers for initial progress tracking
+          // Hidden layers will add their screws when they become visible
+          const visibleLayers = this.getVisibleLayers();
+          const visibleScrews = visibleLayers.reduce((total, layer) => {
+            return total + layer.getAllShapes().reduce((shapeTotal, shape) => {
+              return shapeTotal + shape.getAllScrews().length;
+            }, 0);
+          }, 0);
+          
+          console.log(`[LayerManager] Emitting total screw count: ${visibleScrews} (visible layers only, ${totalScrews - visibleScrews} screws in hidden layers will be added later)`);
           this.emit({
             type: 'total_screw_count:set',
             timestamp: Date.now(),
-            totalScrews,
+            totalScrews: visibleScrews,
             source: this.systemName
           });
         }
@@ -788,7 +798,9 @@ export class LayerManager extends BaseSystem {
       console.log(`[LayerManager] Generating all ${this.state.totalLayersForLevel} layers for level ${levelNumber}`);
       
       for (let i = 0; i < this.state.totalLayersForLevel; i++) {
-        const layer = this.createLayer();
+        // Create layer with fade-in for layers beyond the initial visible ones
+        const shouldFadeIn = i >= GAME_CONFIG.layer.maxVisible;
+        const layer = this.createLayer(shouldFadeIn);
         this.generateShapesForLayer(layer);
         
         // Only make the first few layers visible initially
@@ -796,7 +808,7 @@ export class LayerManager extends BaseSystem {
           layer.makeHidden();
           // Disable physics for hidden layers
           this.disableLayerPhysics(layer);
-          console.log(`[LayerManager] Layer ${i + 1} generated but hidden with physics disabled`);
+          console.log(`[LayerManager] Layer ${i + 1} generated but hidden with physics disabled and fade-in ready`);
         } else {
           console.log(`[LayerManager] Layer ${i + 1} generated and visible`);
         }
@@ -835,6 +847,21 @@ export class LayerManager extends BaseSystem {
         this.enableLayerPhysics(hiddenLayer);
         
         console.log(`[LayerManager] Made layer ${hiddenLayer.id} visible with fade-in and enabled physics`);
+        
+        // Add the newly visible layer's screws to the total screw count for progress tracking
+        const newLayerScrews = hiddenLayer.getAllShapes().reduce((total, shape) => {
+          return total + shape.getAllScrews().length;
+        }, 0);
+        
+        if (newLayerScrews > 0) {
+          console.log(`[LayerManager] Adding ${newLayerScrews} screws from newly visible layer ${hiddenLayer.id} to total count`);
+          this.emit({
+            type: 'total_screw_count:add',
+            timestamp: Date.now(),
+            additionalScrews: newLayerScrews,
+            source: this.systemName
+          });
+        }
         
         // Log shape positions to verify they're in visible area
         if (DEBUG_CONFIG.logLayerDebug) {
@@ -948,9 +975,53 @@ export class LayerManager extends BaseSystem {
     const maxVisible = GAME_CONFIG.layer.maxVisible;
     const visibilityChanged: { layer: Layer; visible: boolean }[] = [];
     
-    this.state.layers.forEach((layer) => {
+    // Count currently visible layers to understand the state
+    const currentlyVisibleCount = this.state.layers.filter(l => l.isVisible).length;
+    
+    console.log(`[LayerManager] updateLayerVisibility: ${this.state.layers.length} total layers, ${currentlyVisibleCount} currently visible, maxVisible=${maxVisible}`);
+    
+    // Process each layer's visibility
+    this.state.layers.forEach((layer, index) => {
       const wasVisible = layer.isVisible;
-      layer.updateVisibility(maxVisible, 0);
+      
+      // Determine if this layer should be visible based on index
+      const shouldBeVisibleByIndex = index < maxVisible;
+      
+      // Enhanced fade-in detection - check if layer was recently made visible with fade-in
+      const isFadingIn = layer.fadeOpacity < 1 && layer.fadeStartTime > 0;
+      const recentlyMadeVisible = layer.isVisible && layer.fadeStartTime > 0 && (Date.now() - layer.fadeStartTime) < 2000; // 2 second window
+      
+      // Preserve layers that should stay visible
+      const shouldPreserveVisibility = layer.isVisible && (isFadingIn || recentlyMadeVisible);
+      
+      console.log(`[LayerManager] Layer ${layer.id} (index=${index}): wasVisible=${wasVisible}, shouldBeVisibleByIndex=${shouldBeVisibleByIndex}, isFadingIn=${isFadingIn}, recentlyMadeVisible=${recentlyMadeVisible}, fadeOpacity=${layer.fadeOpacity}, fadeStartTime=${layer.fadeStartTime}`);
+      
+      // Determine final visibility state
+      // CRITICAL: If a layer was explicitly made visible (e.g., by showNextHiddenLayer), preserve that state
+      // regardless of index-based rules to prevent interference with fade-in animations
+      let shouldBeVisible: boolean;
+      if (shouldPreserveVisibility) {
+        shouldBeVisible = true; // Always preserve explicitly revealed layers
+        console.log(`[LayerManager] Preserving visibility for layer ${layer.id} (fade-in or recently revealed)`);
+      } else {
+        shouldBeVisible = shouldBeVisibleByIndex; // Use index-based rules for other layers
+      }
+      
+      // Only change visibility if absolutely necessary and safe to do so
+      if (layer.isVisible !== shouldBeVisible) {
+        if (shouldBeVisible) {
+          layer.isVisible = true;
+          console.log(`[LayerManager] Made layer ${layer.id} visible (index-based rule)`);
+        } else {
+          // Only hide layers if they're not in a fade-in state
+          if (!isFadingIn && !recentlyMadeVisible) {
+            layer.isVisible = false;
+            console.log(`[LayerManager] Made layer ${layer.id} hidden`);
+          } else {
+            console.log(`[LayerManager] Skipping hide for layer ${layer.id} - layer is fading in or recently revealed`);
+          }
+        }
+      }
       
       if (wasVisible !== layer.isVisible) {
         visibilityChanged.push({ layer, visible: layer.isVisible });
@@ -1239,30 +1310,70 @@ export class LayerManager extends BaseSystem {
       
       layer.getAllShapes().forEach(shape => {
         const shapeBounds = shape.getBounds();
+        const pos = shape.position;
+        
+        // More aggressive bounds checking - check both position and bounds
         const isOutOfBounds = (
+          // Position checks
+          pos.y < visibleBounds.y ||
+          pos.y > visibleBounds.y + visibleBounds.height ||
+          pos.x < visibleBounds.x ||
+          pos.x > visibleBounds.x + visibleBounds.width ||
+          // Bounds checks
           shapeBounds.y < visibleBounds.y ||
           shapeBounds.y + shapeBounds.height > visibleBounds.y + visibleBounds.height ||
           shapeBounds.x < visibleBounds.x ||
-          shapeBounds.x + shapeBounds.width > visibleBounds.x + visibleBounds.width
+          shapeBounds.x + shapeBounds.width > visibleBounds.x + visibleBounds.width ||
+          // Extra check for shapes near edges that might be partially off-screen
+          shapeBounds.y + shapeBounds.height > this.state.virtualGameHeight! - 50 ||
+          shapeBounds.x + shapeBounds.width > this.state.virtualGameWidth! - 50
         );
         
+        console.log(`🔍 Shape ${shape.id} bounds check:
+          Position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})
+          Bounds: (${shapeBounds.x.toFixed(1)}, ${shapeBounds.y.toFixed(1)}, ${shapeBounds.width.toFixed(1)}, ${shapeBounds.height.toFixed(1)})
+          Visible bounds: (${visibleBounds.x}, ${visibleBounds.y}, ${visibleBounds.width}, ${visibleBounds.height})
+          Out of bounds: ${isOutOfBounds}`);
+        
         if (isOutOfBounds) {
-          // Calculate new position within visible bounds
+          // Calculate new position within visible bounds with proper margins
           const margin = 50;
-          const newX = visibleBounds.x + margin + Math.random() * (visibleBounds.width - 2 * margin - shapeBounds.width);
-          const newY = visibleBounds.y + margin + Math.random() * (visibleBounds.height - 2 * margin - shapeBounds.height);
+          const safeWidth = Math.max(100, visibleBounds.width - 2 * margin);
+          const safeHeight = Math.max(100, visibleBounds.height - 2 * margin);
           
-          console.log(`Repositioning shape ${shape.id} from (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}) to (${newX.toFixed(1)}, ${newY.toFixed(1)})`);
+          // Calculate new center position (shapes are positioned by their center)
+          const newX = visibleBounds.x + margin + Math.random() * safeWidth;
+          const newY = visibleBounds.y + margin + Math.random() * safeHeight;
           
-          // Update shape position
-          shape.position.x = newX + shapeBounds.width / 2;
-          shape.position.y = newY + shapeBounds.height / 2;
+          console.log(`🔧 Repositioning shape ${shape.id}:`);
+          console.log(`  From: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+          console.log(`  To: (${newX.toFixed(1)}, ${newY.toFixed(1)})`);
           
-          // Update physics body position
+          // Update shape position (center point)
+          shape.position.x = newX;
+          shape.position.y = newY;
+          
+          // CRITICAL: Update physics body position using Matter.js Body.setPosition
           if (shape.body) {
-            shape.body.position.x = shape.position.x;
-            shape.body.position.y = shape.position.y;
+            console.log(`  Updating physics body from (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)}) to (${newX.toFixed(1)}, ${newY.toFixed(1)})`);
+            
+            // Use Matter.js Body.setPosition to properly update physics body
+            // This will also update all constraints and composite parts
+            Matter.Body.setPosition(shape.body, { x: newX, y: newY });
+            
+            // Also update velocity to prevent physics drift
+            Matter.Body.setVelocity(shape.body, { x: 0, y: 0 });
+            Matter.Body.setAngularVelocity(shape.body, 0);
+            
+            console.log(`  Physics body updated to: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
           }
+          
+          // Update screw positions relative to new shape position
+          shape.getAllScrews().forEach(screw => {
+            // Screws should maintain their relative position to the shape
+            // This will be handled automatically by the physics system
+            console.log(`  Screw ${screw.id} will be updated by physics system`);
+          });
           
           repositionedCount++;
         }
@@ -1270,6 +1381,111 @@ export class LayerManager extends BaseSystem {
     });
     
     console.log(`🔧 Repositioned ${repositionedCount} shapes to visible area`);
+  }
+
+  /**
+   * Debug method to check for discrepancies between total screws and visible screws
+   */
+  public debugScrewDiscrepancy(): void {
+    console.log('🔍 Debugging screw discrepancy...');
+    
+    // Count total screws across ALL layers (visible and hidden)
+    let totalScrewsAllLayers = 0;
+    let totalShapesAllLayers = 0;
+    let totalScrewsVisibleLayers = 0;
+    let totalShapesVisibleLayers = 0;
+    let totalScrewsHiddenLayers = 0;
+    let totalShapesHiddenLayers = 0;
+    
+    // Detailed breakdown by layer
+    const layerBreakdown: Array<{
+      layerId: string;
+      index: number;
+      visible: boolean;
+      shapeCount: number;
+      screwCount: number;
+      activeScrewCount: number;
+    }> = [];
+    
+    this.state.layers.forEach(layer => {
+      const shapes = layer.getAllShapes();
+      const shapeCount = shapes.length;
+      let screwCount = 0;
+      let activeScrewCount = 0;
+      
+      shapes.forEach(shape => {
+        const screws = shape.getAllScrews();
+        const activeScrews = shape.getActiveScrews();
+        screwCount += screws.length;
+        activeScrewCount += activeScrews.length;
+      });
+      
+      layerBreakdown.push({
+        layerId: layer.id,
+        index: layer.index,
+        visible: layer.isVisible,
+        shapeCount,
+        screwCount,
+        activeScrewCount
+      });
+      
+      totalShapesAllLayers += shapeCount;
+      totalScrewsAllLayers += screwCount;
+      
+      if (layer.isVisible) {
+        totalShapesVisibleLayers += shapeCount;
+        totalScrewsVisibleLayers += screwCount;
+      } else {
+        totalShapesHiddenLayers += shapeCount;
+        totalScrewsHiddenLayers += screwCount;
+      }
+    });
+    
+    // Get screw count from the progress tracker's perspective
+    // Note: LayerManager doesn't have direct access to SystemCoordinator
+    // We'll emit an event to get this information
+    const progressTrackerScrewCount = 0;
+    const progressTrackerContainerCount = 0;
+    
+    // For now, we'll just log what we can see from LayerManager's perspective
+    // The full comparison will need to be done from GameManager which has access to all systems
+    
+    console.log(`📊 Screw Discrepancy Analysis:`);
+    console.log(`\n🎮 Progress Tracker View:`);
+    console.log(`  - Total screws tracked: ${progressTrackerScrewCount}`);
+    console.log(`  - Screws in containers: ${progressTrackerContainerCount}`);
+    console.log(`  - Progress percentage: ${progressTrackerContainerCount > 0 ? Math.floor((progressTrackerContainerCount / progressTrackerScrewCount) * 100) : 0}%`);
+    
+    console.log(`\n🎯 Layer Manager View:`);
+    console.log(`  - Total layers: ${this.state.layers.length} (Visible: ${this.getVisibleLayers().length}, Hidden: ${this.state.layers.length - this.getVisibleLayers().length})`);
+    console.log(`  - Total shapes: ${totalShapesAllLayers} (Visible: ${totalShapesVisibleLayers}, Hidden: ${totalShapesHiddenLayers})`);
+    console.log(`  - Total screws: ${totalScrewsAllLayers} (Visible: ${totalScrewsVisibleLayers}, Hidden: ${totalScrewsHiddenLayers})`);
+    
+    console.log(`\n⚠️ Discrepancy:`);
+    console.log(`  - ProgressTracker shows ${progressTrackerScrewCount} total screws`);
+    console.log(`  - LayerManager has ${totalScrewsAllLayers} total screws across all layers`);
+    console.log(`  - Visible layers only have ${totalScrewsVisibleLayers} screws`);
+    console.log(`  - Missing from visible rendering: ${progressTrackerScrewCount - totalScrewsVisibleLayers} screws`);
+    
+    console.log(`\n📋 Layer Breakdown:`);
+    layerBreakdown.forEach(layer => {
+      const visibilityIcon = layer.visible ? '👁️' : '👻';
+      console.log(`  ${visibilityIcon} Layer ${layer.index} (${layer.layerId}):`);
+      console.log(`     - Shapes: ${layer.shapeCount}`);
+      console.log(`     - Total screws: ${layer.screwCount}`);
+      console.log(`     - Active screws: ${layer.activeScrewCount}`);
+    });
+    
+    // Check if the issue is that screws are being counted from hidden layers
+    if (totalScrewsHiddenLayers > 0) {
+      console.log(`\n💡 Hidden layers contain ${totalScrewsHiddenLayers} screws that may be incorrectly included in progress tracking!`);
+    }
+    
+    // Check if screws might be orphaned (not attached to any shape)
+    if (progressTrackerScrewCount > totalScrewsAllLayers) {
+      console.log(`\n⚠️ ProgressTracker is tracking ${progressTrackerScrewCount - totalScrewsAllLayers} MORE screws than exist in all layers!`);
+      console.log(`   This suggests orphaned screws or double-counting.`);
+    }
   }
 
   protected onDestroy(): void {

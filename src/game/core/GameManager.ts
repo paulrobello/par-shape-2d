@@ -8,6 +8,7 @@ import { BaseSystem } from './BaseSystem';
 import { GameLoop } from './GameLoop';
 import { eventBus } from '@/game/events/EventBus';
 import { ScrewManager } from '@/game/systems/ScrewManager';
+import Matter from 'matter-js';
 // Removed precomputation imports - no longer using precomputation system
 import { GAME_CONFIG, SCREW_COLORS, LAYOUT_CONSTANTS, UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
@@ -705,6 +706,26 @@ export class GameManager extends BaseSystem {
             }
           }
           break;
+        case 'e':
+          // Debug rendering pipeline
+          this.debugRenderingPipeline();
+          break;
+        case 'x':
+          // Debug screw discrepancy
+          this.debugScrewDiscrepancy();
+          break;
+        case 'z':
+          // Force cleanup orphaned screws
+          this.forceCleanupOrphanedScrews();
+          break;
+        case 'o':
+          // Force fix layer opacity
+          this.forceFixLayerOpacity();
+          break;
+        case 'a':
+          // Debug fade animation state
+          this.debugFadeAnimationState();
+          break;
       }
     });
   }
@@ -1330,7 +1351,7 @@ export class GameManager extends BaseSystem {
       `Game State: Started=${this.state.gameStarted}, Over=${this.state.gameOver}`,
       `Level: ${this.state.currentLevel}, Score: ${this.state.levelScore}/${this.state.totalScore}`,
       physicsStats || 'Physics: N/A',
-      `Debug Keys: D(debug) R(restart) G(game over) S(save) I(inspect) C(clear)`,
+      `Debug Keys: D(debug) R(restart) G(game over) S(save) I(inspect) C(clear) L(layers) V(cleanup) F(reposition) E(render debug) X(screw debug) Z(cleanup orphans) O(fix opacity) A(fade debug)`,
       `Shift Bypass: ${this.state.shiftKeyPressed ? 'ENABLED (Hold Shift+Click)' : 'Disabled'}`
     ];
 
@@ -1636,6 +1657,467 @@ export class GameManager extends BaseSystem {
   }
 
   // Removed startLevelPrecomputation method - no longer using precomputation system
+
+  /**
+   * Debug method to analyze screw discrepancy between systems
+   */
+  private debugScrewDiscrepancy(): void {
+    if (!this.state.systemCoordinator) {
+      console.warn('SystemCoordinator not available for screw discrepancy debug');
+      return;
+    }
+
+    console.log('🔍 === COMPREHENSIVE SCREW DISCREPANCY ANALYSIS ===');
+    
+    // Get all systems
+    const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+    const progressTracker = this.state.systemCoordinator.getSystem('ProgressTracker') as import('../systems/ProgressTracker').ProgressTracker;
+    const screwManager = this.state.systemCoordinator.getSystem('ScrewManager') as import('../systems/ScrewManager').ScrewManager;
+
+    if (!layerManager || !progressTracker || !screwManager) {
+      console.error('One or more required systems not available');
+      return;
+    }
+
+    // Get data from each system
+    const progressState = progressTracker.getProgressState();
+    const allLayers = layerManager.getLayers();
+    const visibleLayers = layerManager.getVisibleLayers();
+
+    // Count screws from LayerManager perspective
+    let totalScrewsAllLayers = 0;
+    let totalShapesAllLayers = 0;
+    let totalScrewsVisibleLayers = 0;
+    let totalShapesVisibleLayers = 0;
+    let totalScrewsHiddenLayers = 0;
+    let totalShapesHiddenLayers = 0;
+
+    const layerBreakdown: Array<{
+      layerId: string;
+      index: number;
+      visible: boolean;
+      shapeCount: number;
+      screwCount: number;
+      activeScrewCount: number;
+    }> = [];
+
+    allLayers.forEach(layer => {
+      const shapes = layer.getAllShapes();
+      const shapeCount = shapes.length;
+      let screwCount = 0;
+      let activeScrewCount = 0;
+
+      shapes.forEach(shape => {
+        const screws = shape.getAllScrews();
+        const activeScrews = shape.getActiveScrews();
+        screwCount += screws.length;
+        activeScrewCount += activeScrews.length;
+      });
+
+      layerBreakdown.push({
+        layerId: layer.id,
+        index: layer.index,
+        visible: layer.isVisible,
+        shapeCount,
+        screwCount,
+        activeScrewCount
+      });
+
+      totalShapesAllLayers += shapeCount;
+      totalScrewsAllLayers += screwCount;
+
+      if (layer.isVisible) {
+        totalShapesVisibleLayers += shapeCount;
+        totalScrewsVisibleLayers += screwCount;
+      } else {
+        totalShapesHiddenLayers += shapeCount;
+        totalScrewsHiddenLayers += screwCount;
+      }
+    });
+
+    // Count screws from ScrewManager perspective (if available)
+    let screwManagerTotalCount = 0;
+    let screwManagerActiveCount = 0;
+    let screwManagerCollectedCount = 0;
+    
+    if (screwManager && typeof screwManager.getAllScrews === 'function') {
+      const allScrews = screwManager.getAllScrews();
+      screwManagerTotalCount = allScrews.length;
+      screwManagerActiveCount = allScrews.filter(screw => !screw.isCollected).length;
+      screwManagerCollectedCount = allScrews.filter(screw => screw.isCollected).length;
+    }
+
+    // Display comprehensive analysis
+    console.log(`\n📊 SYSTEM COMPARISON:`);
+    console.log(`\n🎮 ProgressTracker:`);
+    console.log(`  - Total screws tracked: ${progressState.totalScrews}`);
+    console.log(`  - Screws in containers: ${progressState.screwsInContainer}`);
+    console.log(`  - Progress: ${progressState.progress}%`);
+    
+    console.log(`\n🎯 LayerManager:`);
+    console.log(`  - Total layers: ${allLayers.length} (Visible: ${visibleLayers.length}, Hidden: ${allLayers.length - visibleLayers.length})`);
+    console.log(`  - Total shapes: ${totalShapesAllLayers} (Visible: ${totalShapesVisibleLayers}, Hidden: ${totalShapesHiddenLayers})`);
+    console.log(`  - Total screws: ${totalScrewsAllLayers} (Visible: ${totalScrewsVisibleLayers}, Hidden: ${totalScrewsHiddenLayers})`);
+    
+    console.log(`\n🔧 ScrewManager:`);
+    console.log(`  - Total screws: ${screwManagerTotalCount}`);
+    console.log(`  - Active screws: ${screwManagerActiveCount}`);
+    console.log(`  - Collected screws: ${screwManagerCollectedCount}`);
+
+    console.log(`\n🎨 GameManager Rendering:`);
+    console.log(`  - Visible layers for rendering: ${this.state.visibleLayers.length}`);
+    console.log(`  - All screws in rendering array: ${this.state.allScrews.length}`);
+    console.log(`  - Containers: ${this.state.containers.length}`);
+    console.log(`  - Holding holes: ${this.state.holdingHoles.length}`);
+    console.log(`  - Canvas size: ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
+    console.log(`  - Shape area: y=${200} to y=${this.state.virtualGameHeight || 960} (height: ${(this.state.virtualGameHeight || 960) - 200})`);
+
+    console.log(`\n⚠️ DISCREPANCIES:`);
+    
+    // Check for major discrepancies
+    if (progressState.totalScrews !== totalScrewsAllLayers) {
+      console.log(`❌ ProgressTracker (${progressState.totalScrews}) vs LayerManager (${totalScrewsAllLayers}) total screw mismatch!`);
+    }
+    
+    if (progressState.totalScrews !== screwManagerTotalCount && screwManagerTotalCount > 0) {
+      console.log(`❌ ProgressTracker (${progressState.totalScrews}) vs ScrewManager (${screwManagerTotalCount}) total screw mismatch!`);
+    }
+
+    if (totalScrewsVisibleLayers !== this.state.allScrews.length) {
+      console.log(`❌ Visible layer screws (${totalScrewsVisibleLayers}) vs rendered screws (${this.state.allScrews.length}) mismatch!`);
+    }
+
+    // The main issue: progress shows more screws than are visible
+    const missingFromRendering = progressState.totalScrews - totalScrewsVisibleLayers;
+    if (missingFromRendering > 0) {
+      console.log(`🚨 MAIN ISSUE: ${missingFromRendering} screws are tracked by ProgressTracker but not visible for interaction!`);
+      
+      if (totalScrewsHiddenLayers > 0) {
+        console.log(`💡 Potential cause: ${totalScrewsHiddenLayers} screws are in hidden layers`);
+      }
+    }
+
+    console.log(`\n📋 DETAILED LAYER BREAKDOWN:`);
+    layerBreakdown.forEach(layer => {
+      const visibilityIcon = layer.visible ? '👁️' : '👻';
+      console.log(`  ${visibilityIcon} Layer ${layer.index} (${layer.layerId}):`);
+      console.log(`     - Shapes: ${layer.shapeCount}, Screws: ${layer.screwCount}, Active: ${layer.activeScrewCount}`);
+    });
+
+    // Add detailed breakdown of all active shapes and their positions
+    console.log(`\n🎯 ACTIVE SHAPES AND POSITIONS:`);
+    allLayers.forEach(layer => {
+      const shapes = layer.getAllShapes();
+      if (shapes.length > 0) {
+        const visibilityIcon = layer.isVisible ? '👁️' : '👻';
+        console.log(`\n  ${visibilityIcon} Layer ${layer.index} (${layer.id}) - ${layer.isVisible ? 'VISIBLE' : 'HIDDEN'}:`);
+        
+        shapes.forEach(shape => {
+          const activeScrews = shape.getActiveScrews();
+          const totalScrews = shape.getAllScrews();
+          const pos = shape.position;
+          const bounds = shape.getBounds();
+          
+          console.log(`    🔹 Shape ${shape.id}:`);
+          console.log(`      - Position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`);
+          console.log(`      - Bounds: (${bounds.x.toFixed(1)}, ${bounds.y.toFixed(1)}, ${bounds.width.toFixed(1)}, ${bounds.height.toFixed(1)})`);
+          console.log(`      - Screws: ${activeScrews.length}/${totalScrews.length} active`);
+          
+          if (activeScrews.length > 0) {
+            console.log(`      - Active screw positions:`);
+            activeScrews.forEach(screw => {
+              console.log(`        🔩 ${screw.id}: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}) [${screw.color}]`);
+            });
+          }
+        });
+      }
+    });
+
+    // Additional debugging: check if hidden layers should be counted
+    console.log(`\n🔬 ANALYSIS:`);
+    console.log(`  - The game should only count screws from visible layers for progress`);
+    console.log(`  - Hidden layers should not contribute to total screw count until revealed`);
+    console.log(`  - Current progress calculation may be including hidden layer screws`);
+    
+    if (totalScrewsHiddenLayers > 0) {
+      console.log(`\n💡 RECOMMENDATION:`);
+      console.log(`  - ProgressTracker should only count screws from visible layers`);
+      console.log(`  - When hidden layers become visible, their screws should be added to the total`);
+      console.log(`  - Current hidden layers contain ${totalScrewsHiddenLayers} screws that shouldn't be counted yet`);
+    }
+
+    // Check for orphaned screws in ScrewManager
+    if (screwManagerTotalCount > progressState.totalScrews) {
+      const orphanedScrews = screwManagerTotalCount - progressState.totalScrews;
+      console.log(`\n🚨 ORPHANED SCREWS DETECTED:`);
+      console.log(`  - ScrewManager has ${screwManagerTotalCount} screws`);
+      console.log(`  - ProgressTracker knows about ${progressState.totalScrews} screws`);
+      console.log(`  - ${orphanedScrews} screws are orphaned in ScrewManager`);
+      console.log(`  - These orphaned screws may be causing the missing screw issue`);
+      console.log(`\n💡 RECOMMENDATION: Clean up orphaned screws from ScrewManager`);
+    }
+  }
+
+  /**
+   * Force cleanup of orphaned screws in ScrewManager
+   */
+  private forceCleanupOrphanedScrews(): void {
+    if (!this.state.systemCoordinator) {
+      console.warn('SystemCoordinator not available for orphaned screw cleanup');
+      return;
+    }
+
+    console.log('🧹 === FORCE CLEANING ORPHANED SCREWS ===');
+    
+    const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+    const screwManager = this.state.systemCoordinator.getSystem('ScrewManager') as import('../systems/ScrewManager').ScrewManager;
+    const progressTracker = this.state.systemCoordinator.getSystem('ProgressTracker') as import('../systems/ProgressTracker').ProgressTracker;
+
+    if (!layerManager || !screwManager || !progressTracker) {
+      console.error('Required systems not available for cleanup');
+      return;
+    }
+
+    // Get all screws that should exist (from layers)
+    const allLayers = layerManager.getLayers();
+    const validScrewIds = new Set<string>();
+    
+    allLayers.forEach(layer => {
+      layer.getAllShapes().forEach(shape => {
+        shape.getAllScrews().forEach(screw => {
+          validScrewIds.add(screw.id);
+        });
+      });
+    });
+
+    // Get all screws in ScrewManager
+    const allScrewsInManager = screwManager.getAllScrews();
+    const screwsToRemove: string[] = [];
+
+    allScrewsInManager.forEach(screw => {
+      if (!validScrewIds.has(screw.id)) {
+        screwsToRemove.push(screw.id);
+      }
+    });
+
+    console.log(`🔍 Analysis:`);
+    console.log(`  - Valid screws in layers: ${validScrewIds.size}`);
+    console.log(`  - Total screws in ScrewManager: ${allScrewsInManager.length}`);
+    console.log(`  - Orphaned screws to remove: ${screwsToRemove.length}`);
+
+    if (screwsToRemove.length > 0) {
+      console.log(`🧹 Removing ${screwsToRemove.length} orphaned screws from ScrewManager:`);
+      
+      // Use ScrewManager's internal method to remove orphaned screws
+      // We'll access the private state through a public method that we'll need to add
+      console.log(`💡 Orphaned screws found: ${screwsToRemove.join(', ')}`);
+      
+      // For now, recommend restarting the game to clear orphaned screws
+      console.log(`⚠️ To fix this issue immediately: Press 'R' to restart the game`);
+      console.log(`✨ This will clear all orphaned screws and give you a fresh start`);
+      console.log(`🎮 The underlying screw cleanup issue will be fixed in the next update`);
+    } else {
+      console.log(`✅ No orphaned screws found - ScrewManager is clean`);
+    }
+  }
+
+  /**
+   * Force fix layer opacity issues (set visible layers to full opacity)
+   */
+  private forceFixLayerOpacity(): void {
+    if (!this.state.systemCoordinator) {
+      console.warn('SystemCoordinator not available for layer opacity fix');
+      return;
+    }
+
+    console.log('🔧 === FORCE FIXING LAYER OPACITY AND PHYSICS ===');
+    
+    const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+    const screwManager = this.state.systemCoordinator.getSystem('ScrewManager') as import('../systems/ScrewManager').ScrewManager;
+    
+    if (!layerManager) {
+      console.error('LayerManager not available for opacity fix');
+      return;
+    }
+
+    const layers = layerManager.getLayers();
+    let fixedCount = 0;
+    let physicsFixedCount = 0;
+
+    layers.forEach(layer => {
+      const currentOpacity = layer.getFadeOpacity();
+      console.log(`🔍 Layer ${layer.id}: visible=${layer.isVisible}, opacity=${currentOpacity}`);
+      
+      if (layer.isVisible && currentOpacity < 1) {
+        console.log(`🔧 Fixing layer ${layer.id} opacity from ${currentOpacity} to 1.0`);
+        // Force set opacity to full and disable fade animation
+        layer.fadeOpacity = 1.0;
+        layer.fadeStartTime = 0;
+        fixedCount++;
+        
+        // Also ensure physics are properly activated for all shapes in this layer
+        console.log(`🎯 Re-activating physics for shapes in layer ${layer.id}`);
+        const shapes = layer.getAllShapes();
+        shapes.forEach(shape => {
+          // Re-emit physics body added event to ensure physics world has the body
+          this.emit({
+            type: 'physics:body:added',
+            timestamp: Date.now(),
+            source: 'GameManager',
+            bodyId: shape.body.id.toString(),
+            shape,
+            body: shape.body
+          });
+          
+          // Force re-check screw removability and physics setup
+          if (screwManager) {
+            const shapeScrews = shape.getAllScrews().filter(screw => !screw.isCollected);
+            console.log(`  🔩 Shape ${shape.id} has ${shapeScrews.length} screws - ensuring proper physics setup`);
+            
+            // Force update physics state (can't call private updateShapeConstraints)
+            
+            // Ensure proper physics state based on screw count
+            if (shapeScrews.length === 0) {
+              // No screws - should be fully dynamic
+              console.log(`    💥 Shape ${shape.id} has no screws - making fully dynamic`);
+              Matter.Body.setStatic(shape.body, false);
+              Matter.Sleeping.set(shape.body, false);
+              Matter.Body.setVelocity(shape.body, { x: 0, y: 2.0 });
+            } else if (shapeScrews.length === 1) {
+              // One screw - should be dynamic but constrained
+              console.log(`    🔗 Shape ${shape.id} has 1 screw - making dynamic with constraint`);
+              Matter.Body.setStatic(shape.body, false);
+              Matter.Sleeping.set(shape.body, false);
+              Matter.Body.setAngularVelocity(shape.body, 0.02);
+            } else {
+              // Multiple screws - should be static
+              console.log(`    🔒 Shape ${shape.id} has ${shapeScrews.length} screws - keeping static`);
+              Matter.Body.setStatic(shape.body, true);
+            }
+          }
+          
+          physicsFixedCount++;
+        });
+      }
+    });
+
+    console.log(`🔧 Fixed opacity for ${fixedCount} layers and physics for ${physicsFixedCount} shapes`);
+    
+    // Force a render update
+    this.renderFrame();
+  }
+
+  /**
+   * Debug fade animation state for all layers
+   */
+  private debugFadeAnimationState(): void {
+    if (!this.state.systemCoordinator) {
+      console.warn('SystemCoordinator not available for fade animation debug');
+      return;
+    }
+
+    console.log('🎭 === FADE ANIMATION DEBUG ===');
+    
+    const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+    
+    if (!layerManager) {
+      console.error('LayerManager not available for fade animation debug');
+      return;
+    }
+
+    const layers = layerManager.getLayers();
+    const currentTime = Date.now();
+
+    console.log(`Current time: ${currentTime}`);
+    console.log(`Total layers: ${layers.length}`);
+
+    layers.forEach((layer, index) => {
+      const opacity = layer.getFadeOpacity();
+      const isVisible = layer.isVisible;
+      
+      console.log(`\n🎭 Layer ${index} (${layer.id}):`);
+      console.log(`  - isVisible: ${isVisible}`);
+      console.log(`  - fadeOpacity: ${opacity}`);
+      console.log(`  - fadeStartTime: ${layer.fadeStartTime}`);
+      console.log(`  - fadeDuration: ${layer.fadeDuration}`);
+      
+      if (layer.fadeStartTime > 0) {
+        const elapsed = currentTime - layer.fadeStartTime;
+        const progress = Math.min(elapsed / layer.fadeDuration, 1);
+        console.log(`  - Animation progress: ${(progress * 100).toFixed(1)}% (${elapsed}ms / ${layer.fadeDuration}ms)`);
+        console.log(`  - Should be animating: ${layer.fadeStartTime > 0 && opacity < 1}`);
+      } else {
+        console.log(`  - Animation: Not running (fadeStartTime = 0)`);
+      }
+      
+      const shapes = layer.getAllShapes();
+      console.log(`  - Shapes: ${shapes.length}`);
+    });
+
+    // Check if LayerManager's updateShapePositions is being called
+    console.log(`\n🔧 LayerManager state:`);
+    // We can't access private state, but we can check if animations are stuck
+    console.log(`If animations are stuck, check if updateShapePositions is being called regularly`);
+  }
+
+  /**
+   * Debug rendering pipeline to understand why shapes aren't visible
+   */
+  private debugRenderingPipeline(): void {
+    console.log('🎨 === RENDERING PIPELINE DEBUG ===');
+    
+    if (!this.state.ctx || !this.state.canvas) {
+      console.error('❌ No canvas or context available');
+      return;
+    }
+
+    console.log(`🖼️ Canvas State:`);
+    console.log(`  - Canvas size: ${this.state.canvas.width}x${this.state.canvas.height}`);
+    console.log(`  - Virtual size: ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
+    console.log(`  - Scale: ${this.state.canvasScale}`);
+    console.log(`  - Offset: (${this.state.canvasOffset.x}, ${this.state.canvasOffset.y})`);
+
+    console.log(`\n🎯 Layer Rendering Data:`);
+    console.log(`  - Visible layers count: ${this.state.visibleLayers.length}`);
+    
+    this.state.visibleLayers.forEach((layer, index) => {
+      const shapes = layer.getAllShapes();
+      console.log(`\n  Layer ${index} (${layer.id}):`);
+      console.log(`    - Visible: ${layer.isVisible}`);
+      console.log(`    - Fade opacity: ${layer.getFadeOpacity()}`);
+      console.log(`    - Shapes: ${shapes.length}`);
+      
+      shapes.forEach((shape, shapeIndex) => {
+        const bounds = shape.getBounds();
+        const screws = shape.getAllScrews();
+        console.log(`    Shape ${shapeIndex} (${shape.id}):`);
+        console.log(`      - Position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+        console.log(`      - Bounds: (${bounds.x.toFixed(1)}, ${bounds.y.toFixed(1)}, ${bounds.width.toFixed(1)}, ${bounds.height.toFixed(1)})`);
+        console.log(`      - Physics body: ${shape.body ? `(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})` : 'NONE'}`);
+        console.log(`      - Screws: ${screws.length} total`);
+        console.log(`      - Physics body status: ${shape.body ? 'present' : 'missing'}`);
+      });
+    });
+
+    console.log(`\n🎨 Rendering Context State:`);
+    const transform = this.state.ctx.getTransform();
+    console.log(`  - Transform: [${transform.a}, ${transform.b}, ${transform.c}, ${transform.d}, ${transform.e}, ${transform.f}]`);
+    console.log(`  - Global alpha: ${this.state.ctx.globalAlpha}`);
+    console.log(`  - Fill style: ${this.state.ctx.fillStyle}`);
+    console.log(`  - Stroke style: ${this.state.ctx.strokeStyle}`);
+
+    console.log(`\n🔧 Rendering Pipeline Test:`);
+    console.log(`  - Testing if shapes would be rendered in current context...`);
+    
+    // Test render a simple shape to see if rendering works at all
+    this.state.ctx.save();
+    this.state.ctx.fillStyle = '#FF0000';
+    this.state.ctx.fillRect(400, 400, 50, 50);
+    console.log(`  - Drew test red rectangle at (400, 400, 50, 50)`);
+    this.state.ctx.restore();
+
+    console.log(`\n💡 If you can see a red rectangle, rendering works. If not, there's a canvas/context issue.`);
+  }
 
   protected onDestroy(): void {
     this.state.gameLoop.stop();

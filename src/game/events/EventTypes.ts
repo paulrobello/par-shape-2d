@@ -523,6 +523,12 @@ export interface TotalScrewCountSetEvent extends BaseEvent {
   source: string;
 }
 
+export interface TotalScrewCountAddEvent extends BaseEvent {
+  type: 'total_screw_count:add';
+  additionalScrews: number;
+  source: string;
+}
+
 // Removed PerfectBalanceStatusEvent - no longer using precomputation system
 
 // Removed ContainerReplacementPlannedEvent - no longer using precomputation system
@@ -612,6 +618,7 @@ export type GameEvent =
   | ProgressUpdatedEvent
   | LevelCompletedEvent
   | TotalScrewCountSetEvent
+  | TotalScrewCountAddEvent
   | RemainingScrewCountsRequestedEvent
   | ContainerAllRemovedEvent;
   // Removed precomputation event types from union - no longer using precomputation system
