@@ -68,6 +68,32 @@ interface ScrewManagerState {
 
 export class ScrewManager extends BaseSystem {
   private state: ScrewManagerState;
+  
+  // Debug throttling - track last logged state for each screw to avoid spam
+  private lastLoggedScrewStates: Map<string, {
+    isRemovable: boolean;
+    blockingShapeIds: string[];
+    layerVisible: boolean;
+    timestamp: number;
+  }> = new Map();
+  
+  // Track gameplay blocking debug state separately
+  private lastLoggedGameplayBlocking: Map<string, { blocked: boolean; timestamp: number }> = new Map();
+  
+  // Cleanup counter for periodic throttling state cleanup
+  private cleanupCounter = 0;
+  
+  // Throttle screw removability updates to reduce frequency
+  private lastRemovabilityUpdate = 0;
+  
+  // Minimum time between debug logs for the same screw (in milliseconds)
+  private static readonly DEBUG_THROTTLE_MS = 2000; // 2 seconds
+  
+  // Maximum time to keep old debug states in memory (in milliseconds)
+  private static readonly DEBUG_STATE_MAX_AGE_MS = 30000; // 30 seconds
+  
+  // Minimum time between screw removability updates (in milliseconds)
+  private static readonly REMOVABILITY_UPDATE_THROTTLE_MS = 100; // 100ms (10 times per second)
 
   constructor() {
     super('ScrewManager');
@@ -97,6 +123,13 @@ export class ScrewManager extends BaseSystem {
   // Override BaseSystem update method to handle screw animations
   public update(deltaTime: number): void {
     this.executeIfActive(() => {
+      // Periodically clean up old debug throttling states (every 30 seconds)
+      this.cleanupCounter++;
+      if (this.cleanupCounter >= 1800) { // Assuming ~60 FPS, 30 seconds = 1800 frames
+        this.cleanupThrottlingStates();
+        this.cleanupCounter = 0;
+      }
+      
       // Update screw positions based on their constraints
       this.updateScrewPositions();
       
@@ -192,8 +225,12 @@ export class ScrewManager extends BaseSystem {
         // The actual placing in containers is handled by GameState's transfer completion handler
       }
       
-      // Update screw removability based on current state
-      this.updateScrewRemovability();
+      // Update screw removability based on current state (throttled to reduce frequency)
+      const now = Date.now();
+      if (now - this.lastRemovabilityUpdate > ScrewManager.REMOVABILITY_UPDATE_THROTTLE_MS) {
+        this.updateScrewRemovability();
+        this.lastRemovabilityUpdate = now;
+      }
     });
   }
 
@@ -1808,26 +1845,33 @@ export class ScrewManager extends BaseSystem {
       return false;
     }
 
-    // If the screw's own layer is not visible, the screw should not be removable
-    if (!this.state.visibleLayers.has(screwShape.layerId)) {
+    // Check if the screw's own layer is visible
+    const layerVisible = this.state.visibleLayers.has(screwShape.layerId);
+    if (!layerVisible) {
+      // Only log if this is a state change or first check, and enough time has passed
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`[SCREW_BLOCKING] Screw ${screwId} not removable - layer ${screwShape.layerId} not visible`);
+        const lastState = this.lastLoggedScrewStates.get(screwId);
+        const now = Date.now();
+        const shouldLog = !lastState || 
+                         lastState.layerVisible !== false || 
+                         (now - lastState.timestamp) > ScrewManager.DEBUG_THROTTLE_MS;
+        
+        if (shouldLog) {
+          console.log(`[SCREW_BLOCKING] Screw ${screwId} not removable - layer ${screwShape.layerId} not visible`);
+          this.lastLoggedScrewStates.set(screwId, {
+            isRemovable: false,
+            blockingShapeIds: [],
+            layerVisible: false,
+            timestamp: now
+          });
+        }
       }
       return false;
     }
 
     const screwLayerIndex = this.state.layerIndexLookup.get(screwShape.layerId) ?? -1;
+    const blockingShapeIds: string[] = [];
     
-    if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`[SCREW_BLOCKING] Checking removability for screw ${screwId}:`, {
-        screwPosition: screw.position,
-        screwRadius: UI_CONSTANTS.screws.radius,
-        screwLayerId: screwShape.layerId,
-        screwLayerIndex,
-        visibleLayers: Array.from(this.state.visibleLayers)
-      });
-    }
-
     for (const shape of this.state.allShapes) {
       if (shape.id === screw.shapeId) continue;
 
@@ -1848,38 +1892,65 @@ export class ScrewManager extends BaseSystem {
       // Lower index = front (earlier layers), higher index = back (later layers)  
       // Shape blocks screw only if shape is in front (shape index < screw index)
       if (shapeLayerIndex >= screwLayerIndex) {
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`[SCREW_BLOCKING] Skipping shape ${shape.id} (layerIndex: ${shapeLayerIndex}) - not in front of screw ${screwId} (layerIndex: ${screwLayerIndex})`);
-        }
         continue; // Skip shapes behind or on same layer as the screw
-      }
-      
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`[SCREW_BLOCKING] Checking if shape ${shape.id} (layerIndex: ${shapeLayerIndex}) blocks screw ${screwId} (layerIndex: ${screwLayerIndex})`);
       }
 
       const isBlocked = isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true);
       
-      if (DEBUG_CONFIG.logScrewDebug && isBlocked) {
-        console.log(`[SCREW_BLOCKING] Screw ${screwId} BLOCKED by shape:`, {
-          blockingShapeId: shape.id,
-          blockingShapeType: shape.type,
-          blockingShapeLayerId: shape.layerId,
-          blockingShapeLayerIndex: shapeLayerIndex,
-          blockingShapePosition: shape.body.position,
-          blockingShapeBounds: shape.body.bounds,
-          screwLayerIndex,
-          indexComparison: `${shapeLayerIndex} < ${screwLayerIndex} (front blocks back)`
-        });
-      }
-      
       if (isBlocked) {
+        blockingShapeIds.push(shape.id);
+        
+        // Only log detailed blocking info if this is a new blocker, state change, or enough time has passed
+        if (DEBUG_CONFIG.logScrewDebug) {
+          const lastState = this.lastLoggedScrewStates.get(screwId);
+          const now = Date.now();
+          const isNewBlocker = !lastState || !lastState.blockingShapeIds.includes(shape.id);
+          const enoughTimePassed = lastState && (now - lastState.timestamp) > ScrewManager.DEBUG_THROTTLE_MS;
+          
+          if (isNewBlocker || enoughTimePassed) {
+            console.log(`[SCREW_BLOCKING] Screw ${screwId} BLOCKED by shape:`, {
+              blockingShapeId: shape.id,
+              blockingShapeType: shape.type,
+              blockingShapeLayerId: shape.layerId,
+              blockingShapeLayerIndex: shapeLayerIndex,
+              screwLayerIndex,
+              indexComparison: `${shapeLayerIndex} < ${screwLayerIndex} (front blocks back)`
+            });
+          }
+        }
         return false;
       }
     }
     
+    const isRemovable = true;
+    
+    // Only log if removability state has changed or enough time has passed
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`[SCREW_BLOCKING] Screw ${screwId} is REMOVABLE - no blocking shapes found`);
+      const lastState = this.lastLoggedScrewStates.get(screwId);
+      const now = Date.now();
+      const stateChanged = !lastState || 
+        lastState.isRemovable !== isRemovable || 
+        lastState.layerVisible !== layerVisible ||
+        JSON.stringify(lastState.blockingShapeIds.sort()) !== JSON.stringify(blockingShapeIds.sort());
+      
+      const enoughTimePassed = lastState && (now - lastState.timestamp) > ScrewManager.DEBUG_THROTTLE_MS;
+      
+      if (stateChanged || enoughTimePassed) {
+        console.log(`[SCREW_BLOCKING] Screw ${screwId} removability changed:`, {
+          wasRemovable: lastState?.isRemovable ?? 'unknown',
+          isRemovable,
+          layerVisible,
+          screwLayerIndex,
+          blockingShapeIds: blockingShapeIds.length > 0 ? blockingShapeIds : 'none'
+        });
+        
+        this.lastLoggedScrewStates.set(screwId, {
+          isRemovable,
+          blockingShapeIds: [...blockingShapeIds],
+          layerVisible,
+          timestamp: now
+        });
+      }
     }
     
     return true;
@@ -1972,10 +2043,24 @@ export class ScrewManager extends BaseSystem {
       const isBlocked = isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, false);
       
       if (isBlocked) {
+        // Only log if this is a state change for gameplay blocking
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`[GAMEPLAY_BLOCKING] Screw ${screwId} blocked for gameplay by shape ${shape.id}`);
+          const lastState = this.lastLoggedGameplayBlocking.get(screwId);
+          if (!lastState || !lastState.blocked) {
+            console.log(`[GAMEPLAY_BLOCKING] Screw ${screwId} blocked for gameplay by shape ${shape.id}`);
+            this.lastLoggedGameplayBlocking.set(screwId, { blocked: true, timestamp: Date.now() });
+          }
         }
         return true;
+      }
+    }
+
+    // If we reach here, the screw is not blocked for gameplay
+    if (DEBUG_CONFIG.logScrewDebug) {
+      const lastState = this.lastLoggedGameplayBlocking.get(screwId);
+      if (lastState && lastState.blocked) {
+        console.log(`[GAMEPLAY_BLOCKING] Screw ${screwId} no longer blocked for gameplay`);
+        this.lastLoggedGameplayBlocking.set(screwId, { blocked: false, timestamp: Date.now() });
       }
     }
 
@@ -2206,6 +2291,10 @@ export class ScrewManager extends BaseSystem {
       this.state.constraints.clear();
       this.state.screwCounter = 0;
       
+      // Clear debug throttling state since all screws are gone
+      this.lastLoggedScrewStates.clear();
+      this.lastLoggedGameplayBlocking.clear();
+      
       if (DEBUG_CONFIG.logLayerDebug) {
         console.log('All screws and holding holes cleared');
       }
@@ -2287,7 +2376,30 @@ export class ScrewManager extends BaseSystem {
     });
   }
 
+  /**
+   * Clean up old debug throttling states to prevent memory leaks
+   * Removes entries older than DEBUG_STATE_MAX_AGE_MS (30 seconds)
+   */
+  private cleanupThrottlingStates(): void {
+    const maxAgeAgo = Date.now() - ScrewManager.DEBUG_STATE_MAX_AGE_MS;
+    
+    for (const [screwId, state] of this.lastLoggedScrewStates.entries()) {
+      if (state.timestamp < maxAgeAgo) {
+        this.lastLoggedScrewStates.delete(screwId);
+      }
+    }
+    
+    for (const [screwId, state] of this.lastLoggedGameplayBlocking.entries()) {
+      if (state.timestamp < maxAgeAgo) {
+        this.lastLoggedGameplayBlocking.delete(screwId);
+      }
+    }
+  }
+
   protected onDestroy(): void {
     this.clearAllScrews();
+    // Clear debug throttling state
+    this.lastLoggedScrewStates.clear();
+    this.lastLoggedGameplayBlocking.clear();
   }
 }
