@@ -20,6 +20,7 @@ import {
   GameStartedEvent,
   GameOverEvent,
   LevelCompleteEvent,
+  LevelCompletedEvent,
   DebugModeToggledEvent,
   DebugInfoRequestedEvent,
   LayersUpdatedEvent,
@@ -137,6 +138,7 @@ export class GameManager extends BaseSystem {
     this.subscribe('game:started', this.handleGameStarted.bind(this));
     this.subscribe('game:over', this.handleGameOver.bind(this));
     this.subscribe('level:complete', this.handleLevelComplete.bind(this));
+    this.subscribe('level:completed', this.handleLevelCompletedByProgress.bind(this));
     
     // Debug events
     this.subscribe('debug:mode:toggled', this.handleDebugModeToggled.bind(this));
@@ -203,6 +205,13 @@ export class GameManager extends BaseSystem {
       this.state.levelComplete = true;
       this.state.currentLevel = event.level;
       this.state.levelScore = event.score;
+    });
+  }
+
+  private handleLevelCompletedByProgress(event: LevelCompletedEvent): void {
+    this.executeIfActive(() => {
+      this.state.levelComplete = true;
+      console.log(`🎯 Level completed by progress! Total screws: ${event.totalScrews}, Final progress: ${event.finalProgress}%`);
     });
   }
 

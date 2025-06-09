@@ -23,7 +23,8 @@ import {
   LayersUpdatedEvent,
   AllLayersScrewsReadyEvent,
   ScrewCountResponseEvent,
-  ScrewsGeneratedEvent
+  ScrewsGeneratedEvent,
+  LevelCompletedEvent
 } from '../events/EventTypes';
 
 export class GameState extends BaseSystem {
@@ -93,6 +94,7 @@ export class GameState extends BaseSystem {
     this.subscribe('layer:cleared', this.handleLayerCleared.bind(this));
     this.subscribe('all_layers:cleared', this.handleAllLayersCleared.bind(this));
     this.subscribe('next_level:requested', this.handleNextLevelRequested.bind(this));
+    this.subscribe('level:completed', this.handleLevelCompletedByProgress.bind(this));
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     
     // Shape events
@@ -478,6 +480,22 @@ export class GameState extends BaseSystem {
     });
   }
 
+  private handleLevelCompletedByProgress(event: LevelCompletedEvent): void {
+    this.executeIfActive(() => {
+      console.log(`[GameState] ProgressTracker reported level completion - auto-advancing to next level`);
+      console.log(`[GameState] Progress details: ${event.totalScrews} screws, ${event.finalProgress}% complete`);
+      
+      // Add a short delay to show completion state briefly before auto-advancing
+      setTimeout(() => {
+        console.log('[GameState] Auto-advancing to next level after progress completion');
+        this.emit({
+          type: 'next_level:requested',
+          timestamp: Date.now()
+        });
+      }, 2000); // 2 second delay to show level completion
+    });
+  }
+
   private handleContainerFilled(event: import('../events/EventTypes').ContainerFilledEvent): void {
     this.executeIfActive(() => {
       const container = this.containers[event.containerIndex];
@@ -602,15 +620,8 @@ export class GameState extends BaseSystem {
       this.state.shapesRemovedThisLevel = (this.state.shapesRemovedThisLevel || 0) + 1;
       console.log(`Shape destroyed - shapes removed this level: ${this.state.shapesRemovedThisLevel}`);
       
-      // Emit an update event for the progress
-      this.emit({
-        type: 'level:progress:updated',
-        timestamp: Date.now(),
-        screwsRemoved: this.screwProgress.removed,
-        totalScrews: this.screwProgress.total,
-        percentage: this.screwProgress.percentage,
-        perfectBalanceStatus: this.screwProgress.balanceStatus
-      });
+      // Don't emit level:progress:updated here - progress updates should only come from
+      // screw collection and container updates, not shape destruction
       
       this.markUnsavedChanges();
     });
