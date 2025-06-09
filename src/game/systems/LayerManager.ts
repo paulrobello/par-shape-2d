@@ -306,6 +306,9 @@ export class LayerManager extends BaseSystem {
       this.state.layers.push(layer);
       this.updateLayerVisibility();
       
+      // Update layer indices to ensure ScrewManager has current mappings
+      this.updateLayerIndices();
+      
       // Now assign color based on final visibility state
       const colorIndex = this.getUnusedColorIndex();
       layer.colorIndex = colorIndex;
