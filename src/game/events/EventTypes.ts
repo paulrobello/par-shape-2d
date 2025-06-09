@@ -230,6 +230,11 @@ export interface LayerBoundsChangedEvent extends BaseEvent {
   bounds: { x: number; y: number; width: number; height: number };
 }
 
+export interface LayerIndicesUpdatedEvent extends BaseEvent {
+  type: 'layer:indices:updated';
+  layers: Array<{ layerId: string; newIndex: number }>;
+}
+
 export interface LayerShapesReadyEvent extends BaseEvent {
   type: 'layer:shapes:ready';
   layer: Layer;
@@ -574,6 +579,7 @@ export type GameEvent =
   | LayerVisibilityChangedEvent
   | LayersUpdatedEvent
   | LayerBoundsChangedEvent
+  | LayerIndicesUpdatedEvent
   | LayerShapesReadyEvent
   | AllLayersScrewsReadyEvent
   | ScrewCountRequestedEvent

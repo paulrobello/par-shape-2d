@@ -19,7 +19,8 @@ import {
   RestoreRequestedEvent,
   ContainerColorsUpdatedEvent,
   ShapeFellOffScreenEvent,
-  ShapeScrewsReadyEvent
+  ShapeScrewsReadyEvent,
+  LayerIndicesUpdatedEvent
 } from '../events/EventTypes';
 
 interface LayerManagerState {
@@ -673,9 +674,35 @@ export class LayerManager extends BaseSystem {
 
 
   private updateLayerIndices(): void {
+    // Collect layer index updates for event emission
+    const layerUpdates: Array<{ layerId: string; newIndex: number }> = [];
+    
     this.state.layers.forEach((layer, layerIndex) => {
+      const oldIndex = layer.index;
       layer.updateIndex(layerIndex);
+      
+      // Track if index actually changed
+      if (oldIndex !== layerIndex) {
+        layerUpdates.push({ layerId: layer.id, newIndex: layerIndex });
+      }
     });
+    
+    // Always emit the event to ensure lookup is populated, even if indices didn't change
+    // This ensures ScrewManager has the current layer indices
+    const allLayerIndices = this.state.layers.map(layer => ({
+      layerId: layer.id,
+      newIndex: layer.index
+    }));
+    
+    if (DEBUG_CONFIG.logLayerDebug) {
+      console.log(`🔄 LayerManager: Emitting layer indices update:`, allLayerIndices);
+    }
+    
+    this.emit({
+      type: 'layer:indices:updated',
+      timestamp: Date.now(),
+      layers: allLayerIndices
+    } as LayerIndicesUpdatedEvent);
   }
 
 

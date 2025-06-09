@@ -49,6 +49,7 @@ import {
   ScrewColorsRequestedEvent,
   ScrewTransferColorCheckEvent,
   LayersUpdatedEvent,
+  LayerIndicesUpdatedEvent,
   ScrewCountRequestedEvent
 } from '../events/EventTypes';
 
@@ -266,6 +267,7 @@ export class ScrewManager extends BaseSystem {
     
     // Layer visibility events
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
+    this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
     
     // Screw count requests
     this.subscribe('screw_count:requested', this.handleScrewCountRequested.bind(this));
@@ -877,6 +879,31 @@ export class ScrewManager extends BaseSystem {
       }
       
       // Re-evaluate screw removability since layer visibility changed
+      this.updateScrewRemovability();
+    });
+  }
+
+  private handleLayerIndicesUpdated(event: LayerIndicesUpdatedEvent): void {
+    this.executeIfActive(() => {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔄 ScrewManager: Received layer indices update event:`, event.layers);
+      }
+      
+      // Update the layerIndexLookup with the new indices
+      event.layers.forEach(({ layerId, newIndex }) => {
+        // Update the lookup for this layer (regardless of shapes)
+        this.state.layerIndexLookup.set(layerId, newIndex);
+        
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔄 ScrewManager: Updated layer ${layerId} index to ${newIndex}`);
+        }
+      });
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔄 ScrewManager: Layer index lookup updated:`, Array.from(this.state.layerIndexLookup.entries()));
+      }
+      
+      // Re-evaluate screw removability since layer indices changed
       this.updateScrewRemovability();
     });
   }
