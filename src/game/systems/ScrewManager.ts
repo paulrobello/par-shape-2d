@@ -885,23 +885,20 @@ export class ScrewManager extends BaseSystem {
 
   private handleLayerIndicesUpdated(event: LayerIndicesUpdatedEvent): void {
     this.executeIfActive(() => {
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`🔄 ScrewManager: Received layer indices update event:`, event.layers);
-      }
+      // Always log this critical event for now to debug the blocking issue
+      console.log(`🔄 ScrewManager: Received layer indices update event:`, event.layers);
       
       // Update the layerIndexLookup with the new indices
       event.layers.forEach(({ layerId, newIndex }) => {
         // Update the lookup for this layer (regardless of shapes)
         this.state.layerIndexLookup.set(layerId, newIndex);
         
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`🔄 ScrewManager: Updated layer ${layerId} index to ${newIndex}`);
-        }
+        // Always log this critical update for now to debug the blocking issue
+        console.log(`🔄 ScrewManager: Updated layer ${layerId} index to ${newIndex}`);
       });
       
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`🔄 ScrewManager: Layer index lookup updated:`, Array.from(this.state.layerIndexLookup.entries()));
-      }
+      // Always log this critical state for now to debug the blocking issue
+      console.log(`🔄 ScrewManager: Layer index lookup updated:`, Array.from(this.state.layerIndexLookup.entries()));
       
       // Re-evaluate screw removability since layer indices changed
       this.updateScrewRemovability();

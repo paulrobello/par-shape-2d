@@ -697,9 +697,8 @@ export class LayerManager extends BaseSystem {
       newIndex: layer.index
     }));
     
-    if (DEBUG_CONFIG.logLayerDebug) {
-      console.log(`🔄 LayerManager: Emitting layer indices update:`, allLayerIndices);
-    }
+    // Always log this critical event for now to debug the blocking issue
+    console.log(`🔄 LayerManager: Emitting layer indices update:`, allLayerIndices);
     
     this.emit({
       type: 'layer:indices:updated',
