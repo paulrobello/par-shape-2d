@@ -798,19 +798,21 @@ export class LayerManager extends BaseSystem {
       console.log(`[LayerManager] Generating all ${this.state.totalLayersForLevel} layers for level ${levelNumber}`);
       
       for (let i = 0; i < this.state.totalLayersForLevel; i++) {
-        // Create layer with fade-in for layers beyond the initial visible ones
-        const shouldFadeIn = i >= GAME_CONFIG.layer.maxVisible;
-        const layer = this.createLayer(shouldFadeIn);
+        // Create ALL layers with fade-in capability
+        const layer = this.createLayer(true); // Always enable fade-in
         this.generateShapesForLayer(layer);
         
-        // Only make the first few layers visible initially
+        // Initial layers (0-3) start fully visible, hidden layers (4+) start ready for fade-in
         if (i >= GAME_CONFIG.layer.maxVisible) {
           layer.makeHidden();
           // Disable physics for hidden layers
           this.disableLayerPhysics(layer);
           console.log(`[LayerManager] Layer ${i + 1} generated but hidden with physics disabled and fade-in ready`);
         } else {
-          console.log(`[LayerManager] Layer ${i + 1} generated and visible`);
+          // Initial visible layers start with full opacity (fade already complete)
+          layer.fadeOpacity = 1.0;
+          layer.fadeStartTime = 0;
+          console.log(`[LayerManager] Layer ${i + 1} generated and visible with fade-in capability`);
         }
       }
       
@@ -979,6 +981,9 @@ export class LayerManager extends BaseSystem {
     const currentlyVisibleCount = this.state.layers.filter(l => l.isVisible).length;
     
     console.log(`[LayerManager] updateLayerVisibility: ${this.state.layers.length} total layers, ${currentlyVisibleCount} currently visible, maxVisible=${maxVisible}`);
+    
+    // Root cause fixed: removed automatic visibility override in Layer.updateIndex()
+    // No special final layer workaround needed - normal visibility flow should work
     
     // Process each layer's visibility
     this.state.layers.forEach((layer, index) => {

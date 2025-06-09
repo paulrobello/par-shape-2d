@@ -92,7 +92,8 @@ export class Layer implements ILayer {
       this.physicsLayerGroup = newPhysicsLayerGroup;
     }
     // Don't update tint - it should remain fixed based on colorIndex from creation
-    this.isVisible = newIndex < GAME_CONFIG.layer.maxVisible;
+    // REMOVED: Don't automatically override visibility - let LayerManager control visibility explicitly
+    // this.isVisible = newIndex < GAME_CONFIG.layer.maxVisible;
   }
 
   public addShape(shape: Shape): void {
@@ -193,21 +194,12 @@ export class Layer implements ILayer {
   }
 
   public updateVisibility(maxVisibleLayers: number, currentLayerIndex: number): void {
-    const wasVisible = this.isVisible;
-    this.isVisible = this.index >= currentLayerIndex && 
-                     this.index < currentLayerIndex + maxVisibleLayers;
-    
-    // Debug logging for visibility changes
-    if (DEBUG_CONFIG.logLayerDebug || this.isVisible !== wasVisible) {
-      console.log(`[Layer ${this.id}] updateVisibility: wasVisible=${wasVisible}, isVisible=${this.isVisible}, fadeOpacity=${this.fadeOpacity}, index=${this.index}, maxVisible=${maxVisibleLayers}, currentIndex=${currentLayerIndex}`);
-    }
-    
-    // If layer became visible through updateVisibility AND it was previously set as hidden
-    // (i.e., it has fadeOpacity = 0), start fade-in animation
-    if (this.isVisible && !wasVisible && this.fadeOpacity === 0) {
-      console.log(`[Layer ${this.id}] Starting fade-in animation: wasVisible=${wasVisible} → isVisible=${this.isVisible}, fadeOpacity=${this.fadeOpacity}`);
-      this.startFadeIn();
-    }
+    void maxVisibleLayers;
+    void currentLayerIndex;
+    // DEPRECATED: This method is no longer used - LayerManager controls visibility explicitly
+    // through showNextHiddenLayer() and updateLayerVisibility() to prevent conflicts
+    // with fade-in animations and proper physics enabling
+    console.warn(`[Layer ${this.id}] updateVisibility() called but is deprecated - LayerManager should control visibility`);
   }
 
   public setGenerated(generated: boolean): void {

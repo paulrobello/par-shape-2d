@@ -73,7 +73,7 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 |------------|---------|----------|-------------|
 | `layer:created` | Layer instantiation | LayerManager | EventFlowValidator |
 | `layer:cleared` | Layer completion | LayerManager | GameState |
-| `layer:visibility:changed` | Layer visibility toggle | LayerManager | None |
+| `layer:visibility:changed` | Layer visibility toggle | LayerManager | GameCanvas (rendering updates) |
 | `layers:updated` | Visible layers changed | LayerManager | GameManager, GameState, ScrewManager |
 | `layer:bounds:changed` | Layer boundary updates | LayerManager | None |
 | `layer:shapes:ready` | Layer shape setup complete | LayerManager | GameState |

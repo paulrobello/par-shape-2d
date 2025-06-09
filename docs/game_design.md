@@ -172,20 +172,27 @@ Event-driven layer system with visibility-based progressive revelation:
 
 **Core Functionality**:
 - **Upfront Generation**: All layers for a level generated at initialization
+- **Universal Fade-in Support**: All layers created with fade-in capability for consistent animation behavior
 - **Visibility Management**: Only first 4 layers visible initially, others hidden with physics disabled
 - **Progressive Revelation**: Hidden layers become visible with fade-in when active layers are cleared
 - **Physics Control**: Hidden layers have disabled physics bodies to prevent interactions
 - **Depth Ordering**: Back-to-front rendering with `depthIndex`
 - **Bounds Management**: Dynamic layer sizing for responsive design
 - **Physics Separation**: Each layer uses separate collision groups
-- **Fade-in Animation**: New layers fade in over 1 second with ease-in-out curve
+- **Fade-in Animation**: All layers fade in over 1 second with ease-in-out curve
 
 **Visibility System**:
-- **Initial State**: First `GAME_CONFIG.layer.maxVisible` (4) layers visible on level start
-- **Hidden Layers**: Generated but invisible with `layer.makeHidden()` and disabled physics
+- **Initial State**: First `GAME_CONFIG.layer.maxVisible` (4) layers visible on level start with full opacity
+- **Hidden Layers**: Generated but invisible with `layer.makeHidden()` and disabled physics, ready for fade-in
 - **Progressive Show**: `showNextHiddenLayer()` reveals next layer when current layers cleared
 - **Physics Integration**: `enableLayerPhysics()` and `disableLayerPhysics()` manage physics state
 - **Event Coordination**: Emits `layers:updated` events for screw blocking logic updates
+- **Explicit Control**: LayerManager maintains full control over visibility - Layer class no longer overrides visibility decisions
+
+**Architecture Improvements**:
+- **Root Cause Fix**: Removed automatic visibility overrides in `Layer.updateIndex()` and `Layer.updateVisibility()` that conflicted with LayerManager's explicit visibility control
+- **Consistent Fade Behavior**: All layers support fade-in animations but initial layers start with full opacity (fade complete)
+- **Final Layer Fix**: Final layer now properly fades in with working physics through normal visibility flow
 
 ### Screw Management  
 **File**: `src/game/systems/ScrewManager.ts`
