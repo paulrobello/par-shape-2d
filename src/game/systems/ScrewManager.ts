@@ -50,6 +50,7 @@ import {
   ScrewTransferColorCheckEvent,
   LayersUpdatedEvent,
   LayerIndicesUpdatedEvent,
+  LayerClearedEvent,
   ScrewCountRequestedEvent,
   LevelStartedEvent
 } from '../events/EventTypes';
@@ -269,6 +270,7 @@ export class ScrewManager extends BaseSystem {
     // Layer visibility events
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
+    this.subscribe('layer:cleared', this.handleLayerCleared.bind(this));
     
     // Screw count requests
     this.subscribe('screw_count:requested', this.handleScrewCountRequested.bind(this));
@@ -333,7 +335,9 @@ export class ScrewManager extends BaseSystem {
       if (shapeIndex !== -1) {
         this.state.allShapes.splice(shapeIndex, 1);
       }
-      this.state.layerIndexLookup.delete(event.shape.layerId);
+      
+      // DO NOT remove layer from layerIndexLookup here - individual shape destruction
+      // should not affect layer tracking. Only remove layers when they are actually cleared.
       
       // Clean up any screws that still belong to this shape
       // (Collected screws will have empty shapeId, so they won't be affected)
@@ -915,6 +919,24 @@ export class ScrewManager extends BaseSystem {
       console.log(`🔄 ScrewManager: Layer index lookup updated:`, Array.from(this.state.layerIndexLookup.entries()));
       
       // Re-evaluate screw removability since layer indices changed
+      this.updateScrewRemovability();
+    });
+  }
+
+  private handleLayerCleared(event: LayerClearedEvent): void {
+    this.executeIfActive(() => {
+      // Remove the cleared layer from layerIndexLookup
+      const removed = this.state.layerIndexLookup.delete(event.layer.id);
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🗑️ ScrewManager: Layer ${event.layer.id} cleared, removed from index lookup: ${removed}`);
+        console.log(`🗑️ ScrewManager: Remaining layer indices:`, Array.from(this.state.layerIndexLookup.entries()));
+      }
+      
+      // Remove the layer from visible layers tracking
+      this.state.visibleLayers.delete(event.layer.id);
+      
+      // Re-evaluate screw removability since layer visibility changed
       this.updateScrewRemovability();
     });
   }
