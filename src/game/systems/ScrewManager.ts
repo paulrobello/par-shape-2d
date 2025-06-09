@@ -1139,6 +1139,20 @@ export class ScrewManager extends BaseSystem {
   private findScrewDestination(screw: Screw): { type: 'container' | 'holding_hole'; position: Vector2; id: string; holeIndex?: number } | null {
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`🔍 Finding destination for screw ${screw.id} (color: ${screw.color})`);
+      console.log(`🏠 Available containers:`, this.state.containers.map(c => ({
+        id: c.id,
+        color: c.color,
+        holes: c.holes.map((screwId, index) => ({ index, screwId, filled: screwId !== null })),
+        isFull: c.isFull,
+        maxHoles: c.maxHoles
+      })));
+      console.log(`🕳️ Available holding holes:`, this.state.holdingHoles.map((h, index) => ({
+        index,
+        id: h.id,
+        screwId: h.screwId,
+        filled: h.screwId !== null,
+        screwColor: h.screwColor
+      })));
     }
     
     const destination = findScrewDestination(
@@ -1150,7 +1164,10 @@ export class ScrewManager extends BaseSystem {
     
     if (!destination) {
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`No available destination found for screw ${screw.id} (color: ${screw.color})`);
+        console.log(`❌ No available destination found for screw ${screw.id} (color: ${screw.color})`);
+        console.log(`🔍 Destination search details:`);
+        console.log(`   • Containers checked: ${this.state.containers.length}`);
+        console.log(`   • Holding holes checked: ${this.state.holdingHoles.length}`);
       }
     }
     
