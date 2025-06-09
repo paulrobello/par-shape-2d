@@ -133,6 +133,11 @@ export class ScrewManager extends BaseSystem {
         this.cleanupCounter = 0;
       }
       
+      // Periodically validate and clean up stale reservations (every 3 seconds)
+      if (this.cleanupCounter % 180 === 0) { // Assuming ~60 FPS, 3 seconds = 180 frames
+        this.validateAndCleanupReservations();
+      }
+      
       // Update screw positions based on their constraints
       this.updateScrewPositions();
       
@@ -983,8 +988,11 @@ export class ScrewManager extends BaseSystem {
       // Clear layer index lookup to prevent stale data from previous levels
       this.state.layerIndexLookup.clear();
       
+      // Clear any stale reservations from previous level
+      this.validateAndCleanupReservations();
+      
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log('ScrewManager: Cleared layer index lookup for new level');
+        console.log('ScrewManager: Cleared layer index lookup and cleaned up reservations for new level');
       }
     });
   }
@@ -1188,6 +1196,7 @@ export class ScrewManager extends BaseSystem {
         id: c.id,
         color: c.color,
         holes: c.holes.map((screwId, index) => ({ index, screwId, filled: screwId !== null })),
+        reservedHoles: c.reservedHoles ? c.reservedHoles.map((screwId, index) => ({ index, screwId, reserved: screwId !== null })) : 'UNDEFINED',
         isFull: c.isFull,
         maxHoles: c.maxHoles
       })));
@@ -2265,6 +2274,10 @@ export class ScrewManager extends BaseSystem {
   }
 
   // Method to clear all screws (used for restart)
+  public cleanupStaleReservations(): void {
+    this.validateAndCleanupReservations();
+  }
+
   public clearAllScrews(): void {
     this.executeIfActive(() => {
       if (DEBUG_CONFIG.logPhysicsDebug) {
@@ -2418,6 +2431,60 @@ export class ScrewManager extends BaseSystem {
         this.lastLoggedGameplayBlocking.delete(screwId);
       }
     }
+  }
+
+  /**
+   * Validates and cleans up stale reservations where the reserved screw 
+   * is no longer animating (not isBeingCollected or isBeingTransferred)
+   */
+  private validateAndCleanupReservations(): void {
+    this.executeIfActive(() => {
+      let cleanupCount = 0;
+      
+      // Check container reservations
+      for (const container of this.state.containers) {
+        for (let holeIndex = 0; holeIndex < container.reservedHoles.length; holeIndex++) {
+          const reservedScrewId = container.reservedHoles[holeIndex];
+          if (reservedScrewId) {
+            const screw = this.state.screws.get(reservedScrewId);
+            
+            // Clear reservation if screw doesn't exist or is not animating
+            if (!screw || (!screw.isBeingCollected && !screw.isBeingTransferred)) {
+              container.reservedHoles[holeIndex] = null;
+              cleanupCount++;
+              
+              if (DEBUG_CONFIG.logScrewDebug) {
+                const reason = !screw ? 'screw no longer exists' : 'screw is not animating';
+                console.log(`🧹 Cleaned up stale reservation for screw ${reservedScrewId} in container ${container.id} hole ${holeIndex} (${reason})`);
+              }
+            }
+          }
+        }
+      }
+      
+      // Check holding hole reservations
+      for (const hole of this.state.holdingHoles) {
+        if (hole.reservedBy) {
+          const screw = this.state.screws.get(hole.reservedBy);
+          
+          // Clear reservation if screw doesn't exist or is not animating
+          if (!screw || (!screw.isBeingCollected && !screw.isBeingTransferred)) {
+            const reservedScrewId = hole.reservedBy;
+            hole.reservedBy = undefined;
+            cleanupCount++;
+            
+            if (DEBUG_CONFIG.logScrewDebug) {
+              const reason = !screw ? 'screw no longer exists' : 'screw is not animating';
+              console.log(`🧹 Cleaned up stale reservation for screw ${reservedScrewId} in holding hole ${hole.id} (${reason})`);
+            }
+          }
+        }
+      }
+      
+      if (cleanupCount > 0 && DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🧹 Reservation cleanup completed: removed ${cleanupCount} stale reservations`);
+      }
+    });
   }
 
   protected onDestroy(): void {
