@@ -144,9 +144,6 @@ export class ScrewManager extends BaseSystem {
       
       // Handle completed collection animations
       if (completed.length > 0) {
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`${completed.length} screw animations completed`);
-        }
         completed.forEach(screwId => {
           const screw = this.state.screws.get(screwId);
           if (screw) {
@@ -1794,29 +1791,14 @@ export class ScrewManager extends BaseSystem {
 
   public updateScrewRemovability(): void {
     this.executeIfActive(() => {
-      let removableCount = 0;
-      let totalCount = 0;
-      
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`[SCREW_REMOVABILITY] Updating removability for all screws...`);
-        console.log(`[SCREW_REMOVABILITY] Layer index lookup:`, Array.from(this.state.layerIndexLookup.entries()));
-        console.log(`[SCREW_REMOVABILITY] Visible layers:`, Array.from(this.state.visibleLayers));
-      }
-
       for (const screw of this.state.screws.values()) {
         if (screw.isCollected) continue;
 
-        totalCount++;
         const wasRemovable = screw.isRemovable;
         const isRemovable = this.checkScrewRemovability(screw.id);
         screw.setRemovable(isRemovable);
 
-        if (isRemovable) removableCount++;
-
         if (wasRemovable !== isRemovable) {
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`[SCREW_REMOVABILITY] Screw ${screw.id} removability changed: ${wasRemovable} -> ${isRemovable}`);
-          }
           
           if (isRemovable) {
             this.emit({
@@ -1827,11 +1809,6 @@ export class ScrewManager extends BaseSystem {
             });
           } else {
             const blockingShapes = this.getBlockingShapes(screw);
-            if (DEBUG_CONFIG.logScrewDebug) {
-              console.log(`[SCREW_REMOVABILITY] Screw ${screw.id} blocked by ${blockingShapes.length} shapes:`, 
-                blockingShapes.map(s => ({ id: s.id, type: s.type, layerId: s.layerId }))
-              );
-            }
             this.emit({
               type: 'screw:blocked',
               timestamp: Date.now(),
@@ -1843,9 +1820,6 @@ export class ScrewManager extends BaseSystem {
         }
       }
 
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`[SCREW_REMOVABILITY] Update complete: ${removableCount}/${totalCount} screws are removable`);
-      }
     });
   }
 
