@@ -327,10 +327,10 @@ export const DEBUG_CONFIG = {
   logPhysicsUpdates: false,
   logShapeCreation: false,
   logShapeDebug: false,
-  logScrewDebug: false,
+  logScrewDebug: true,
   logEventFlow: false,
   logPhysicsDebug: false,
-  logLayerDebug: false,
+  logLayerDebug: true,
   
   // Editor-specific debug settings
   editor: {

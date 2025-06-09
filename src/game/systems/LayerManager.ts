@@ -673,9 +673,19 @@ export class LayerManager extends BaseSystem {
 
 
   private updateLayerIndices(): void {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log('[LAYER_INDICES] Updating layer indices:');
+      console.log('[LAYER_INDICES] Before update:', this.state.layers.map(l => ({ id: l.id, index: l.index, arrayPos: this.state.layers.indexOf(l) })));
+    }
+    
     this.state.layers.forEach((layer, layerIndex) => {
       layer.updateIndex(layerIndex);
     });
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log('[LAYER_INDICES] After update:', this.state.layers.map(l => ({ id: l.id, index: l.index, arrayPos: this.state.layers.indexOf(l) })));
+      console.log('[LAYER_INDICES] Visual stacking order (0=back, higher=front):', this.state.layers.map(l => `${l.id}:${l.index}`).join(' -> '));
+    }
   }
 
 

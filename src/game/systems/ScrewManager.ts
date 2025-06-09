@@ -1848,7 +1848,14 @@ export class ScrewManager extends BaseSystem {
       // Lower index = front (earlier layers), higher index = back (later layers)  
       // Shape blocks screw only if shape is in front (shape index < screw index)
       if (shapeLayerIndex >= screwLayerIndex) {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[SCREW_BLOCKING] Skipping shape ${shape.id} (layerIndex: ${shapeLayerIndex}) - not in front of screw ${screwId} (layerIndex: ${screwLayerIndex})`);
+        }
         continue; // Skip shapes behind or on same layer as the screw
+      }
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[SCREW_BLOCKING] Checking if shape ${shape.id} (layerIndex: ${shapeLayerIndex}) blocks screw ${screwId} (layerIndex: ${screwLayerIndex})`);
       }
 
       const isBlocked = isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true);
