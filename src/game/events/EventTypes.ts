@@ -247,6 +247,11 @@ export interface ScrewCountRequestedEvent extends BaseEvent {
   source: string;
 }
 
+export interface RemainingScrewCountsRequestedEvent extends BaseEvent {
+  type: 'remaining_screws:requested';
+  callback: (screwsByColor: Map<string, number>) => void;
+}
+
 export interface ScrewCountResponseEvent extends BaseEvent {
   type: 'screw_count:response';
   totalScrews: number;
@@ -266,6 +271,10 @@ export interface ContainerReplacedEvent extends BaseEvent {
   containerIndex: number;
   oldColor: import('@/types/game').ScrewColor;
   newColor: import('@/types/game').ScrewColor;
+}
+
+export interface ContainerAllRemovedEvent extends BaseEvent {
+  type: 'container:all_removed';
 }
 
 export interface HoldingHoleFilledEvent extends BaseEvent {
@@ -602,7 +611,9 @@ export type GameEvent =
   | ScrewProgressUpdatedEvent
   | ProgressUpdatedEvent
   | LevelCompletedEvent
-  | TotalScrewCountSetEvent;
+  | TotalScrewCountSetEvent
+  | RemainingScrewCountsRequestedEvent
+  | ContainerAllRemovedEvent;
   // Removed precomputation event types from union - no longer using precomputation system
 
 // Game-specific event handler type

@@ -99,8 +99,21 @@ export class LayerManager extends BaseSystem {
       this.state.virtualGameHeight = event.height;
       
       // Define the shape area using layout constants
-      const shapeAreaY = LAYOUT_CONSTANTS.shapeArea.startY;
-      const shapeAreaHeight = event.height - shapeAreaY;
+      // But ensure it fits within the actual canvas
+      const defaultShapeAreaY = LAYOUT_CONSTANTS.shapeArea.startY;
+      
+      // If canvas is too small, adjust the shape area to fit
+      const minShapeAreaHeight = 200; // Minimum height for shapes
+      let shapeAreaY: number = defaultShapeAreaY;
+      let shapeAreaHeight = event.height - shapeAreaY;
+      
+      // If the shape area would be too small, adjust it
+      if (shapeAreaHeight < minShapeAreaHeight) {
+        // Calculate a better shape area that fits
+        shapeAreaY = Math.max(100, event.height - minShapeAreaHeight) as number;
+        shapeAreaHeight = event.height - shapeAreaY;
+        console.warn(`Canvas height (${event.height}) is too small for default shape area. Adjusting shape area Y from ${defaultShapeAreaY} to ${shapeAreaY}`);
+      }
       
       // Constrain shapes to the dedicated shape area only
       this.state.currentBounds = {
@@ -110,9 +123,11 @@ export class LayerManager extends BaseSystem {
         height: shapeAreaHeight
       };
       
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`LayerManager: Updated bounds to shape area: (${this.state.currentBounds.x}, ${this.state.currentBounds.y}, ${this.state.currentBounds.width}, ${this.state.currentBounds.height})`);
-      }
+      console.log(`🎮 LayerManager: Bounds changed event received:
+        - Canvas size: ${event.width}x${event.height}
+        - Shape area Y start: ${shapeAreaY}
+        - Shape area height: ${shapeAreaHeight}
+        - Shape area bounds: (${this.state.currentBounds.x}, ${this.state.currentBounds.y}, ${this.state.currentBounds.width}, ${this.state.currentBounds.height})`);
       
       // Update bounds for all existing layers
       this.state.layers.forEach(layer => {
@@ -318,14 +333,18 @@ export class LayerManager extends BaseSystem {
     this.executeIfActive(() => {
       if (layer.isGenerated) return;
       
-      if (DEBUG_CONFIG.logLayerDebug) {
-        console.log(`GENERATING SHAPES FOR LAYER ${layer.id}: bounds=(${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width.toFixed(0)}, ${layer.bounds.height.toFixed(0)})`);
-      }
+      console.log(`🎯 GENERATING SHAPES FOR LAYER ${layer.id}:
+        - Index: ${layer.index}
+        - Visible: ${layer.isVisible}
+        - Bounds: (${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width.toFixed(0)}, ${layer.bounds.height.toFixed(0)})
+        - Virtual game size: ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
       
       const shapeCount = randomIntBetween(
         GAME_CONFIG.shapes.minPerLayer,
         GAME_CONFIG.shapes.maxPerLayer
       );
+      
+      console.log(`🎯 Will generate ${shapeCount} shapes for layer ${layer.id}`);
       
       // Get existing shapes in the layer to avoid overlap
       const existingShapesInLayer = layer.getAllShapes();
@@ -368,10 +387,10 @@ export class LayerManager extends BaseSystem {
           );
           
           if (withinBounds) {
-            if (DEBUG_CONFIG.logPhysicsDebug) {
-              console.log(`Created shape ${shape.id} in layer ${layer.id} (color ${layer.colorIndex}) at position (${shape.position.x}, ${shape.position.y}) with physics group ${layer.physicsLayerGroup}`);
-              console.log(`🎨 Shape ${shape.id}: color=${shape.color}, tint=${shape.tint}, collision filter: group=${shape.body.collisionFilter.group}, category=${shape.body.collisionFilter.category}, mask=${shape.body.collisionFilter.mask}`);
-            }
+            console.log(`✅ Created shape ${shape.id} in layer ${layer.id} at (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})
+              - Layer visible: ${layer.isVisible}
+              - Shape bounds: (${shapeBounds.x.toFixed(1)}, ${shapeBounds.y.toFixed(1)}, ${shapeBounds.width.toFixed(1)}, ${shapeBounds.height.toFixed(1)})
+              - Screws: ${shape.getAllScrews().length}`);
             shapes.push(shape);
             layer.addShape(shape);
             shapeCreated = true;
@@ -534,9 +553,8 @@ export class LayerManager extends BaseSystem {
       // Remove from array
       this.state.layers.splice(index, 1);
       
-      // Update indices and visibility
+      // Update indices only (visibility will be updated by caller if needed)
       this.updateLayerIndices();
-      this.updateLayerVisibility();
       
       return true;
     }) || false;
@@ -548,8 +566,49 @@ export class LayerManager extends BaseSystem {
       console.log(`Before removal - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);
     }
     
-    // Remove the cleared layer
-    this.removeLayer(layer.id);
+    // Remove the cleared layer WITHOUT updating visibility yet
+    // We'll update visibility after revealing the next layer
+    const index = this.state.layers.findIndex(l => l.id === layer.id);
+    if (index !== -1) {
+      // Remove all shapes and emit events
+      layer.getAllShapes().forEach(shape => {
+        this.emit({
+          type: 'physics:body:removed',
+          timestamp: Date.now(),
+          bodyId: shape.body.id.toString(),
+          shape
+        });
+        
+        // For composite shapes, also remove parts
+        if (shape.isComposite && shape.parts) {
+          shape.parts.forEach(part => {
+            this.emit({
+              type: 'physics:body:removed',
+              timestamp: Date.now(),
+              bodyId: part.id.toString(),
+              shape
+            });
+          });
+        }
+        
+        // Emit shape destroyed event
+        this.emit({
+          type: 'shape:destroyed',
+          timestamp: Date.now(),
+          shape,
+          layer
+        });
+      });
+      
+      // Dispose layer
+      layer.dispose();
+      
+      // Remove from array
+      this.state.layers.splice(index, 1);
+      
+      // Update indices but DON'T update visibility yet
+      this.updateLayerIndices();
+    }
     
     // Emit layer cleared event
     this.emit({
@@ -565,6 +624,9 @@ export class LayerManager extends BaseSystem {
     
     // Show the next hidden layer if one exists
     this.showNextHiddenLayer();
+    
+    // NOW update visibility after potentially revealing a new layer
+    this.updateLayerVisibility();
     
     // Check if level is complete (no more active layers)
     if (this.state.layers.length === 0) {
@@ -757,6 +819,15 @@ export class LayerManager extends BaseSystem {
       const hiddenLayer = this.state.layers.find(layer => !layer.isVisible);
       
       if (hiddenLayer) {
+        // Log detailed information about the layer being revealed
+        const shapeCount = hiddenLayer.getAllShapes().length;
+        const totalScrews = hiddenLayer.getAllShapes().reduce((total, shape) => total + shape.getAllScrews().length, 0);
+        console.log(`[LayerManager] Revealing hidden layer ${hiddenLayer.id}:
+          - Index: ${hiddenLayer.index}
+          - Shapes: ${shapeCount}
+          - Total screws: ${totalScrews}
+          - Bounds: (${hiddenLayer.bounds.x}, ${hiddenLayer.bounds.y}, ${hiddenLayer.bounds.width}, ${hiddenLayer.bounds.height})`);
+        
         // Make the layer visible
         hiddenLayer.makeVisible();
         
@@ -764,6 +835,15 @@ export class LayerManager extends BaseSystem {
         this.enableLayerPhysics(hiddenLayer);
         
         console.log(`[LayerManager] Made layer ${hiddenLayer.id} visible with fade-in and enabled physics`);
+        
+        // Log shape positions to verify they're in visible area
+        if (DEBUG_CONFIG.logLayerDebug) {
+          hiddenLayer.getAllShapes().forEach(shape => {
+            const pos = shape.position;
+            const bounds = shape.getBounds();
+            console.log(`  - Shape ${shape.id} at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}), bounds: (${bounds.x.toFixed(1)}, ${bounds.y.toFixed(1)}, ${bounds.width.toFixed(1)}, ${bounds.height.toFixed(1)})`);
+          });
+        }
         
         // Emit layer visibility changed event
         this.emit({
@@ -773,13 +853,7 @@ export class LayerManager extends BaseSystem {
           visible: true
         });
         
-        // Emit layers updated event to refresh the visible layers list
-        this.emit({
-          type: 'layers:updated',
-          timestamp: Date.now(),
-          visibleLayers: this.getVisibleLayers(),
-          totalLayers: this.state.layers.length
-        });
+        // Don't emit layers:updated here - let onLayerCleared handle it after calling us
       } else {
         if (DEBUG_CONFIG.logLayerDebug) {
           console.log(`[LayerManager] No hidden layers to show`);
@@ -1001,6 +1075,37 @@ export class LayerManager extends BaseSystem {
   }
 
   /**
+   * Debug method to log current layer visibility state
+   */
+  public debugLayerVisibility(): void {
+    console.log('🔍 Layer Visibility Debug:');
+    console.log(`Total layers: ${this.state.layers.length}`);
+    console.log(`Visible layers: ${this.getVisibleLayers().length}`);
+    console.log(`Current bounds: ${this.state.currentBounds ? `(${this.state.currentBounds.x}, ${this.state.currentBounds.y}, ${this.state.currentBounds.width}, ${this.state.currentBounds.height})` : 'NOT SET'}`);
+    console.log(`Virtual game size: ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
+    
+    this.state.layers.forEach((layer, index) => {
+      const shapeCount = layer.getAllShapes().length;
+      const screwCount = layer.getAllShapes().reduce((total, shape) => total + shape.getAllScrews().length, 0);
+      const shapes = layer.getAllShapes();
+      console.log(`Layer ${index} (${layer.id}):
+        - Visible: ${layer.isVisible}
+        - Opacity: ${layer.getFadeOpacity()}
+        - Shapes: ${shapeCount}
+        - Screws: ${screwCount}
+        - Bounds: (${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width}, ${layer.bounds.height})`);
+      
+      // Log first few shape positions if any
+      if (shapes.length > 0) {
+        console.log(`  Sample shape positions:`);
+        shapes.slice(0, 3).forEach(shape => {
+          console.log(`    - ${shape.id} at (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+        });
+      }
+    });
+  }
+
+  /**
    * Debug method to find shapes with screws that might be out of bounds
    */
   public debugOutOfBoundsShapes(): void {
@@ -1113,6 +1218,58 @@ export class LayerManager extends BaseSystem {
       Out-of-bounds screws: ${outOfBoundsScrews}
       HUD area screws: ${hudScrews}
       Layers: ${this.state.layers.length} (Visible: ${this.state.layers.filter(l => l.isVisible).length})`);
+  }
+
+  /**
+   * Debug method to force reposition shapes to visible area
+   */
+  public forceRepositionShapesToVisibleArea(): void {
+    console.log('🔧 Force repositioning shapes to visible area...');
+    
+    if (!this.state.currentBounds) {
+      console.warn('No current bounds set, cannot reposition shapes');
+      return;
+    }
+    
+    const visibleBounds = this.state.currentBounds;
+    let repositionedCount = 0;
+    
+    this.state.layers.forEach(layer => {
+      if (!layer.isVisible) return; // Skip invisible layers
+      
+      layer.getAllShapes().forEach(shape => {
+        const shapeBounds = shape.getBounds();
+        const isOutOfBounds = (
+          shapeBounds.y < visibleBounds.y ||
+          shapeBounds.y + shapeBounds.height > visibleBounds.y + visibleBounds.height ||
+          shapeBounds.x < visibleBounds.x ||
+          shapeBounds.x + shapeBounds.width > visibleBounds.x + visibleBounds.width
+        );
+        
+        if (isOutOfBounds) {
+          // Calculate new position within visible bounds
+          const margin = 50;
+          const newX = visibleBounds.x + margin + Math.random() * (visibleBounds.width - 2 * margin - shapeBounds.width);
+          const newY = visibleBounds.y + margin + Math.random() * (visibleBounds.height - 2 * margin - shapeBounds.height);
+          
+          console.log(`Repositioning shape ${shape.id} from (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}) to (${newX.toFixed(1)}, ${newY.toFixed(1)})`);
+          
+          // Update shape position
+          shape.position.x = newX + shapeBounds.width / 2;
+          shape.position.y = newY + shapeBounds.height / 2;
+          
+          // Update physics body position
+          if (shape.body) {
+            shape.body.position.x = shape.position.x;
+            shape.body.position.y = shape.position.y;
+          }
+          
+          repositionedCount++;
+        }
+      });
+    });
+    
+    console.log(`🔧 Repositioned ${repositionedCount} shapes to visible area`);
   }
 
   protected onDestroy(): void {

@@ -929,132 +929,123 @@ export class GameState extends BaseSystem {
   private checkAndReplaceContainer(containerIndex: number): void {
     if (containerIndex < 0 || containerIndex >= this.containers.length) return;
 
-    // Always get real-time screw data to determine if replacement is needed
-    // ContainerStrategyManager can't provide accurate data without real-time screw colors
-
-    // First, get the actual remaining screw colors from shapes and holding holes
+    // Get real-time screw data from ScrewManager
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`[CONTAINER_STRATEGY] Requesting actual screw colors for smart replacement...`);
+      console.log(`[CONTAINER_STRATEGY] Requesting remaining screw counts for smart replacement...`);
     }
     
-    // Use a promise to handle the async screw color request
-    new Promise<void>((resolve) => {
-      this.emit({
-        type: 'screw_colors:requested',
-        timestamp: Date.now(),
-        containerIndex: -1, // Get all remaining screws
-        existingColors: [],
-        callback: (shapeScrewColors: ScrewColor[]) => {
-          // Combine shape screws with holding hole screws for complete picture
-          const holdingHoleColors = this.getHoldingHoleColors();
-          const allRemainingColors = [...shapeScrewColors, ...holdingHoleColors];
-          
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`[CONTAINER_STRATEGY] Container ${containerIndex} being replaced`);
-            console.log(`[CONTAINER_STRATEGY] Remaining screws - Shapes: ${shapeScrewColors.length}, Holding: ${holdingHoleColors.length}, Total: ${allRemainingColors.length}`);
-            console.log(`[CONTAINER_STRATEGY] Shape screw colors:`, shapeScrewColors);
-            console.log(`[CONTAINER_STRATEGY] Holding hole colors:`, holdingHoleColors);
-            console.log(`[CONTAINER_STRATEGY] Combined by color:`, this.countColorArray(allRemainingColors));
-          }
-          
-          // Now determine if we need a replacement based on actual remaining screws
-          const screwsByColor = new Map<ScrewColor, number>();
-          allRemainingColors.forEach(color => {
-            screwsByColor.set(color, (screwsByColor.get(color) || 0) + 1);
-          });
-          
-          // Get available space (excluding container being removed)
-          const spaceByColor = this.getAvailableSpaceByColor(containerIndex);
-          
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`[CONTAINER_STRATEGY] Available space by color (excluding container ${containerIndex}):`, Array.from(spaceByColor.entries()));
-            console.log(`[CONTAINER_STRATEGY] Current containers (excluding ${containerIndex}):`);
-            this.containers.forEach((container, index) => {
-              if (index !== containerIndex) {
-                const filled = container.holes.filter(h => h !== null).length;
-                const available = container.maxHoles - filled;
-                console.log(`  Container ${index}: ${container.color}, ${filled}/${container.maxHoles} filled, ${available} available`);
-              }
-            });
-          }
-          
-          // Find if any color needs additional space
-          let needsReplacement = false;
-          let priorityColor: ScrewColor | null = null;
-          let maxNeed = 0;
-          
-          screwsByColor.forEach((count, color) => {
-            const availableSpace = spaceByColor.get(color) || 0;
-            const need = count - availableSpace;
-            
-            if (DEBUG_CONFIG.logScrewDebug) {
-              console.log(`[CONTAINER_STRATEGY] Color ${color}: ${count} screws, ${availableSpace} available space, need: ${need}`);
-            }
-            
-            if (need > 0) {
-              needsReplacement = true;
-              if (need > maxNeed) {
-                maxNeed = need;
-                priorityColor = color;
-              }
-            }
-          });
-          
-          if (!needsReplacement || !priorityColor) {
-            // No replacement needed - just remove the container
-            this.containers.splice(containerIndex, 1);
-            if (DEBUG_CONFIG.logScrewDebug) {
-              console.log(`[CONTAINER_STRATEGY] No replacement needed - removed container`);
-            }
-            
-            // Update strategy manager and emit events
-            this.containerStrategy.updateContainerState(this.containers, this.holdingHoles);
-            this.emit({
-              type: 'container:state:updated',
-              timestamp: Date.now(),
-              containers: this.containers
-            });
-          } else {
-            // Create replacement with optimal holes (1-3 based on total screws of this color)
-            // Use the total count of screws for this color, not just the "need"
-            const totalScrewsOfColor = screwsByColor.get(priorityColor) || 0;
-            const optimalHoles = Math.min(3, Math.max(1, totalScrewsOfColor));
-            
-            if (DEBUG_CONFIG.logScrewDebug) {
-              console.log(`[CONTAINER_STRATEGY] Replacing with ${priorityColor} container (${optimalHoles} holes for ${totalScrewsOfColor} total screws, need: ${maxNeed})`);
-            }
-            
-            const oldContainer = this.containers[containerIndex];
-            const optimalContainer = this.createOptimalContainerFromStrategy(priorityColor, optimalHoles, oldContainer.position);
-            
-            // Replace the container
-            this.containers[containerIndex] = optimalContainer;
-            
-            // Update strategy manager
-            this.containerStrategy.updateContainerState(this.containers, this.holdingHoles);
-            
-            // Emit events
-            this.emit({
-              type: 'container:replaced',
-              timestamp: Date.now(),
-              containerIndex,
-              oldColor: oldContainer.color,
-              newColor: optimalContainer.color
-            });
-            
-            this.emit({
-              type: 'container:state:updated',
-              timestamp: Date.now(),
-              containers: this.containers
-            });
-          }
-          
-          // Clean up empty containers if all screws are collected
-          this.cleanupEmptyContainers();
-          
-          resolve();
+    // Use the new event to get remaining screws by color
+    this.emit({
+      type: 'remaining_screws:requested',
+      timestamp: Date.now(),
+      callback: (screwsByColor: Map<string, number>) => {
+        
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[CONTAINER_STRATEGY] Container ${containerIndex} being replaced`);
+          console.log(`[CONTAINER_STRATEGY] Remaining screws by color:`, Array.from(screwsByColor.entries()));
         }
-      });
+        
+        // Get available space (excluding container being removed)
+        const spaceByColor = this.getAvailableSpaceByColor(containerIndex);
+        
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[CONTAINER_STRATEGY] Available space by color (excluding container ${containerIndex}):`, Array.from(spaceByColor.entries()));
+          console.log(`[CONTAINER_STRATEGY] Current containers (excluding ${containerIndex}):`);
+          this.containers.forEach((container, index) => {
+            if (index !== containerIndex) {
+              const filled = container.holes.filter(h => h !== null).length;
+              const available = container.maxHoles - filled;
+              console.log(`  Container ${index}: ${container.color}, ${filled}/${container.maxHoles} filled, ${available} available`);
+            }
+          });
+        }
+        
+        // Find if any color needs additional space
+        let needsReplacement = false;
+        let priorityColor: ScrewColor | null = null;
+        let maxNeed = 0;
+        
+        screwsByColor.forEach((count, color) => {
+          const availableSpace = spaceByColor.get(color as ScrewColor) || 0;
+          const need = count - availableSpace;
+          
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`[CONTAINER_STRATEGY] Color ${color}: ${count} screws, ${availableSpace} available space, need: ${need}`);
+          }
+          
+          if (need > 0) {
+            needsReplacement = true;
+            if (need > maxNeed) {
+              maxNeed = need;
+              priorityColor = color as ScrewColor;
+            }
+          }
+        });
+        
+        if (!needsReplacement || !priorityColor) {
+          // No replacement needed - just remove the container
+          this.containers.splice(containerIndex, 1);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`[CONTAINER_STRATEGY] No replacement needed - removed container`);
+          }
+          
+          // Check if this was the last container
+          if (this.containers.length === 0) {
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`[CONTAINER_STRATEGY] Last container removed! Checking win condition...`);
+            }
+            // Emit event for ProgressTracker to check win condition
+            this.emit({
+              type: 'container:all_removed',
+              timestamp: Date.now()
+            });
+          }
+          
+          // Update strategy manager and emit events
+          this.containerStrategy.updateContainerState(this.containers, this.holdingHoles);
+          this.emit({
+            type: 'container:state:updated',
+            timestamp: Date.now(),
+            containers: this.containers
+          });
+        } else {
+          // Create replacement with optimal holes (1-3 based on total screws of this color)
+          // Use the total count of screws for this color, not just the "need"
+          const totalScrewsOfColor = screwsByColor.get(priorityColor) || 0;
+          const optimalHoles = Math.min(3, Math.max(1, totalScrewsOfColor));
+          
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`[CONTAINER_STRATEGY] Replacing with ${priorityColor} container (${optimalHoles} holes for ${totalScrewsOfColor} total screws, need: ${maxNeed})`);
+          }
+          
+          const oldContainer = this.containers[containerIndex];
+          const optimalContainer = this.createOptimalContainerFromStrategy(priorityColor, optimalHoles, oldContainer.position);
+          
+          // Replace the container
+          this.containers[containerIndex] = optimalContainer;
+          
+          // Update strategy manager
+          this.containerStrategy.updateContainerState(this.containers, this.holdingHoles);
+          
+          // Emit events
+          this.emit({
+            type: 'container:replaced',
+            timestamp: Date.now(),
+            containerIndex,
+            oldColor: oldContainer.color,
+            newColor: optimalContainer.color
+          });
+          
+          this.emit({
+            type: 'container:state:updated',
+            timestamp: Date.now(),
+            containers: this.containers
+          });
+        }
+        
+        // Clean up empty containers if all screws are collected
+        this.cleanupEmptyContainers();
+      }
     });
   }
 
@@ -1778,6 +1769,32 @@ export class GameState extends BaseSystem {
     });
     
     return spaceByColor;
+  }
+
+  /**
+   * Gets the count of available container holes by color.
+   * Used for smart container replacement logic.
+   * @returns Map of color to available hole count
+   */
+  public getAvailableHolesByColor(): Map<string, number> {
+    const availableByColor = new Map<string, number>();
+    
+    // Count available holes in each container
+    for (const container of this.containers) {
+      // Count empty holes (not filled and not reserved)
+      let availableCount = 0;
+      for (let i = 0; i < container.maxHoles; i++) {
+        if (container.holes[i] === null && container.reservedHoles[i] === null) {
+          availableCount++;
+        }
+      }
+      
+      // Add to the total for this color
+      const current = availableByColor.get(container.color) || 0;
+      availableByColor.set(container.color, current + availableCount);
+    }
+    
+    return availableByColor;
   }
 
   /**

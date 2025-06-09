@@ -54,6 +54,10 @@ export class ProgressTracker extends BaseSystem {
     this.subscribe('level:started', this.handleLevelStarted.bind(this));
     this.subscribe('game:over', this.handleGameOver.bind(this));
     
+    // Listen for container removal to check win condition
+    console.log('[ProgressTracker] Subscribing to container:all_removed');
+    this.subscribe('container:all_removed', this.handleAllContainersRemoved.bind(this));
+    
     console.log('[ProgressTracker] Event listeners setup complete');
   }
 
@@ -93,6 +97,45 @@ export class ProgressTracker extends BaseSystem {
     void event;
     this.executeIfActive(() => {
       this.resetProgress();
+    });
+  }
+
+  private handleAllContainersRemoved(event: import('../events/EventTypes').ContainerAllRemovedEvent): void {
+    void event;
+    this.executeIfActive(() => {
+      console.log('[ProgressTracker] All containers removed! Checking win condition...');
+      
+      // Request remaining screw counts to verify all screws are collected
+      this.emit({
+        type: 'remaining_screws:requested',
+        timestamp: Date.now(),
+        callback: (screwsByColor: Map<string, number>) => {
+          // Check if there are any remaining screws
+          let totalRemaining = 0;
+          screwsByColor.forEach(count => {
+            totalRemaining += count;
+          });
+          
+          console.log(`[ProgressTracker] Remaining screws after last container removed: ${totalRemaining}`);
+          
+          if (totalRemaining === 0) {
+            // All screws collected and last container removed - level complete!
+            console.log('[ProgressTracker] LEVEL COMPLETE! All screws collected and last container removed.');
+            
+            const completionEvent: LevelCompletedEvent = {
+              type: 'level:completed',
+              totalScrews: this.state.totalScrews,
+              finalProgress: 100,
+              timestamp: Date.now(),
+              source: this.systemName
+            };
+            
+            this.emit(completionEvent);
+          } else {
+            console.log(`[ProgressTracker] Cannot complete level - ${totalRemaining} screws still remaining`);
+          }
+        }
+      });
     });
   }
 

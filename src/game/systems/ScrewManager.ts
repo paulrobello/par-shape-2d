@@ -235,6 +235,7 @@ export class ScrewManager extends BaseSystem {
     
     // Screw count requests
     this.subscribe('screw_count:requested', this.handleScrewCountRequested.bind(this));
+    this.subscribe('remaining_screws:requested', this.handleRemainingScrewCountsRequested.bind(this));
   }
 
   // Event Handlers
@@ -845,6 +846,20 @@ export class ScrewManager extends BaseSystem {
         totalScrews,
         requestSource: event.source
       });
+    });
+  }
+
+  private handleRemainingScrewCountsRequested(event: import('../events/EventTypes').RemainingScrewCountsRequestedEvent): void {
+    this.executeIfActive(() => {
+      const screwsByColor = this.getRemainingScrewCountsByColor();
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`ScrewManager: Responding to remaining screws request. Counts by color:`, 
+          Array.from(screwsByColor.entries()));
+      }
+      
+      // Call the callback with the screw counts
+      event.callback(screwsByColor);
     });
   }
 
@@ -2037,6 +2052,36 @@ export class ScrewManager extends BaseSystem {
 
   public getScrew(screwId: string): Screw | null {
     return this.state.screws.get(screwId) || null;
+  }
+
+  /**
+   * Gets the count of remaining screws by color.
+   * Includes screws still in shapes (not collected) and screws in holding holes.
+   * @returns Map of color to screw count
+   */
+  public getRemainingScrewCountsByColor(): Map<string, number> {
+    const counts = new Map<string, number>();
+    
+    // Count screws still in shapes (not collected)
+    for (const screw of this.state.screws.values()) {
+      if (!screw.isCollected && !screw.isBeingCollected) {
+        const count = counts.get(screw.color) || 0;
+        counts.set(screw.color, count + 1);
+      }
+    }
+    
+    // Count screws in holding holes
+    for (const holdingHole of this.state.holdingHoles) {
+      if (holdingHole.screwId) {
+        const screw = this.state.screws.get(holdingHole.screwId);
+        if (screw && !screw.isBeingTransferred) {
+          const count = counts.get(screw.color) || 0;
+          counts.set(screw.color, count + 1);
+        }
+      }
+    }
+    
+    return counts;
   }
 
   // Method to clear all screws (used for restart)

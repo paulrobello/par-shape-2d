@@ -674,6 +674,34 @@ export class GameManager extends BaseSystem {
             });
           }
           break;
+        case 'l':
+          // Debug layer visibility
+          if (this.state.systemCoordinator) {
+            const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+            if (layerManager) {
+              layerManager.debugLayerVisibility();
+              layerManager.debugOutOfBoundsShapes();
+            }
+          }
+          break;
+        case 'v':
+          // Force cleanup out-of-bounds shapes
+          if (this.state.systemCoordinator) {
+            const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+            if (layerManager) {
+              layerManager.forceCleanupOutOfBoundsShapes();
+            }
+          }
+          break;
+        case 'f':
+          // Force reposition shapes to visible area
+          if (this.state.systemCoordinator) {
+            const layerManager = this.state.systemCoordinator.getSystem('LayerManager') as import('../systems/LayerManager').LayerManager;
+            if (layerManager) {
+              layerManager.forceRepositionShapesToVisibleArea();
+            }
+          }
+          break;
       }
     });
   }
@@ -1525,13 +1553,29 @@ export class GameManager extends BaseSystem {
   }
 
   private renderShapesAndScrews(): void {
-    if (!this.state.ctx || this.state.visibleLayers.length === 0) return;
+    if (!this.state.ctx || this.state.visibleLayers.length === 0) {
+      if (Date.now() % 1000 < 50) { // Log every second
+        console.log(`🎨 renderShapesAndScrews: No visible layers to render (${this.state.visibleLayers.length} layers)`);
+      }
+      return;
+    }
 
     const renderContext: RenderContext = { 
       ctx: this.state.ctx,
       canvas: this.state.canvas!,
       debugMode: this.state.debugMode
     };
+    
+    // Log rendering state periodically
+    if (Date.now() % 2000 < 50) { // Log every 2 seconds
+      let totalShapes = 0;
+      let totalScrews = 0;
+      this.state.visibleLayers.forEach(layer => {
+        totalShapes += layer.getAllShapes().length;
+        totalScrews += layer.getAllShapes().reduce((sum, shape) => sum + shape.getAllScrews().length, 0);
+      });
+      console.log(`🎨 Rendering ${this.state.visibleLayers.length} visible layers with ${totalShapes} shapes and ${totalScrews} screws`);
+    }
     
     // Render shapes and their screws from back layers to front layers
     for (let i = this.state.visibleLayers.length - 1; i >= 0; i--) {

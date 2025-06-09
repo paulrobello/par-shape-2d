@@ -92,6 +92,8 @@ This document provides a comprehensive mapping of all events in the PAR Shape 2D
 | `holding_hole:state:updated` | Holding hole state synchronization | GameState | GameManager, ScrewManager |
 | `screw_colors:requested` | Request for active screw colors | GameState | ScrewManager |
 | `screw:transfer:color_check` | Validate screw colors for automated transfers | GameState | ScrewManager |
+| `container:all_removed` | All containers removed (win check) | GameState | ProgressTracker |
+| `remaining_screws:requested` | Request remaining screw counts by color | GameState, ProgressTracker | ScrewManager |
 
 ### Container Strategy Events
 | Event Type | Purpose | Emitters | Subscribers |
@@ -351,6 +353,36 @@ Level complete → ContainerStrategyManager → generatePerfectBalanceStats()
     ↓
 If perfect balance achieved:
     ContainerStrategyManager → perfect:balance:achieved
+```
+
+### Win Condition Flow (Smart Container Replacement)
+```
+Container filled → GameState → container:filled
+    ↓
+GameState → markContainerForRemoval() with fade-out
+    ↓
+After fade-out → GameState → checkAndReplaceContainer()
+    ↓
+GameState → remaining_screws:requested
+    ↓
+ScrewManager → handleRemainingScrewCountsRequested() → callback with counts
+    ↓
+GameState analyzes remaining screws vs available container holes
+    ↓
+If replacement NOT needed:
+    Container removed → GameState checks if last container
+    ↓
+    If last container → GameState → container:all_removed
+    ↓
+    ProgressTracker → handleAllContainersRemoved()
+    ↓
+    ProgressTracker → remaining_screws:requested
+    ↓
+    ScrewManager → callback with remaining screw counts
+    ↓
+    If no remaining screws → ProgressTracker → level:completed
+    ↓
+    GameManager → handleLevelComplete()
 ```
 
 ### Layer Visibility Flow (Progressive Revelation)
