@@ -11,13 +11,13 @@ import { Shape } from '@/game/entities/Shape';
  * Check if a point is within shape bounds with margin
  */
 export function isPointInShapeBoundsWithMargin(point: Vector2, shape: Shape): boolean {
-  const bounds = shape.body.bounds;
+  const bounds = shape.getBounds();
   const margin = 5; // Small margin for edge cases
   
-  return point.x >= bounds.min.x - margin &&
-         point.x <= bounds.max.x + margin &&
-         point.y >= bounds.min.y - margin &&
-         point.y <= bounds.max.y + margin;
+  return point.x >= bounds.x - margin &&
+         point.x <= bounds.x + bounds.width + margin &&
+         point.y >= bounds.y - margin &&
+         point.y <= bounds.y + bounds.height + margin;
 }
 
 /**
@@ -26,9 +26,9 @@ export function isPointInShapeBoundsWithMargin(point: Vector2, shape: Shape): bo
 export function isCircleIntersectingShape(center: Vector2, radius: number, shape: Shape): boolean {
   // First check bounding box intersection for performance
   if (!isPointInShapeBoundsWithMargin(center, shape)) {
-    const bounds = shape.body.bounds;
-    const closestX = Math.max(bounds.min.x, Math.min(center.x, bounds.max.x));
-    const closestY = Math.max(bounds.min.y, Math.min(center.y, bounds.max.y));
+    const bounds = shape.getBounds();
+    const closestX = Math.max(bounds.x, Math.min(center.x, bounds.x + bounds.width));
+    const closestY = Math.max(bounds.y, Math.min(center.y, bounds.y + bounds.height));
     const distance = Math.sqrt(
       Math.pow(center.x - closestX, 2) + Math.pow(center.y - closestY, 2)
     );

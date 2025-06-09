@@ -11,13 +11,13 @@ import { DEBUG_CONFIG } from '@/shared/utils/Constants';
  * Check if a point is within shape bounds with margin
  */
 export function isPointInShapeBoundsWithMargin(point: Vector2, shape: Shape): boolean {
-  const bounds = shape.body.bounds;
+  const bounds = shape.getBounds();
   const margin = 5; // Small margin for edge cases
   
-  return point.x >= bounds.min.x - margin &&
-         point.x <= bounds.max.x + margin &&
-         point.y >= bounds.min.y - margin &&
-         point.y <= bounds.max.y + margin;
+  return point.x >= bounds.x - margin &&
+         point.x <= bounds.x + bounds.width + margin &&
+         point.y >= bounds.y - margin &&
+         point.y <= bounds.y + bounds.height + margin;
 }
 
 /**
@@ -26,9 +26,9 @@ export function isPointInShapeBoundsWithMargin(point: Vector2, shape: Shape): bo
 export function isCircleIntersectingShape(center: Vector2, radius: number, shape: Shape): boolean {
   // First check bounding box intersection for performance
   if (!isPointInShapeBoundsWithMargin(center, shape)) {
-    const bounds = shape.body.bounds;
-    const closestX = Math.max(bounds.min.x, Math.min(center.x, bounds.max.x));
-    const closestY = Math.max(bounds.min.y, Math.min(center.y, bounds.max.y));
+    const bounds = shape.getBounds();
+    const closestX = Math.max(bounds.x, Math.min(center.x, bounds.x + bounds.width));
+    const closestY = Math.max(bounds.y, Math.min(center.y, bounds.y + bounds.height));
     const distance = Math.sqrt(
       Math.pow(center.x - closestX, 2) + Math.pow(center.y - closestY, 2)
     );
@@ -81,9 +81,9 @@ export function isCircleIntersectingRectangle(center: Vector2, radius: number, s
   const localX = (center.x - shapeCenter.x) * cos - (center.y - shapeCenter.y) * sin;
   const localY = (center.x - shapeCenter.x) * sin + (center.y - shapeCenter.y) * cos;
   
-  const bounds = shape.body.bounds;
-  const width = bounds.max.x - bounds.min.x;
-  const height = bounds.max.y - bounds.min.y;
+  const bounds = shape.getBounds();
+  const width = bounds.width;
+  const height = bounds.height;
   const halfWidth = width / 2;
   const halfHeight = height / 2;
   
@@ -240,10 +240,10 @@ export function getDistanceToNearestEdge(point: Vector2, shape: Shape): number {
     }
     
     case 'rectangle': {
-      const bounds = shape.body.bounds;
+      const bounds = shape.getBounds();
       const center = { x: shape.body.position.x, y: shape.body.position.y };
-      const halfWidth = (bounds.max.x - bounds.min.x) / 2;
-      const halfHeight = (bounds.max.y - bounds.min.y) / 2;
+      const halfWidth = bounds.width / 2;
+      const halfHeight = bounds.height / 2;
       
       // Distance to rectangle edges
       const dx = Math.max(0, Math.abs(point.x - center.x) - halfWidth);
@@ -253,12 +253,12 @@ export function getDistanceToNearestEdge(point: Vector2, shape: Shape): number {
     
     default:
       // For other shapes, approximate using bounding box
-      const bounds = shape.body.bounds;
+      const bounds = shape.getBounds();
       const center = { x: shape.body.position.x, y: shape.body.position.y };
       const distance = Math.sqrt(
         Math.pow(point.x - center.x, 2) + Math.pow(point.y - center.y, 2)
       );
-      const avgRadius = Math.min(bounds.max.x - bounds.min.x, bounds.max.y - bounds.min.y) / 2;
+      const avgRadius = Math.min(bounds.width, bounds.height) / 2;
       return Math.abs(distance - avgRadius);
   }
 }

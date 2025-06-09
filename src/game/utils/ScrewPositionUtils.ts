@@ -104,9 +104,9 @@ export function getShapeScrewLocations(shape: Shape): { corners: Vector2[], cent
   const margin = 30; // Distance from edge
   
   // Get bounds for calculations
-  const bounds = shape.body.bounds;
-  const width = bounds.max.x - bounds.min.x;
-  const height = bounds.max.y - bounds.min.y;
+  const bounds = shape.getBounds();
+  const width = bounds.width;
+  const height = bounds.height;
   
   if (shape.type === 'circle') {
     const radius = shape.radius || width / 2;
@@ -189,9 +189,9 @@ export function getShapeArea(shape: Shape): number {
     const radius = shape.radius || 50;
     return Math.PI * radius * radius;
   } else if (shape.type === 'rectangle') {
-    const bounds = shape.body.bounds;
-    const width = bounds.max.x - bounds.min.x;
-    const height = bounds.max.y - bounds.min.y;
+    const bounds = shape.getBounds();
+    const width = bounds.width;
+    const height = bounds.height;
     return width * height;
   } else if (shape.type === 'polygon') {
     if (shape.vertices && shape.vertices.length > 0) {
@@ -206,15 +206,15 @@ export function getShapeArea(shape: Shape): number {
       return Math.abs(area) / 2;
     } else {
       // Fallback to bounding box
-      const bounds = shape.body.bounds;
-      const width = bounds.max.x - bounds.min.x;
-      const height = bounds.max.y - bounds.min.y;
+      const bounds = shape.getBounds();
+      const width = bounds.width;
+      const height = bounds.height;
       return width * height;
     }
   } else if (shape.type === 'capsule') {
-    const bounds = shape.body.bounds;
-    const width = bounds.max.x - bounds.min.x;
-    const height = bounds.max.y - bounds.min.y;
+    const bounds = shape.getBounds();
+    const width = bounds.width;
+    const height = bounds.height;
     return width * height; // Approximate area
   }
   
@@ -431,9 +431,9 @@ export function getPerimeterPositions(shape: Shape, definition: ShapeDefinition)
   // Fallback for non-path shapes: use circular distribution
   const positions: Vector2[] = [];
   const center = { x: shape.body.position.x, y: shape.body.position.y };
-  const bounds = shape.body.bounds;
-  const width = bounds.max.x - bounds.min.x;
-  const height = bounds.max.y - bounds.min.y;
+  const bounds = shape.getBounds();
+  const width = bounds.width;
+  const height = bounds.height;
   const avgRadius = Math.min(width, height) / 2 - margin;
   
   for (let i = 0; i < perimeterPoints; i++) {
@@ -482,9 +482,9 @@ export function getGridPositions(shape: Shape, definition: ShapeDefinition): Vec
   const margin = 20; // Use a fixed margin since gridMargin is not in the type definition
   
   // Get shape bounds
-  const bounds = shape.body.bounds;
-  const width = bounds.max.x - bounds.min.x;
-  const height = bounds.max.y - bounds.min.y;
+  const bounds = shape.getBounds();
+  const width = bounds.width;
+  const height = bounds.height;
   
   // Calculate grid bounds with margin
   const gridWidth = Math.max(gridSpacing, width - 2 * margin);
@@ -514,11 +514,11 @@ export function getGridPositions(shape: Shape, definition: ShapeDefinition): Vec
  * Check if a point is inside a shape with margin
  */
 function isPointInsideShape(shape: Shape, point: Vector2, margin: number): boolean {
-  const bounds = shape.body.bounds;
+  const bounds = shape.getBounds();
   
   // Basic bounds check with margin
-  if (point.x < bounds.min.x + margin || point.x > bounds.max.x - margin ||
-      point.y < bounds.min.y + margin || point.y > bounds.max.y - margin) {
+  if (point.x < bounds.x + margin || point.x > bounds.x + bounds.width - margin ||
+      point.y < bounds.y + margin || point.y > bounds.y + bounds.height - margin) {
     return false;
   }
   
