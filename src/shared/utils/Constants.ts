@@ -327,7 +327,7 @@ export const DEBUG_CONFIG = {
   logPhysicsUpdates: false,
   logShapeCreation: false,
   logShapeDebug: false,
-  logScrewDebug: true,
+  logScrewDebug: false,
   logEventFlow: false,
   logPhysicsDebug: false,
   logLayerDebug: true,
