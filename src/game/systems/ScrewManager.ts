@@ -1837,24 +1837,6 @@ export class ScrewManager extends BaseSystem {
     // Check if the screw's own layer is visible
     const layerVisible = this.state.visibleLayers.has(screwShape.layerId);
     if (!layerVisible) {
-      // Only log if this is a state change or first check, and enough time has passed
-      if (DEBUG_CONFIG.logScrewDebug) {
-        const lastState = this.lastLoggedScrewStates.get(screwId);
-        const now = Date.now();
-        const shouldLog = !lastState || 
-                         lastState.layerVisible !== false || 
-                         (now - lastState.timestamp) > ScrewManager.DEBUG_THROTTLE_MS;
-        
-        if (shouldLog) {
-          console.log(`[SCREW_BLOCKING] Screw ${screwId} not removable - layer ${screwShape.layerId} not visible`);
-          this.lastLoggedScrewStates.set(screwId, {
-            isRemovable: false,
-            blockingShapeIds: [],
-            layerVisible: false,
-            timestamp: now
-          });
-        }
-      }
       return false;
     }
 
@@ -1889,56 +1871,7 @@ export class ScrewManager extends BaseSystem {
       if (isBlocked) {
         blockingShapeIds.push(shape.id);
         
-        // Only log detailed blocking info if this is a new blocker, state change, or enough time has passed
-        if (DEBUG_CONFIG.logScrewDebug) {
-          const lastState = this.lastLoggedScrewStates.get(screwId);
-          const now = Date.now();
-          const isNewBlocker = !lastState || !lastState.blockingShapeIds.includes(shape.id);
-          const enoughTimePassed = lastState && (now - lastState.timestamp) > ScrewManager.DEBUG_THROTTLE_MS;
-          
-          if (isNewBlocker || enoughTimePassed) {
-            console.log(`[SCREW_BLOCKING] Screw ${screwId} BLOCKED by shape:`, {
-              blockingShapeId: shape.id,
-              blockingShapeType: shape.type,
-              blockingShapeLayerId: shape.layerId,
-              blockingShapeLayerIndex: shapeLayerIndex,
-              screwLayerIndex,
-              indexComparison: `${shapeLayerIndex} < ${screwLayerIndex} (front blocks back)`
-            });
-          }
-        }
         return false;
-      }
-    }
-    
-    const isRemovable = true;
-    
-    // Only log if removability state has changed or enough time has passed
-    if (DEBUG_CONFIG.logScrewDebug) {
-      const lastState = this.lastLoggedScrewStates.get(screwId);
-      const now = Date.now();
-      const stateChanged = !lastState || 
-        lastState.isRemovable !== isRemovable || 
-        lastState.layerVisible !== layerVisible ||
-        JSON.stringify(lastState.blockingShapeIds.sort()) !== JSON.stringify(blockingShapeIds.sort());
-      
-      const enoughTimePassed = lastState && (now - lastState.timestamp) > ScrewManager.DEBUG_THROTTLE_MS;
-      
-      if (stateChanged || enoughTimePassed) {
-        console.log(`[SCREW_BLOCKING] Screw ${screwId} removability changed:`, {
-          wasRemovable: lastState?.isRemovable ?? 'unknown',
-          isRemovable,
-          layerVisible,
-          screwLayerIndex,
-          blockingShapeIds: blockingShapeIds.length > 0 ? blockingShapeIds : 'none'
-        });
-        
-        this.lastLoggedScrewStates.set(screwId, {
-          isRemovable,
-          blockingShapeIds: [...blockingShapeIds],
-          layerVisible,
-          timestamp: now
-        });
       }
     }
     
