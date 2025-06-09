@@ -344,8 +344,10 @@ export class ScrewManager extends BaseSystem {
       }
       
       if (DEBUG_CONFIG.logScrewDebug) {
+        const isBlockedForGameplay = this.isScrewBlockedForGameplay(screw.id);
         console.log(`[SCREW_CLICK] Screw ${event.screw.id} clicked:`, {
           isRemovable: screw.isRemovable,
+          isBlockedForGameplay,
           isCollected: screw.isCollected,
           isBeingCollected: screw.isBeingCollected,
           screwPosition: screw.position,
@@ -368,8 +370,11 @@ export class ScrewManager extends BaseSystem {
       // Check if force removal is enabled (Shift+click in debug mode)
       const forceRemoval = event.forceRemoval || false;
       
-      // If screw is blocked and not force removal, start shake animation
-      if (!screw.isRemovable && !screw.isCollected && !screw.isBeingCollected && !forceRemoval) {
+      // Check if screw is blocked for gameplay purposes (broader check for shake animation)
+      const isBlockedForGameplay = this.isScrewBlockedForGameplay(screw.id);
+      
+      // If screw is blocked for gameplay and not force removal, start shake animation
+      if (isBlockedForGameplay && !screw.isCollected && !screw.isBeingCollected && !forceRemoval) {
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`🔒 Screw ${event.screw.id} is blocked - starting shake animation`);
         }
@@ -1909,6 +1914,65 @@ export class ScrewManager extends BaseSystem {
     }
 
     return blockingShapes;
+  }
+
+  /**
+   * Check if a screw is blocked for gameplay purposes (broader check for shake animation)
+   * This uses a less strict bounds-based check to ensure screws that should logically
+   * be considered "blocked" will trigger shake animations even if they're not precisely
+   * visually occluded.
+   */
+  private isScrewBlockedForGameplay(screwId: string): boolean {
+    const screw = this.state.screws.get(screwId);
+    if (!screw || screw.isCollected) {
+      return false;
+    }
+
+    const screwShape = this.state.allShapes.find(shape => shape.id === screw.shapeId);
+    if (!screwShape) {
+      return false;
+    }
+
+    // If the screw's own layer is not visible, consider it blocked
+    if (!this.state.visibleLayers.has(screwShape.layerId)) {
+      return true;
+    }
+
+    const screwLayerIndex = this.state.layerIndexLookup.get(screwShape.layerId) ?? -1;
+    
+    for (const shape of this.state.allShapes) {
+      if (shape.id === screw.shapeId) continue;
+
+      // Only check shapes from visible layers
+      if (!this.state.visibleLayers.has(shape.layerId)) {
+        continue;
+      }
+
+      // Only check shapes that are in front of the screw's layer
+      const shapeLayerIndex = this.state.layerIndexLookup.get(shape.layerId) ?? -1;
+      
+      // Skip if shape is in the same layer as the screw
+      if (shape.layerId === screwShape.layerId) {
+        continue;
+      }
+      
+      // Skip if shape is not in front of the screw
+      if (shapeLayerIndex >= screwLayerIndex) {
+        continue;
+      }
+
+      // Use broader bounds-based check for gameplay blocking (less strict than visual occlusion)
+      const isBlocked = isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, false);
+      
+      if (isBlocked) {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`[GAMEPLAY_BLOCKING] Screw ${screwId} blocked for gameplay by shape ${shape.id}`);
+        }
+        return true;
+      }
+    }
+
+    return false;
   }
 
   // All collision detection methods moved to shared utilities
