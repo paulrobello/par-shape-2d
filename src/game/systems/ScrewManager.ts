@@ -414,6 +414,7 @@ export class ScrewManager extends BaseSystem {
         // Show visible layer information
         const visibleLayerIds = Array.from(this.state.visibleLayers);
         console.log(`[SCREW_CLICK]   • Visible Layers: [${visibleLayerIds.join(', ')}]`);
+        console.log(`[SCREW_CLICK]   • Layer Index Lookup:`, Array.from(this.state.layerIndexLookup.entries()));
         
         console.log(`[SCREW_CLICK] ═════════════════════════════════════════`);
       }
