@@ -80,9 +80,10 @@ export class ProgressTracker extends BaseSystem {
   private handleLevelStarted(event: LevelStartedEvent): void {
     void event;
     this.executeIfActive(() => {
-      // Only reset if we're actually starting a new level, not during initialization
-      // We'll reset screwsInContainer but preserve totalScrews until explicitly set again
+      // Reset all progress state for the new level to prevent race conditions
+      // The totalScrews will be set again when the new level's screws are counted
       this.state.screwsInContainer = 0;
+      this.state.totalScrews = 0; // Reset to prevent auto-completion before new count is set
       this.state.progress = 0;
       this.previousProgress = -1;
     });
@@ -127,9 +128,10 @@ export class ProgressTracker extends BaseSystem {
   }
 
   private calculateAndEmitProgress(): void {
-    // Handle edge case: no screws
+    // Handle edge case: no screws - only consider complete if explicitly set to 0 after level initialization
+    // During level transitions, totalScrews is reset to 0 temporarily, so don't auto-complete in that case
     if (this.state.totalScrews === 0) {
-      this.state.progress = 100; // Consider complete if no screws to collect
+      this.state.progress = 0; // Don't auto-complete during level initialization when totalScrews hasn't been set yet
     } else {
       // Ensure screwsInContainer doesn't exceed totalScrews
       const actualScrewsInContainer = Math.min(this.state.screwsInContainer, this.state.totalScrews);
