@@ -617,20 +617,21 @@ export class LayerManager extends BaseSystem {
       // Dispose layer
       layer.dispose();
       
+      // CRITICAL: Emit layer cleared event BEFORE removing from array and updating indices
+      // This ensures ScrewManager can clean up its references before receiving the indices update
+      this.emit({
+        type: 'layer:cleared',
+        timestamp: Date.now(),
+        layer,
+        index: layer.index
+      });
+      
       // Remove from array
       this.state.layers.splice(index, 1);
       
       // Update indices but DON'T update visibility yet
       this.updateLayerIndices();
     }
-    
-    // Emit layer cleared event
-    this.emit({
-      type: 'layer:cleared',
-      timestamp: Date.now(),
-      layer,
-      index: layer.index
-    });
     
     if (DEBUG_CONFIG.logLayerDebug) {
       console.log(`After removal - layersGeneratedThisLevel: ${this.state.layersGeneratedThisLevel}, totalLayersForLevel: ${this.state.totalLayersForLevel}, active layers: ${this.state.layers.length}`);

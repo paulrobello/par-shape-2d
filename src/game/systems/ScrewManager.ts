@@ -2435,7 +2435,7 @@ export class ScrewManager extends BaseSystem {
 
   /**
    * Validates and cleans up stale reservations where the reserved screw 
-   * is no longer animating (not isBeingCollected or isBeingTransferred)
+   * is no longer animating (not isBeingCollected, isBeingTransferred, or isShaking)
    */
   private validateAndCleanupReservations(): void {
     this.executeIfActive(() => {
@@ -2449,7 +2449,7 @@ export class ScrewManager extends BaseSystem {
             const screw = this.state.screws.get(reservedScrewId);
             
             // Clear reservation if screw doesn't exist or is not animating
-            if (!screw || (!screw.isBeingCollected && !screw.isBeingTransferred)) {
+            if (!screw || (!screw.isBeingCollected && !screw.isBeingTransferred && !screw.isShaking)) {
               container.reservedHoles[holeIndex] = null;
               cleanupCount++;
               
@@ -2468,7 +2468,7 @@ export class ScrewManager extends BaseSystem {
           const screw = this.state.screws.get(hole.reservedBy);
           
           // Clear reservation if screw doesn't exist or is not animating
-          if (!screw || (!screw.isBeingCollected && !screw.isBeingTransferred)) {
+          if (!screw || (!screw.isBeingCollected && !screw.isBeingTransferred && !screw.isShaking)) {
             const reservedScrewId = hole.reservedBy;
             hole.reservedBy = undefined;
             cleanupCount++;

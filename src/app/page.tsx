@@ -16,7 +16,7 @@ export default function Home() {
             </main>
 
             <footer className="mt-8 text-center text-gray-500 text-sm hidden md:block">
-                <p>Created entirely with AI by Paul Robello</p>
+                <p>Created entirely with Claude Code AI by Paul Robello</p>
             </footer>
         </div>
     );

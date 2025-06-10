@@ -482,17 +482,28 @@ export class GameState extends BaseSystem {
 
   private handleLevelCompletedByProgress(event: LevelCompletedEvent): void {
     this.executeIfActive(() => {
-      console.log(`[GameState] ProgressTracker reported level completion - auto-advancing to next level`);
+      console.log(`[GameState] ProgressTracker reported level completion`);
       console.log(`[GameState] Progress details: ${event.totalScrews} screws, ${event.finalProgress}% complete`);
       
-      // Add a short delay to show completion state briefly before auto-advancing
-      setTimeout(() => {
-        console.log('[GameState] Auto-advancing to next level after progress completion');
-        this.emit({
-          type: 'next_level:requested',
-          timestamp: Date.now()
-        });
-      }, 2000); // 2 second delay to show level completion
+      // No auto-progression - GameManager now handles the 3-second delay and user confirmation
+      // Just emit the level:complete event for GameManager to handle
+      this.state.levelComplete = true;
+      this.state.totalScore += this.state.levelScore;
+      
+      this.emit({
+        type: 'level:complete',
+        timestamp: Date.now(),
+        level: this.state.currentLevel,
+        score: this.state.levelScore
+      });
+
+      this.emit({
+        type: 'total_score:updated',
+        timestamp: Date.now(),
+        totalScore: this.state.totalScore
+      });
+      
+      this.markUnsavedChanges();
     });
   }
 
@@ -1425,7 +1436,7 @@ export class GameState extends BaseSystem {
         this.holdingHoles = data.holdingHoles || [];
       }
 
-      // Ensure all loaded containers have fade properties
+      // Ensure all loaded containers have fade properties and reservedHoles
       this.containers.forEach(container => {
         if (container.fadeOpacity === undefined) {
           container.fadeOpacity = 1.0;
@@ -1434,13 +1445,31 @@ export class GameState extends BaseSystem {
           container.isFadingOut = false;
           container.isFadingIn = false;
         }
+        
+        // Ensure reservedHoles array exists and is properly sized
+        if (!container.reservedHoles || !Array.isArray(container.reservedHoles)) {
+          container.reservedHoles = new Array(container.maxHoles || GAME_CONFIG.containers.maxHoles).fill(null);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔧 Added missing reservedHoles array to container ${container.id}`);
+          }
+        } else if (container.reservedHoles.length !== (container.maxHoles || GAME_CONFIG.containers.maxHoles)) {
+          // Fix mismatched array size
+          const targetSize = container.maxHoles || GAME_CONFIG.containers.maxHoles;
+          container.reservedHoles = container.reservedHoles.slice(0, targetSize);
+          while (container.reservedHoles.length < targetSize) {
+            container.reservedHoles.push(null);
+          }
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔧 Fixed reservedHoles array size for container ${container.id} to ${targetSize}`);
+          }
+        }
       });
 
       if (this.containers.length === 0) {
         this.initializeContainers();
       }
       
-      // Double-check that all containers have fade properties after initialization
+      // Double-check that all containers have fade properties and reservedHoles after initialization
       this.containers.forEach(container => {
         if (container.fadeOpacity === undefined) {
           container.fadeOpacity = 1.0;
@@ -1450,6 +1479,24 @@ export class GameState extends BaseSystem {
           container.isFadingIn = false;
           if (DEBUG_CONFIG.logLayerDebug) {
             console.log(`🎭 Added missing fade properties to container ${container.id}`);
+          }
+        }
+        
+        // Ensure reservedHoles array exists and is properly sized
+        if (!container.reservedHoles || !Array.isArray(container.reservedHoles)) {
+          container.reservedHoles = new Array(container.maxHoles || GAME_CONFIG.containers.maxHoles).fill(null);
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔧 Added missing reservedHoles array to container ${container.id} after initialization`);
+          }
+        } else if (container.reservedHoles.length !== (container.maxHoles || GAME_CONFIG.containers.maxHoles)) {
+          // Fix mismatched array size
+          const targetSize = container.maxHoles || GAME_CONFIG.containers.maxHoles;
+          container.reservedHoles = container.reservedHoles.slice(0, targetSize);
+          while (container.reservedHoles.length < targetSize) {
+            container.reservedHoles.push(null);
+          }
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🔧 Fixed reservedHoles array size for container ${container.id} to ${targetSize} after initialization`);
           }
         }
       });
@@ -1840,6 +1887,14 @@ export class GameState extends BaseSystem {
    * Level completes when ALL screws are processed (in containers or removed containers) and none in holding holes
    */
   private checkContainerBasedLevelCompletion(): boolean {
+    // Prevent completion check during level initialization when totalScrewsToContainers hasn't been set yet
+    if (this.containerProgress.totalScrewsToContainers === 0) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[LEVEL_COMPLETION] Skipping completion check - level not fully initialized (totalScrewsToContainers = 0)`);
+      }
+      return false;
+    }
+    
     // Count screws currently in containers
     const screwsInContainers = this.containers.reduce((total, container) => {
       return total + container.holes.filter(hole => hole !== null).length;

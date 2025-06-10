@@ -6,6 +6,6 @@ Items are in order of priority and should be addressed in the order they are in.
 
 ## Items
 
-### ✅ Item 1 - Screw blocking results are erratic
+### Item 1 - ScrewManager is way too large  
 
-**Issue**: When clicking a screw it is not properly checking if its blocked. It should only check layers that are visibly in front of it for shapes overlapping it. Currently the user can click screws behind other shaps and some screws that should be clickable are showing as blocked. 
+**Issue**: The ScrewManager.ts is way too large and needs to be refactored into separate files / classes to make it more manageable.

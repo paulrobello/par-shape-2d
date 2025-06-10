@@ -79,6 +79,10 @@ interface GameManagerState {
   // Game over countdown timer
   gameOverCountdown: NodeJS.Timeout | null;
   
+  // Level completion delay state
+  levelWon: boolean;
+  levelCompleteTimer: NodeJS.Timeout | null;
+  
   // Keyboard state for debug bypass
   shiftKeyPressed: boolean;
   
@@ -109,6 +113,8 @@ export class GameManager extends BaseSystem {
       gameStarted: false,
       gameOver: false,
       levelComplete: false,
+      levelWon: false,
+      levelCompleteTimer: null,
       currentLevel: 1,
       levelScore: 0,
       totalScore: 0,
@@ -176,12 +182,19 @@ export class GameManager extends BaseSystem {
       this.state.gameStarted = true;
       this.state.gameOver = false;
       this.state.levelComplete = false;
+      this.state.levelWon = false;
       
-      // Clear any existing game over countdown when starting a new game
+      // Clear any existing timers when starting a new game
       if (this.state.gameOverCountdown) {
         clearInterval(this.state.gameOverCountdown);
         this.state.gameOverCountdown = null;
         console.log('🔄 Cleared existing game over countdown');
+      }
+      
+      if (this.state.levelCompleteTimer) {
+        clearTimeout(this.state.levelCompleteTimer);
+        this.state.levelCompleteTimer = null;
+        console.log('🔄 Cleared existing level complete timer');
       }
     });
   }
@@ -190,28 +203,62 @@ export class GameManager extends BaseSystem {
     this.executeIfActive(() => {
       this.state.gameOver = true;
       this.state.gameStarted = false;
+      this.state.levelComplete = false;
+      this.state.levelWon = false;
       this.state.totalScore = event.finalScore;
       
-      // Clear countdown timer if it's running
+      // Clear all timers when game ends
       if (this.state.gameOverCountdown) {
         clearInterval(this.state.gameOverCountdown);
         this.state.gameOverCountdown = null;
+      }
+      
+      if (this.state.levelCompleteTimer) {
+        clearTimeout(this.state.levelCompleteTimer);
+        this.state.levelCompleteTimer = null;
       }
     });
   }
 
   private handleLevelComplete(event: LevelCompleteEvent): void {
     this.executeIfActive(() => {
-      this.state.levelComplete = true;
+      console.log(`🎯 Level ${event.level} won! Starting 3-second delay before showing completion screen`);
+      this.state.levelWon = true;
       this.state.currentLevel = event.level;
       this.state.levelScore = event.score;
+      
+      // Clear any existing timer
+      if (this.state.levelCompleteTimer) {
+        clearTimeout(this.state.levelCompleteTimer);
+      }
+      
+      // Start 3-second delay before showing level complete screen
+      this.state.levelCompleteTimer = setTimeout(() => {
+        this.state.levelComplete = true;
+        this.state.levelWon = false;
+        this.state.levelCompleteTimer = null;
+        console.log(`✨ Showing level complete screen after 3-second delay`);
+      }, 3000);
     });
   }
 
   private handleLevelCompletedByProgress(event: LevelCompletedEvent): void {
     this.executeIfActive(() => {
-      this.state.levelComplete = true;
-      console.log(`🎯 Level completed by progress! Total screws: ${event.totalScrews}, Final progress: ${event.finalProgress}%`);
+      console.log(`🎯 Level completed by progress! Total screws: ${event.totalScrews}, Final progress: ${event.finalProgress}% - Starting 3-second delay`);
+      this.state.levelWon = true;
+      
+      // Clear any existing timer
+      if (this.state.levelCompleteTimer) {
+        clearTimeout(this.state.levelCompleteTimer);
+      }
+      
+      // Start 3-second delay before showing level complete screen
+      this.state.levelCompleteTimer = setTimeout(() => {
+        this.state.levelComplete = true;
+        this.state.levelWon = false;
+        this.state.levelCompleteTimer = null;
+        console.log(`✨ Showing level complete screen after 3-second delay`);
+      }, 3000);
     });
   }
 
@@ -419,6 +466,13 @@ export class GameManager extends BaseSystem {
         clearInterval(this.state.gameOverCountdown);
         this.state.gameOverCountdown = null;
         console.log(`🔄 Game over countdown cancelled - game can continue`);
+      }
+      
+      // Also clear level complete timer if it's running (shouldn't normally happen but safety first)
+      if (this.state.levelCompleteTimer) {
+        clearTimeout(this.state.levelCompleteTimer);
+        this.state.levelCompleteTimer = null;
+        console.log(`🔄 Level complete timer cleared during holding holes available`);
       }
     });
   }
@@ -922,13 +976,22 @@ export class GameManager extends BaseSystem {
           // Clear save data and restart
           localStorage.removeItem('par-shape-2d-save');
           
-          // Clear any active game over countdown and holding holes full state
+          // Clear any active timers and holding holes full state
           if (this.state.gameOverCountdown) {
             clearInterval(this.state.gameOverCountdown);
             this.state.gameOverCountdown = null;
             console.log('🔄 Cleared game over countdown during restart');
           }
+          
+          if (this.state.levelCompleteTimer) {
+            clearTimeout(this.state.levelCompleteTimer);
+            this.state.levelCompleteTimer = null;
+            console.log('🔄 Cleared level complete timer during restart');
+          }
+          
           this.state.holdingHolesFull = false;
+          this.state.levelComplete = false;
+          this.state.levelWon = false;
           
           // Reset all game systems
           if (this.state.systemCoordinator) {
@@ -1012,8 +1075,20 @@ export class GameManager extends BaseSystem {
 
   private advanceToNextLevel(): void {
     this.executeIfActive(() => {
+      // Clear any pending timers
+      if (this.state.levelCompleteTimer) {
+        clearTimeout(this.state.levelCompleteTimer);
+        this.state.levelCompleteTimer = null;
+      }
+      
+      if (this.state.gameOverCountdown) {
+        clearInterval(this.state.gameOverCountdown);
+        this.state.gameOverCountdown = null;
+      }
+      
       // Clear level complete state
       this.state.levelComplete = false;
+      this.state.levelWon = false;
       
       // Directly call nextLevel on GameState through event system
       // We'll use a dedicated event for this
@@ -2159,10 +2234,15 @@ export class GameManager extends BaseSystem {
   protected onDestroy(): void {
     this.state.gameLoop.stop();
     
-    // Clear countdown timer to prevent memory leaks
+    // Clear timers to prevent memory leaks
     if (this.state.gameOverCountdown) {
       clearInterval(this.state.gameOverCountdown);
       this.state.gameOverCountdown = null;
+    }
+    
+    if (this.state.levelCompleteTimer) {
+      clearTimeout(this.state.levelCompleteTimer);
+      this.state.levelCompleteTimer = null;
     }
     
     // Remove event listeners
