@@ -317,17 +317,19 @@ export class GameRenderManager implements IGameRenderManager {
       scale: this.state.canvasScale
     });
 
-    // Render shapes in proper layer order (back to front)
+    // Render shapes and their screws together in proper layer order (back to front)
     this.state.visibleLayers.forEach(layer => {
       const shapes = layer.getAllShapes();
       shapes.forEach(shape => {
+        // First render the shape
         ShapeRenderer.renderShape(shape, renderContext);
+        
+        // Then immediately render all screws for this shape
+        const shapeScrews = shape.getAllScrews();
+        shapeScrews.forEach(screw => {
+          ScrewRenderer.renderScrew(screw, renderContext);
+        });
       });
-    });
-
-    // Render all screws on top
-    this.state.allScrews.forEach(screw => {
-      ScrewRenderer.renderScrew(screw, renderContext);
     });
   }
 
