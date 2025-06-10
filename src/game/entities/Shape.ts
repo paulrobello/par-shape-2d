@@ -94,6 +94,11 @@ export class Shape implements IShape {
 
   public addScrew(screw: Screw): void {
     this.screws.push(screw);
+    
+    // Debug logging to trace screw addition
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔩 Shape.addScrew: Added screw ${screw.id} to shape ${this.id}, now has ${this.screws.length} screws`);
+    }
   }
 
   public removeScrew(screwId: string): boolean {
