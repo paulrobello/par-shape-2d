@@ -419,6 +419,9 @@ export class LayerManager extends BaseSystem {
             });
             
             // Emit physics body added event
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`🚀 LayerManager: Emitting physics:body:added event for shape ${shape.id}`);
+            }
             this.emit({
               type: 'physics:body:added',
               timestamp: Date.now(),
