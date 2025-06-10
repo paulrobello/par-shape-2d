@@ -86,6 +86,7 @@ export class GameManager extends BaseSystem {
 
   public setSystemCoordinator(coordinator: import('./SystemCoordinator').SystemCoordinator): void {
     this.state.systemCoordinator = coordinator;
+    this.eventCoordinator.setSystemCoordinator(coordinator);
   }
 
   public initializeCanvas(canvas: HTMLCanvasElement): void {

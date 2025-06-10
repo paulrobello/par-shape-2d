@@ -14,7 +14,6 @@ import {
   LevelCompletedEvent,
   DebugModeToggledEvent,
   DebugInfoRequestedEvent,
-  LayersUpdatedEvent,
   LevelScoreUpdatedEvent,
   TotalScoreUpdatedEvent,
   LevelStartedEvent,
@@ -28,6 +27,7 @@ import {
 export class GameEventCoordinator implements IGameEventCoordinator {
   private managers: ManagerContext | null = null;
   private eventSubscriptions: Map<string, string> = new Map(); // Map event type to subscription ID
+  private systemCoordinator: import('../SystemCoordinator').SystemCoordinator | null = null;
 
   constructor() {
     // Don't extend BaseSystem to avoid initialization issues
@@ -35,6 +35,10 @@ export class GameEventCoordinator implements IGameEventCoordinator {
 
   setManagers(managers: ManagerContext): void {
     this.managers = managers;
+  }
+
+  setSystemCoordinator(coordinator: import('../SystemCoordinator').SystemCoordinator): void {
+    this.systemCoordinator = coordinator;
   }
 
   setupEventHandlers(): void {
@@ -55,6 +59,7 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     
     // Rendering data events (to keep rendering data in sync)
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
+    this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
     this.subscribe('score:updated', this.handleScoreUpdated.bind(this));
     this.subscribe('level_score:updated', this.handleLevelScoreUpdated.bind(this));
     this.subscribe('total_score:updated', this.handleTotalScoreUpdated.bind(this));
@@ -172,12 +177,41 @@ export class GameEventCoordinator implements IGameEventCoordinator {
   }
 
   private handleLayersUpdated(event: unknown): void {
-    const layersEvent = event as LayersUpdatedEvent;
-    if (!this.managers) return;
+    void event; // LayersUpdatedEvent - unused but required for signature
+    if (!this.managers || !this.systemCoordinator) return;
     
-    this.managers.renderManager.updateRenderData({
-      visibleLayers: layersEvent.visibleLayers
-    });
+    // Get current visible layers and all screws
+    const layerManager = this.systemCoordinator.getLayerManager();
+    const screwManager = this.systemCoordinator.getScrewManager();
+    
+    if (layerManager && screwManager) {
+      const visibleLayers = layerManager.getVisibleLayers();
+      const allScrews = screwManager.getAllScrews();
+      
+      this.managers.renderManager.updateRenderData({
+        visibleLayers: visibleLayers,
+        allScrews: allScrews
+      });
+    }
+  }
+
+  private handleLayerIndicesUpdated(event: unknown): void {
+    void event; // LayerIndicesUpdatedEvent - unused but required for signature
+    if (!this.managers || !this.systemCoordinator) return;
+    
+    // When layer indices are updated, refresh the visible layers and screws
+    const layerManager = this.systemCoordinator.getLayerManager();
+    const screwManager = this.systemCoordinator.getScrewManager();
+    
+    if (layerManager && screwManager) {
+      const visibleLayers = layerManager.getVisibleLayers();
+      const allScrews = screwManager.getAllScrews();
+      
+      this.managers.renderManager.updateRenderData({
+        visibleLayers: visibleLayers,
+        allScrews: allScrews
+      });
+    }
   }
 
   private handleScoreUpdated(event: unknown): void {

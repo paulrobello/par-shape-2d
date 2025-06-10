@@ -322,15 +322,15 @@ export const DEBUG_CONFIG = {
   // Component-specific debug flags
   logContainerRendering: false,
   logScrewPlacement: false,
-  logPhysicsStateChanges: true,
+  logPhysicsStateChanges: false,
   logShapeDestruction: false,
   logPhysicsUpdates: false,
   logShapeCreation: false,
-  logShapeDebug: true,
-  logScrewDebug: true,
+  logShapeDebug: false,
+  logScrewDebug: false,
   logEventFlow: false,
   logPhysicsDebug: false,
-  logLayerDebug: true,
+  logLayerDebug: false,
   
   // Specific screw system debug flags
   logScrewRemovabilityUpdates: false,  // Controls "updateScrewRemovability called" messages

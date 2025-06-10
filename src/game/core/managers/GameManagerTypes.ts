@@ -119,6 +119,7 @@ export interface IGameEventCoordinator {
   setupEventHandlers(): void;
   routeEvent(eventType: string, data: unknown): void;
   cleanup(): void;
+  setSystemCoordinator(coordinator: import('../SystemCoordinator').SystemCoordinator): void;
 }
 
 // Combined manager context for dependency injection
