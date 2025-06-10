@@ -218,12 +218,18 @@ export class ScrewManager extends BaseSystem {
     this.executeIfActive(() => {
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`🎯 ScrewManager.generateScrewsForShape called for shape ${shape.id}, preferredColors:`, preferredColors);
+        console.log(`🎯 Shape ${shape.id} current state:`, {
+          screwsLength: shape.screws.length,
+          screwIds: shape.screws.map(s => s.id),
+          shapePosition: { x: shape.position.x, y: shape.position.y },
+          shapeType: shape.type
+        });
       }
       
       const screws = this.placementService.generateScrewsForShape(shape, preferredColors);
       
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`🔧 Generated ${screws.length} screws for shape ${shape.id}`);
+        console.log(`🔧 PlacementService generated ${screws.length} screws for shape ${shape.id}:`, screws.map(s => ({ id: s.id, color: s.color, position: s.position })));
       }
       
       // Update counter state
@@ -234,7 +240,15 @@ export class ScrewManager extends BaseSystem {
       screws.forEach(screw => {
         this.state.screws.set(screw.id, screw);
         this.physicsService.createScrewConstraint(screw, shape);
+        
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔧 Added screw ${screw.id} to ScrewManager state and created constraint`);
+        }
       });
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎯 After screw generation, shape ${shape.id} now reports ${shape.screws.length} screws, ScrewManager has ${screws.length} screws for this shape`);
+      }
     });
   }
 
@@ -396,9 +410,22 @@ export class ScrewManager extends BaseSystem {
 
   private handlePhysicsBodyAdded(shape: Shape): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🔧 ScrewManager.handlePhysicsBodyAdded called for shape ${shape.id}`);
+      console.log(`🔧 ScrewManager.handlePhysicsBodyAdded called for shape ${shape.id}, current screws on shape: ${shape.screws.length}`);
     }
+    
+    // Check if shape already has screws
+    if (shape.screws && shape.screws.length > 0) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`⏭️ Shape ${shape.id} already has ${shape.screws.length} screws, skipping generation in ScrewManager`);
+      }
+      return;
+    }
+    
     this.generateScrewsForShape(shape, this.state.containerColors);
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔧 After generateScrewsForShape, shape ${shape.id} now has ${shape.screws.length} screws`);
+    }
   }
 
   private handleScrewClicked(screw: Screw, forceRemoval: boolean): void {
