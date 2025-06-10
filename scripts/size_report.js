@@ -37,12 +37,12 @@ function getFileSize(filePath) {
 }
 
 /**
- * Calculate estimated token count (4 bytes per token)
+ * Calculate estimated token count (3 bytes per token)
  * @param {number} sizeInBytes - File size in bytes
  * @returns {number} Estimated token count
  */
 function calculateTokens(sizeInBytes) {
-  return Math.ceil(sizeInBytes / 4);
+  return Math.ceil(sizeInBytes / 3.3);
 }
 
 /**
