@@ -18,6 +18,10 @@ export class Shape implements IShape {
   public holes: Vector2[] = []; // Positions where screws were removed
   public layerId: string;
   public color: string;
+  
+  // Throttling for path creation debug logging
+  private static lastPathCreationLog = 0;
+  private static readonly PATH_CREATION_THROTTLE_MS = 5000; // 5 seconds
   public tint: string;
   public isComposite?: boolean;
   public parts?: Body[];
@@ -126,8 +130,13 @@ export class Shape implements IShape {
   public getPath2D(): Path2D {
     const path = new Path2D();
     
-    if (DEBUG_CONFIG.logShapeDebug) {
-      console.log(`Shape.getPath2D(): Creating path for shape type '${this.type}', width: ${this.width}, height: ${this.height}, radius: ${this.radius}`);
+    // Throttled debug logging for path creation
+    if (DEBUG_CONFIG.logShapePathCreation) {
+      const now = Date.now();
+      if (now - Shape.lastPathCreationLog > Shape.PATH_CREATION_THROTTLE_MS) {
+        console.log(`Shape.getPath2D(): Creating path for shape type '${this.type}', width: ${this.width}, height: ${this.height}, radius: ${this.radius}`);
+        Shape.lastPathCreationLog = now;
+      }
     }
 
     switch (this.type) {

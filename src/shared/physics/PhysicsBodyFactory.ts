@@ -334,6 +334,9 @@ export class PhysicsBodyFactory {
     const constraintStiffness = (shapeBody.parts && shapeBody.parts.length > 1 && !shapeBody.isStatic) 
       ? 0.9  // Slightly lower stiffness for composite bodies to reduce oscillation
       : (options.stiffness ?? PHYSICS_CONSTANTS.constraint.stiffness);
+    
+    // Use standard damping for good movement speed
+    const constraintDamping = options.damping ?? PHYSICS_CONSTANTS.constraint.damping;
 
     return Constraint.create({
       bodyA: shapeBody,
@@ -342,7 +345,7 @@ export class PhysicsBodyFactory {
       pointB: { x: 0, y: 0 },
       length: options.length ?? 0,
       stiffness: constraintStiffness,
-      damping: options.damping ?? PHYSICS_CONSTANTS.constraint.damping,
+      damping: constraintDamping,
       render: options.render ?? { 
         visible: false,
         strokeStyle: 'transparent',

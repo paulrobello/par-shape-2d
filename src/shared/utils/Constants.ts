@@ -322,15 +322,22 @@ export const DEBUG_CONFIG = {
   // Component-specific debug flags
   logContainerRendering: false,
   logScrewPlacement: false,
-  logPhysicsStateChanges: false,
+  logPhysicsStateChanges: true,
   logShapeDestruction: false,
   logPhysicsUpdates: false,
   logShapeCreation: false,
-  logShapeDebug: false,
+  logShapeDebug: true,
   logScrewDebug: true,
   logEventFlow: false,
   logPhysicsDebug: false,
   logLayerDebug: true,
+  
+  // Specific screw system debug flags
+  logScrewRemovabilityUpdates: false,  // Controls "updateScrewRemovability called" messages
+  logScrewLayerVisibility: false,      // Controls "Layer visibility check" messages
+  
+  // Shape rendering debug flags
+  logShapePathCreation: false,         // Controls "Creating path for shape type" messages
   
   // Editor-specific debug settings
   editor: {
