@@ -46,7 +46,16 @@ export class ScrewPlacementService implements IScrewPlacementService {
    * Generate and place screws on a shape
    */
   public generateScrewsForShape(shape: Shape, preferredColors?: ScrewColor[]): Screw[] {
-    if (shape.screws.length > 0) return []; // Already has screws
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🎯 ScrewPlacementService.generateScrewsForShape called for shape ${shape.id}, current screws: ${shape.screws.length}`);
+    }
+    
+    if (shape.screws.length > 0) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`⏭️ Shape ${shape.id} already has ${shape.screws.length} screws, returning empty array`);
+      }
+      return []; // Already has screws
+    }
 
     // Get possible positions first to determine realistic limits
     const possiblePositions = getShapeScrewLocations(shape);

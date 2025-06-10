@@ -158,12 +158,29 @@ export class ScrewEventHandler implements IScrewEventHandler {
   }
 
   public handlePhysicsBodyAdded(event: PhysicsBodyAddedEvent): void {
+    // Debug logging to trace event filtering
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔍 ScrewEventHandler.handlePhysicsBodyAdded:`, {
+        hasShape: !!event.shape,
+        eventSource: event.source,
+        thisSource: this.source,
+        sourceNotEqual: event.source !== this.source,
+        sourceNotStartsWith: !event.source?.startsWith(this.source + '-'),
+        willProcess: !!(event.shape && event.source !== this.source && !event.source?.startsWith(this.source + '-')),
+        shapeId: event.shape?.id,
+        shapeScrewCount: event.shape?.screws?.length || 0
+      });
+    }
+
     // Ignore events from our own source to prevent loops
     if (event.shape && event.source !== this.source && !event.source?.startsWith(this.source + '-')) {
       const shape = event.shape;
       
       if (shape.screws && shape.screws.length > 0) {
         // Shape already has screws from saved state, don't generate new ones
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`⏭️ Shape ${shape.id} already has ${shape.screws.length} screws, skipping generation`);
+        }
         return;
       }
       
@@ -175,7 +192,15 @@ export class ScrewEventHandler implements IScrewEventHandler {
         }
       }
       
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`✅ Calling onPhysicsBodyAdded callback for shape ${shape.id}`);
+      }
+      
       this.callbacks.onPhysicsBodyAdded?.(shape);
+    } else {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`❌ Event filtered out - not calling onPhysicsBodyAdded callback`);
+      }
     }
   }
 

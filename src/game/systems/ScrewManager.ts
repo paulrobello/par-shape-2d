@@ -216,7 +216,15 @@ export class ScrewManager extends BaseSystem {
   // Core Screw Management Methods
   public generateScrewsForShape(shape: Shape, preferredColors?: ScrewColor[]): void {
     this.executeIfActive(() => {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎯 ScrewManager.generateScrewsForShape called for shape ${shape.id}, preferredColors:`, preferredColors);
+      }
+      
       const screws = this.placementService.generateScrewsForShape(shape, preferredColors);
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔧 Generated ${screws.length} screws for shape ${shape.id}`);
+      }
       
       // Update counter state
       const placementState = this.placementService as unknown as { state: { screwCounter: number } };
@@ -387,6 +395,9 @@ export class ScrewManager extends BaseSystem {
   }
 
   private handlePhysicsBodyAdded(shape: Shape): void {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔧 ScrewManager.handlePhysicsBodyAdded called for shape ${shape.id}`);
+    }
     this.generateScrewsForShape(shape, this.state.containerColors);
   }
 
