@@ -1,46 +1,40 @@
 /**
- * Debug utilities and visualization for the event system
+ * Game-specific event debugger that wraps the shared EventDebugger
+ * Provides backward compatibility while using shared implementation
  */
 
 import { eventBus } from './EventBus';
 import { EventLogger } from './EventLogger';
-import { GameEvent, EventPriority } from './EventTypes';
+import { EventPriority } from './EventTypes';
 import { DEBUG_CONFIG } from '../utils/Constants';
-import { EventHistory } from '@/shared/events';
+import { 
+  EventDebugger as SharedEventDebugger, 
+  EventDebugInfo as SharedEventDebugInfo,
+  createEventDebugInterface 
+} from '@/shared/events/EventDebugger';
 
-export interface EventDebugInfo {
+// Extend shared interface with game-specific event priority enum
+export interface EventDebugInfo extends Omit<SharedEventDebugInfo, 'subscriptions'> {
   subscriptions: Map<string, Array<{
     id: string;
     priority: EventPriority;
     once: boolean;
     source?: string;
   }>>;
-  stats: {
-    totalEvents: number;
-    totalHandlers: number;
-    averageHandlersPerEvent: number;
-    averageDurationPerEvent: number;
-    errorCount: number;
-    queueSize: number;
-    subscriptionCount: number;
-  };
-  recentEvents: EventHistory[];
-  frequencyStats: Map<string, {
-    count: number;
-    totalDuration: number;
-    averageDuration: number;
-    lastSeen: number;
-  }>;
 }
 
 export class EventDebugger {
   static eventLogger = EventLogger.getInstance();
   private static instance: EventDebugger;
-  private isDebugMode = false;
-  private debugPanel: HTMLElement | null = null;
-  private updateInterval: NodeJS.Timeout | null = null;
+  private sharedDebugger: SharedEventDebugger;
 
-  private constructor() {}
+  private constructor() {
+    this.sharedDebugger = SharedEventDebugger.getInstance('game', eventBus, {
+      enableConsoleLogging: DEBUG_CONFIG.logEventFlow,
+      updateInterval: 1000,
+      maxTestEvents: 1000
+    });
+  }
 
   static getInstance(): EventDebugger {
     if (!EventDebugger.instance) {
@@ -53,77 +47,48 @@ export class EventDebugger {
    * Enable debug mode with optional visual panel
    */
   enableDebugMode(showPanel: boolean = false): void {
-    this.isDebugMode = true;
-    EventDebugger.eventLogger.startLogging('debug');
-    
-    console.log('Event debug mode enabled');
-    
-    if (showPanel) {
-      this.createDebugPanel();
-    }
-
-    // Log all events in debug mode
-    this.setupDebugLogging();
+    this.sharedDebugger.enableDebugMode(showPanel);
   }
 
   /**
    * Disable debug mode
    */
   disableDebugMode(): void {
-    this.isDebugMode = false;
-    EventDebugger.eventLogger.stopLogging();
-    
-    if (this.debugPanel) {
-      this.destroyDebugPanel();
-    }
-
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
-
-    console.log('Event debug mode disabled');
+    this.sharedDebugger.disableDebugMode();
   }
 
   /**
    * Toggle debug mode
    */
   toggleDebugMode(): void {
-    if (this.isDebugMode) {
-      this.disableDebugMode();
-    } else {
-      this.enableDebugMode(true);
-    }
+    this.sharedDebugger.toggleDebugMode();
   }
 
   /**
    * Get comprehensive debug information
    */
   getDebugInfo(): EventDebugInfo {
-    const loggerStats = EventDebugger.eventLogger.getStats();
-    const frequencyStats = new Map<string, {
-      count: number;
-      totalDuration: number;
-      averageDuration: number;
-      lastSeen: number;
-    }>();
+    const sharedInfo = this.sharedDebugger.getDebugInfo();
     
-    // Convert simple counts to expected format
-    // Since we don't track per-event timing in the new logger, use estimates
-    loggerStats.eventCounts.forEach((count, eventType) => {
-      frequencyStats.set(eventType, {
-        count,
-        totalDuration: count * loggerStats.averageDuration,
-        averageDuration: loggerStats.averageDuration,
-        lastSeen: Date.now() // Approximation
-      });
-    });
-    
+    // Convert priority numbers back to EventPriority enum for game compatibility
+    const gameSubscriptions = new Map<string, Array<{
+      id: string;
+      priority: EventPriority;
+      once: boolean;
+      source?: string;
+    }>>();
+
+    for (const [eventType, subs] of sharedInfo.subscriptions) {
+      const gameSubs = subs.map(sub => ({
+        ...sub,
+        priority: sub.priority as EventPriority // Cast back to enum
+      }));
+      gameSubscriptions.set(eventType, gameSubs);
+    }
+
     return {
-      subscriptions: eventBus.getSubscriptions(),
-      stats: eventBus.getStats(),
-      recentEvents: eventBus.getEventHistory(50),
-      frequencyStats
+      ...sharedInfo,
+      subscriptions: gameSubscriptions
     };
   }
 
@@ -131,118 +96,19 @@ export class EventDebugger {
    * Print event system debug info to console
    */
   printDebugInfo(): void {
-    const info = this.getDebugInfo();
-    
-    console.group('🔍 Event System Debug Info');
-    
-    // Statistics
-    console.group('📊 Statistics');
-    console.table(info.stats);
-    console.groupEnd();
-
-    // Subscriptions by event type
-    console.group('📋 Subscriptions by Event Type');
-    for (const [eventType, subs] of info.subscriptions) {
-      console.log(`${eventType}: ${subs.length} handlers`);
-      subs.forEach(sub => {
-        const priority = EventPriority[sub.priority];
-        console.log(`  - ${sub.source || 'unknown'} (${priority}${sub.once ? ', once' : ''})`);
-      });
-    }
-    console.groupEnd();
-
-    // Frequency statistics
-    console.group('📈 Event Frequency');
-    const sortedFrequency = Array.from(info.frequencyStats.entries())
-      .sort((a, b) => b[1].count - a[1].count)
-      .slice(0, 10);
-    
-    console.table(Object.fromEntries(sortedFrequency));
-    console.groupEnd();
-
-    console.groupEnd();
+    this.sharedDebugger.printDebugInfo();
   }
 
   /**
-   * Visualize event flow in real-time
+   * Run performance tests on the event system
    */
-  startEventFlowVisualization(): void {
-    console.log('Starting event flow visualization...');
-    
-    let eventCount = 0;
-    const startTime = Date.now();
-
-    // Note: Using type assertion for debug flow - this is a debug-only feature
-    const subscriptionId = eventBus.subscribe('debug:flow:all' as GameEvent['type'], (event: GameEvent) => {
-      eventCount++;
-      const elapsed = Date.now() - startTime;
-      const source = event.source || 'unknown';
-      
-      console.log(
-        `%c${eventCount}. [${elapsed}ms] ${event.type}`,
-        'color: #007acc; font-weight: bold',
-        `from ${source}`
-      );
-    });
-
-    // Auto-stop after 30 seconds
-    setTimeout(() => {
-      eventBus.unsubscribe(subscriptionId);
-      if (DEBUG_CONFIG.logEventFlow) {
-        console.log('Event flow visualization stopped');
-      }
-    }, 30000);
-  }
-
-  /**
-   * Test event system performance
-   */
-  async performanceTest(iterations: number = 1000): Promise<{
+  performanceTest(iterations: number = 1000): {
+    averageEmitTime: number;
     totalTime: number;
-    averageTime: number;
     eventsPerSecond: number;
-  }> {
-    console.log(`Starting event system performance test (${iterations} iterations)...`);
-    
-    const testEvents: GameEvent[] = [];
-    for (let i = 0; i < iterations; i++) {
-      testEvents.push({
-        type: 'debug:performance:test',
-        timestamp: Date.now(),
-        source: 'performance-test',
-        iteration: i
-      });
-    }
-
-    // Add test handler
-    let handlerCallCount = 0;
-    const subscriptionId = eventBus.subscribe('debug:performance:test', () => {
-      handlerCallCount++;
-    });
-
-    const startTime = performance.now();
-    
-    // Emit all test events
-    for (const event of testEvents) {
-      eventBus.emit(event);
-    }
-
-    const endTime = performance.now();
-    const totalTime = endTime - startTime;
-
-    // Cleanup
-    eventBus.unsubscribe(subscriptionId);
-
-    const results = {
-      totalTime,
-      averageTime: totalTime / iterations,
-      eventsPerSecond: iterations / (totalTime / 1000)
-    };
-
-    console.log('Performance test results:', results);
-    console.log(`Handler calls: ${handlerCallCount}/${iterations}`);
-
-    return results;
+    memoryUsage: string;
+  } {
+    return this.sharedDebugger.performanceTest(iterations);
   }
 
   /**
@@ -251,215 +117,103 @@ export class EventDebugger {
   validateEventSystem(): {
     isValid: boolean;
     issues: string[];
+    recommendations: string[];
   } {
-    const issues: string[] = [];
-    const info = this.getDebugInfo();
-
-    // Check for memory leaks
-    if (info.stats.subscriptionCount > 1000) {
-      issues.push('High subscription count - possible memory leak');
-    }
-
-    if (info.stats.queueSize > 100) {
-      issues.push('Large event queue - possible processing bottleneck');
-    }
-
-    if (info.stats.errorCount > 0) {
-      issues.push(`${info.stats.errorCount} event handler errors detected`);
-    }
-
-    // Check for performance issues
-    if (info.stats.averageDurationPerEvent > 10) {
-      issues.push('High average event processing time');
-    }
-
-    // Check for circular dependencies
-    const recentEvents = info.recentEvents.slice(-100);
-    const eventTypeSequence = recentEvents.map(e => e.event.type);
-    const repeatingPatterns = this.findRepeatingPatterns(eventTypeSequence);
-    
-    if (repeatingPatterns.length > 0) {
-      issues.push('Potential circular event dependencies detected');
-    }
-
-    return {
-      isValid: issues.length === 0,
-      issues
-    };
+    return this.sharedDebugger.validateEventSystem();
   }
 
   /**
-   * Create visual debug panel
-   */
-  private createDebugPanel(): void {
-    if (this.debugPanel) {
-      return;
-    }
-
-    this.debugPanel = document.createElement('div');
-    this.debugPanel.id = 'event-debug-panel';
-    this.debugPanel.style.cssText = `
-      position: fixed;
-      top: 10px;
-      right: 10px;
-      width: 400px;
-      max-height: 80vh;
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      font-family: monospace;
-      font-size: 12px;
-      padding: 15px;
-      border-radius: 5px;
-      z-index: 10000;
-      overflow-y: auto;
-      border: 1px solid #333;
-    `;
-
-    document.body.appendChild(this.debugPanel);
-
-    // Update panel periodically
-    this.updateInterval = setInterval(() => {
-      this.updateDebugPanel();
-    }, 1000);
-  }
-
-  /**
-   * Update debug panel content
-   */
-  private updateDebugPanel(): void {
-    if (!this.debugPanel) {
-      return;
-    }
-
-    const info = this.getDebugInfo();
-    const recentEvents = EventDebugger.eventLogger.getLogs(10);
-
-    this.debugPanel.innerHTML = `
-      <h3 style="margin: 0 0 10px 0; color: #007acc;">🔍 Event System Debug</h3>
-      
-      <div style="margin-bottom: 15px;">
-        <strong>📊 Statistics</strong><br>
-        Events: ${info.stats.totalEvents} | Handlers: ${info.stats.totalHandlers}<br>
-        Queue: ${info.stats.queueSize} | Subscriptions: ${info.stats.subscriptionCount}<br>
-        Errors: ${info.stats.errorCount} | Avg Duration: ${info.stats.averageDurationPerEvent.toFixed(2)}ms
-      </div>
-
-      <div style="margin-bottom: 15px;">
-        <strong>📋 Active Subscriptions</strong><br>
-        ${Array.from(info.subscriptions.entries())
-          .map(([type, subs]) => `${type}: ${subs.length}`)
-          .slice(0, 5)
-          .join('<br>')}
-        ${info.subscriptions.size > 5 ? `<br>...and ${info.subscriptions.size - 5} more` : ''}
-      </div>
-
-      <div>
-        <strong>📝 Recent Events</strong><br>
-        ${recentEvents
-          .slice(-10)
-          .reverse()
-          .map(log => {
-            const time = new Date(log.timestamp).toLocaleTimeString();
-            return `${time} ${log.event.type}`;
-          })
-          .join('<br>')}
-      </div>
-    `;
-  }
-
-  /**
-   * Destroy debug panel
-   */
-  private destroyDebugPanel(): void {
-    if (this.debugPanel) {
-      document.body.removeChild(this.debugPanel);
-      this.debugPanel = null;
-    }
-
-    if (this.updateInterval) {
-      clearInterval(this.updateInterval);
-      this.updateInterval = null;
-    }
-  }
-
-  /**
-   * Setup debug logging
+   * Setup debug logging for all events
    */
   private setupDebugLogging(): void {
-    if (!this.isDebugMode) {
-      return;
-    }
-
-    // Log subscription changes
-    const originalSubscribe = eventBus.subscribe.bind(eventBus);
-    const originalUnsubscribe = eventBus.unsubscribe.bind(eventBus);
-
-    eventBus.subscribe = (...args) => {
-      const result = originalSubscribe(...args);
-      console.log(`➕ Subscription added: ${args[0]} (${args[2]?.source || 'unknown'})`);
-      return result;
-    };
-
-    eventBus.unsubscribe = (subscriptionId: string) => {
-      const result = originalUnsubscribe(subscriptionId);
-      console.log(`➖ Subscription removed: ${subscriptionId}`);
-      return result;
-    };
+    // This is now handled by the shared debugger
+    console.log('[EventDebugger] Debug logging setup delegated to shared implementation');
   }
 
   /**
-   * Find repeating patterns in event sequence
+   * Monitor event patterns for specific duration
    */
-  private findRepeatingPatterns(sequence: string[]): string[][] {
-    const patterns: string[][] = [];
-    const minPatternLength = 2;
-    const maxPatternLength = 5;
-
-    for (let length = minPatternLength; length <= maxPatternLength; length++) {
-      for (let i = 0; i <= sequence.length - length * 2; i++) {
-        const pattern = sequence.slice(i, i + length);
-        const nextPattern = sequence.slice(i + length, i + length * 2);
-        
-        if (JSON.stringify(pattern) === JSON.stringify(nextPattern)) {
-          patterns.push(pattern);
-        }
-      }
+  monitorPatterns(durationMs: number = 30000): void {
+    console.log(`🔍 Monitoring event patterns for ${durationMs / 1000} seconds...`);
+    
+    const startTime = Date.now();
+    const patterns = new Map<string, number>();
+    
+    // Enable detailed logging temporarily
+    const wasLogging = EventDebugger.eventLogger.getStats().totalEvents > 0;
+    if (!wasLogging) {
+      EventDebugger.eventLogger.startLogging('debug');
     }
+    
+    const checkPatterns = () => {
+      const logs = EventDebugger.eventLogger.getLogs(100);
+      const recentLogs = logs.filter(log => log.timestamp > startTime);
+      
+      // Analyze sequential patterns
+      for (let i = 0; i < recentLogs.length - 1; i++) {
+        const pattern = `${recentLogs[i].event.type} → ${recentLogs[i + 1].event.type}`;
+        patterns.set(pattern, (patterns.get(pattern) || 0) + 1);
+      }
+    };
+    
+    const interval = setInterval(checkPatterns, 1000);
+    
+    setTimeout(() => {
+      clearInterval(interval);
+      
+      console.group('📊 Event Pattern Analysis');
+      const sortedPatterns = Array.from(patterns.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10);
+      
+      if (sortedPatterns.length > 0) {
+        console.table(Object.fromEntries(sortedPatterns));
+      } else {
+        console.log('No significant patterns detected');
+      }
+      console.groupEnd();
+      
+      // Restore original logging state
+      if (!wasLogging) {
+        EventDebugger.eventLogger.stopLogging();
+      }
+    }, durationMs);
+  }
 
-    return patterns;
+  /**
+   * Get event flow trace for specific event type
+   */
+  traceEventFlow(eventType: string, maxDepth: number = 5): void {
+    console.log(`🔄 Tracing event flow for: ${eventType}`);
+    
+    const logs = EventDebugger.eventLogger.getLogs(500);
+    const relevantLogs = logs.filter(log => 
+      log.event.type === eventType || 
+      log.event.type.includes(eventType.split(':')[0])
+    );
+    
+    if (relevantLogs.length === 0) {
+      console.warn(`No events found matching: ${eventType}`);
+      return;
+    }
+    
+    console.group(`Event Flow Trace (${relevantLogs.length} events)`);
+    relevantLogs.slice(-maxDepth).forEach((log, index) => {
+      const timestamp = new Date(log.timestamp).toLocaleTimeString();
+      const source = log.source || 'unknown';
+      console.log(`${index + 1}. [${timestamp}] ${log.event.type} from ${source} (${log.duration.toFixed(2)}ms)`);
+    });
+    console.groupEnd();
   }
 }
 
-// Export singleton instance
+// Export singleton instance for backward compatibility
 export const eventDebugger = EventDebugger.getInstance();
 
-// Add global debug functions for console access
-interface EventDebugGlobal {
-  enable: () => void;
-  disable: () => void;
-  toggle: () => void;
-  info: () => void;
-  flow: () => void;
-  test: (iterations?: number) => Promise<{ totalTime: number; averageTime: number; eventsPerSecond: number; }>;
-  validate: () => { isValid: boolean; issues: string[] };
-  logger: EventLogger;
-  bus: typeof eventBus;
-  clear: () => void;
-  getInstanceInfo: () => unknown;
-}
+// Create and export the debug interface for console access
+export const debugInterface = createEventDebugInterface('game', eventBus);
 
-if (typeof window !== 'undefined') {
-  (window as { __eventDebug?: EventDebugGlobal }).__eventDebug = {
-    enable: () => eventDebugger.enableDebugMode(true),
-    disable: () => eventDebugger.disableDebugMode(),
-    toggle: () => eventDebugger.toggleDebugMode(),
-    info: () => eventDebugger.printDebugInfo(),
-    flow: () => eventDebugger.startEventFlowVisualization(),
-    test: (iterations?: number) => eventDebugger.performanceTest(iterations),
-    validate: () => eventDebugger.validateEventSystem(),
-    logger: EventDebugger.eventLogger,
-    bus: eventBus,
-    clear: () => console.clear(),
-    getInstanceInfo: () => eventDebugger.getDebugInfo()
-  };
+// Make debug interface globally available in development
+if (typeof window !== 'undefined' && DEBUG_CONFIG.logEventFlow) {
+  (window as { gameEventDebug?: typeof debugInterface }).gameEventDebug = debugInterface;
 }

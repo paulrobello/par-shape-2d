@@ -22,3 +22,6 @@ export {
 
 // Event logging
 export { EventLogger, type EventLogEntry, type EventLogStats, type LogLevel } from './EventLogger';
+
+// Event debugging
+export { EventDebugger, createEventDebugInterface, type EventDebugInfo, type EventDebuggerConfig } from './EventDebugger';
