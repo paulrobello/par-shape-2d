@@ -429,6 +429,10 @@ export class ScrewManager extends BaseSystem {
   }
 
   private handleScrewClicked(screw: Screw, forceRemoval: boolean): void {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🎯 ScrewManager.handleScrewClicked called for screw ${screw.id}, forceRemoval: ${forceRemoval}`);
+    }
+
     // Check if screw is blocked
     const isBlockedForGameplay = this.isScrewBlockedForGameplay(screw.id);
 
