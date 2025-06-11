@@ -42,13 +42,13 @@ export const GAME_CONFIG: GameConfig = {
   layer: {
     width: 640,
     height: 800,
-    maxVisible: 4,
+    maxVisible: 1,  // DEBUG: Reduce to 1 layer for easier debugging
   },
   shapes: {
-    minPerLayer: 6,
-    maxPerLayer: 6,
+    minPerLayer: 2,  // DEBUG: Reduce to 2 shapes per layer
+    maxPerLayer: 2,  // DEBUG: Reduce to 2 shapes per layer
     minScrews: 1,
-    maxScrews: 6,
+    maxScrews: 3,    // DEBUG: Reduce max screws for simpler analysis
   },
   containers: {
     count: 4,
@@ -431,9 +431,14 @@ export const EDITOR_EVENTS = {
  * And so on... (+1 layer every 3 levels)
  */
 export function getTotalLayersForLevel(level: number): number {
-  const baseLayers = 10;
-  const additionalLayers = Math.floor((level - 1) / 3);
-  return baseLayers + additionalLayers;
+  // DEBUG: Return only 1 layer for easier debugging
+  console.log(`DEBUG: getTotalLayersForLevel(${level}) -> returning 1 for debugging`);
+  return 1;
+  
+  // Original logic (commented out for debugging):
+  // const baseLayers = 10;
+  // const additionalLayers = Math.floor((level - 1) / 3);
+  // return baseLayers + additionalLayers;
 }
 
 // =============================================================================
