@@ -20,6 +20,7 @@ export class Screw implements IScrew {
   public targetHoleIndex?: number; // Which hole index in the container
   public targetType?: 'container' | 'holding_hole'; // Type of destination
   public anchorBody?: Body; // Physics anchor body for constraint
+  public localOffset?: Vector2; // Local offset from shape center for direct positioning
 
   // Transfer animation properties (holding hole to container)
   public isBeingTransferred: boolean = false;
@@ -231,8 +232,43 @@ export class Screw implements IScrew {
   }
 
   /**
-   * Update screw position from its anchor body (similar to Shape.updateFromBody())
-   * This ensures the screw position stays synchronized with its physics constraint
+   * Update screw position directly from shape body using stored local offset
+   * This is more reliable than anchor body positioning for composite shapes
+   */
+  public updateFromShapeBody(shapeBody: Body): void {
+    if (!this.localOffset || this.isBeingCollected || this.isBeingTransferred) {
+      return;
+    }
+
+    // Transform local offset to world coordinates using shape body position and rotation
+    const cos = Math.cos(shapeBody.angle);
+    const sin = Math.sin(shapeBody.angle);
+    
+    this.position.x = shapeBody.position.x + (this.localOffset.x * cos - this.localOffset.y * sin);
+    this.position.y = shapeBody.position.y + (this.localOffset.x * sin + this.localOffset.y * cos);
+  }
+
+  /**
+   * Set the local offset from shape center (called when screw is first placed)
+   */
+  public setLocalOffset(shapeBody: Body): void {
+    // Calculate and store the local offset from shape center to screw position
+    const worldOffsetX = this.position.x - shapeBody.position.x;
+    const worldOffsetY = this.position.y - shapeBody.position.y;
+    
+    // Convert to local coordinates accounting for current rotation
+    const angle = shapeBody.angle;
+    const cos = Math.cos(-angle);
+    const sin = Math.sin(-angle);
+    
+    this.localOffset = {
+      x: worldOffsetX * cos - worldOffsetY * sin,
+      y: worldOffsetX * sin + worldOffsetY * cos
+    };
+  }
+
+  /**
+   * Legacy method for anchor body positioning (fallback)
    */
   public updateFromAnchorBody(): void {
     if (this.anchorBody && !this.isBeingCollected && !this.isBeingTransferred) {

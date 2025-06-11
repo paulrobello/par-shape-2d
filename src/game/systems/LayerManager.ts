@@ -736,10 +736,10 @@ export class LayerManager extends BaseSystem {
         layer.updateShapePositions();
         layer.updateFadeAnimation();
         
-        // Update screw positions from their anchor bodies
+        // Update screw positions directly from shape bodies using local offsets
         layer.getAllShapes().forEach(shape => {
           shape.getAllScrews().forEach(screw => {
-            screw.updateFromAnchorBody();
+            screw.updateFromShapeBody(shape.body);
           });
         });
         

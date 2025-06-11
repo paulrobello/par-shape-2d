@@ -77,6 +77,8 @@ export class ScrewPlacementService implements IScrewPlacementService {
     const screws: Screw[] = [];
     screwPositions.forEach((position) => {
       const screw = this.createScrew(shape.id, position, preferredColors);
+      // CRITICAL: Set local offset for direct positioning
+      screw.setLocalOffset(shape.body);
       shape.addScrew(screw);
       screws.push(screw);
     });

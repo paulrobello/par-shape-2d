@@ -73,8 +73,10 @@ export interface Screw {
   shakeProgress: number; // 0-1 for shake animation
   shakeOffset: Vector2; // Current shake offset
 
-  // Position synchronization method
+  // Position synchronization methods
   updateFromAnchorBody(): void;
+  updateFromShapeBody(shapeBody: Body): void;
+  setLocalOffset(shapeBody: Body): void;
 }
 
 export interface Container {

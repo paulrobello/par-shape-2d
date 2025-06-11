@@ -10,11 +10,12 @@ Items are in order of priority and should be addressed in the order they are in.
 
 ~~There are screws visually rendering not on top of shapes and when removing the screws the shapes are not rotating correctly which is due to the physics constraints not being set up correctly.~~
 
-**FIXED**: The issue was that screw positions were not being synchronized with physics bodies during the game loop. Applied the following comprehensive fixes:
+**FIXED**: Completely redesigned the screw positioning system to use direct coordinate calculation instead of anchor body positioning. The issue was that anchor bodies and complex constraint positioning were unreliable for composite shapes.
 
-1. **Screw.ts:237**: Added `updateFromAnchorBody()` method to synchronize screw position with its anchor body
-2. **LayerManager.ts:739-744**: Integrated screw position updates into the main game loop alongside shape position updates
-3. **PhysicsBodyFactory.ts:334**: Enhanced constraint creation with proper anchor body positioning at exact screw positions
-4. **ScrewPhysicsService.ts:280-302**: Improved position update logic with better coordinate transformations
+**New Direct Positioning Approach:**
+1. **Screw.ts:254-268**: Added `setLocalOffset()` to store screw's local offset from shape center when first placed
+2. **Screw.ts:238-249**: Added `updateFromShapeBody()` to directly calculate world position from local offset and shape body state
+3. **ScrewPlacementService.ts:81**: Call `setLocalOffset()` when screws are created to store their relative position
+4. **LayerManager.ts:742**: Use `updateFromShapeBody()` in game loop for reliable position updates
 
-The fix ensures that screws update their visual positions from their physics anchor bodies every frame, just like shapes update from their physics bodies. This maintains proper synchronization between physics simulation and visual rendering.
+This eliminates anchor body complexity and directly calculates screw positions using simple coordinate transformation from stored local offsets. Much more reliable for composite bodies and complex shapes.
