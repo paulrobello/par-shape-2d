@@ -329,10 +329,14 @@ export class PhysicsBodyFactory {
       }
     }
 
+    // Position the screw anchor at the exact screw position
+    // This ensures the constraint connects the shape to the screw's intended position
+    Body.setPosition(screwAnchor, screwPosition);
+
     // For dynamic composite bodies, we need to ensure the constraint stiffness is appropriate
     // to prevent oscillation/orbiting behavior
     const constraintStiffness = (shapeBody.parts && shapeBody.parts.length > 1 && !shapeBody.isStatic) 
-      ? 0.9  // Slightly lower stiffness for composite bodies to reduce oscillation
+      ? 0.95  // High stiffness for composite bodies to prevent drift
       : (options.stiffness ?? PHYSICS_CONSTANTS.constraint.stiffness);
     
     // Use standard damping for good movement speed

@@ -277,20 +277,27 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
 
       const anchorBody = screw.anchorBody;
       if (anchorBody) {
+        // Use anchor body position directly - this is the most reliable method
         screw.position.x = anchorBody.position.x;
         screw.position.y = anchorBody.position.y;
       } else {
         const constraint = screw.constraint;
         if (constraint && constraint.bodyA) {
-          const shape = constraint.bodyA;
+          const shapeBody = constraint.bodyA;
           const offsetX = constraint.pointA?.x || 0;
           const offsetY = constraint.pointA?.y || 0;
 
-          const cos = Math.cos(shape.angle);
-          const sin = Math.sin(shape.angle);
+          // Transform local constraint coordinates to world coordinates
+          const cos = Math.cos(shapeBody.angle);
+          const sin = Math.sin(shapeBody.angle);
 
-          screw.position.x = shape.position.x + (offsetX * cos - offsetY * sin);
-          screw.position.y = shape.position.y + (offsetX * sin + offsetY * cos);
+          // Apply rotation to the local offset and add to body position
+          screw.position.x = shapeBody.position.x + (offsetX * cos - offsetY * sin);
+          screw.position.y = shapeBody.position.y + (offsetX * sin + offsetY * cos);
+          
+          if (DEBUG_CONFIG.logPhysicsDebug) {
+            console.log(`🔄 Updated screw ${screw.id} position: body=(${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)}), angle=${(shapeBody.angle * 180 / Math.PI).toFixed(1)}°, offset=(${offsetX.toFixed(1)}, ${offsetY.toFixed(1)}), final=(${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+          }
         }
       }
     }
