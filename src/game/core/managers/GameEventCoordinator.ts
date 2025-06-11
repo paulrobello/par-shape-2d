@@ -253,9 +253,7 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     const progressEvent = event as ProgressUpdatedEvent;
     if (!this.managers) return;
     
-    if (DEBUG_CONFIG.logEventFlow) {
-      console.log(`[GameEventCoordinator] Received progress update:`, progressEvent);
-    }
+    console.log(`[GameEventCoordinator] Received progress:updated event:`, progressEvent);
     
     this.managers.stateManager.updateProgress(
       progressEvent.totalScrews,
@@ -263,10 +261,15 @@ export class GameEventCoordinator implements IGameEventCoordinator {
       progressEvent.progress
     );
     
+    console.log(`[GameEventCoordinator] Updated state manager with progress data`);
+    
     // Force a render when progress data changes to ensure UI updates immediately
     const gameState = this.managers.stateManager.getGameState();
+    console.log(`[GameEventCoordinator] Current game state after progress update:`, gameState);
+    
     if (gameState.gameStarted && !gameState.gameOver) {
       this.managers.renderManager.render();
+      console.log(`[GameEventCoordinator] Triggered render after progress update`);
     }
   }
 

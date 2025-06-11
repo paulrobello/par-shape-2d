@@ -265,12 +265,15 @@ export class LayerManager extends BaseSystem {
           }, 0);
           
           console.log(`[LayerManager] Emitting total screw count: ${visibleScrews} (visible layers only, ${totalScrews - visibleScrews} screws in hidden layers will be added later)`);
-          this.emit({
-            type: 'total_screw_count:set',
+          console.log(`[LayerManager] Visible layers:`, visibleLayers.map(l => `${l.id}:${l.getAllShapes().length}shapes`));
+          const totalScrewCountEvent = {
+            type: 'total_screw_count:set' as const,
             timestamp: Date.now(),
             totalScrews: visibleScrews,
             source: this.systemName
-          });
+          };
+          console.log(`[LayerManager] About to emit total_screw_count:set event:`, totalScrewCountEvent);
+          this.emit(totalScrewCountEvent);
         }
       }
     });
@@ -419,9 +422,7 @@ export class LayerManager extends BaseSystem {
             });
             
             // Emit physics body added event
-            if (DEBUG_CONFIG.logScrewDebug) {
-              console.log(`🚀 LayerManager: Emitting physics:body:added event for shape ${shape.id}`);
-            }
+            console.log(`🚀 LayerManager: Emitting physics:body:added event for shape ${shape.id}`);
             this.emit({
               type: 'physics:body:added',
               timestamp: Date.now(),

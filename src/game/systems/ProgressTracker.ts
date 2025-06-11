@@ -35,6 +35,7 @@ export class ProgressTracker extends BaseSystem {
 
   protected onInitialize(): void {
     this.setupEventListeners();
+    console.log(`[ProgressTracker] System initialized and listening for events`);
   }
 
   private setupEventListeners(): void {
@@ -55,6 +56,7 @@ export class ProgressTracker extends BaseSystem {
 
   private handleTotalScrewCountSet(event: TotalScrewCountSetEvent): void {
     this.executeIfActive(() => {
+      console.log(`[ProgressTracker] Received total_screw_count:set event: ${event.totalScrews} screws from ${event.source}`);
       this.state.totalScrews = event.totalScrews;
       this.calculateAndEmitProgress();
     });
@@ -80,12 +82,28 @@ export class ProgressTracker extends BaseSystem {
   private handleLevelStarted(event: LevelStartedEvent): void {
     void event;
     this.executeIfActive(() => {
+      console.log(`[ProgressTracker] Level ${event.level} started - resetting progress state`);
       // Reset all progress state for the new level to prevent race conditions
       // The totalScrews will be set again when the new level's screws are counted
       this.state.screwsInContainer = 0;
       this.state.totalScrews = 0; // Reset to prevent auto-completion before new count is set
       this.state.progress = 0;
       this.previousProgress = -1;
+      
+      // Immediately emit the reset progress to ensure UI shows 0/0 instead of stale data
+      this.calculateAndEmitProgress();
+      
+      // Set a fallback timer to check for screw count if it hasn't been set after 3 seconds
+      setTimeout(() => {
+        if (this.state.totalScrews === 0) {
+          console.warn(`[ProgressTracker] No screw count received after 3 seconds, requesting manually...`);
+          this.emit({
+            type: 'screw_count:requested',
+            timestamp: Date.now(),
+            source: 'ProgressTracker-fallback'
+          });
+        }
+      }, 3000);
     });
   }
 
@@ -141,6 +159,8 @@ export class ProgressTracker extends BaseSystem {
     // Clamp progress to valid range
     this.state.progress = Math.max(0, Math.min(100, this.state.progress));
 
+    console.log(`[ProgressTracker] Calculated progress: ${this.state.screwsInContainer}/${this.state.totalScrews} = ${this.state.progress}%`);
+
     // Only emit if progress actually changed
     if (this.state.progress !== this.previousProgress) {
       this.previousProgress = this.state.progress;
@@ -155,6 +175,7 @@ export class ProgressTracker extends BaseSystem {
         source: this.systemName
       };
 
+      console.log(`[ProgressTracker] Emitting progress:updated event:`, progressEvent);
       this.emit(progressEvent);
 
       // Check for level completion
@@ -169,6 +190,8 @@ export class ProgressTracker extends BaseSystem {
 
         this.emit(completionEvent);
       }
+    } else {
+      console.log(`[ProgressTracker] Progress unchanged, not emitting event (${this.state.progress}%)`);
     }
   }
 
