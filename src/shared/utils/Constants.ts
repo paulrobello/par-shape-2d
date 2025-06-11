@@ -317,19 +317,19 @@ export const SHAPE_VALIDATION_CONSTANTS = {
 
 export const DEBUG_CONFIG = {
   // Global debug settings
-  enableVerboseLogging: false,
+  enableVerboseLogging: true,
   
   // Component-specific debug flags
   logContainerRendering: false,
-  logScrewPlacement: false,
-  logPhysicsStateChanges: false,
+  logScrewPlacement: true,
+  logPhysicsStateChanges: true,
   logShapeDestruction: false,
-  logPhysicsUpdates: false,
-  logShapeCreation: false,
-  logShapeDebug: false,
-  logScrewDebug: false,
+  logPhysicsUpdates: true,
+  logShapeCreation: true,
+  logShapeDebug: true,
+  logScrewDebug: true,
   logEventFlow: false,
-  logPhysicsDebug: false,
+  logPhysicsDebug: true,
   logLayerDebug: false,
   
   // Specific screw system debug flags

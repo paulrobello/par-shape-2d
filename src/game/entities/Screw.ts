@@ -1,6 +1,6 @@
 import { Constraint, Body } from 'matter-js';
 import { Screw as IScrew, ScrewColor, Vector2 } from '@/types/game';
-import { UI_CONSTANTS } from '@/shared/utils/Constants';
+import { UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export class Screw implements IScrew {
   public id: string;
@@ -240,12 +240,23 @@ export class Screw implements IScrew {
       return;
     }
 
+    const oldPosition = { ...this.position };
+    
     // Transform local offset to world coordinates using shape body position and rotation
     const cos = Math.cos(shapeBody.angle);
     const sin = Math.sin(shapeBody.angle);
     
     this.position.x = shapeBody.position.x + (this.localOffset.x * cos - this.localOffset.y * sin);
     this.position.y = shapeBody.position.y + (this.localOffset.x * sin + this.localOffset.y * cos);
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      const moved = Math.abs(oldPosition.x - this.position.x) > 0.1 || Math.abs(oldPosition.y - this.position.y) > 0.1;
+      if (moved) {
+        console.log(`🔩 Screw ${this.id} updateFromShapeBody: (${oldPosition.x.toFixed(1)}, ${oldPosition.y.toFixed(1)}) → (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`);
+        console.log(`   Shape body: (${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)}), angle: ${(shapeBody.angle * 180 / Math.PI).toFixed(1)}°`);
+        console.log(`   Local offset: (${this.localOffset.x.toFixed(1)}, ${this.localOffset.y.toFixed(1)})`);
+      }
+    }
   }
 
   /**
@@ -265,6 +276,14 @@ export class Screw implements IScrew {
       x: worldOffsetX * cos - worldOffsetY * sin,
       y: worldOffsetX * sin + worldOffsetY * cos
     };
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔩 Screw ${this.id} setLocalOffset:`);
+      console.log(`   Screw position: (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`);
+      console.log(`   Shape body: (${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)}), angle: ${(angle * 180 / Math.PI).toFixed(1)}°`);
+      console.log(`   World offset: (${worldOffsetX.toFixed(1)}, ${worldOffsetY.toFixed(1)})`);
+      console.log(`   Local offset: (${this.localOffset.x.toFixed(1)}, ${this.localOffset.y.toFixed(1)})`);
+    }
   }
 
   /**

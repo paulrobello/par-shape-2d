@@ -47,12 +47,17 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
    * Create a physics constraint for a screw
    */
   public createScrewConstraint(screw: Screw, shape: Shape): void {
+    const positionMismatch = Math.abs(shape.position.x - shape.body.position.x) > 0.1 || Math.abs(shape.position.y - shape.body.position.y) > 0.1;
+    
     if (DEBUG_CONFIG.logPhysicsDebug) {
-      console.log(`Creating constraint for screw ${screw.id} on shape ${shape.id}`);
+      console.log(`🔧 Creating constraint for screw ${screw.id} on shape ${shape.id}`);
       console.log(`🔧 Constraint creation for ${shape.isComposite ? 'composite' : 'regular'} body:`);
       console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
       console.log(`  Body.position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
       console.log(`  Screw.position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)})`);
+      if (positionMismatch) {
+        console.error(`❌ POSITION MISMATCH DETECTED for shape ${shape.id}: shape.position ≠ body.position`);
+      }
     }
     
     // Use shared utilities to create constraint
@@ -341,7 +346,13 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
     Sleeping.set(shape.body, false);
     
     // CRITICAL: Synchronize shape position with physics body after state change
+    if (DEBUG_CONFIG.logPhysicsStateChanges) {
+      console.log(`🔧 Shape ${shape.id} BEFORE updateFromBody: shape.position=(${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}), body.position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+    }
     shape.updateFromBody();
+    if (DEBUG_CONFIG.logPhysicsStateChanges) {
+      console.log(`🔧 Shape ${shape.id} AFTER updateFromBody: shape.position=(${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)}), body.position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+    }
     
     if (DEBUG_CONFIG.logPhysicsStateChanges && shape.isComposite) {
       console.log(`🔧 Shape ${shape.id} AFTER setStatic(false): position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);

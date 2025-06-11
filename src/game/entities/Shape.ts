@@ -88,8 +88,16 @@ export class Shape implements IShape {
   }
 
   public updateFromBody(): void {
+    const oldPosition = { ...this.position };
     this.position = { x: this.body.position.x, y: this.body.position.y };
     this.rotation = this.body.angle;
+    
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      const moved = Math.abs(oldPosition.x - this.position.x) > 0.1 || Math.abs(oldPosition.y - this.position.y) > 0.1;
+      if (moved) {
+        console.log(`📍 Shape ${this.id} updateFromBody: (${oldPosition.x.toFixed(1)}, ${oldPosition.y.toFixed(1)}) → (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`);
+      }
+    }
   }
 
   public addScrew(screw: Screw): void {
