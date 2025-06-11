@@ -236,7 +236,8 @@ export class Screw implements IScrew {
    */
   public updateFromAnchorBody(): void {
     if (this.anchorBody && !this.isBeingCollected && !this.isBeingTransferred) {
-      this.position = { x: this.anchorBody.position.x, y: this.anchorBody.position.y };
+      this.position.x = this.anchorBody.position.x;
+      this.position.y = this.anchorBody.position.y;
     }
   }
 
