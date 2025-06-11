@@ -218,15 +218,13 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
         const shape = this.state.allShapes.find(s => s.id === shapeId);
         
         if (shapeBody && shape) {
-          // For composite bodies, ensure the shape position is synchronized
-          if (shape.isComposite) {
-            shape.updateFromBody();
-            if (DEBUG_CONFIG.logPhysicsDebug) {
-              console.log(`🔧 Composite body constraint recreation:`);
-              console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-              console.log(`  Body.position: (${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)})`);
-              console.log(`  Screw.position: (${remainingScrew.position.x.toFixed(1)}, ${remainingScrew.position.y.toFixed(1)})`);
-            }
+          // CRITICAL: Ensure the shape position is synchronized for ALL shapes, not just composite
+          shape.updateFromBody();
+          if (DEBUG_CONFIG.logPhysicsDebug) {
+            console.log(`🔧 Shape constraint recreation (${shape.isComposite ? 'composite' : 'regular'}):`);
+            console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+            console.log(`  Body.position: (${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)})`);
+            console.log(`  Screw.position: (${remainingScrew.position.x.toFixed(1)}, ${remainingScrew.position.y.toFixed(1)})`);
           }
           
           // Use shared utilities to recreate constraint
@@ -342,6 +340,9 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
     Body.setStatic(shape.body, false);
     Sleeping.set(shape.body, false);
     
+    // CRITICAL: Synchronize shape position with physics body after state change
+    shape.updateFromBody();
+    
     if (DEBUG_CONFIG.logPhysicsStateChanges && shape.isComposite) {
       console.log(`🔧 Shape ${shape.id} AFTER setStatic(false): position=(${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
     }
@@ -386,6 +387,9 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
     if (shape.body.isStatic) {
       Body.setStatic(shape.body, false);
       Sleeping.set(shape.body, false);
+      
+      // CRITICAL: Synchronize shape position with physics body after state change
+      shape.updateFromBody();
       
       // Small nudge to ensure physics activation (not too large to avoid continuous rotation)
       const nudgeDirection = Math.random() > 0.5 ? 1 : -1;

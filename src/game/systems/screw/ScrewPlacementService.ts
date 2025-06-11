@@ -100,17 +100,15 @@ export class ScrewPlacementService implements IScrewPlacementService {
       // Wake up the body
       Sleeping.set(shape.body, false);
       
-      // For composite bodies (like capsules), ensure they are properly positioned
-      if (shape.isComposite && shape.body.parts && shape.body.parts.length > 1) {
-        shape.updateFromBody();
-        
-        if (DEBUG_CONFIG.logPhysicsDebug) {
-          console.log(`🔧 Composite body (${shape.type}) with single screw:`);
-          console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-          console.log(`  Body.position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
-          console.log(`  Body.mass: ${shape.body.mass.toFixed(3)}`);
-          console.log(`  Body.inertia: ${shape.body.inertia.toFixed(3)}`);
-        }
+      // CRITICAL: Ensure shape position is synchronized with physics body after state change
+      shape.updateFromBody();
+      
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`🔧 ${shape.isComposite ? 'Composite' : 'Regular'} body (${shape.type}) with single screw:`);
+        console.log(`  Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
+        console.log(`  Body.position: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
+        console.log(`  Body.mass: ${shape.body.mass.toFixed(3)}`);
+        console.log(`  Body.inertia: ${shape.body.inertia.toFixed(3)}`);
       }
       
       // Add a very small rotational nudge to get things moving
@@ -161,12 +159,10 @@ export class ScrewPlacementService implements IScrewPlacementService {
    * Calculate screw positions using shared strategy system or legacy fallback
    */
   public calculateScrewPositions(shape: Shape, count: number): Vector2[] {
-    // For composite bodies, ensure we're using the correct position
-    if (shape.isComposite && shape.body) {
-      shape.updateFromBody();
-      if (DEBUG_CONFIG.logPhysicsDebug) {
-        console.log(`🔧 Updated composite shape position before screw calculation: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-      }
+    // CRITICAL: Ensure we're using the correct position for ALL shapes, not just composite
+    shape.updateFromBody();
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log(`🔧 Updated ${shape.isComposite ? 'composite' : 'regular'} shape position before screw calculation: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
     }
     
     // Get shape definition to determine strategy

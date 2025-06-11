@@ -165,11 +165,9 @@ export class ShapeFactory {
       parts ? { isComposite: true, parts } : undefined
     );
     
-    // For composite bodies, sync the Shape position with the actual physics body position
-    // after Matter.js has recalculated the centroid and positioning
-    if (parts) {
-      shape.updateFromBody();
-    }
+    // CRITICAL: Sync the Shape position with the actual physics body position
+    // after Matter.js has positioned the body (important for ALL shapes, not just composite)
+    shape.updateFromBody();
     
     return shape;
   }
