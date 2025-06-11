@@ -8,6 +8,7 @@ import { GameEvent } from '@/game/events/EventTypes';
 import { GAME_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { initializePolyDecomp } from '@/game/utils/PhysicsInit';
+import { eventBus } from '@/game/events/EventBus';
 
 // Type guard for Visual Viewport API support
 function hasVisualViewport(window: Window): window is Window & { visualViewport: VisualViewport } {
@@ -417,6 +418,130 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     }
   };
 
+  // Convert canvas click coordinates to game coordinates
+  const getGameCoordinates = (canvasX: number, canvasY: number) => {
+    if (!coordinatorRef.current || !canvasRef.current) return null;
+    
+    // Get canvas dimensions
+    const canvas = canvasRef.current;
+    const canvasWidth = canvas.width;
+    const canvasHeight = canvas.height;
+    
+    // Calculate scale to fit virtual game dimensions within canvas (matching GameRenderManager logic)
+    const virtualGameWidth = GAME_CONFIG.canvas.width;
+    const virtualGameHeight = GAME_CONFIG.canvas.height;
+    
+    const scaleX = canvasWidth / virtualGameWidth;
+    const scaleY = canvasHeight / virtualGameHeight;
+    const canvasScale = Math.min(scaleX, scaleY);
+    
+    // Calculate offset to center the game (matching GameRenderManager logic)
+    const canvasOffset = {
+      x: (canvasWidth - virtualGameWidth * canvasScale) / 2,
+      y: (canvasHeight - virtualGameHeight * canvasScale) / 2
+    };
+    
+    // Account for canvas scaling and offset
+    const gameX = (canvasX - canvasOffset.x) / canvasScale;
+    const gameY = (canvasY - canvasOffset.y) / canvasScale;
+    
+    return { x: gameX, y: gameY };
+  };
+
+  // Find screws at a given position
+  const findScrewAtPosition = (gameX: number, gameY: number) => {
+    if (!coordinatorRef.current) return null;
+    
+    const screwManager = coordinatorRef.current.getScrewManager();
+    if (!screwManager) return null;
+    
+    const allScrews = screwManager.getAllScrews();
+    const screwRadius = 8; // Standard screw radius for hit detection
+    
+    // Find the closest screw within the hit radius
+    for (const screw of allScrews) {
+      const distance = Math.sqrt(
+        Math.pow(screw.position.x - gameX, 2) + 
+        Math.pow(screw.position.y - gameY, 2)
+      );
+      
+      if (distance <= screwRadius) {
+        return screw;
+      }
+    }
+    
+    return null;
+  };
+
+  // Handle canvas click events
+  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!coordinatorRef.current || !canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    
+    // Get click position relative to canvas
+    const canvasX = event.clientX - rect.left;
+    const canvasY = event.clientY - rect.top;
+    
+    // Convert to game coordinates
+    const gameCoords = getGameCoordinates(canvasX, canvasY);
+    if (!gameCoords) return;
+    
+    // Find screw at this position
+    const screw = findScrewAtPosition(gameCoords.x, gameCoords.y);
+    if (screw) {
+      console.log(`🖱️ Clicked on screw ${screw.id} at game coordinates (${gameCoords.x.toFixed(1)}, ${gameCoords.y.toFixed(1)})`);
+      
+      // Emit screw clicked event
+      eventBus.emit({
+        type: 'screw:clicked',
+        timestamp: Date.now(),
+        source: 'GameCanvas',
+        screw,
+        position: { x: gameCoords.x, y: gameCoords.y },
+        forceRemoval: event.shiftKey // Allow force removal with Shift+click
+      });
+    }
+  };
+
+  // Handle touch events
+  const handleCanvasTouch = (event: React.TouchEvent<HTMLCanvasElement>) => {
+    if (!coordinatorRef.current || !canvasRef.current) return;
+    
+    event.preventDefault(); // Prevent default touch behaviors
+    
+    if (event.changedTouches.length === 0) return;
+    
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const touch = event.changedTouches[0];
+    
+    // Get touch position relative to canvas
+    const canvasX = touch.clientX - rect.left;
+    const canvasY = touch.clientY - rect.top;
+    
+    // Convert to game coordinates
+    const gameCoords = getGameCoordinates(canvasX, canvasY);
+    if (!gameCoords) return;
+    
+    // Find screw at this position
+    const screw = findScrewAtPosition(gameCoords.x, gameCoords.y);
+    if (screw) {
+      console.log(`👆 Touched screw ${screw.id} at game coordinates (${gameCoords.x.toFixed(1)}, ${gameCoords.y.toFixed(1)})`);
+      
+      // Emit screw clicked event
+      eventBus.emit({
+        type: 'screw:clicked',
+        timestamp: Date.now(),
+        source: 'GameCanvas',
+        screw,
+        position: { x: gameCoords.x, y: gameCoords.y },
+        forceRemoval: false // No force removal for touch
+      });
+    }
+  };
+
   return (
     <div className={`game-canvas-container ${className} ${debugMode ? 'debug-mode' : ''}`} style={{
       width: '100%',
@@ -446,6 +571,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
             // Don't set width/height here as we handle it in JavaScript
             // to ensure canvas internal size matches CSS size for accurate touch coordinates
           }}
+          onClick={handleCanvasClick}
+          onTouchEnd={handleCanvasTouch}
         />
         
       </div>
