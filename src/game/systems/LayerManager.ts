@@ -736,6 +736,13 @@ export class LayerManager extends BaseSystem {
         layer.updateShapePositions();
         layer.updateFadeAnimation();
         
+        // Update screw positions from their anchor bodies
+        layer.getAllShapes().forEach(shape => {
+          shape.getAllScrews().forEach(screw => {
+            screw.updateFromAnchorBody();
+          });
+        });
+        
         // Check for shapes that have fallen off screen and remove them
         this.cleanupOffScreenShapes(layer);
         

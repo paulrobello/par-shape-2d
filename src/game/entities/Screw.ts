@@ -230,6 +230,16 @@ export class Screw implements IScrew {
     return Math.sqrt(dx * dx + dy * dy);
   }
 
+  /**
+   * Update screw position from its anchor body (similar to Shape.updateFromBody())
+   * This ensures the screw position stays synchronized with its physics constraint
+   */
+  public updateFromAnchorBody(): void {
+    if (this.anchorBody && !this.isBeingCollected && !this.isBeingTransferred) {
+      this.position = { x: this.anchorBody.position.x, y: this.anchorBody.position.y };
+    }
+  }
+
   public clone(): Screw {
     const cloned = new Screw(this.id, this.shapeId, this.position, this.color);
     cloned.constraint = this.constraint;
