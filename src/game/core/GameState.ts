@@ -648,9 +648,10 @@ export class GameState extends BaseSystem {
       // Reset container initialization flag
       this.containersInitialized = false;
       
-      // Only initialize holding holes at game start
-      // Containers will be created after shapes/screws are ready
+      // Initialize both holding holes and containers at game start
+      // Containers will be re-initialized with proper colors when shapes are ready
       this.initializeHoldingHoles();
+      this.initializeContainers(); // Initialize with default colors initially
       
       this.emit({
         type: 'game:started',
@@ -848,6 +849,10 @@ export class GameState extends BaseSystem {
       timestamp: Date.now(),
       containers: this.containers
     });
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🏭 GameState: Initialized ${this.containers.length} containers and emitted container:state:updated`);
+    }
   }
 
   private initializeHoldingHoles(virtualGameWidth?: number, virtualGameHeight?: number): void {
@@ -880,6 +885,10 @@ export class GameState extends BaseSystem {
       timestamp: Date.now(),
       holdingHoles: this.holdingHoles
     });
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🕳️ GameState: Initialized ${this.holdingHoles.length} holding holes and emitted holding_hole:state:updated`);
+    }
   }
 
   public findAvailableContainer(color: ScrewColor): Container | null {

@@ -298,7 +298,8 @@ export class ScrewEventHandler implements IScrewEventHandler {
     // Update local container state when container state changes
     this.state.containers = event.containers;
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`Container state updated - now have ${event.containers.length} containers, checking for possible transfers`);
+      console.log(`🏭 ScrewEventHandler: Container state updated - now have ${event.containers.length} containers`);
+      console.log(`🏭 Container details:`, event.containers.map(c => ({ id: c.id, color: c.color, isFull: c.isFull })));
     }
     this.callbacks.onCheckTransfers?.();
   }
@@ -307,7 +308,8 @@ export class ScrewEventHandler implements IScrewEventHandler {
     // Update local holding hole state when holding hole state changes
     this.state.holdingHoles = event.holdingHoles;
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`Holding hole state updated - now have ${event.holdingHoles.length} holding holes`);
+      console.log(`🕳️ ScrewEventHandler: Holding hole state updated - now have ${event.holdingHoles.length} holding holes`);
+      console.log(`🕳️ Holding hole details:`, event.holdingHoles.map(h => ({ id: h.id, screwId: h.screwId, position: h.position })));
     }
   }
 
