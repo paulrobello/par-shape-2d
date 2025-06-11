@@ -11,6 +11,7 @@ import {
   EventHistory,
   EventBusStats
 } from './BaseEventTypes';
+import { EventLogger } from './EventLogger';
 
 /**
  * Configuration options for the event bus
@@ -213,6 +214,9 @@ export class SharedEventBus<TEvent extends BaseEvent = BaseEvent> {
     const subscriptions = this.subscriptions.get(event.type) || [];
     let handlerCount = 0;
     let errorCount = 0;
+    
+    // Log event to EventLogger if available
+    const logger = this.namespace ? EventLogger.getInstance(this.namespace as 'game' | 'editor') : null;
 
     if (this.enableDebugLogging) {
       console.log(`[${this.namespace}] Processing event ${event.type} with ${subscriptions.length} handlers`);
@@ -258,6 +262,11 @@ export class SharedEventBus<TEvent extends BaseEvent = BaseEvent> {
       duration,
       timestamp: Date.now()
     });
+    
+    // Log to EventLogger if available
+    if (logger) {
+      logger.logEvent(event as BaseEvent, handlerCount, duration);
+    }
   }
 
   /**

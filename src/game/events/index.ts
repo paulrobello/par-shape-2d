@@ -3,6 +3,7 @@
  */
 
 export { EventBus, eventBus } from './EventBus';
-export { EventLogger, eventLogger } from './EventLogger';
+export { EventLogger } from './EventLogger';
+export type { EventLogEntry } from './EventLogger';
 export { EventDebugger, eventDebugger } from './EventDebugger';
 export * from './EventTypes';

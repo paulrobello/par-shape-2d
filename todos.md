@@ -24,7 +24,10 @@ Also look for duplicated code that can be removed and or moved to the shared lib
 - ✅ Removed obsolete `ScrewCollisionUtils.ts` (functionality already in shared)
 - ✅ Removed duplicate color utilities from game (now uses shared ColorTheme)
 
-**Remaining Optimizations (Lower Priority):**
-- Refactor game's ShapeRenderer to extend shared implementation
-- Consolidate EventLogger implementations (game version is more feature-rich)
+**Completed Optimizations:**
+- ✅ Refactored game's ShapeRenderer to use shared implementation
+- ✅ Consolidated EventLogger implementations into comprehensive shared version
+- ✅ Integrated automatic event logging into SharedEventBus
+
+**Remaining Optimization (Low Priority):**
 - Move EventDebugger to shared utilities for editor use

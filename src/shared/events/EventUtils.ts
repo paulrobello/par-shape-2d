@@ -5,9 +5,10 @@
 import { BaseEvent, EventHistory, EventBusStats } from './BaseEventTypes';
 
 /**
- * Event logger for debugging event flow
+ * Simple event logger for basic debugging
+ * @deprecated Use EventLogger from './EventLogger' for comprehensive logging
  */
-export class EventLogger {
+export class SimpleEventLogger {
   private enabled: boolean = false;
   private filters: Set<string> = new Set();
   private excludes: Set<string> = new Set();

@@ -10,7 +10,6 @@ export { SharedEventBus, type EventBusConfig } from './SharedEventBus';
 
 // Utilities
 export {
-  EventLogger,
   EventPerformanceMonitor,
   EventValidator,
   EventFlowAnalyzer,
@@ -20,3 +19,6 @@ export {
   createEventFilter,
   createEventTransformer
 } from './EventUtils';
+
+// Event logging
+export { EventLogger, type EventLogEntry, type EventLogStats, type LogLevel } from './EventLogger';

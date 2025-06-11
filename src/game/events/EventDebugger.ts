@@ -3,7 +3,7 @@
  */
 
 import { eventBus } from './EventBus';
-import { eventLogger } from './EventLogger';
+import { EventLogger } from './EventLogger';
 import { GameEvent, EventPriority } from './EventTypes';
 import { DEBUG_CONFIG } from '../utils/Constants';
 import { EventHistory } from '@/shared/events';
@@ -34,6 +34,7 @@ export interface EventDebugInfo {
 }
 
 export class EventDebugger {
+  static eventLogger = EventLogger.getInstance();
   private static instance: EventDebugger;
   private isDebugMode = false;
   private debugPanel: HTMLElement | null = null;
@@ -53,7 +54,7 @@ export class EventDebugger {
    */
   enableDebugMode(showPanel: boolean = false): void {
     this.isDebugMode = true;
-    eventLogger.startLogging('debug');
+    EventDebugger.eventLogger.startLogging('debug');
     
     console.log('Event debug mode enabled');
     
@@ -70,7 +71,7 @@ export class EventDebugger {
    */
   disableDebugMode(): void {
     this.isDebugMode = false;
-    eventLogger.stopLogging();
+    EventDebugger.eventLogger.stopLogging();
     
     if (this.debugPanel) {
       this.destroyDebugPanel();
@@ -99,11 +100,30 @@ export class EventDebugger {
    * Get comprehensive debug information
    */
   getDebugInfo(): EventDebugInfo {
+    const loggerStats = EventDebugger.eventLogger.getStats();
+    const frequencyStats = new Map<string, {
+      count: number;
+      totalDuration: number;
+      averageDuration: number;
+      lastSeen: number;
+    }>();
+    
+    // Convert simple counts to expected format
+    // Since we don't track per-event timing in the new logger, use estimates
+    loggerStats.eventCounts.forEach((count, eventType) => {
+      frequencyStats.set(eventType, {
+        count,
+        totalDuration: count * loggerStats.averageDuration,
+        averageDuration: loggerStats.averageDuration,
+        lastSeen: Date.now() // Approximation
+      });
+    });
+    
     return {
       subscriptions: eventBus.getSubscriptions(),
       stats: eventBus.getStats(),
       recentEvents: eventBus.getEventHistory(50),
-      frequencyStats: eventLogger.getEventFrequencyStats()
+      frequencyStats
     };
   }
 
@@ -312,7 +332,7 @@ export class EventDebugger {
     }
 
     const info = this.getDebugInfo();
-    const recentEvents = eventLogger.getLogs(10);
+    const recentEvents = EventDebugger.eventLogger.getLogs(10);
 
     this.debugPanel.innerHTML = `
       <h3 style="margin: 0 0 10px 0; color: #007acc;">🔍 Event System Debug</h3>
@@ -422,7 +442,7 @@ interface EventDebugGlobal {
   flow: () => void;
   test: (iterations?: number) => Promise<{ totalTime: number; averageTime: number; eventsPerSecond: number; }>;
   validate: () => { isValid: boolean; issues: string[] };
-  logger: typeof eventLogger;
+  logger: EventLogger;
   bus: typeof eventBus;
   clear: () => void;
   getInstanceInfo: () => unknown;
@@ -437,7 +457,7 @@ if (typeof window !== 'undefined') {
     flow: () => eventDebugger.startEventFlowVisualization(),
     test: (iterations?: number) => eventDebugger.performanceTest(iterations),
     validate: () => eventDebugger.validateEventSystem(),
-    logger: eventLogger,
+    logger: EventDebugger.eventLogger,
     bus: eventBus,
     clear: () => console.clear(),
     getInstanceInfo: () => eventDebugger.getDebugInfo()
