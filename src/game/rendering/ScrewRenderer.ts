@@ -1,5 +1,5 @@
 import { RenderContext, Screw } from '@/types/game';
-import { SCREW_COLORS, UI_CONSTANTS } from '@/shared/utils/Constants';
+import { SCREW_COLORS, UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { hexToRgba } from '@/shared/rendering/styles/ColorTheme';
 
 export class ScrewRenderer {
@@ -70,8 +70,8 @@ export class ScrewRenderer {
       }
     }
 
-    // Debug info
-    if (context.debugMode) {
+    // Debug info - only render if both debug mode is enabled AND physics debug is enabled
+    if (context.debugMode && DEBUG_CONFIG.logPhysicsDebug) {
       this.renderDebugInfo(screw, context);
     }
 

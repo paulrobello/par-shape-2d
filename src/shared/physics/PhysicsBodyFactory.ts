@@ -297,11 +297,31 @@ export class PhysicsBodyFactory {
   ): Constraint {
     // For composite bodies, we need to ensure we're using the actual center of mass
     // Matter.js composite bodies have their position at the calculated center of mass
+    // After fixing composite body creation with Body.setParts(), center of mass may have shifted
     const bodyPosition = shapeBody.position;
     
+    // CRITICAL FIX: For composite bodies, ensure we're using the correct center of mass
+    // The issue is that when we create composite bodies with Body.setParts([self, ...parts]),
+    // Matter.js recalculates the center of mass but may not update body.position immediately
+    let actualBodyPosition = bodyPosition;
+    
+    // For composite bodies, verify that the position matches the center of mass
+    if (shapeBody.parts && shapeBody.parts.length > 1) {
+      // Force Matter.js to recalculate center of mass and update position
+      // This ensures the body position is accurate after Body.setParts() call
+      Body.setPosition(shapeBody, bodyPosition); // This forces recalculation
+      actualBodyPosition = shapeBody.position; // Use the updated position
+      
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`🔧 Composite body position verification:`);
+        console.log(`  Original position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
+        console.log(`  Updated position: (${actualBodyPosition.x.toFixed(1)}, ${actualBodyPosition.y.toFixed(1)})`);
+      }
+    }
+    
     // Calculate offset from physics body center to screw position in world coordinates
-    const worldOffsetX = screwPosition.x - bodyPosition.x;
-    const worldOffsetY = screwPosition.y - bodyPosition.y;
+    const worldOffsetX = screwPosition.x - actualBodyPosition.x;
+    const worldOffsetY = screwPosition.y - actualBodyPosition.y;
     
     // Convert world offset to body's local coordinates
     // This accounts for the body's current rotation
@@ -315,7 +335,7 @@ export class PhysicsBodyFactory {
     
     if (DEBUG_CONFIG.logPhysicsDebug) {
       console.log(`🔧 PhysicsBodyFactory.createScrewConstraint:`);
-      console.log(`  Body position: (${bodyPosition.x.toFixed(1)}, ${bodyPosition.y.toFixed(1)})`);
+      console.log(`  Body position: (${actualBodyPosition.x.toFixed(1)}, ${actualBodyPosition.y.toFixed(1)})`);
       console.log(`  Body angle: ${(angle * 180 / Math.PI).toFixed(1)}°`);
       console.log(`  Screw position: (${screwPosition.x.toFixed(1)}, ${screwPosition.y.toFixed(1)})`);
       console.log(`  World offset: (${worldOffsetX.toFixed(1)}, ${worldOffsetY.toFixed(1)})`);
@@ -328,6 +348,11 @@ export class PhysicsBodyFactory {
         const mass = shapeBody.mass;
         const inertia = shapeBody.inertia;
         console.log(`  Body mass: ${mass.toFixed(2)}, inertia: ${inertia.toFixed(2)}`);
+        // Log if this might be causing positioning issues
+        const distance = Math.sqrt(worldOffsetX * worldOffsetX + worldOffsetY * worldOffsetY);
+        if (distance > 200) {
+          console.warn(`  ⚠️  Large constraint distance (${distance.toFixed(1)}) may indicate positioning issue`);
+        }
       }
     }
 

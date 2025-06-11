@@ -8,7 +8,7 @@ import { GeometryRenderer } from '../core/GeometryRenderer';
 import { TextRenderer } from './TextRenderer';
 import { withContext, withAlpha } from '../core/CanvasUtils';
 import { ColorTheme, getThemeForEnvironment, hexToRgba } from '../styles/ColorTheme';
-import { UI_CONSTANTS, SCREW_COLORS } from '@/shared/utils/Constants';
+import { UI_CONSTANTS, SCREW_COLORS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export interface ScrewRenderOptions {
   /** Rendering mode */
@@ -119,8 +119,8 @@ export class ScrewRenderer {
           break;
       }
 
-      // Render debug information if enabled
-      if (finalOptions.showDebug) {
+      // Render debug information if enabled - only if both debug mode and physics debug are enabled
+      if (finalOptions.showDebug && DEBUG_CONFIG.logPhysicsDebug) {
         this.renderScrewDebug(screw, context, theme);
       }
     });
