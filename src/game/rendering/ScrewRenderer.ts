@@ -284,10 +284,16 @@ export class ScrewRenderer {
       ...screw,
       position,
       shakeOffset: { x: 0, y: 0 }, // No shake for collected screws
-      isCollected: true
+      isCollected: true,
+      // Ensure these animation properties are reset
+      isBeingCollected: false,
+      isBeingTransferred: false,
+      collectionProgress: 0,
+      transferProgress: 0
     };
     
     // Force render the screw at the destination with the specified scale
+    // Pass scale parameter properly to ensure cross symbol and highlight are visible
     this.renderScrew(collectedScrew, context, true, scale);
   }
 }

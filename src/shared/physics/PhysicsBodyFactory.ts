@@ -143,9 +143,8 @@ export class PhysicsBodyFactory {
       options
     );
 
-    // Create composite body
+    // Create composite body - CRITICAL: First part must be self-reference according to Matter.js docs
     const compositeBody = Body.create({
-      parts: [rectangle, leftCircle, rightCircle],
       isStatic: options.isStatic,
       density: options.density,
       friction: options.friction,
@@ -155,6 +154,9 @@ export class PhysicsBodyFactory {
       collisionFilter: options.collisionFilter,
     });
 
+    // Set parts with self-reference as first element (Matter.js requirement)
+    Body.setParts(compositeBody, [compositeBody, rectangle, leftCircle, rightCircle]);
+    
     Body.setPosition(compositeBody, shape.position);
 
     return {

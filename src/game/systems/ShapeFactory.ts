@@ -516,12 +516,14 @@ export class ShapeFactory {
       }
     );
     
-    // Create composite body
+    // Create composite body - CRITICAL: First part must be self-reference according to Matter.js docs
     const capsuleComposite = Body.create({
-      parts: [rectangle, leftCircle, rightCircle],
       ...PHYSICS_CONSTANTS.shape,
       render: { visible: false },
     });
+    
+    // Set parts with self-reference as first element (Matter.js requirement)
+    Body.setParts(capsuleComposite, [capsuleComposite, rectangle, leftCircle, rightCircle]);
     
     Body.setPosition(capsuleComposite, position);
     
