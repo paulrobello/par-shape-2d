@@ -73,6 +73,10 @@ export interface Screw {
   shakeProgress: number; // 0-1 for shake animation
   shakeOffset: Vector2; // Current shake offset
 
+  // Direct positioning properties
+  localOffset?: Vector2; // Local offset from shape center for direct positioning
+  anchorBody?: Body; // Physics anchor body for constraint
+
   // Position synchronization methods
   updateFromAnchorBody(): void;
   updateFromShapeBody(shapeBody: Body): void;

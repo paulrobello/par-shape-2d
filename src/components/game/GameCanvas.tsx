@@ -9,6 +9,7 @@ import { GAME_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { initializePolyDecomp } from '@/game/utils/PhysicsInit';
 import { eventBus } from '@/game/events/EventBus';
+import { DebugUtils } from '@/shared/utils/DebugUtils';
 
 // Type guard for Visual Viewport API support
 function hasVisualViewport(window: Window): window is Window & { visualViewport: VisualViewport } {
@@ -173,6 +174,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           console.log('Event flow validation:', validation);
           setEventStats(eventFlowValidator.getEventStats());
         }, 1000);
+
+        // Set up debug key listener for position dumping
+        DebugUtils.setupDebugKeyListener(() => {
+          const layerManager = coordinator.getLayerManager();
+          if (layerManager) {
+            return layerManager.getAllShapes();
+          }
+          return [];
+        });
 
       } catch (error) {
         console.error('Failed to initialize event-driven systems:', error);
