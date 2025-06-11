@@ -201,6 +201,9 @@ export class ScrewManager extends BaseSystem {
       // Update shake animations
       this.animationService.updateShakeAnimations(deltaTime);
 
+      // CRITICAL: Synchronize screw positions with physics bodies every frame
+      this.physicsService.updateScrewPositions();
+
       // Update screw removability with throttling
       const now = Date.now();
       if (now - this.lastRemovabilityUpdate > ScrewManager.REMOVABILITY_UPDATE_THROTTLE_MS) {
