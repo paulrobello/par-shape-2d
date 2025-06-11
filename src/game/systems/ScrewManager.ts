@@ -139,6 +139,7 @@ export class ScrewManager extends BaseSystem {
 
   public update(deltaTime: number): void {
     this.executeIfActive(() => {
+      
       // Cleanup counter for periodic tasks
       this.cleanupCounter++;
       if (this.cleanupCounter >= 1800) { // ~30 seconds at 60 FPS
@@ -429,25 +430,8 @@ export class ScrewManager extends BaseSystem {
   }
 
   private handleScrewClicked(screw: Screw, forceRemoval: boolean): void {
-    if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🎯 ScrewManager.handleScrewClicked called for screw ${screw.id}, forceRemoval: ${forceRemoval}`);
-    }
-
     // Check if screw is blocked
     const isBlockedForGameplay = this.isScrewBlockedForGameplay(screw.id);
-
-    if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`👆 Screw ${screw.id} clicked:`, {
-        isBlocked: isBlockedForGameplay,
-        isCollected: screw.isCollected,
-        isBeingCollected: screw.isBeingCollected,
-        forceRemoval,
-        containerCount: this.state.containers.length,
-        holdingHoleCount: this.state.holdingHoles.length,
-        containers: this.state.containers.map(c => ({ id: c.id, color: c.color, isFull: c.isFull })),
-        holdingHoles: this.state.holdingHoles.map(h => ({ id: h.id, screwId: h.screwId }))
-      });
-    }
 
     if (isBlockedForGameplay && !screw.isCollected && !screw.isBeingCollected && !forceRemoval) {
       if (DEBUG_CONFIG.logScrewDebug) {
@@ -476,7 +460,7 @@ export class ScrewManager extends BaseSystem {
     // Skip if already collected or being collected
     if (screw.isCollected || screw.isBeingCollected) {
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`Screw ${screw.id} already collected or being collected`);
+        console.log(`⏭️ Screw ${screw.id} already collected (${screw.isCollected}) or being collected (${screw.isBeingCollected}) - skipping duplicate event`);
       }
       return;
     }
@@ -518,7 +502,7 @@ export class ScrewManager extends BaseSystem {
     // Start collection
     if (this.startScrewCollection(screw.id, destination.position, destination, forceRemoval)) {
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`Started collection for screw ${screw.id} to ${destination.type}`);
+        console.log(`✅ Started collection for screw ${screw.id} to ${destination.type}`);
       }
 
       // IMMEDIATELY remove physics constraint when collection starts (not when animation ends)
@@ -547,6 +531,10 @@ export class ScrewManager extends BaseSystem {
             console.log(`Shape ${shape.id} will start falling immediately - no more active screws`);
           }
         }
+      }
+    } else {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`❌ Failed to start collection for screw ${screw.id}`);
       }
     }
   }

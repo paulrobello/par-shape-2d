@@ -18,22 +18,24 @@ export function calculateContainerHolePosition(
 ): Vector2 {
   const containerWidth = UI_CONSTANTS.containers.width;
   const containerHeight = UI_CONSTANTS.containers.height;
-  const containerSpacing = UI_CONSTANTS.containers.spacing;
   
-  // Get the actual container to use its maxHoles
+  // Get the actual container to use its position and maxHoles
   const container = containers[containerIndex];
-  const holeCount = container ? container.maxHoles : UI_CONSTANTS.containers.hole.count;
+  if (!container) {
+    console.warn(`Container ${containerIndex} not found`);
+    return { x: 0, y: 0 };
+  }
   
-  // Calculate container position (at bottom of screen) - matching GameManager
-  const totalContainersWidth = containers.length * containerWidth + (containers.length - 1) * containerSpacing;
-  const startX = (virtualGameWidth - totalContainersWidth) / 2;
-  const containerX = startX + containerIndex * (containerWidth + containerSpacing);
-  const containerY = UI_CONSTANTS.containers.startY + containerHeight / 2;
+  const holeCount = container.maxHoles;
   
-  // Calculate hole position within container - matching GameManager.renderContainers()
-  const holeSpacing = containerWidth / (holeCount + 1);
-  const holeX = containerX + holeSpacing + (holeIndex * holeSpacing);
-  const holeY = containerY;
+  // Convert container center position to top-left corner, then calculate hole positions
+  // This EXACTLY matches how GameRenderManager.renderContainers() calculates hole positions
+  const containerLeft = container.position.x - containerWidth / 2;
+  const containerTop = container.position.y - containerHeight / 2;
+  
+  const holeSpacing = (containerWidth - 8) / (holeCount + 1); // Account for 4px padding on each side
+  const holeX = containerLeft + 4 + holeSpacing * (holeIndex + 1); // Use container's left edge + padding + spacing
+  const holeY = containerTop + containerHeight / 2 + 5; // Use container's top edge + half height + 5px offset
   
   return { x: holeX, y: holeY };
 }

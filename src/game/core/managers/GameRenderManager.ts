@@ -3,10 +3,11 @@
  */
 
 import { IGameRenderManager, RenderState, IGameStateManager, IGameUIManager, IGameDebugManager } from './GameManagerTypes';
-import { GAME_CONFIG } from '@/shared/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS, SCREW_COLORS } from '@/shared/utils/Constants';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
 import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
 import { createRenderContext } from '@/shared/rendering/core/RenderContext';
+import { GeometryRenderer } from '@/shared/rendering/core/GeometryRenderer';
 
 export class GameRenderManager implements IGameRenderManager {
   private state: RenderState;
@@ -222,13 +223,13 @@ export class GameRenderManager implements IGameRenderManager {
   private renderBackground(): void {
     if (!this.state.ctx) return;
 
-    // Render container area backgrounds
-    this.state.ctx.fillStyle = '#34495E';
+    // Render HUD area background - extend to top of canvas
+    this.state.ctx.fillStyle = '#2C3E50';
     this.state.ctx.fillRect(
       0, 
-      50, // Container area Y
+      0, // Start from very top of canvas
       this.state.virtualGameWidth, 
-      150 // Container area height
+      200 // Extended HUD area to bottom of containers
     );
 
     // Render holding hole area background
@@ -245,45 +246,71 @@ export class GameRenderManager implements IGameRenderManager {
     if (!this.state.ctx) return;
 
     this.state.containers.forEach(container => {
-      // Use default container dimensions
-      const containerWidth = 120;
-      const containerHeight = 60;
+      // Use proper constants
+      const containerWidth = UI_CONSTANTS.containers.width;
+      const containerHeight = UI_CONSTANTS.containers.height;
+      const holeRadius = UI_CONSTANTS.containers.hole.radius;
+      const holeCount = UI_CONSTANTS.containers.hole.count;
       
-      // Render container outline
-      this.state.ctx!.strokeStyle = '#BDC3C7';
-      this.state.ctx!.lineWidth = 2;
-      this.state.ctx!.strokeRect(container.position.x, container.position.y, containerWidth, containerHeight);
-
-      // Render container label
-      this.state.ctx!.fillStyle = '#ECF0F1';
-      this.state.ctx!.font = '16px Arial';
-      this.state.ctx!.textAlign = 'center';
-      this.state.ctx!.fillText(
-        container.color, 
-        container.position.x + containerWidth / 2, 
-        container.position.y - 10
-      );
-
-      // Render color indicator - simple color mapping
-      const colorMap: Record<string, string> = {
-        'pink': '#FF69B4',
-        'red': '#FF0000',
-        'green': '#00FF00',
-        'blue': '#0000FF',
-        'lightBlue': '#ADD8E6',
-        'yellow': '#FFFF00',
-        'purple': '#800080',
-        'orange': '#FFA500',
-        'brown': '#A52A2A'
-      };
+      // Apply fade opacity for container animations
+      this.state.ctx!.save();
+      this.state.ctx!.globalAlpha = container.fadeOpacity;
       
-      this.state.ctx!.fillStyle = colorMap[container.color] || '#CCCCCC';
-      this.state.ctx!.fillRect(
-        container.position.x + containerWidth / 2 - 15, 
-        container.position.y - 30, 
-        30, 
-        15
-      );
+      // Render container background with colored border
+      // Convert container center position to top-left corner for rectangle rendering
+      const colorValue = SCREW_COLORS[container.color as keyof typeof SCREW_COLORS];
+      const containerLeft = container.position.x - containerWidth / 2;
+      const containerTop = container.position.y - containerHeight / 2;
+      
+      GeometryRenderer.renderRectangle(this.state.ctx!, {
+        x: containerLeft,
+        y: containerTop,
+        width: containerWidth,
+        height: containerHeight,
+        fillColor: '#E5E5E5', // Light grey background
+        strokeColor: colorValue, // Container color as border
+        lineWidth: 3,
+        cornerRadius: UI_CONSTANTS.containers.borderRadius
+      });
+
+      // Render individual holes
+      const holeSpacing = (containerWidth - 8) / (holeCount + 1);
+      for (let i = 0; i < holeCount; i++) {
+        const holeX = containerLeft + 4 + holeSpacing * (i + 1);
+        const holeY = containerTop + containerHeight / 2 + 5;
+        const screwId = container.holes[i];
+        const isOccupied = screwId !== null;
+        
+        // Render hole
+        GeometryRenderer.renderCircle(this.state.ctx!, {
+          x: holeX,
+          y: holeY,
+          radius: holeRadius,
+          fillColor: isOccupied ? '#2C3E50' : '#1A1A1A',
+          strokeColor: '#5F6368',
+          lineWidth: 1
+        });
+        
+        // If hole has a screw, render it using ScrewRenderer with smaller scale
+        if (isOccupied && screwId) {
+          const screw = this.state.allScrews.find(s => s.id === screwId);
+          if (screw) {
+            // Create a render context for this screw
+            const screwRenderContext = {
+              canvas: this.state.canvas!,
+              ctx: this.state.ctx!,
+              debugMode: false,
+              scale: this.state.canvasScale
+            };
+            
+            // Render collected screw at smaller scale (about 60% of normal size to fit in container hole)
+            ScrewRenderer.renderCollectedScrew(screw, { x: holeX, y: holeY }, screwRenderContext, 0.6);
+          }
+        }
+      }
+      
+      // Restore canvas state after applying fade opacity
+      this.state.ctx!.restore();
     });
   }
 
@@ -291,20 +318,46 @@ export class GameRenderManager implements IGameRenderManager {
     if (!this.state.ctx) return;
 
     this.state.holdingHoles.forEach(hole => {
-      const radius = 15; // Default hole radius
+      // Use proper constants
+      const radius = UI_CONSTANTS.holdingHoles.radius;
+      const innerRadius = UI_CONSTANTS.holdingHoles.innerRadius;
       const isFilled = hole.screwId !== null;
       
-      // Render hole outline
-      this.state.ctx!.strokeStyle = isFilled ? '#E74C3C' : '#BDC3C7';
-      this.state.ctx!.lineWidth = 2;
-      this.state.ctx!.beginPath();
-      this.state.ctx!.arc(hole.position.x, hole.position.y, radius, 0, 2 * Math.PI);
-      this.state.ctx!.stroke();
+      // Render outer hole border
+      GeometryRenderer.renderCircle(this.state.ctx!, {
+        x: hole.position.x,
+        y: hole.position.y,
+        radius: radius,
+        fillColor: '#1A1A1A',
+        strokeColor: '#5F6368',
+        lineWidth: 2
+      });
+      
+      // Render inner hole
+      GeometryRenderer.renderCircle(this.state.ctx!, {
+        x: hole.position.x,
+        y: hole.position.y,
+        radius: innerRadius,
+        fillColor: isFilled ? '#2C3E50' : '#0A0A0A',
+        strokeColor: isFilled ? '#E74C3C' : '#3C3C3C',
+        lineWidth: 1
+      });
 
-      // Fill if occupied
-      if (isFilled) {
-        this.state.ctx!.fillStyle = 'rgba(231, 76, 60, 0.3)';
-        this.state.ctx!.fill();
+      // If filled, render the actual screw using ScrewRenderer
+      if (isFilled && hole.screwId) {
+        const screw = this.state.allScrews.find(s => s.id === hole.screwId);
+        if (screw) {
+          // Create a render context for this screw
+          const screwRenderContext = {
+            canvas: this.state.canvas!,
+            ctx: this.state.ctx!,
+            debugMode: false,
+            scale: this.state.canvasScale
+          };
+          
+          // Render collected screw at smaller scale (about 50% of normal size to fit in holding hole)
+          ScrewRenderer.renderCollectedScrew(screw, hole.position, screwRenderContext, 0.5);
+        }
       }
     });
   }
@@ -343,39 +396,57 @@ export class GameRenderManager implements IGameRenderManager {
     const screwsProgress = gameState.progressData.totalScrews > 0 
       ? `${gameState.progressData.screwsInContainer}/${gameState.progressData.totalScrews}` 
       : '0/0';
+    
+    // Debug: Log progress data occasionally to diagnose the issue
+    if (Date.now() % 3000 < 16) { // Log roughly every 3 seconds (only during frame renders)
+      console.log(`[GameRenderManager] Current progress data:`, {
+        totalScrews: gameState.progressData.totalScrews,
+        screwsInContainer: gameState.progressData.screwsInContainer,
+        progress: gameState.progressData.progress,
+        displayText: screwsProgress
+      });
+    }
 
-    // Render progress bar background
+    // Render progress bar with proper positioning
     const progressBarX = 20;
-    const progressBarY = 20;
+    const progressBarY = 15;
     const progressBarWidth = 200;
-    const progressBarHeight = 20;
+    const progressBarHeight = 16;
 
-    this.state.ctx.fillStyle = 'rgba(52, 73, 94, 0.8)';
+    // Render progress bar background with border
+    this.state.ctx.fillStyle = 'rgba(44, 62, 80, 0.9)';
     this.state.ctx.fillRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
+    
+    // Render progress bar border
+    this.state.ctx.strokeStyle = '#BDC3C7';
+    this.state.ctx.lineWidth = 1;
+    this.state.ctx.strokeRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
 
     // Render progress bar fill
-    const fillWidth = (progressBarWidth * progressPercent) / 100;
-    this.state.ctx.fillStyle = progressPercent >= 100 ? '#27AE60' : '#3498DB';
-    this.state.ctx.fillRect(progressBarX, progressBarY, fillWidth, progressBarHeight);
+    if (progressPercent > 0) {
+      const fillWidth = Math.max(2, (progressBarWidth - 2) * progressPercent / 100);
+      this.state.ctx.fillStyle = progressPercent >= 100 ? '#27AE60' : '#3498DB';
+      this.state.ctx.fillRect(progressBarX + 1, progressBarY + 1, fillWidth, progressBarHeight - 2);
+    }
 
     // Render progress text
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '14px Arial';
     this.state.ctx.textAlign = 'left';
-    this.state.ctx.fillText(`Screws: ${screwsProgress} (${progressPercent.toFixed(1)}%)`, progressBarX, progressBarY + progressBarHeight + 20);
+    this.state.ctx.fillText(`Screws: ${screwsProgress} (${progressPercent.toFixed(1)}%)`, progressBarX, progressBarY + progressBarHeight + 18);
 
-    // Render level and score
-    this.state.ctx.fillText(`Level: ${gameState.currentLevel}`, progressBarX, progressBarY + progressBarHeight + 40);
-    this.state.ctx.fillText(`Score: ${gameState.levelScore}`, progressBarX, progressBarY + progressBarHeight + 60);
-    this.state.ctx.fillText(`Total: ${gameState.totalScore}`, progressBarX, progressBarY + progressBarHeight + 80);
+    // Render level and score with better spacing
+    this.state.ctx.fillText(`Level: ${gameState.currentLevel}`, progressBarX, progressBarY + progressBarHeight + 36);
+    this.state.ctx.fillText(`Score: ${gameState.levelScore}`, progressBarX, progressBarY + progressBarHeight + 54);
+    this.state.ctx.fillText(`Total: ${gameState.totalScore}`, progressBarX, progressBarY + progressBarHeight + 72);
   }
 
   private renderMenuButton(): void {
     if (!this.state.ctx) return;
 
-    const buttonX = this.state.virtualGameWidth - 70;
-    const buttonY = 20;
-    const buttonSize = 50;
+    const buttonX = this.state.virtualGameWidth - 50;
+    const buttonY = 15;
+    const buttonSize = 30;
 
     // Render button background
     this.state.ctx.fillStyle = 'rgba(52, 73, 94, 0.8)';
@@ -388,12 +459,12 @@ export class GameRenderManager implements IGameRenderManager {
 
     // Render menu icon (three horizontal lines)
     this.state.ctx.strokeStyle = '#FFFFFF';
-    this.state.ctx.lineWidth = 3;
+    this.state.ctx.lineWidth = 2;
     for (let i = 0; i < 3; i++) {
-      const lineY = buttonY + 15 + i * 8;
+      const lineY = buttonY + 8 + i * 6;
       this.state.ctx.beginPath();
-      this.state.ctx.moveTo(buttonX + 10, lineY);
-      this.state.ctx.lineTo(buttonX + buttonSize - 10, lineY);
+      this.state.ctx.moveTo(buttonX + 6, lineY);
+      this.state.ctx.lineTo(buttonX + buttonSize - 6, lineY);
       this.state.ctx.stroke();
     }
   }

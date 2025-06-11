@@ -146,9 +146,12 @@ export class GameManager extends BaseSystem {
   // GameLoop methods
 
   public update(deltaTime: number): void {
-    // Update logic is handled by other systems
-    // GameManager primarily coordinates now
-    void deltaTime;
+    // Update all systems through SystemCoordinator
+    this.executeIfActive(() => {
+      if (this.state.systemCoordinator) {
+        this.state.systemCoordinator.update(deltaTime);
+      }
+    });
   }
 
   // GameLoop render method

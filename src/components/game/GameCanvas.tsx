@@ -494,6 +494,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
       console.log(`🖱️ Clicked on screw ${screw.id} at game coordinates (${gameCoords.x.toFixed(1)}, ${gameCoords.y.toFixed(1)})`);
       
       // Emit screw clicked event
+      console.log(`📡 GameCanvas: Emitting screw:clicked event for screw ${screw.id}`);
       eventBus.emit({
         type: 'screw:clicked',
         timestamp: Date.now(),
@@ -502,6 +503,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         position: { x: gameCoords.x, y: gameCoords.y },
         forceRemoval: event.shiftKey // Allow force removal with Shift+click
       });
+      console.log(`📡 GameCanvas: screw:clicked event emitted successfully`);
     }
   };
 

@@ -1,7 +1,7 @@
 import { Shape } from '@/game/entities/Shape';
 import { RenderContext } from '@/types/game';
 import { UI_CONSTANTS } from '@/shared/utils/Constants';
-import { hexToRgba } from '@/game/utils/Colors';
+import { hexToRgba } from '@/shared/rendering/styles/ColorTheme';
 import { ShapeRegistry } from '@/game/systems/ShapeRegistry';
 
 export class ShapeRenderer {

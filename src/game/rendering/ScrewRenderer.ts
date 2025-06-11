@@ -1,6 +1,6 @@
 import { RenderContext, Screw } from '@/types/game';
 import { SCREW_COLORS, UI_CONSTANTS } from '@/shared/utils/Constants';
-import { hexToRgba } from '@/game/utils/Colors';
+import { hexToRgba } from '@/shared/rendering/styles/ColorTheme';
 
 export class ScrewRenderer {
   public static renderScrew(screw: Screw, context: RenderContext, forceRender: boolean = false, scale: number = 1): void {
@@ -267,5 +267,27 @@ export class ScrewRenderer {
     this.drawCrossSymbol(ctx, position.x, position.y, previewCrossSize, scale);
     
     ctx.restore();
+  }
+
+  /**
+   * Render a collected screw at a specific location with proper scaling
+   * This method is specifically for rendering screws in containers and holding holes
+   */
+  public static renderCollectedScrew(
+    screw: Screw,
+    position: { x: number; y: number },
+    context: RenderContext,
+    scale: number = 0.6
+  ): void {
+    // Create a temporary screw object with the destination position
+    const collectedScrew = {
+      ...screw,
+      position,
+      shakeOffset: { x: 0, y: 0 }, // No shake for collected screws
+      isCollected: true
+    };
+    
+    // Force render the screw at the destination with the specified scale
+    this.renderScrew(collectedScrew, context, true, scale);
   }
 }

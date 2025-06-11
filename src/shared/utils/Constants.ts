@@ -196,7 +196,7 @@ export const UI_CONSTANTS = {
   holdingHoles: {
     radius: 8,
     spacing: 20,
-    startY: 160,
+    startY: 187, // HUD bottom (200) - 5px gap - 8px radius = 187
     innerRadius: 6,
   },
   screws: {
