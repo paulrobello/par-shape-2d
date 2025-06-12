@@ -3,7 +3,7 @@
  */
 
 import { IGameRenderManager, RenderState, IGameStateManager, IGameUIManager, IGameDebugManager } from './GameManagerTypes';
-import { GAME_CONFIG, UI_CONSTANTS, SCREW_COLORS } from '@/shared/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS, SCREW_COLORS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
 import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
 import { createRenderContext } from '@/shared/rendering/core/RenderContext';
@@ -61,7 +61,9 @@ export class GameRenderManager implements IGameRenderManager {
       return false;
     }
 
-    console.log(`GameRenderManager initialized: Canvas ${canvas.width}x${canvas.height}`);
+    if (DEBUG_CONFIG.logSystemLifecycle) {
+      console.log(`GameRenderManager initialized: Canvas ${canvas.width}x${canvas.height}`);
+    }
 
     // Apply initial canvas scaling
     this.updateCanvasScaling();
@@ -398,7 +400,7 @@ export class GameRenderManager implements IGameRenderManager {
       : '0/0';
     
     // Debug: Log progress data occasionally to diagnose the issue
-    if (Date.now() % 3000 < 16) { // Log roughly every 3 seconds (only during frame renders)
+    if (DEBUG_CONFIG.logProgressTracking && Date.now() % 3000 < 16) { // Log roughly every 3 seconds (only during frame renders)
       console.log(`[GameRenderManager] Current progress data:`, {
         totalScrews: gameState.progressData.totalScrews,
         screwsInContainer: gameState.progressData.screwsInContainer,

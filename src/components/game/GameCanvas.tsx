@@ -5,7 +5,7 @@ import { SystemCoordinator } from '@/game/core/SystemCoordinator';
 import { eventFlowValidator } from '@/game/core/EventFlowValidator';
 import { GameState } from '@/game/core/GameState';
 import { GameEvent } from '@/game/events/EventTypes';
-import { GAME_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
+import { GAME_CONFIG, getTotalLayersForLevel, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { initializePolyDecomp } from '@/game/utils/PhysicsInit';
 import { eventBus } from '@/game/events/EventBus';
@@ -44,8 +44,10 @@ function getResponsiveCanvasSize(): { width: number; height: number } {
   // Use proper device detection instead of viewport dimensions
   if (DeviceDetection.isMobileDevice()) {
     // Mobile/Tablet: Use CSS viewport units which CSS will override anyway
-    console.log(`Mobile device detected:`, DeviceDetection.getDeviceInfo());
-    console.log(`Mobile viewport: ${viewportWidth}x${viewportHeight}`);
+    if (DEBUG_CONFIG.logSystemLifecycle) {
+      console.log(`Mobile device detected:`, DeviceDetection.getDeviceInfo());
+      console.log(`Mobile viewport: ${viewportWidth}x${viewportHeight}`);
+    }
     
     // Set canvas internal resolution to match CSS viewport dimensions
     // CSS will override the display size to 100vw/100vh anyway
@@ -55,7 +57,9 @@ function getResponsiveCanvasSize(): { width: number; height: number } {
     };
   } else {
     // Desktop: Scale to fit nicely in viewport while maintaining aspect ratio
-    console.log(`Desktop device detected:`, DeviceDetection.getDeviceInfo());
+    if (DEBUG_CONFIG.logSystemLifecycle) {
+      console.log(`Desktop device detected:`, DeviceDetection.getDeviceInfo());
+    }
     const originalAspectRatio = GAME_CONFIG.canvas.width / GAME_CONFIG.canvas.height;
     const maxWidth = viewportWidth * 0.9;
     const maxHeight = viewportHeight * 0.9;

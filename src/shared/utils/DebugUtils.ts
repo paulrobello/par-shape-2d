@@ -3,12 +3,15 @@
  */
 
 import { Shape } from '@/game/entities/Shape';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export class DebugUtils {
   /**
    * Dump complete position information for all shapes and screws
    */
   static dumpPositions(shapes: Shape[]): void {
+    if (!DEBUG_CONFIG.logDebugUtilities) return;
+    
     console.log('🔍 ===== POSITION DUMP =====');
     console.log(`Found ${shapes.length} shapes`);
     
@@ -55,6 +58,8 @@ export class DebugUtils {
    * Dump information for a specific shape
    */
   static dumpShape(shape: Shape): void {
+    if (!DEBUG_CONFIG.logDebugUtilities) return;
+    
     console.log(`\n🔍 Shape Details: ${shape.id}`);
     console.log(`Type: ${shape.type}${shape.isComposite ? ' (composite)' : ''}`);
     console.log(`Shape.position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);

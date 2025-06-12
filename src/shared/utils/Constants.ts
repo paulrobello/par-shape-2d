@@ -322,22 +322,36 @@ export const DEBUG_CONFIG = {
   // Component-specific debug flags
   logContainerRendering: false,
   logScrewPlacement: false,
-  logPhysicsStateChanges: true,  // Keep state changes for when screws are removed
+  logPhysicsStateChanges: false,  // Keep state changes for when screws are removed
   logShapeDestruction: false,
   logPhysicsUpdates: false,
   logShapeCreation: false,
   logShapeDebug: false,
   logScrewDebug: false,
   logEventFlow: false,
-  logPhysicsDebug: false,  // Disable per-frame physics debug
+  logPhysicsDebug: false,  // Disable physics debug spam
   logLayerDebug: false,
   
   // Specific screw system debug flags
   logScrewRemovabilityUpdates: false,  // Controls "updateScrewRemovability called" messages
   logScrewLayerVisibility: false,      // Controls "Layer visibility check" messages
+  logProgressTracking: false,          // Controls progress system debug messages
   
   // Shape rendering debug flags
   logShapePathCreation: false,         // Controls "Creating path for shape type" messages
+  
+  // System operation debug flags
+  logLayerOperations: false,           // Controls layer creation/visibility messages
+  logScrewPositionUpdates: false,      // Controls screw position update messages
+  logBoundsOperations: false,          // Controls bounds change and shape positioning
+  logShapePositioning: false,          // Controls shape placement and positioning
+  logSystemLifecycle: false,           // Controls system initialization/cleanup
+  logCollisionDetection: false,        // Controls collision/bounds checking
+  logDebugUtilities: false,            // Controls debug utility output (position dumps, etc.)
+  
+  // Debug throttling settings (milliseconds)
+  debugThrottleMs: 2000,               // Minimum time between debug logs for the same item (2 seconds)
+  layerVisibilityThrottleMs: 5000,     // Minimum time between layer visibility debug logs (5 seconds)
   
   // Editor-specific debug settings
   editor: {

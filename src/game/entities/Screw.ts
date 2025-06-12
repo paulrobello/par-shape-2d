@@ -240,12 +240,23 @@ export class Screw implements IScrew {
       return;
     }
 
+    const oldPosition = { ...this.position };
+
     // Transform local offset to world coordinates using shape body position and rotation
     const cos = Math.cos(shapeBody.angle);
     const sin = Math.sin(shapeBody.angle);
     
     this.position.x = shapeBody.position.x + (this.localOffset.x * cos - this.localOffset.y * sin);
     this.position.y = shapeBody.position.y + (this.localOffset.x * sin + this.localOffset.y * cos);
+
+    // DEBUG: Log when position updates occur (if debug enabled)
+    if (DEBUG_CONFIG.logScrewDebug) {
+      const moved = Math.abs(oldPosition.x - this.position.x) > 0.1 || Math.abs(oldPosition.y - this.position.y) > 0.1;
+      if (moved) {
+        console.log(`🔄 SCREW UPDATE: ${this.id} moved from (${oldPosition.x.toFixed(1)}, ${oldPosition.y.toFixed(1)}) to (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`);
+        console.log(`   Shape body: (${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)}), angle: ${(shapeBody.angle * 180 / Math.PI).toFixed(1)}°`);
+      }
+    }
   }
 
   /**

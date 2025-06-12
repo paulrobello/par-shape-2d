@@ -135,6 +135,11 @@ export class ScrewManager extends BaseSystem {
     // Initialize bounds from game config
     this.state.virtualGameWidth = GAME_CONFIG.canvas.width;
     this.state.virtualGameHeight = GAME_CONFIG.canvas.height;
+    
+    // Debug: Check container colors on initialization
+    if (DEBUG_CONFIG.logProgressTracking) {
+      console.log(`🔧 ScrewManager initialized with container colors:`, this.state.containerColors);
+    }
   }
 
   public update(deltaTime: number): void {
@@ -253,6 +258,18 @@ export class ScrewManager extends BaseSystem {
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`🎯 After screw generation, shape ${shape.id} now reports ${shape.screws.length} screws, ScrewManager has ${screws.length} screws for this shape`);
       }
+      
+      // Emit shape:screws:ready event to notify LayerManager that this shape's screws are ready
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`🚀 ScrewManager: Emitting shape:screws:ready for shape ${shape.id} with ${screws.length} screws`);
+      }
+      this.emit({
+        type: 'shape:screws:ready',
+        timestamp: Date.now(),
+        source: 'ScrewManager',
+        shape,
+        screws
+      });
     });
   }
 
@@ -413,21 +430,25 @@ export class ScrewManager extends BaseSystem {
   }
 
   private handlePhysicsBodyAdded(shape: Shape): void {
-    if (DEBUG_CONFIG.logScrewDebug) {
+    if (DEBUG_CONFIG.logProgressTracking) {
       console.log(`🔧 ScrewManager.handlePhysicsBodyAdded called for shape ${shape.id}, current screws on shape: ${shape.screws.length}`);
     }
     
     // Check if shape already has screws
     if (shape.screws && shape.screws.length > 0) {
-      if (DEBUG_CONFIG.logScrewDebug) {
+      if (DEBUG_CONFIG.logProgressTracking) {
         console.log(`⏭️ Shape ${shape.id} already has ${shape.screws.length} screws, skipping generation in ScrewManager`);
       }
       return;
     }
     
+    if (DEBUG_CONFIG.logProgressTracking) {
+      console.log(`🎨 Container colors available for screw generation:`, this.state.containerColors);
+    }
+    
     this.generateScrewsForShape(shape, this.state.containerColors);
     
-    if (DEBUG_CONFIG.logScrewDebug) {
+    if (DEBUG_CONFIG.logProgressTracking) {
       console.log(`🔧 After generateScrewsForShape, shape ${shape.id} now has ${shape.screws.length} screws`);
     }
   }

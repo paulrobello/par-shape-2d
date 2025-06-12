@@ -86,6 +86,8 @@ export class GameStateManager implements IGameStateManager {
   }
 
   startLevel(level: number): void {
+    // Preserve existing progressData.totalScrews if it's been set, only reset counters
+    const currentProgressData = this.state.progressData;
     this.updateGameState({
       currentLevel: level,
       levelScore: 0,
@@ -93,9 +95,9 @@ export class GameStateManager implements IGameStateManager {
       levelComplete: false,
       levelWon: false,
       progressData: {
-        totalScrews: 0,
-        screwsInContainer: 0,
-        progress: 0
+        totalScrews: currentProgressData.totalScrews, // Preserve existing total if already set
+        screwsInContainer: 0, // Reset collection counter
+        progress: 0 // Reset progress percentage
       }
     });
   }

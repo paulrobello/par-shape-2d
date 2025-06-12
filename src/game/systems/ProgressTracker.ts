@@ -11,12 +11,15 @@ import {
   LevelCompletedEvent,
   LevelStartedEvent,
   GameOverEvent,
-  ScrewCollectedEvent
+  ScrewCollectedEvent,
+  ScrewCountResponseEvent
 } from '../events/EventTypes';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 interface ProgressState {
   totalScrews: number;
   screwsInContainer: number;
+  screwsFromRemovedContainers: number; // Track screws from filled containers that were removed
   progress: number; // 0-100 percentage
 }
 
@@ -24,6 +27,7 @@ export class ProgressTracker extends BaseSystem {
   private state: ProgressState = {
     totalScrews: 0,
     screwsInContainer: 0,
+    screwsFromRemovedContainers: 0,
     progress: 0
   };
 
@@ -35,13 +39,16 @@ export class ProgressTracker extends BaseSystem {
 
   protected onInitialize(): void {
     this.setupEventListeners();
-    console.log(`[ProgressTracker] System initialized and listening for events`);
+    if (DEBUG_CONFIG.logProgressTracking) {
+      console.log(`[ProgressTracker] System initialized and listening for events`);
+    }
   }
 
   private setupEventListeners(): void {
     // Listen for total screw count
     this.subscribe('total_screw_count:set', this.handleTotalScrewCountSet.bind(this));
     this.subscribe('total_screw_count:add', this.handleTotalScrewCountAdd.bind(this));
+    this.subscribe('screw_count:response', this.handleScrewCountResponse.bind(this));
     
     // Listen for screws being collected to containers
     this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
@@ -50,13 +57,16 @@ export class ProgressTracker extends BaseSystem {
     this.subscribe('level:started', this.handleLevelStarted.bind(this));
     this.subscribe('game:over', this.handleGameOver.bind(this));
     
-    // Listen for container removal to check win condition
+    // Listen for container events
     this.subscribe('container:all_removed', this.handleAllContainersRemoved.bind(this));
+    this.subscribe('container:filled', this.handleContainerFilled.bind(this));
   }
 
   private handleTotalScrewCountSet(event: TotalScrewCountSetEvent): void {
     this.executeIfActive(() => {
-      console.log(`[ProgressTracker] Received total_screw_count:set event: ${event.totalScrews} screws from ${event.source}`);
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`[ProgressTracker] Received total_screw_count:set event: ${event.totalScrews} screws from ${event.source}`);
+      }
       this.state.totalScrews = event.totalScrews;
       this.calculateAndEmitProgress();
     });
@@ -69,11 +79,29 @@ export class ProgressTracker extends BaseSystem {
     });
   }
 
+  private handleScrewCountResponse(event: ScrewCountResponseEvent): void {
+    this.executeIfActive(() => {
+      this.state.totalScrews = event.totalScrews;
+      this.calculateAndEmitProgress();
+    });
+  }
+
   private handleScrewCollected(event: ScrewCollectedEvent): void {
     this.executeIfActive(() => {
       // Only count screws that go to containers, not holding holes
       if (event.destination === 'container') {
         this.state.screwsInContainer++;
+        
+        // If we're about to exceed totalScrews, request an updated count
+        // This handles cases where screw generation happened after initial count
+        if (this.state.screwsInContainer > this.state.totalScrews) {
+          this.emit({
+            type: 'screw_count:requested',
+            timestamp: Date.now(),
+            source: 'ProgressTracker-overflow'
+          });
+        }
+        
         this.calculateAndEmitProgress();
       }
     });
@@ -82,28 +110,33 @@ export class ProgressTracker extends BaseSystem {
   private handleLevelStarted(event: LevelStartedEvent): void {
     void event;
     this.executeIfActive(() => {
-      console.log(`[ProgressTracker] Level ${event.level} started - resetting progress state`);
-      // Reset all progress state for the new level to prevent race conditions
-      // The totalScrews will be set again when the new level's screws are counted
+      // Only reset the collection counters, not totalScrews
+      // totalScrews might already be set by total_screw_count:set event before level:started
+      const currentTotalScrews = this.state.totalScrews;
       this.state.screwsInContainer = 0;
-      this.state.totalScrews = 0; // Reset to prevent auto-completion before new count is set
+      this.state.screwsFromRemovedContainers = 0;
       this.state.progress = 0;
       this.previousProgress = -1;
       
-      // Immediately emit the reset progress to ensure UI shows 0/0 instead of stale data
+      // Preserve totalScrews if it was already set
+      this.state.totalScrews = currentTotalScrews;
+      
+      // Emit the reset progress
       this.calculateAndEmitProgress();
       
-      // Set a fallback timer to check for screw count if it hasn't been set after 3 seconds
-      setTimeout(() => {
-        if (this.state.totalScrews === 0) {
-          console.warn(`[ProgressTracker] No screw count received after 3 seconds, requesting manually...`);
-          this.emit({
-            type: 'screw_count:requested',
-            timestamp: Date.now(),
-            source: 'ProgressTracker-fallback'
-          });
-        }
-      }, 3000);
+      // Only set fallback timer if totalScrews wasn't already set
+      if (currentTotalScrews === 0) {
+        setTimeout(() => {
+          if (this.state.totalScrews === 0) {
+            console.warn(`[ProgressTracker] No screw count received after 3 seconds, requesting manually...`);
+            this.emit({
+              type: 'screw_count:requested',
+              timestamp: Date.now(),
+              source: 'ProgressTracker-fallback'
+            });
+          }
+        }, 3000);
+      }
     });
   }
 
@@ -111,6 +144,21 @@ export class ProgressTracker extends BaseSystem {
     void event;
     this.executeIfActive(() => {
       this.resetProgress();
+    });
+  }
+
+  private handleContainerFilled(event: import('../events/EventTypes').ContainerFilledEvent): void {
+    this.executeIfActive(() => {
+      // When a container is filled and removed, move screws from current containers to removed containers count
+      const screwsInFilledContainer = event.screws.length;
+      this.state.screwsInContainer -= screwsInFilledContainer;
+      this.state.screwsFromRemovedContainers += screwsInFilledContainer;
+      
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`[ProgressTracker] Container filled with ${screwsInFilledContainer} screws. Current: ${this.state.screwsInContainer}, From removed: ${this.state.screwsFromRemovedContainers}`);
+      }
+      
+      this.calculateAndEmitProgress();
     });
   }
 
@@ -151,31 +199,34 @@ export class ProgressTracker extends BaseSystem {
     if (this.state.totalScrews === 0) {
       this.state.progress = 0; // Don't auto-complete during level initialization when totalScrews hasn't been set yet
     } else {
-      // Ensure screwsInContainer doesn't exceed totalScrews
-      const actualScrewsInContainer = Math.min(this.state.screwsInContainer, this.state.totalScrews);
-      this.state.progress = Math.floor((actualScrewsInContainer / this.state.totalScrews) * 100);
+      // Calculate total screws processed (current containers + removed containers)
+      const totalProcessedScrews = this.state.screwsInContainer + this.state.screwsFromRemovedContainers;
+      const actualProcessedScrews = Math.min(totalProcessedScrews, this.state.totalScrews);
+      this.state.progress = Math.floor((actualProcessedScrews / this.state.totalScrews) * 100);
     }
 
     // Clamp progress to valid range
     this.state.progress = Math.max(0, Math.min(100, this.state.progress));
 
-    console.log(`[ProgressTracker] Calculated progress: ${this.state.screwsInContainer}/${this.state.totalScrews} = ${this.state.progress}%`);
 
     // Only emit if progress actually changed
     if (this.state.progress !== this.previousProgress) {
       this.previousProgress = this.state.progress;
 
       // Emit progress update event
+      const totalProcessedScrews = this.state.screwsInContainer + this.state.screwsFromRemovedContainers;
       const progressEvent: ProgressUpdatedEvent = {
         type: 'progress:updated',
         totalScrews: this.state.totalScrews,
-        screwsInContainer: Math.min(this.state.screwsInContainer, this.state.totalScrews),
+        screwsInContainer: Math.min(totalProcessedScrews, this.state.totalScrews),
         progress: this.state.progress,
         timestamp: Date.now(),
         source: this.systemName
       };
 
-      console.log(`[ProgressTracker] Emitting progress:updated event:`, progressEvent);
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`[ProgressTracker] Emitting progress:updated event:`, progressEvent);
+      }
       this.emit(progressEvent);
 
       // Check for level completion
@@ -191,7 +242,9 @@ export class ProgressTracker extends BaseSystem {
         this.emit(completionEvent);
       }
     } else {
-      console.log(`[ProgressTracker] Progress unchanged, not emitting event (${this.state.progress}%)`);
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`[ProgressTracker] Progress unchanged, not emitting event (${this.state.progress}%)`);
+      }
     }
   }
 
@@ -199,6 +252,7 @@ export class ProgressTracker extends BaseSystem {
     this.state = {
       totalScrews: 0,
       screwsInContainer: 0,
+      screwsFromRemovedContainers: 0,
       progress: 0
     };
     this.previousProgress = -1;

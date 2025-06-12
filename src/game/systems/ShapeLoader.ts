@@ -1,5 +1,6 @@
 import { LoadedShapeDefinitions } from '@/types/shapes';
 import { ShapeValidator } from '@/shared/validation';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 // Import all shape JSON files
 import circleJson from '@/data/shapes/basic/circle.json';
@@ -55,7 +56,9 @@ export class ShapeLoader {
 
         // Log applied defaults for debugging
         if (validationResult.appliedDefaults && validationResult.appliedDefaults.length > 0) {
-          console.log(`Applied defaults for ${id}:`, validationResult.appliedDefaults);
+          if (DEBUG_CONFIG.logShapeCreation) {
+            console.log(`Applied defaults for ${id}:`, validationResult.appliedDefaults);
+          }
         }
 
         // Log warnings if any

@@ -93,20 +93,17 @@ export class ShapeRenderer {
     };
 
     withContext(context.ctx, () => {
-      // Apply transformations
-      if (finalOptions.scale !== 1 || shape.rotation !== 0) {
-        withTransform(
-          context.ctx,
-          shape.position.x,
-          shape.position.y,
-          shape.rotation,
-          finalOptions.scale || 1,
-          finalOptions.scale || 1,
-          () => this.renderShapeContent(shape, context, theme, finalOptions)
-        );
-      } else {
-        this.renderShapeContent(shape, context, theme, finalOptions);
-      }
+      // Always apply transformations since paths are now origin-relative
+      // Even if rotation is 0 and scale is 1, we need to translate to the shape position
+      withTransform(
+        context.ctx,
+        shape.position.x,
+        shape.position.y,
+        shape.rotation,
+        finalOptions.scale || 1,
+        finalOptions.scale || 1,
+        () => this.renderShapeContent(shape, context, theme, finalOptions)
+      );
 
       // Render debug information if enabled
       if (finalOptions.showDebug && shape.body) {
@@ -214,7 +211,7 @@ export class ShapeRenderer {
   }
 
   /**
-   * Get Path2D for the shape
+   * Get Path2D for the shape (using origin-relative coordinates for transform compatibility)
    */
   private static getShapePath(shape: RenderableShape): Path2D | null {
     // Use custom getPath2D if available
@@ -223,20 +220,25 @@ export class ShapeRenderer {
     }
 
     // Generate path based on shape type and properties
+    // IMPORTANT: Use origin-relative coordinates (0,0) since transforms will be applied
     const path = new Path2D();
+    
+    // Debug logging (removed to avoid TypeScript error)
 
     switch (shape.type) {
       case 'circle':
         if (shape.radius) {
-          path.arc(shape.position.x, shape.position.y, shape.radius, 0, Math.PI * 2);
+          // Circle centered at origin (0,0) - transform will position it correctly
+          path.arc(0, 0, shape.radius, 0, Math.PI * 2);
         }
         break;
 
       case 'rectangle':
       case 'square':
         if (shape.width && shape.height) {
-          const x = shape.position.x - shape.width / 2;
-          const y = shape.position.y - shape.height / 2;
+          // Rectangle centered at origin (0,0) - transform will position it correctly
+          const x = -shape.width / 2;
+          const y = -shape.height / 2;
           path.rect(x, y, shape.width, shape.height);
         }
         break;
@@ -248,9 +250,16 @@ export class ShapeRenderer {
       case 'heptagon':
       case 'octagon':
         if (shape.vertices && shape.vertices.length > 0) {
-          path.moveTo(shape.vertices[0].x, shape.vertices[0].y);
-          for (let i = 1; i < shape.vertices.length; i++) {
-            path.lineTo(shape.vertices[i].x, shape.vertices[i].y);
+          // Convert vertices to origin-relative coordinates
+          // Vertices are in world coordinates, so subtract shape position to make them relative
+          const relativeVertices = shape.vertices.map(v => ({
+            x: v.x - shape.position.x,
+            y: v.y - shape.position.y
+          }));
+          
+          path.moveTo(relativeVertices[0].x, relativeVertices[0].y);
+          for (let i = 1; i < relativeVertices.length; i++) {
+            path.lineTo(relativeVertices[i].x, relativeVertices[i].y);
           }
           path.closePath();
         }
@@ -258,16 +267,24 @@ export class ShapeRenderer {
 
       case 'capsule':
         if (shape.width && shape.height) {
-          this.addCapsuleToPath(path, shape.position.x, shape.position.y, shape.width, shape.height);
+          // Capsule centered at origin (0,0) - transform will position it correctly
+          this.addCapsuleToPath(path, 0, 0, shape.width, shape.height);
         }
         break;
 
       default:
         // For custom shapes with vertices
         if (shape.vertices && shape.vertices.length > 0) {
-          path.moveTo(shape.vertices[0].x, shape.vertices[0].y);
-          for (let i = 1; i < shape.vertices.length; i++) {
-            path.lineTo(shape.vertices[i].x, shape.vertices[i].y);
+          // Convert vertices to origin-relative coordinates
+          // Vertices are in world coordinates, so subtract shape position to make them relative
+          const relativeVertices = shape.vertices.map(v => ({
+            x: v.x - shape.position.x,
+            y: v.y - shape.position.y
+          }));
+          
+          path.moveTo(relativeVertices[0].x, relativeVertices[0].y);
+          for (let i = 1; i < relativeVertices.length; i++) {
+            path.lineTo(relativeVertices[i].x, relativeVertices[i].y);
           }
           path.closePath();
         }
@@ -410,16 +427,17 @@ export class ShapeRenderer {
     if (!shape.screws) return;
 
     shape.screws.forEach((screw, index) => {
-      GeometryRenderer.renderPoint(ctx, {
-        x: screw.position.x,
-        y: screw.position.y,
-        radius: 2,
-        fillColor: screw.color,
-        style: 'circle',
-      });
-
-      // Show screw index in debug mode
+      // Only show screw anchor points in debug mode
       if (options.showDebug) {
+        GeometryRenderer.renderPoint(ctx, {
+          x: screw.position.x,
+          y: screw.position.y,
+          radius: 2,
+          fillColor: screw.color,
+          style: 'circle',
+        });
+
+        // Show screw index
         TextRenderer.renderText(ctx, {
           x: screw.position.x,
           y: screw.position.y - 8,

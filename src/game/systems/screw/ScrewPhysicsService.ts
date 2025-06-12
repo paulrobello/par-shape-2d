@@ -275,15 +275,32 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
    * Update screw positions based on their constraints
    */
   public updateScrewPositions(): void {
+    if (DEBUG_CONFIG.logPhysicsDebug) {
+      console.log(`🔧 ScrewPhysicsService.updateScrewPositions() called`);
+    }
     for (const screw of this.state.screws.values()) {
       if (screw.isCollected || screw.isBeingCollected) continue;
 
+      // Find the shape for this screw to use local offset positioning
+      const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
+      
+      // PRIORITY: Use local offset positioning if available and shape exists
+      if (screw.localOffset && shape && shape.body) {
+        if (DEBUG_CONFIG.logPhysicsDebug) {
+          console.log(`🔧 ScrewPhysicsService: Using local offset positioning for ${screw.id}`);
+        }
+        screw.updateFromShapeBody(shape.body);
+        continue; // Skip anchor body positioning if local offset works
+      }
+
+      // FALLBACK: Use anchor body positioning
       const anchorBody = screw.anchorBody;
       if (anchorBody) {
         // Use anchor body position directly - this is the most reliable method
         screw.position.x = anchorBody.position.x;
         screw.position.y = anchorBody.position.y;
       } else {
+        // FALLBACK: Use constraint-based positioning
         const constraint = screw.constraint;
         if (constraint && constraint.bodyA) {
           const shapeBody = constraint.bodyA;

@@ -49,9 +49,7 @@ export class ScrewCollisionService implements IScrewCollisionService {
   // Track layer visibility check debug state
   private lastLoggedLayerVisibility: Map<string, { layerVisible: boolean; timestamp: number }> = new Map();
   
-  // Minimum time between debug logs for the same screw (in milliseconds)
-  private static readonly DEBUG_THROTTLE_MS = 2000; // 2 seconds
-  private static readonly LAYER_VISIBILITY_THROTTLE_MS = 5000; // 5 seconds for layer visibility
+  // Use centralized debug throttle constants from DEBUG_CONFIG
 
   constructor(state: CollisionState) {
     this.state = state;
@@ -80,7 +78,7 @@ export class ScrewCollisionService implements IScrewCollisionService {
       const lastLog = this.lastLoggedLayerVisibility.get(screwId);
       const shouldLog = !lastLog || 
                        lastLog.layerVisible !== layerVisible || 
-                       (now - lastLog.timestamp) > ScrewCollisionService.LAYER_VISIBILITY_THROTTLE_MS;
+                       (now - lastLog.timestamp) > DEBUG_CONFIG.layerVisibilityThrottleMs;
       
       if (shouldLog) {
         console.log(`🔍 Layer visibility check for screw ${screwId}:`, {
@@ -280,7 +278,7 @@ export class ScrewCollisionService implements IScrewCollisionService {
           const now = Date.now();
           const lastLog = this.lastLoggedScrewStates.get(screw.id);
           
-          if (!lastLog || (now - lastLog.timestamp) > ScrewCollisionService.DEBUG_THROTTLE_MS) {
+          if (!lastLog || (now - lastLog.timestamp) > DEBUG_CONFIG.debugThrottleMs) {
             const screwShape = this.state.allShapes.find(shape => shape.id === screw.shapeId);
             const layerVisible = screwShape ? this.state.visibleLayers.has(screwShape.layerId) : false;
             const blockingShapes = this.getBlockingShapes(screw);

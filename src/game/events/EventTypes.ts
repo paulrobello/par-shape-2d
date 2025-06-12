@@ -544,6 +544,48 @@ export interface TotalScrewCountAddEvent extends BaseEvent {
 
 // Removed physics activation events - no longer using precomputation system
 
+// Coordination events for new manager system
+export interface ScrewTransferRequestEvent extends BaseEvent {
+  type: 'screw:transfer:request';
+  screwId: string;
+  screwColor: import('@/types/game').ScrewColor;
+  fromHoleIndex: number;
+}
+
+export interface ContainerStateRequestEvent extends BaseEvent {
+  type: 'container_state:request';
+  callback?: (containers: import('@/types/game').Container[]) => void;
+}
+
+export interface HoldingHoleStateRequestEvent extends BaseEvent {
+  type: 'holding_hole_state:request';
+  callback?: (holdingHoles: import('@/types/game').HoldingHole[]) => void;
+}
+
+export interface GameStateRequestEvent extends BaseEvent {
+  type: 'game_state:request';
+  callback?: (state: import('@/types/game').GameState, level: import('@/types/game').Level) => void;
+}
+
+export interface ContainerStateRestoreEvent extends BaseEvent {
+  type: 'container_state:restore';
+  containers: import('@/types/game').Container[];
+}
+
+export interface HoldingHoleStateRestoreEvent extends BaseEvent {
+  type: 'holding_hole_state:restore';
+  holdingHoles: import('@/types/game').HoldingHole[];
+}
+
+export interface GameStateRestoreEvent extends BaseEvent {
+  type: 'game_state:restore';
+  gameState: import('@/types/game').GameState;
+  level: import('@/types/game').Level;
+}
+
+export interface GameRestoredEvent extends BaseEvent {
+  type: 'game:restored';
+}
 
 // Union type of all events
 export type GameEvent = 
@@ -626,7 +668,15 @@ export type GameEvent =
   | TotalScrewCountSetEvent
   | TotalScrewCountAddEvent
   | RemainingScrewCountsRequestedEvent
-  | ContainerAllRemovedEvent;
+  | ContainerAllRemovedEvent
+  | ScrewTransferRequestEvent
+  | ContainerStateRequestEvent
+  | HoldingHoleStateRequestEvent
+  | GameStateRequestEvent
+  | ContainerStateRestoreEvent
+  | HoldingHoleStateRestoreEvent
+  | GameStateRestoreEvent
+  | GameRestoredEvent;
   // Removed precomputation event types from union - no longer using precomputation system
 
 // Game-specific event handler type

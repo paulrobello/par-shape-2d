@@ -37,6 +37,7 @@ interface LayerManagerState {
   shapesWithScrewsReady: Map<string, Set<string>>; // layerId -> Set of shapeIds that have screws ready
   layersWithScrewsReady: Set<string>; // Set of layerIds that have completed screw generation
   allLayersScrewsReadyEmitted: boolean; // Flag to prevent multiple emissions
+  expectedShapesPerLayer: Map<string, number>; // layerId -> expected number of shapes
   virtualGameWidth?: number;
   virtualGameHeight?: number;
   // Removed precomputation state - no longer using precomputation system
@@ -62,6 +63,7 @@ export class LayerManager extends BaseSystem {
       shapesWithScrewsReady: new Map(),
       layersWithScrewsReady: new Set(),
       allLayersScrewsReadyEmitted: false,
+      expectedShapesPerLayer: new Map(),
       // Removed precomputation initialization - no longer using precomputation system
     };
   }
@@ -125,11 +127,13 @@ export class LayerManager extends BaseSystem {
         height: shapeAreaHeight
       };
       
-      console.log(`🎮 LayerManager: Bounds changed event received:
-        - Canvas size: ${event.width}x${event.height}
-        - Shape area Y start: ${shapeAreaY}
-        - Shape area height: ${shapeAreaHeight}
-        - Shape area bounds: (${this.state.currentBounds.x}, ${this.state.currentBounds.y}, ${this.state.currentBounds.width}, ${this.state.currentBounds.height})`);
+      if (DEBUG_CONFIG.logBoundsOperations) {
+        console.log(`🎮 LayerManager: Bounds changed event received:
+          - Canvas size: ${event.width}x${event.height}
+          - Shape area Y start: ${shapeAreaY}
+          - Shape area height: ${shapeAreaHeight}
+          - Shape area bounds: (${this.state.currentBounds.x}, ${this.state.currentBounds.y}, ${this.state.currentBounds.width}, ${this.state.currentBounds.height})`);
+      }
       
       // Update bounds for all existing layers
       this.state.layers.forEach(layer => {
@@ -180,7 +184,11 @@ export class LayerManager extends BaseSystem {
 
   private handleShapeScrewsReady(event: ShapeScrewsReadyEvent): void {
     this.executeIfActive(() => {
-      const { shape } = event;
+      const { shape, screws } = event;
+      
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`🔍 LayerManager.handleShapeScrewsReady: Shape ${shape.id} has ${screws.length} screws`);
+      }
       
       // Find which layer this shape belongs to
       const layer = this.state.layers.find(l => l.getShape(shape.id));
@@ -196,10 +204,17 @@ export class LayerManager extends BaseSystem {
       this.state.shapesWithScrewsReady.get(layer.id)!.add(shape.id);
 
       // Check if all shapes in this layer have screws ready
-      const allShapesInLayer = layer.getAllShapes();
+      const expectedShapeCount = this.state.expectedShapesPerLayer.get(layer.id) || 0;
       const shapesWithScrewsInLayer = this.state.shapesWithScrewsReady.get(layer.id)!;
+      const allShapesInLayer = layer.getAllShapes();
       
-      if (allShapesInLayer.length === shapesWithScrewsInLayer.size) {
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`🔍 LayerManager: Layer ${layer.id} screw readiness check - ${shapesWithScrewsInLayer.size}/${expectedShapeCount} expected (${allShapesInLayer.length} currently in layer)`);
+        console.log(`🔍 All shapes in layer:`, allShapesInLayer.map(s => s.id));
+        console.log(`🔍 Shapes with screws ready:`, Array.from(shapesWithScrewsInLayer));
+      }
+      
+      if (expectedShapeCount === shapesWithScrewsInLayer.size) {
         // All shapes in this layer have screws ready - collect screw colors
         const screwColors: ScrewColor[] = [];
         for (const layerShape of allShapesInLayer) {
@@ -255,24 +270,13 @@ export class LayerManager extends BaseSystem {
           });
           
           // Emit total screw count for progress tracking
-          // IMPORTANT: Only count screws from visible layers for initial progress tracking
-          // Hidden layers will add their screws when they become visible
-          const visibleLayers = this.getVisibleLayers();
-          const visibleScrews = visibleLayers.reduce((total, layer) => {
-            return total + layer.getAllShapes().reduce((shapeTotal, shape) => {
-              return shapeTotal + shape.getAllScrews().length;
-            }, 0);
-          }, 0);
-          
-          console.log(`[LayerManager] Emitting total screw count: ${visibleScrews} (visible layers only, ${totalScrews - visibleScrews} screws in hidden layers will be added later)`);
-          console.log(`[LayerManager] Visible layers:`, visibleLayers.map(l => `${l.id}:${l.getAllShapes().length}shapes`));
+          // Progress should include ALL screws from ALL layers, not just visible ones
           const totalScrewCountEvent = {
             type: 'total_screw_count:set' as const,
             timestamp: Date.now(),
-            totalScrews: visibleScrews,
+            totalScrews: totalScrews,
             source: this.systemName
           };
-          console.log(`[LayerManager] About to emit total_screw_count:set event:`, totalScrewCountEvent);
           this.emit(totalScrewCountEvent);
         }
       }
@@ -317,7 +321,9 @@ export class LayerManager extends BaseSystem {
       layer.colorIndex = colorIndex;
       layer.tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
       
-      console.log(`🎨 Normal layer creation: ${layer.id} index=${index} colorIndex=${colorIndex} tint=${layer.tint} visible=${layer.isVisible}`);
+      if (DEBUG_CONFIG.logLayerOperations) {
+        console.log(`🎨 Normal layer creation: ${layer.id} index=${index} colorIndex=${colorIndex} tint=${layer.tint} visible=${layer.isVisible}`);
+      }
       
       // Always increment the generation counter
       this.state.layersGeneratedThisLevel++;
@@ -350,18 +356,28 @@ export class LayerManager extends BaseSystem {
     this.executeIfActive(() => {
       if (layer.isGenerated) return;
       
-      console.log(`🎯 GENERATING SHAPES FOR LAYER ${layer.id}:
-        - Index: ${layer.index}
-        - Visible: ${layer.isVisible}
-        - Bounds: (${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width.toFixed(0)}, ${layer.bounds.height.toFixed(0)})
-        - Virtual game size: ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
+      if (DEBUG_CONFIG.logLayerOperations) {
+        console.log(`🎯 GENERATING SHAPES FOR LAYER ${layer.id}:
+          - Index: ${layer.index}
+          - Visible: ${layer.isVisible}
+          - Bounds: (${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width.toFixed(0)}, ${layer.bounds.height.toFixed(0)})
+          - Virtual game size: ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
+      }
       
       const shapeCount = randomIntBetween(
         GAME_CONFIG.shapes.minPerLayer,
         GAME_CONFIG.shapes.maxPerLayer
       );
       
-      console.log(`🎯 Will generate ${shapeCount} shapes for layer ${layer.id}`);
+      if (DEBUG_CONFIG.logLayerOperations) {
+        console.log(`🎯 Will generate ${shapeCount} shapes for layer ${layer.id}`);
+      }
+      
+      // Track expected number of shapes for this layer
+      this.state.expectedShapesPerLayer.set(layer.id, shapeCount);
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`🎯 LayerManager: Set expected shapes for ${layer.id}: ${shapeCount}`);
+      }
       
       // Get existing shapes in the layer to avoid overlap
       const existingShapesInLayer = layer.getAllShapes();
@@ -404,10 +420,12 @@ export class LayerManager extends BaseSystem {
           );
           
           if (withinBounds) {
-            console.log(`✅ Created shape ${shape.id} in layer ${layer.id} at (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})
-              - Layer visible: ${layer.isVisible}
-              - Shape bounds: (${shapeBounds.x.toFixed(1)}, ${shapeBounds.y.toFixed(1)}, ${shapeBounds.width.toFixed(1)}, ${shapeBounds.height.toFixed(1)})
-              - Screws: ${shape.getAllScrews().length}`);
+            if (DEBUG_CONFIG.logShapePositioning) {
+              console.log(`✅ Created shape ${shape.id} in layer ${layer.id} at (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})
+                - Layer visible: ${layer.isVisible}
+                - Shape bounds: (${shapeBounds.x.toFixed(1)}, ${shapeBounds.y.toFixed(1)}, ${shapeBounds.width.toFixed(1)}, ${shapeBounds.height.toFixed(1)})
+                - Screws: ${shape.getAllScrews().length}`);
+            }
             shapes.push(shape);
             layer.addShape(shape);
             shapeCreated = true;
@@ -422,7 +440,9 @@ export class LayerManager extends BaseSystem {
             });
             
             // Emit physics body added event
-            console.log(`🚀 LayerManager: Emitting physics:body:added event for shape ${shape.id}`);
+            if (DEBUG_CONFIG.logProgressTracking) {
+              console.log(`🚀 LayerManager: Emitting physics:body:added event for shape ${shape.id} with ${shape.screws.length} screws already`);
+            }
             this.emit({
               type: 'physics:body:added',
               timestamp: Date.now(),
@@ -702,8 +722,10 @@ export class LayerManager extends BaseSystem {
       newIndex: layer.index
     }));
     
-    // Always log this critical event for now to debug the blocking issue
-    console.log(`🔄 LayerManager: Emitting layer indices update:`, allLayerIndices);
+    // Log this event for debugging layer operations
+    if (DEBUG_CONFIG.logLayerOperations) {
+      console.log(`🔄 LayerManager: Emitting layer indices update:`, allLayerIndices);
+    }
     
     this.emit({
       type: 'layer:indices:updated',
@@ -783,12 +805,14 @@ export class LayerManager extends BaseSystem {
       );
       
       if (shouldRemove || farFromVisibleArea || hidingInHUD) {
-        console.log(`Shape ${shape.id} fell off screen at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}), removing...`);
-        if (farFromVisibleArea) {
-          console.log(`  -> Removed due to being far from visible area`);
-        }
-        if (hidingInHUD) {
-          console.log(`  -> Removed due to hiding in HUD area (y=${pos.y.toFixed(1)} < ${LAYOUT_CONSTANTS.shapeArea.startY - 50})`);
+        if (DEBUG_CONFIG.logShapePositioning) {
+          console.log(`Shape ${shape.id} fell off screen at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}), removing...`);
+          if (farFromVisibleArea) {
+            console.log(`  -> Removed due to being far from visible area`);
+          }
+          if (hidingInHUD) {
+            console.log(`  -> Removed due to hiding in HUD area (y=${pos.y.toFixed(1)} < ${LAYOUT_CONSTANTS.shapeArea.startY - 50})`);
+          }
         }
         shapesToRemove.push(shape.id);
         
@@ -830,7 +854,9 @@ export class LayerManager extends BaseSystem {
       this.state.totalLayersForLevel = getTotalLayersForLevel(levelNumber);
       
       // Generate ALL layers for the level upfront, but only make some visible
-      console.log(`[LayerManager] Generating all ${this.state.totalLayersForLevel} layers for level ${levelNumber}`);
+      if (DEBUG_CONFIG.logLayerOperations) {
+        console.log(`[LayerManager] Generating all ${this.state.totalLayersForLevel} layers for level ${levelNumber}`);
+      }
       
       for (let i = 0; i < this.state.totalLayersForLevel; i++) {
         // Create ALL layers with fade-in capability
@@ -842,12 +868,16 @@ export class LayerManager extends BaseSystem {
           layer.makeHidden();
           // Disable physics for hidden layers
           this.disableLayerPhysics(layer);
-          console.log(`[LayerManager] Layer ${i + 1} generated but hidden with physics disabled and fade-in ready`);
+          if (DEBUG_CONFIG.logLayerOperations) {
+            console.log(`[LayerManager] Layer ${i + 1} generated but hidden with physics disabled and fade-in ready`);
+          }
         } else {
           // Initial visible layers start with full opacity (fade already complete)
           layer.fadeOpacity = 1.0;
           layer.fadeStartTime = 0;
-          console.log(`[LayerManager] Layer ${i + 1} generated and visible with fade-in capability`);
+          if (DEBUG_CONFIG.logLayerOperations) {
+            console.log(`[LayerManager] Layer ${i + 1} generated and visible with fade-in capability`);
+          }
         }
       }
       
@@ -877,11 +907,13 @@ export class LayerManager extends BaseSystem {
         // Log detailed information about the layer being revealed
         const shapeCount = hiddenLayer.getAllShapes().length;
         const totalScrews = hiddenLayer.getAllShapes().reduce((total, shape) => total + shape.getAllScrews().length, 0);
-        console.log(`[LayerManager] Revealing hidden layer ${hiddenLayer.id}:
-          - Index: ${hiddenLayer.index}
-          - Shapes: ${shapeCount}
-          - Total screws: ${totalScrews}
-          - Bounds: (${hiddenLayer.bounds.x}, ${hiddenLayer.bounds.y}, ${hiddenLayer.bounds.width}, ${hiddenLayer.bounds.height})`);
+        if (DEBUG_CONFIG.logLayerOperations) {
+          console.log(`[LayerManager] Revealing hidden layer ${hiddenLayer.id}:
+            - Index: ${hiddenLayer.index}
+            - Shapes: ${shapeCount}
+            - Total screws: ${totalScrews}
+            - Bounds: (${hiddenLayer.bounds.x}, ${hiddenLayer.bounds.y}, ${hiddenLayer.bounds.width}, ${hiddenLayer.bounds.height})`);
+        }
         
         // Make the layer visible
         hiddenLayer.makeVisible();
@@ -889,7 +921,9 @@ export class LayerManager extends BaseSystem {
         // Enable physics for all shapes in the now-visible layer
         this.enableLayerPhysics(hiddenLayer);
         
-        console.log(`[LayerManager] Made layer ${hiddenLayer.id} visible with fade-in and enabled physics`);
+        if (DEBUG_CONFIG.logLayerOperations) {
+          console.log(`[LayerManager] Made layer ${hiddenLayer.id} visible with fade-in and enabled physics`);
+        }
         
         // Add the newly visible layer's screws to the total screw count for progress tracking
         const newLayerScrews = hiddenLayer.getAllShapes().reduce((total, shape) => {
@@ -897,7 +931,9 @@ export class LayerManager extends BaseSystem {
         }, 0);
         
         if (newLayerScrews > 0) {
-          console.log(`[LayerManager] Adding ${newLayerScrews} screws from newly visible layer ${hiddenLayer.id} to total count`);
+          if (DEBUG_CONFIG.logLayerOperations) {
+            console.log(`[LayerManager] Adding ${newLayerScrews} screws from newly visible layer ${hiddenLayer.id} to total count`);
+          }
           this.emit({
             type: 'total_screw_count:add',
             timestamp: Date.now(),
@@ -934,7 +970,9 @@ export class LayerManager extends BaseSystem {
 
   public clearAllLayers(): void {
     this.executeIfActive(() => {
-      console.log(`🗑️ Clearing all layers - currently have ${this.state.layers.length} layers`);
+      if (DEBUG_CONFIG.logLayerOperations) {
+        console.log(`🗑️ Clearing all layers - currently have ${this.state.layers.length} layers`);
+      }
       
       // Emit physics body removed events for all shapes
       this.state.layers.forEach(layer => {
@@ -966,6 +1004,7 @@ export class LayerManager extends BaseSystem {
       this.state.shapesWithScrewsReady.clear();
       this.state.layersWithScrewsReady.clear();
       this.state.allLayersScrewsReadyEmitted = false;
+      this.state.expectedShapesPerLayer.clear();
     });
   }
 
@@ -1005,7 +1044,9 @@ export class LayerManager extends BaseSystem {
    * Update layer visibility based on current state
    */
   public updateLayerVisibility(): void {
-    console.log(`👁️ Updating layer visibility`);
+    if (DEBUG_CONFIG.logLayerOperations) {
+      console.log(`👁️ Updating layer visibility`);
+    }
     
     // Use normal visibility logic for all layers
     this.updateLayerVisibilityOriginal();
@@ -1021,7 +1062,9 @@ export class LayerManager extends BaseSystem {
     // Count currently visible layers to understand the state
     const currentlyVisibleCount = this.state.layers.filter(l => l.isVisible).length;
     
-    console.log(`[LayerManager] updateLayerVisibility: ${this.state.layers.length} total layers, ${currentlyVisibleCount} currently visible, maxVisible=${maxVisible}`);
+    if (DEBUG_CONFIG.logLayerOperations) {
+      console.log(`[LayerManager] updateLayerVisibility: ${this.state.layers.length} total layers, ${currentlyVisibleCount} currently visible, maxVisible=${maxVisible}`);
+    }
     
     // Root cause fixed: removed automatic visibility override in Layer.updateIndex()
     // No special final layer workaround needed - normal visibility flow should work
@@ -1151,7 +1194,9 @@ export class LayerManager extends BaseSystem {
    * Force cleanup of all out-of-bounds shapes (for debug purposes)
    */
   public forceCleanupOutOfBoundsShapes(): void {
-    console.log('🧹 Force cleaning up out-of-bounds shapes...');
+    if (DEBUG_CONFIG.logDebugUtilities) {
+      console.log('🧹 Force cleaning up out-of-bounds shapes...');
+    }
     
     let totalRemoved = 0;
     
@@ -1188,13 +1233,17 @@ export class LayerManager extends BaseSystem {
       });
     });
     
-    console.log(`🧹 Force cleanup complete - removed ${totalRemoved} out-of-bounds shapes`);
+    if (DEBUG_CONFIG.logDebugUtilities) {
+      console.log(`🧹 Force cleanup complete - removed ${totalRemoved} out-of-bounds shapes`);
+    }
   }
 
   /**
    * Debug method to log current layer visibility state
    */
   public debugLayerVisibility(): void {
+    if (!DEBUG_CONFIG.logDebugUtilities) return;
+    
     console.log('🔍 Layer Visibility Debug:');
     console.log(`Total layers: ${this.state.layers.length}`);
     console.log(`Visible layers: ${this.getVisibleLayers().length}`);
@@ -1226,6 +1275,8 @@ export class LayerManager extends BaseSystem {
    * Debug method to find shapes with screws that might be out of bounds
    */
   public debugOutOfBoundsShapes(): void {
+    if (!DEBUG_CONFIG.logDebugUtilities) return;
+    
     console.log('🔍 Debugging out-of-bounds shapes...');
     
     let totalShapes = 0;
@@ -1341,6 +1392,8 @@ export class LayerManager extends BaseSystem {
    * Debug method to force reposition shapes to visible area
    */
   public forceRepositionShapesToVisibleArea(): void {
+    if (!DEBUG_CONFIG.logDebugUtilities) return;
+    
     console.log('🔧 Force repositioning shapes to visible area...');
     
     if (!this.state.currentBounds) {

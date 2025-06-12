@@ -65,7 +65,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     this.subscribe('total_score:updated', this.handleTotalScoreUpdated.bind(this));
     this.subscribe('level:started', this.handleLevelStarted.bind(this));
     this.subscribe('level:progress:updated', this.handleLevelProgressUpdated.bind(this));
-    console.log('[GameEventCoordinator] Subscribing to progress:updated events');
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log('[GameEventCoordinator] Subscribing to progress:updated events');
+    }
     this.subscribe('progress:updated', this.handleProgressUpdated.bind(this));
     
     // Container/holding hole events (to update rendering data)
@@ -96,7 +98,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
 
   routeEvent(eventType: string, data: unknown): void {
     // This method can be used for programmatic event routing if needed
-    console.log(`[GameEventCoordinator] Routing event: ${eventType}`, data);
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log(`[GameEventCoordinator] Routing event: ${eventType}`, data);
+    }
   }
 
   // Event Handlers
@@ -109,7 +113,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     this.managers.timerManager.clearAllTimers();
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log('[GameEventCoordinator] Game started event handled');
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log('[GameEventCoordinator] Game started event handled');
+      }
     }
   }
 
@@ -121,7 +127,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     this.managers.timerManager.clearAllTimers();
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log('[GameEventCoordinator] Game over event handled:', gameOverEvent);
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log('[GameEventCoordinator] Game over event handled:', gameOverEvent);
+      }
     }
   }
 
@@ -129,13 +137,17 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     const levelCompleteEvent = event as LevelCompleteEvent;
     if (!this.managers) return;
     
-    console.log(`🎯 Level ${levelCompleteEvent.level} won! Starting 3-second delay before showing completion screen`);
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log(`🎯 Level ${levelCompleteEvent.level} won! Starting 3-second delay before showing completion screen`);
+    }
     this.managers.stateManager.completeLevel(levelCompleteEvent.level, levelCompleteEvent.score);
     
     // Start 3-second delay before showing level complete screen
     this.managers.timerManager.startLevelCompleteTimer(() => {
       this.managers!.stateManager.showLevelComplete();
-      console.log(`✨ Showing level complete screen after 3-second delay`);
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`✨ Showing level complete screen after 3-second delay`);
+      }
     });
   }
 
@@ -143,13 +155,17 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     const levelCompletedEvent = event as LevelCompletedEvent;
     if (!this.managers) return;
     
-    console.log(`🎯 Level completed by progress! Total screws: ${levelCompletedEvent.totalScrews}, Final progress: ${levelCompletedEvent.finalProgress}% - Starting 3-second delay`);
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log(`🎯 Level completed by progress! Total screws: ${levelCompletedEvent.totalScrews}, Final progress: ${levelCompletedEvent.finalProgress}% - Starting 3-second delay`);
+    }
     this.managers.stateManager.updateGameState({ levelWon: true });
     
     // Start 3-second delay before showing level complete screen
     this.managers.timerManager.startLevelCompleteTimer(() => {
       this.managers!.stateManager.showLevelComplete();
-      console.log(`✨ Showing level complete screen after 3-second delay`);
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`✨ Showing level complete screen after 3-second delay`);
+      }
     });
   }
 
@@ -245,7 +261,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     
     // Handle level progress updates if needed
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log('[GameEventCoordinator] Level progress updated:', event);
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log('[GameEventCoordinator] Level progress updated:', event);
+      }
     }
   }
 
@@ -253,7 +271,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     const progressEvent = event as ProgressUpdatedEvent;
     if (!this.managers) return;
     
-    console.log(`[GameEventCoordinator] Received progress:updated event:`, progressEvent);
+    if (DEBUG_CONFIG.logProgressTracking) {
+      console.log(`[GameEventCoordinator] Received progress:updated event:`, progressEvent);
+    }
     
     this.managers.stateManager.updateProgress(
       progressEvent.totalScrews,
@@ -261,15 +281,21 @@ export class GameEventCoordinator implements IGameEventCoordinator {
       progressEvent.progress
     );
     
-    console.log(`[GameEventCoordinator] Updated state manager with progress data`);
+    if (DEBUG_CONFIG.logProgressTracking) {
+      console.log(`[GameEventCoordinator] Updated state manager with progress data`);
+    }
     
     // Force a render when progress data changes to ensure UI updates immediately
     const gameState = this.managers.stateManager.getGameState();
-    console.log(`[GameEventCoordinator] Current game state after progress update:`, gameState);
+    if (DEBUG_CONFIG.logProgressTracking) {
+      console.log(`[GameEventCoordinator] Current game state after progress update:`, gameState);
+    }
     
     if (gameState.gameStarted && !gameState.gameOver) {
       this.managers.renderManager.render();
-      console.log(`[GameEventCoordinator] Triggered render after progress update`);
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`[GameEventCoordinator] Triggered render after progress update`);
+      }
     }
   }
 
@@ -278,7 +304,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     if (!this.managers) return;
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log(`[GameEventCoordinator] Holding hole filled:`, holeEvent);
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`[GameEventCoordinator] Holding hole filled:`, holeEvent);
+      }
     }
   }
 
@@ -287,7 +315,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     if (!this.managers) return;
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log(`[GameEventCoordinator] Container filled:`, containerEvent);
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`[GameEventCoordinator] Container filled:`, containerEvent);
+      }
     }
   }
 
@@ -295,7 +325,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     if (!this.managers) return;
     
     this.managers.uiManager.setHoldingHolesFull(true);
-    console.log('🔴 All holding holes are full! No more screws can be placed');
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log('🔴 All holding holes are full! No more screws can be placed');
+    }
   }
 
   private handleHoldingHolesAvailable(): void {
@@ -305,7 +337,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     
     // Also clear level complete timer if it's running (shouldn't normally happen but safety first)
     this.managers.timerManager.clearLevelCompleteTimerManual();
-    console.log(`🔄 Level complete timer cleared during holding holes available`);
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log(`🔄 Level complete timer cleared during holding holes available`);
+    }
   }
 
   private handleCollisionDetected(event: unknown): void {
@@ -314,7 +348,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     
     // Throttle collision logging to prevent event loop detection
     if (DEBUG_CONFIG.logPhysicsDebug && this.managers.timerManager.shouldLogCollision()) {
-      console.log(`🔥 Collision detected between bodies ${collisionEvent.bodyA} and ${collisionEvent.bodyB} with force ${collisionEvent.force.toFixed(2)}`);
+      if (DEBUG_CONFIG.logPhysicsDebug) {
+        console.log(`🔥 Collision detected between bodies ${collisionEvent.bodyA} and ${collisionEvent.bodyB} with force ${collisionEvent.force.toFixed(2)}`);
+      }
       this.managers.timerManager.updateCollisionLogTime();
     }
   }
@@ -324,7 +360,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     if (!this.managers) return;
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log(`[GameEventCoordinator] Container replaced:`, replacedEvent);
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`[GameEventCoordinator] Container replaced:`, replacedEvent);
+      }
     }
   }
 
@@ -336,7 +374,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
       this.managers.renderManager.updateRenderData({
         containers: containerEvent.containers as never
       });
-      console.log(`📦 GameEventCoordinator: Container state updated - ${containerEvent.containers.length} containers`);
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`📦 GameEventCoordinator: Container state updated - ${containerEvent.containers.length} containers`);
+      }
     }
   }
 
@@ -348,7 +388,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
       this.managers.renderManager.updateRenderData({
         holdingHoles: holeEvent.holdingHoles as never
       });
-      console.log(`🕳️ GameEventCoordinator: Holding hole state updated - ${holeEvent.holdingHoles.length} holes`);
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`🕳️ GameEventCoordinator: Holding hole state updated - ${holeEvent.holdingHoles.length} holes`);
+      }
     }
   }
 

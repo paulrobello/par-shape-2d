@@ -170,9 +170,9 @@ export class Shape implements IShape {
     const h = this.height || 60;
     const radius = Math.min(w, h) * 0.1;
 
-    // Create rounded rectangle
-    const x = this.position.x - w / 2;
-    const y = this.position.y - h / 2;
+    // Create rounded rectangle centered at origin (0,0) - transform will position it correctly
+    const x = -w / 2;
+    const y = -h / 2;
 
     path.moveTo(x + radius, y);
     path.lineTo(x + w - radius, y);
@@ -191,7 +191,8 @@ export class Shape implements IShape {
   private createCirclePath(): Path2D {
     const path = new Path2D();
     const r = this.radius || 30;
-    path.arc(this.position.x, this.position.y, r, 0, Math.PI * 2);
+    // Use origin-relative coordinates (0,0) - transform will position it correctly
+    path.arc(0, 0, r, 0, Math.PI * 2);
     return path;
   }
 
@@ -203,8 +204,9 @@ export class Shape implements IShape {
     for (let i = 0; i < sides; i++) {
       // Match Matter.js Bodies.polygon() vertex orientation - rotation is handled by ShapeRenderer canvas transforms
       const angle = (i * Math.PI * 2) / sides + (Math.PI / sides); // Align with Matter.js polygon orientation
-      const x = this.position.x + Math.cos(angle) * radius;
-      const y = this.position.y + Math.sin(angle) * radius;
+      // Use origin-relative coordinates (0,0) - transform will position it correctly
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
 
       if (i === 0) {
         path.moveTo(x, y);
@@ -223,9 +225,9 @@ export class Shape implements IShape {
     const h = this.height || (UI_CONSTANTS.screws.radius * 2 + 10); // Default height (2x screw radius + 10px)
     const radius = h / 2; // Circle radius is half the height
 
-    // Draw capsule centered at position
-    const x = this.position.x - w / 2;
-    const y = this.position.y - h / 2;
+    // Draw capsule centered at origin (0,0) - transform will position it correctly
+    const x = -w / 2;
+    const y = -h / 2;
 
     // Start from top-left corner of rectangle part
     path.moveTo(x + radius, y);
@@ -253,27 +255,30 @@ export class Shape implements IShape {
     // For other shapes, use physics body vertices
     if (this.vertices && this.vertices.length > 0) {
       // These vertices are in local space relative to shape center
-      // Don't apply rotation here - the renderer will handle it via canvas transforms
-      // Just translate to shape position
-      const x0 = this.position.x + this.vertices[0].x;
-      const y0 = this.position.y + this.vertices[0].y;
+      // Use origin-relative coordinates (0,0) - transform will position it correctly
+      const x0 = this.vertices[0].x;
+      const y0 = this.vertices[0].y;
       path.moveTo(x0, y0);
       
       // Draw remaining vertices
       for (let i = 1; i < this.vertices.length; i++) {
-        const x = this.position.x + this.vertices[i].x;
-        const y = this.position.y + this.vertices[i].y;
+        const x = this.vertices[i].x;
+        const y = this.vertices[i].y;
         path.lineTo(x, y);
       }
       
       path.closePath();
     } else if (this.body.vertices && this.body.vertices.length > 0) {
       // Fall back to physics body vertices (already in world coordinates)
+      // Convert to origin-relative coordinates
       const vertices = this.body.vertices;
-      path.moveTo(vertices[0].x, vertices[0].y);
+      const centerX = this.position.x;
+      const centerY = this.position.y;
+      
+      path.moveTo(vertices[0].x - centerX, vertices[0].y - centerY);
       
       for (let i = 1; i < vertices.length; i++) {
-        path.lineTo(vertices[i].x, vertices[i].y);
+        path.lineTo(vertices[i].x - centerX, vertices[i].y - centerY);
       }
       
       path.closePath();

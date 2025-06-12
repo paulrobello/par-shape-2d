@@ -1,5 +1,6 @@
 import { ShapeDefinition } from '@/types/shapes';
 import { ShapeLoader } from './ShapeLoader';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export class ShapeRegistry {
   private static instance: ShapeRegistry | null = null;
@@ -29,7 +30,9 @@ export class ShapeRegistry {
       }
       
       this.initialized = true;
-      console.log(`Loaded ${this.definitions.size} shape definitions`);
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log(`Loaded ${this.definitions.size} shape definitions`);
+      }
     } catch (error) {
       console.error('Failed to initialize ShapeRegistry:', error);
       throw error;
