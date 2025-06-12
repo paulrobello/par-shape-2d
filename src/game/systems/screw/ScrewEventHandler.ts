@@ -460,10 +460,20 @@ export class ScrewEventHandler implements IScrewEventHandler {
     
     // Count remaining screws by color (not collected and not being collected)
     const remainingByColor = new Map<string, number>();
+    
+    // Count screws in shapes
     for (const screw of this.state.screws.values()) {
       if (!screw.isCollected && !screw.isBeingCollected) {
         const count = remainingByColor.get(screw.color) || 0;
         remainingByColor.set(screw.color, count + 1);
+      }
+    }
+    
+    // Count screws in holding holes
+    for (const hole of this.state.holdingHoles) {
+      if (hole.screwId && hole.screwColor) {
+        const count = remainingByColor.get(hole.screwColor) || 0;
+        remainingByColor.set(hole.screwColor, count + 1);
       }
     }
 
