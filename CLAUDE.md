@@ -50,13 +50,26 @@ The **shared event system** (`src/shared/events/`) provides a unified, high-perf
 
 Both game and editor extend this shared foundation with their domain-specific events while reusing all common infrastructure. This eliminates duplicate event handling code and ensures consistent behavior across the application.
 
+**Event Naming Convention**: All events follow `domain:action` or `domain:subdomain:action` format with colon separators (e.g., `screw:clicked`, `physics:body:added`, `editor:shape:created`).
+
 ## Physics
 
 **Physics** are provided by the Matter.js library with poly-decomp-es for accurate physics simulation.
 
+## Event Architecture
+
+The game uses **120+ game events** and **40+ editor events** with comprehensive type safety. Key event flows include:
+
+- **Game**: Screw removal flow, container management, level progression, physics integration
+- **Editor**: Shape creation, file management, physics simulation, drawing tools
+
+See `docs/game_event_flows.md` and `docs/editor_event_flows.md` for detailed event flows and architectural decisions.
+
 ## Documentation and References
 
 **Matter.js Documentation:** Comprehensive Matter.js API documentation is available in `docs/MatterJs_docs/` covering all physics engine components including Bodies, Engine, World, Constraints, Collision detection, and more. Refer to these docs when implementing physics features.
+
+**Event Flow Documentation:** Complete event system documentation with mermaid diagrams in `docs/game_event_flows.md` and `docs/editor_event_flows.md`.
 
 **Important:** Always update the documentation when changes are made to architecture, events, or logic.
 
