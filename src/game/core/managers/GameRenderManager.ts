@@ -357,8 +357,8 @@ export class GameRenderManager implements IGameRenderManager {
             scale: this.state.canvasScale
           };
           
-          // Render collected screw at smaller scale (about 50% of normal size to fit in holding hole)
-          ScrewRenderer.renderCollectedScrew(screw, hole.position, screwRenderContext, 0.5);
+          // Render collected screw at smaller scale (about 62.5% of normal size to fit in holding hole)
+          ScrewRenderer.renderCollectedScrew(screw, hole.position, screwRenderContext, 0.625);
         }
       }
     });
