@@ -126,10 +126,10 @@ export class ScrewCollisionService implements IScrewCollisionService {
       }
       
       // Skip if shape is not in front of the screw
-      // Lower index = front (earlier layers), higher index = back (later layers)  
-      // Shape blocks screw only if shape is in front (shape index < screw index)
-      if (shapeLayerIndex >= screwLayerIndex) {
-        continue; // Skip shapes behind or on same layer as the screw
+      // Higher index = front (later layers), lower index = back (earlier layers)  
+      // Shape blocks screw only if shape is in front (shape index > screw index)
+      if (shapeLayerIndex < screwLayerIndex) {
+        continue; // Skip shapes behind the screw
       }
 
       const isBlocked = isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true);
@@ -176,10 +176,10 @@ export class ScrewCollisionService implements IScrewCollisionService {
       }
       
       // Skip if shape is not in front of the screw
-      // Lower index = front (earlier layers), higher index = back (later layers)  
-      // Shape blocks screw only if shape is in front (shape index < screw index)
-      if (shapeLayerIndex >= screwLayerIndex) {
-        continue; // Skip shapes behind or on same layer as the screw
+      // Higher index = front (later layers), lower index = back (earlier layers)  
+      // Shape blocks screw only if shape is in front (shape index > screw index)
+      if (shapeLayerIndex < screwLayerIndex) {
+        continue; // Skip shapes behind the screw
       }
 
       if (isScrewAreaBlocked(screw.position, UI_CONSTANTS.screws.radius, shape, true)) {
@@ -231,7 +231,7 @@ export class ScrewCollisionService implements IScrewCollisionService {
       }
       
       // Skip if shape is not in front of the screw
-      if (shapeLayerIndex >= screwLayerIndex) {
+      if (shapeLayerIndex < screwLayerIndex) {
         continue;
       }
 
