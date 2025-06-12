@@ -39,6 +39,7 @@ The game event system provides a comprehensive, type-safe event-driven architect
 - **Animations**: `screw:animation:started`, `screw:animation:completed`
 - **Transfers**: `screw:transfer:started`, `screw:transfer:completed`, `screw:transfer:failed`
 - **Generation**: `screws:generated`, `shape:screws:ready`
+- **Counting**: `remaining:screws:requested` - Counts screws in shapes AND holding holes
 
 ### Shape System Events
 - **Lifecycle**: `shape:created`, `shape:destroyed`, `shape:fell_off_screen`
@@ -136,6 +137,7 @@ sequenceDiagram
     participant CM as ContainerManager
     participant EB as EventBus
     participant SM as ScrewManager
+    participant SEH as ScrewEventHandler
     participant UI as GameUI
 
     EB->>CM: 'screw:collected' (destination: 'container')
@@ -143,13 +145,25 @@ sequenceDiagram
     
     alt Container becomes full
         CM->>EB: emit('container:filled')
-        CM->>CM: Generate new container
-        CM->>EB: emit('container:colors:updated')
-        CM->>EB: emit('container:state:updated')
+        CM->>CM: Mark container for removal
         
-        alt All containers of color removed
+        Note over CM: Wait 500ms for fade-out animation
+        CM->>EB: emit('remaining:screws:requested')
+        EB->>SEH: Process remaining screw count request
+        SEH->>SEH: Count screws in shapes + holding holes
+        SEH->>CM: Return screws by color (callback)
+        
+        alt Replacement needed
+            CM->>CM: Create replacement container
             CM->>EB: emit('container:replaced')
+        else No replacement needed
+            CM->>CM: Remove container
+            alt Last container removed
+                CM->>EB: emit('container:all_removed')
+            end
         end
+        
+        CM->>EB: emit('container:state:updated')
     end
     
     EB->>CM: 'layers:updated'
@@ -163,6 +177,8 @@ sequenceDiagram
 sequenceDiagram
     participant GM as GameManager
     participant PT as ProgressTracker
+    participant CM as ContainerManager
+    participant SEH as ScrewEventHandler
     participant LM as LayerManager
     participant EB as EventBus
 
@@ -170,12 +186,20 @@ sequenceDiagram
     PT->>PT: Update progress counters
     PT->>EB: emit('progress:updated')
     
-    alt All screws collected
-        PT->>EB: emit('level:completed')
-        EB->>GM: Process level completion
-        GM->>LM: Clear all layers
-        LM->>EB: emit('all_layers:cleared')
-        GM->>EB: emit('level:complete')
+    alt All containers removed
+        EB->>PT: 'container:all_removed'
+        PT->>EB: emit('remaining:screws:requested')
+        EB->>SEH: Process remaining screw count request
+        SEH->>SEH: Count screws in shapes + holding holes
+        SEH->>PT: Return total remaining screws (callback)
+        
+        alt No screws remaining
+            PT->>EB: emit('level:completed')
+            EB->>GM: Process level completion
+            GM->>LM: Clear all layers
+            LM->>EB: emit('all_layers:cleared')
+            GM->>EB: emit('level:complete')
+        end
     end
     
     EB->>GM: 'next_level:requested'
@@ -211,6 +235,53 @@ sequenceDiagram
         end
     end
 ```
+
+### 5. Remaining Screw Counting Flow
+
+The `remaining:screws:requested` event is critical for container replacement logic and win condition checking. It ensures accurate screw counting across all game states.
+
+```mermaid
+sequenceDiagram
+    participant CM as ContainerManager
+    participant PT as ProgressTracker  
+    participant EB as EventBus
+    participant SEH as ScrewEventHandler
+    participant HHM as HoldingHoleManager
+
+    Note over CM,PT: Triggered by container removal or level completion check
+    
+    alt Container replacement check
+        CM->>EB: emit('remaining:screws:requested')
+    else Win condition check
+        PT->>EB: emit('remaining:screws:requested')
+    end
+    
+    EB->>SEH: Route to ScrewEventHandler
+    
+    SEH->>SEH: Count screws in shapes
+    Note over SEH: Filter: !isCollected && !isBeingCollected
+    
+    SEH->>SEH: Count screws in holding holes
+    Note over SEH: Check: hole.screwId && hole.screwColor
+    
+    SEH->>SEH: Combine counts by color
+    
+    alt Container replacement
+        SEH->>CM: Return Map<color, count> via callback
+        CM->>CM: Determine if replacement needed
+    else Win condition
+        SEH->>PT: Return Map<color, count> via callback
+        PT->>PT: Check if total remaining = 0
+    end
+```
+
+**Key Implementation Details:**
+- **ScrewEventHandler.handleRemainingScrewCountsRequested()** processes the request
+- **Counts screws in shapes**: Iterates through `state.screws` filtering for active screws
+- **Counts screws in holding holes**: Iterates through `state.holdingHoles` checking for occupied holes
+- **Returns color-mapped counts**: Uses callback pattern with `Map<string, number>`
+- **Used by ContainerManager**: For intelligent container replacement decisions  
+- **Used by ProgressTracker**: For accurate win condition detection
 
 ## Event Naming Conventions
 
