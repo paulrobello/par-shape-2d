@@ -45,10 +45,10 @@ export const GAME_CONFIG: GameConfig = {
     maxVisible: 1,  // DEBUG: Reduce to 1 layer for easier debugging
   },
   shapes: {
-    minPerLayer: 2,  // DEBUG: Reduce to 2 shapes per layer
-    maxPerLayer: 2,  // DEBUG: Reduce to 2 shapes per layer
+    minPerLayer: 6,
+    maxPerLayer: 6,
     minScrews: 1,
-    maxScrews: 3,    // DEBUG: Reduce max screws for simpler analysis
+    maxScrews: 6,
   },
   containers: {
     count: 4,
