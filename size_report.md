@@ -6,10 +6,7 @@ This report shows the size of all files in the `src` directory, sorted by size i
 |------|--------------|---------------|
 | src/game/core/GameManager.ts.backup | 87,640 | 26,558 |
 | src/game/systems/LayerManager.ts | 61,734 | 18,708 |
-| src/editor/systems/ShapeEditorManager.backup.ts | 56,651 | 17,167 |
-| src/editor/systems/ShapeEditorManager.backup2.ts | 56,651 | 17,167 |
 | src/app/editor/components/PropertyPanel.tsx | 31,019 | 9,400 |
-| src/game/systems/LevelPrecomputer.ts.backup | 27,704 | 8,396 |
 | src/components/game/GameCanvas.tsx | 27,190 | 8,240 |
 | src/game/core/managers/ContainerManager.ts | 25,962 | 7,868 |
 | src/app/favicon.ico | 25,931 | 7,858 |
@@ -19,7 +16,7 @@ This report shows the size of all files in the `src` directory, sorted by size i
 | src/game/utils/ScrewPositionUtils.ts | 21,308 | 6,457 |
 | src/game/systems/screw/ScrewPhysicsService.ts | 19,618 | 5,945 |
 | src/game/core/managers/GameRenderManager.ts | 19,445 | 5,893 |
-| src/game/systems/screw/ScrewEventHandler.ts | 18,605 | 5,638 |
+| src/game/systems/screw/ScrewEventHandler.ts | 18,915 | 5,732 |
 | src/game/events/EventTypes.ts | 18,203 | 5,517 |
 | src/shared/physics/PhysicsWorld.ts | 17,530 | 5,313 |
 | src/shared/validation/ShapeValidator.ts | 17,164 | 5,202 |
@@ -155,6 +152,6 @@ This report shows the size of all files in the `src` directory, sorted by size i
 
 ## Summary
 
-- **Total files:** 148
-- **Total size:** 1,393,204 bytes
-- **Total tokens:** 422,256
+- **Total files:** 145
+- **Total size:** 1,252,508 bytes
+- **Total tokens:** 379,620
