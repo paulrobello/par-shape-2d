@@ -247,15 +247,27 @@ export class LayerManager extends BaseSystem {
           // All layers have completed screw generation
           const totalShapes = this.state.layers.reduce((total, l) => total + l.getAllShapes().length, 0);
           
-          // Calculate total screws across all layers
+          // Calculate total screws across all layers for debugging
           const totalScrews = this.state.layers.reduce((total, layer) => {
             return total + layer.getAllShapes().reduce((shapeTotal, shape) => {
               return shapeTotal + shape.getAllScrews().length;
             }, 0);
           }, 0);
           
+          // Calculate screws only from initially visible layers for progress tracking
+          // Hidden layers will be added to the count when revealed via showNextHiddenLayer()
+          const initiallyVisibleScrews = this.state.layers.reduce((total, layer) => {
+            // Only count screws from layers that are initially visible
+            if (layer.isVisible) {
+              return total + layer.getAllShapes().reduce((shapeTotal, shape) => {
+                return shapeTotal + shape.getAllScrews().length;
+              }, 0);
+            }
+            return total;
+          }, 0);
+          
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`LayerManager: ALL layers have completed screw generation. Total layers: ${this.state.layers.length}, Total shapes: ${totalShapes}, Total screws: ${totalScrews}`);
+            console.log(`LayerManager: ALL layers have completed screw generation. Total layers: ${this.state.layers.length}, Total shapes: ${totalShapes}, Total screws: ${totalScrews}, Initially visible screws: ${initiallyVisibleScrews}`);
           }
           
           // Mark as emitted to prevent loops
@@ -270,11 +282,11 @@ export class LayerManager extends BaseSystem {
           });
           
           // Emit total screw count for progress tracking
-          // Progress should include ALL screws from ALL layers, not just visible ones
+          // FIXED: Only include initially visible layers, hidden layers added via total:screw:count:add when revealed
           const totalScrewCountEvent = {
             type: 'total:screw:count:set' as const,
             timestamp: Date.now(),
-            totalScrews: totalScrews,
+            totalScrews: initiallyVisibleScrews,
             source: this.systemName
           };
           this.emit(totalScrewCountEvent);
