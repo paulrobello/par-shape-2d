@@ -71,11 +71,11 @@ export interface LevelProgressUpdatedEvent extends BaseEvent {
 }
 
 export interface NextLevelRequestedEvent extends BaseEvent {
-  type: 'next_level:requested';
+  type: 'next:level:requested';
 }
 
 export interface AllLayersClearedEvent extends BaseEvent {
-  type: 'all_layers:cleared';
+  type: 'all:layers:cleared';
 }
 
 // Screw system events
@@ -242,23 +242,23 @@ export interface LayerShapesReadyEvent extends BaseEvent {
 }
 
 export interface AllLayersScrewsReadyEvent extends BaseEvent {
-  type: 'all_layers:screws:ready';
+  type: 'all:layers:screws:ready';
   totalLayers: number;
   totalShapes: number;
 }
 
 export interface ScrewCountRequestedEvent extends BaseEvent {
-  type: 'screw_count:requested';
+  type: 'screw:count:requested';
   source: string;
 }
 
 export interface RemainingScrewCountsRequestedEvent extends BaseEvent {
-  type: 'remaining_screws:requested';
+  type: 'remaining:screws:requested';
   callback: (screwsByColor: Map<string, number>) => void;
 }
 
 export interface ScrewCountResponseEvent extends BaseEvent {
-  type: 'screw_count:response';
+  type: 'screw:count:response';
   totalScrews: number;
   requestSource: string;
 }
@@ -314,7 +314,7 @@ export interface HoldingHoleStateUpdatedEvent extends BaseEvent {
 }
 
 export interface ScrewColorsRequestedEvent extends BaseEvent {
-  type: 'screw_colors:requested';
+  type: 'screw:colors:requested';
   containerIndex: number;
   existingColors: import('@/types/game').ScrewColor[];
   callback: (activeScrewColors: import('@/types/game').ScrewColor[]) => void;
@@ -523,13 +523,13 @@ export interface LevelCompletedEvent extends BaseEvent {
 }
 
 export interface TotalScrewCountSetEvent extends BaseEvent {
-  type: 'total_screw_count:set';
+  type: 'total:screw:count:set';
   totalScrews: number;
   source: string;
 }
 
 export interface TotalScrewCountAddEvent extends BaseEvent {
-  type: 'total_screw_count:add';
+  type: 'total:screw:count:add';
   additionalScrews: number;
   source: string;
 }

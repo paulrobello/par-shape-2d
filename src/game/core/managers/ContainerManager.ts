@@ -129,7 +129,7 @@ export class ContainerManager extends BaseSystem {
       
       // Request screw colors from ScrewManager to validate color matches
       this.emit({
-        type: 'screw_colors:requested',
+        type: 'screw:colors:requested',
         timestamp: Date.now(),
         containerIndex: -1,
         existingColors: [],
@@ -197,7 +197,7 @@ export class ContainerManager extends BaseSystem {
     
     // Get real-time screw data to determine optimal container configuration
     this.emit({
-      type: 'remaining_screws:requested',
+      type: 'remaining:screws:requested',
       timestamp: Date.now(),
       callback: (screwsByColor: Map<string, number>) => {
         this.createInitialContainersWithOptimalHoles(screwsByColor, activeScrewColors, virtualGameWidth);
@@ -349,7 +349,7 @@ export class ContainerManager extends BaseSystem {
     
     // Use the new event to get remaining screws by color
     this.emit({
-      type: 'remaining_screws:requested',
+      type: 'remaining:screws:requested',
       timestamp: Date.now(),
       callback: (screwsByColor: Map<string, number>) => {
         
@@ -569,7 +569,7 @@ export class ContainerManager extends BaseSystem {
   private cleanupEmptyContainers(): void {
     // Get remaining screw colors from shapes
     this.emit({
-      type: 'screw_colors:requested',
+      type: 'screw:colors:requested',
       timestamp: Date.now(),
       containerIndex: -1,
       existingColors: [],

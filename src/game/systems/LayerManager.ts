@@ -263,7 +263,7 @@ export class LayerManager extends BaseSystem {
           
           // Emit all layers screws ready event
           this.emit({
-            type: 'all_layers:screws:ready',
+            type: 'all:layers:screws:ready',
             timestamp: Date.now(),
             totalLayers: this.state.layers.length,
             totalShapes
@@ -272,7 +272,7 @@ export class LayerManager extends BaseSystem {
           // Emit total screw count for progress tracking
           // Progress should include ALL screws from ALL layers, not just visible ones
           const totalScrewCountEvent = {
-            type: 'total_screw_count:set' as const,
+            type: 'total:screw:count:set' as const,
             timestamp: Date.now(),
             totalScrews: totalScrews,
             source: this.systemName
@@ -673,7 +673,7 @@ export class LayerManager extends BaseSystem {
         console.log('🎉 All layers cleared! Level complete!');
       }
       this.emit({
-        type: 'all_layers:cleared',
+        type: 'all:layers:cleared',
         timestamp: Date.now()
       });
     }
@@ -935,7 +935,7 @@ export class LayerManager extends BaseSystem {
             console.log(`[LayerManager] Adding ${newLayerScrews} screws from newly visible layer ${hiddenLayer.id} to total count`);
           }
           this.emit({
-            type: 'total_screw_count:add',
+            type: 'total:screw:count:add',
             timestamp: Date.now(),
             additionalScrews: newLayerScrews,
             source: this.systemName

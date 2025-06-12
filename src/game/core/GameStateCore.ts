@@ -42,8 +42,8 @@ export class GameStateCore extends BaseSystem {
     
     // Level management events
     this.subscribe('layer:cleared', this.handleLayerCleared.bind(this));
-    this.subscribe('all_layers:cleared', this.handleAllLayersCleared.bind(this));
-    this.subscribe('next_level:requested', this.handleNextLevelRequested.bind(this));
+    this.subscribe('all:layers:cleared', this.handleAllLayersCleared.bind(this));
+    this.subscribe('next:level:requested', this.handleNextLevelRequested.bind(this));
     this.subscribe('level:completed', this.handleLevelCompletedByProgress.bind(this));
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     

@@ -130,7 +130,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     subscribe('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this));
     
     // Screw color requests
-    subscribe('screw_colors:requested', this.handleScrewColorsRequested.bind(this));
+    subscribe('screw:colors:requested', this.handleScrewColorsRequested.bind(this));
     subscribe('screw:transfer:color_check', this.handleScrewTransferColorCheck.bind(this));
     
     // Layer visibility events
@@ -139,8 +139,8 @@ export class ScrewEventHandler implements IScrewEventHandler {
     subscribe('layer:cleared', this.handleLayerCleared.bind(this));
     
     // Screw count requests
-    subscribe('screw_count:requested', this.handleScrewCountRequested.bind(this));
-    subscribe('remaining_screws:requested', this.handleRemainingScrewCountsRequested.bind(this));
+    subscribe('screw:count:requested', this.handleScrewCountRequested.bind(this));
+    subscribe('remaining:screws:requested', this.handleRemainingScrewCountsRequested.bind(this));
     
     // Level lifecycle events
     subscribe('level:started', this.handleLevelStarted.bind(this));
@@ -445,7 +445,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     const totalScrews = this.state.screws.size;
     
     this.eventBus.emit({
-      type: 'screw_count:response',
+      type: 'screw:count:response',
       timestamp: Date.now(),
       source: this.source,
       totalScrews,

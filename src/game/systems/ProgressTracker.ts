@@ -46,9 +46,9 @@ export class ProgressTracker extends BaseSystem {
 
   private setupEventListeners(): void {
     // Listen for total screw count
-    this.subscribe('total_screw_count:set', this.handleTotalScrewCountSet.bind(this));
-    this.subscribe('total_screw_count:add', this.handleTotalScrewCountAdd.bind(this));
-    this.subscribe('screw_count:response', this.handleScrewCountResponse.bind(this));
+    this.subscribe('total:screw:count:set', this.handleTotalScrewCountSet.bind(this));
+    this.subscribe('total:screw:count:add', this.handleTotalScrewCountAdd.bind(this));
+    this.subscribe('screw:count:response', this.handleScrewCountResponse.bind(this));
     
     // Listen for screws being collected to containers
     this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
@@ -96,7 +96,7 @@ export class ProgressTracker extends BaseSystem {
         // This handles cases where screw generation happened after initial count
         if (this.state.screwsInContainer > this.state.totalScrews) {
           this.emit({
-            type: 'screw_count:requested',
+            type: 'screw:count:requested',
             timestamp: Date.now(),
             source: 'ProgressTracker-overflow'
           });
@@ -130,7 +130,7 @@ export class ProgressTracker extends BaseSystem {
           if (this.state.totalScrews === 0) {
             console.warn(`[ProgressTracker] No screw count received after 3 seconds, requesting manually...`);
             this.emit({
-              type: 'screw_count:requested',
+              type: 'screw:count:requested',
               timestamp: Date.now(),
               source: 'ProgressTracker-fallback'
             });
@@ -167,7 +167,7 @@ export class ProgressTracker extends BaseSystem {
     this.executeIfActive(() => {
       // Request remaining screw counts to verify all screws are collected
       this.emit({
-        type: 'remaining_screws:requested',
+        type: 'remaining:screws:requested',
         timestamp: Date.now(),
         callback: (screwsByColor: Map<string, number>) => {
           // Check if there are any remaining screws
