@@ -252,7 +252,7 @@ export class GameRenderManager implements IGameRenderManager {
       const containerWidth = UI_CONSTANTS.containers.width;
       const containerHeight = UI_CONSTANTS.containers.height;
       const holeRadius = UI_CONSTANTS.containers.hole.radius;
-      const holeCount = UI_CONSTANTS.containers.hole.count;
+      const holeCount = container.maxHoles;
       
       // Apply fade opacity for container animations
       this.state.ctx!.save();

@@ -194,10 +194,27 @@ export class ContainerManager extends BaseSystem {
   // Container Management Methods
   public initializeContainers(activeScrewColors?: ScrewColor[], virtualGameWidth?: number, virtualGameHeight?: number): void {
     void virtualGameHeight; // Currently unused
+    
+    // Get real-time screw data to determine optimal container configuration
+    this.emit({
+      type: 'remaining_screws:requested',
+      timestamp: Date.now(),
+      callback: (screwsByColor: Map<string, number>) => {
+        this.createInitialContainersWithOptimalHoles(screwsByColor, activeScrewColors, virtualGameWidth);
+      }
+    });
+  }
+
+  private createInitialContainersWithOptimalHoles(screwsByColor: Map<string, number>, activeScrewColors?: ScrewColor[], virtualGameWidth?: number): void {
     let colors: ScrewColor[];
 
+    // Get colors from available screws or use provided colors
+    const availableScrewColors = Array.from(screwsByColor.keys()).filter(color => screwsByColor.get(color)! > 0) as ScrewColor[];
+    
     if (activeScrewColors && activeScrewColors.length >= GAME_CONFIG.containers.count) {
       colors = getRandomColorsFromList(activeScrewColors, GAME_CONFIG.containers.count);
+    } else if (availableScrewColors.length >= GAME_CONFIG.containers.count) {
+      colors = getRandomColorsFromList(availableScrewColors, GAME_CONFIG.containers.count);
     } else {
       colors = getRandomScrewColors(GAME_CONFIG.containers.count);
     }
@@ -214,7 +231,13 @@ export class ContainerManager extends BaseSystem {
     this.containers = colors.map((color, index) => {
       const containerLeftX = startX + (index * (containerWidth + spacing));
       const containerCenterX = containerLeftX + (containerWidth / 2);
-      console.log(`🏭 Creating container ${index}: leftX=${containerLeftX}, centerX=${containerCenterX}, width=${containerWidth}`);
+      
+      // Calculate optimal holes based on actual screw count (1-3 holes)
+      const totalScrewsOfColor = screwsByColor.get(color) || 0;
+      const optimalHoles = Math.min(3, Math.max(1, totalScrewsOfColor));
+      
+      console.log(`🏭 Creating container ${index}: leftX=${containerLeftX}, centerX=${containerCenterX}, width=${containerWidth}, color=${color}, holes=${optimalHoles} (for ${totalScrewsOfColor} screws)`);
+      
       return {
         id: `container-${index}`,
         color,
@@ -222,9 +245,9 @@ export class ContainerManager extends BaseSystem {
           x: containerCenterX,
           y: startY + (containerHeight / 2)
         },
-        holes: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
-        reservedHoles: new Array(GAME_CONFIG.containers.maxHoles).fill(null),
-        maxHoles: GAME_CONFIG.containers.maxHoles,
+        holes: new Array(optimalHoles).fill(null),
+        reservedHoles: new Array(optimalHoles).fill(null),
+        maxHoles: optimalHoles,
         isFull: false,
         // Fade animation properties
         fadeOpacity: 1.0,
@@ -246,7 +269,7 @@ export class ContainerManager extends BaseSystem {
     });
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🏭 ContainerManager: Initialized ${this.containers.length} containers and emitted container:state:updated`);
+      console.log(`🏭 ContainerManager: Initialized ${this.containers.length} containers with optimal holes and emitted container:state:updated`);
     }
   }
 
