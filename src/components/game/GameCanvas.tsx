@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { SystemCoordinator } from '@/game/core/SystemCoordinator';
 import { eventFlowValidator } from '@/game/core/EventFlowValidator';
 import { GameState } from '@/game/core/GameState';
@@ -119,6 +119,43 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     recentEvents: GameEvent[];
   } | null>(null);
   
+  const handleRestart = useCallback(() => {
+    if (coordinatorRef.current) {
+      const gameManager = coordinatorRef.current.getGameManager();
+      if (gameManager) {
+        // Use the GameManager's comprehensive restart logic
+        // This simulates clicking the restart button in the menu which has the full restart logic
+        const event = new KeyboardEvent('keydown', {
+          key: 'r',
+          code: 'KeyR',
+          bubbles: true
+        });
+        window.dispatchEvent(event);
+        console.log('Game restarted through GameManager restart logic');
+      }
+    }
+  }, []);
+
+  const handleStart = useCallback(() => {
+    if (coordinatorRef.current) {
+      const gameState = coordinatorRef.current.getSystem('GameState') as GameState | null;
+      const gameManager = coordinatorRef.current.getGameManager();
+      
+      if (gameState && gameManager) {
+        const managerState = gameManager.getState();
+        
+        // If game is over, perform restart instead
+        if (managerState.gameOver) {
+          console.log('Game is over, performing restart instead of start');
+          handleRestart();
+        } else {
+          // Start the game normally
+          gameState.startGame();
+          console.log('Game started through event system');
+        }
+      }
+    }
+  }, [handleRestart]);
 
   useEffect(() => {
     // Initialize poly-decomp for Matter.js Bodies.fromVertices support
@@ -203,7 +240,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         coordinatorRef.current = null;
       }
     };
-  }, []);
+  }, [handleStart]);
 
   // Apply debug mode class to body for CSS overflow control
   useEffect(() => {
@@ -372,44 +409,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-
-  const handleStart = () => {
-    if (coordinatorRef.current) {
-      const gameState = coordinatorRef.current.getSystem('GameState') as GameState | null;
-      const gameManager = coordinatorRef.current.getGameManager();
-      
-      if (gameState && gameManager) {
-        const managerState = gameManager.getState();
-        
-        // If game is over, perform restart instead
-        if (managerState.gameOver) {
-          console.log('Game is over, performing restart instead of start');
-          handleRestart();
-        } else {
-          // Start the game normally
-          gameState.startGame();
-          console.log('Game started through event system');
-        }
-      }
-    }
-  };
-
-  const handleRestart = () => {
-    if (coordinatorRef.current) {
-      const gameManager = coordinatorRef.current.getGameManager();
-      if (gameManager) {
-        // Use the GameManager's comprehensive restart logic
-        // This simulates clicking the restart button in the menu which has the full restart logic
-        const event = new KeyboardEvent('keydown', {
-          key: 'r',
-          code: 'KeyR',
-          bubbles: true
-        });
-        window.dispatchEvent(event);
-        console.log('Game restarted through GameManager restart logic');
-      }
-    }
-  };
 
   const toggleDebug = () => {
     if (coordinatorRef.current) {

@@ -66,7 +66,7 @@ export const EditorCanvas: React.FC = () => {
       window.removeEventListener('dragover', handleWindowDragOver);
       window.removeEventListener('drop', handleWindowDrop);
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, [theme]); // Include theme in dependency array
 
   // Update theme when it changes
   useEffect(() => {
