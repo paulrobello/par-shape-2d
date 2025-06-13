@@ -1,6 +1,6 @@
 /**
  * Animated Progress Bar Component
- * Reusable progress bar with rounded ends, gradient fill, drop shadow, percentage text display, and smooth animations
+ * Reusable progress bar with rounded ends, gradient fill, drop shadow, percentage text display with shadow, and smooth animations
  * 
  * @example
  * // Create a progress bar with percentage text
@@ -13,13 +13,13 @@
  *   easing: 'ease-out',
  *   showPercentage: true, // Show percentage by default
  *   textColor: '#FFFFFF',
- *   textBackdropAlpha: 0.6 // Subtle black backdrop for text
+ *   textShadowAlpha: 0.8 // Solid drop shadow for text
  * });
  * 
  * // In your render loop:
  * progressBar.setProgress(75); // Animate to 75%
  * progressBar.update(); // Update animation state
- * progressBar.render(ctx); // Render to canvas with percentage text
+ * progressBar.render(ctx); // Render to canvas with percentage text and shadow
  */
 
 export interface ProgressBarOptions {
@@ -45,8 +45,7 @@ export interface ProgressBarOptions {
   easing?: 'linear' | 'ease-out' | 'ease-in' | 'ease-in-out';
   showPercentage?: boolean;
   textColor?: string;
-  textBackdropColor?: string;
-  textBackdropAlpha?: number;
+  textShadowAlpha?: number;
   fontSize?: number;
   fontFamily?: string;
 }
@@ -88,8 +87,7 @@ export class ProgressBar {
       easing: options.easing || 'ease-out',
       showPercentage: options.showPercentage ?? true,
       textColor: options.textColor || '#FFFFFF',
-      textBackdropColor: options.textBackdropColor || '#000000',
-      textBackdropAlpha: options.textBackdropAlpha ?? 0.6,
+      textShadowAlpha: options.textShadowAlpha ?? 0.8,
       fontSize: options.fontSize || Math.max(10, Math.floor(options.height * 0.6)),
       fontFamily: options.fontFamily || 'Arial, sans-serif'
     };
@@ -236,26 +234,13 @@ export class ProgressBar {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
 
-      // Measure text for backdrop
-      const textMetrics = ctx.measureText(percentText);
-      const textWidth = textMetrics.width;
-      const textHeight = this.options.fontSize;
-      const padding = 4;
+      // Render text shadow first
+      const shadowOffset = 1;
+      const shadowAlpha = this.options.textShadowAlpha;
+      ctx.fillStyle = `rgba(0, 0, 0, ${shadowAlpha})`;
+      ctx.fillText(percentText, centerX + shadowOffset, centerY + shadowOffset);
 
-      // Render text backdrop with subtle transparency
-      const backdropAlpha = this.options.textBackdropAlpha;
-      ctx.fillStyle = `${this.options.textBackdropColor}${Math.round(backdropAlpha * 255).toString(16).padStart(2, '0')}`;
-      ctx.beginPath();
-      ctx.roundRect(
-        centerX - textWidth / 2 - padding,
-        centerY - textHeight / 2 - padding / 2,
-        textWidth + padding * 2,
-        textHeight + padding,
-        3
-      );
-      ctx.fill();
-
-      // Render text
+      // Render main text
       ctx.fillStyle = this.options.textColor;
       ctx.fillText(percentText, centerX, centerY);
     }
@@ -328,19 +313,15 @@ export class ProgressBar {
    */
   setTextStyle(options: {
     textColor?: string;
-    textBackdropColor?: string;
-    textBackdropAlpha?: number;
+    textShadowAlpha?: number;
     fontSize?: number;
     fontFamily?: string;
   }): void {
     if (options.textColor !== undefined) {
       this.options.textColor = options.textColor;
     }
-    if (options.textBackdropColor !== undefined) {
-      this.options.textBackdropColor = options.textBackdropColor;
-    }
-    if (options.textBackdropAlpha !== undefined) {
-      this.options.textBackdropAlpha = options.textBackdropAlpha;
+    if (options.textShadowAlpha !== undefined) {
+      this.options.textShadowAlpha = options.textShadowAlpha;
     }
     if (options.fontSize !== undefined) {
       this.options.fontSize = options.fontSize;
