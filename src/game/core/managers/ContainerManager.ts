@@ -36,6 +36,7 @@ export class ContainerManager extends BaseSystem {
   private setupEventHandlers(): void {
     // Container events
     this.subscribe('container:filled', this.handleContainerFilled.bind(this));
+    this.subscribe('container:creation:requested', this.handleContainerCreationRequested.bind(this));
     
     // Transfer events
     this.subscribe('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this));
@@ -178,17 +179,21 @@ export class ContainerManager extends BaseSystem {
   private handleLayersUpdated(event: import('../../events/EventTypes').LayersUpdatedEvent): void {
     this.executeIfActive(() => {
       // Get colors from all visible screws (visible layers + holding holes)
-      const visibleScrewColors = this.getVisibleScrewColors(event.visibleLayers);
-      
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`ContainerManager: Layers updated, visible screw colors:`, visibleScrewColors);
-      }
+      // We need to get holding hole colors asynchronously, so request them
+      this.getVisibleScrewColorsIncludingHoldingHoles(event.visibleLayers, (allVisibleColors) => {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`ContainerManager: Layers updated, all visible screw colors (layers + holding holes):`, allVisibleColors);
+        }
 
-      // Update available colors for future container replacements
-      this.updateAvailableScrewColors(visibleScrewColors);
-      
-      // Update ContainerStrategyManager with current state
-      this.containerStrategy.updateContainerState(this.containers, []);
+        // Update available colors for future container replacements
+        this.updateAvailableScrewColors(allVisibleColors);
+        
+        // Update ContainerStrategyManager with current state
+        this.containerStrategy.updateContainerState(this.containers, []);
+        
+        // Proactively check if we need additional containers for new colors
+        this.checkForProactiveContainerCreation(allVisibleColors);
+      });
     });
   }
 
@@ -197,14 +202,18 @@ export class ContainerManager extends BaseSystem {
   public initializeContainers(activeScrewColors?: ScrewColor[], virtualGameWidth?: number, virtualGameHeight?: number): void {
     void virtualGameHeight; // Currently unused
     
-    // Get real-time screw data to determine optimal container configuration
-    this.emit({
-      type: 'remaining:screws:requested',
-      timestamp: Date.now(),
-      callback: (screwsByColor: Map<string, number>) => {
-        this.createInitialContainersWithOptimalHoles(screwsByColor, activeScrewColors, virtualGameWidth);
-      }
-    });
+    // Delay container creation to allow physics simulation and removability updates to complete
+    // This ensures accurate screw counts for container sizing
+    setTimeout(() => {
+      // Get real-time screw data to determine optimal container configuration
+      this.emit({
+        type: 'remaining:screws:requested',
+        timestamp: Date.now(),
+        callback: (screwsByColor: Map<string, number>) => {
+          this.createInitialContainersWithOptimalHoles(screwsByColor, activeScrewColors, virtualGameWidth);
+        }
+      });
+    }, 500); // 500ms delay to allow physics and removability systems to stabilize
   }
 
   private createInitialContainersWithOptimalHoles(screwsByColor: Map<string, number>, activeScrewColors?: ScrewColor[], virtualGameWidth?: number): void {
@@ -297,6 +306,11 @@ export class ContainerManager extends BaseSystem {
         : 2; // Default for initial containers when screw data not yet available
       
       console.log(`🏭 Creating container ${index}: leftX=${containerLeftX}, centerX=${containerCenterX}, width=${containerWidth}, color=${color}, holes=${optimalHoles} (for ${totalScrewsOfColor} screws)`);
+      console.log(`🔍 Container creation debug for ${color}:`, {
+        totalScrewsOfColor,
+        optimalHoles,
+        screwsByColorEntries: Array.from(screwsByColor.entries())
+      });
       
       return {
         id: `container-${index}`,
@@ -503,11 +517,24 @@ export class ContainerManager extends BaseSystem {
         }
         
         if (!needsReplacement || !priorityColor) {
+          // Get container info before removal
+          const removedContainer = this.containers[containerIndex];
+          const screwIds = removedContainer.holes.filter(id => id !== null) as string[];
+          
           // No replacement needed - just remove the container
           this.containers.splice(containerIndex, 1);
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`[CONTAINER_STRATEGY] No replacement needed - removed container`);
+            console.log(`[CONTAINER_STRATEGY] No replacement needed - removed container ${removedContainer.id} with ${screwIds.length} screws`);
           }
+          
+          // Emit individual container removal event
+          this.emit({
+            type: 'container:removed',
+            timestamp: Date.now(),
+            containerIndex,
+            screwIds,
+            color: removedContainer.color
+          });
           
           // Check if this was the last container
           if (this.containers.length === 0) {
@@ -554,6 +581,18 @@ export class ContainerManager extends BaseSystem {
           }
           
           const optimalContainer = this.createOptimalContainerFromStrategy(priorityColor, optimalHoles, oldContainer.position);
+          
+          // Emit container removal event for old container before replacement
+          const screwIds = oldContainer.holes.filter(id => id !== null) as string[];
+          if (screwIds.length > 0) {
+            this.emit({
+              type: 'container:removed',
+              timestamp: Date.now(),
+              containerIndex,
+              screwIds,
+              color: oldContainer.color
+            });
+          }
           
           // Replace the container
           this.containers[containerIndex] = optimalContainer;
@@ -666,6 +705,30 @@ export class ContainerManager extends BaseSystem {
     });
 
     return Array.from(colors);
+  }
+
+  /**
+   * Get visible screw colors including both layers and holding holes
+   */
+  private getVisibleScrewColorsIncludingHoldingHoles(
+    visibleLayers: import('../../entities/Layer').Layer[], 
+    callback: (colors: ScrewColor[]) => void
+  ): void {
+    // First get colors from visible layers
+    const layerColors = this.getVisibleScrewColors(visibleLayers);
+    
+    // Then request screw colors from all sources (which includes holding holes)
+    this.emit({
+      type: 'screw:colors:requested',
+      timestamp: Date.now(),
+      containerIndex: -1,
+      existingColors: [],
+      callback: (allScrewColors: ScrewColor[]) => {
+        // Combine both sources and deduplicate
+        const allColors = new Set<ScrewColor>([...layerColors, ...allScrewColors]);
+        callback(Array.from(allColors));
+      }
+    });
   }
 
   private updateAvailableScrewColors(colors: ScrewColor[]): void {
@@ -821,5 +884,180 @@ export class ContainerManager extends BaseSystem {
     }
     
     return availableByColor;
+  }
+
+  /**
+   * Check if we need to create additional containers when current count < max
+   * and screws need space. This provides proactive container creation.
+   */
+  public checkAndCreateAdditionalContainers(screwColor: ScrewColor): boolean {
+    // Check if we're already at max capacity
+    if (this.containers.length >= GAME_CONFIG.containers.count) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🏭 Cannot create container - at max capacity (${this.containers.length}/${GAME_CONFIG.containers.count})`);
+      }
+      return false;
+    }
+
+    // Check if there's already a container for this color with available space
+    const existingContainer = this.containers.find(container => 
+      container.color === screwColor && !container.isFull &&
+      container.holes.some((hole, idx) => hole === null && container.reservedHoles[idx] === null)
+    );
+    
+    if (existingContainer) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🏭 Container for color ${screwColor} already exists with available space: ${existingContainer.id}`);
+        console.log(`   Available holes:`, existingContainer.holes.map((hole, idx) => hole === null && existingContainer.reservedHoles[idx] === null));
+      }
+      return false; // Already have space for this color
+    }
+
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🏭 No existing container for color ${screwColor} with available space - proceeding with creation`);
+    }
+
+    // Create a new container for this color
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🏭 Creating additional container for color ${screwColor} (${this.containers.length}/${GAME_CONFIG.containers.count})`);
+    }
+
+    // Get real-time screw data to determine optimal hole count
+    this.emit({
+      type: 'remaining:screws:requested',
+      timestamp: Date.now(),
+      callback: (screwsByColor: Map<string, number>) => {
+        const screwsOfThisColor = screwsByColor.get(screwColor) || 1;
+        const optimalHoles = Math.min(3, Math.max(1, screwsOfThisColor));
+        
+        // Calculate position for new container
+        const containerWidth = UI_CONSTANTS.containers.width;
+        const spacing = UI_CONSTANTS.containers.spacing;
+        const startY = UI_CONSTANTS.containers.startY;
+        const containerHeight = UI_CONSTANTS.containers.height;
+        
+        // Position new container next to existing ones
+        const newIndex = this.containers.length;
+        const totalContainersWidth = ((newIndex + 1) * containerWidth) + (newIndex * spacing);
+        const startX = (this.virtualGameWidth - totalContainersWidth) / 2;
+        const containerLeftX = startX + (newIndex * (containerWidth + spacing));
+        const containerCenterX = containerLeftX + (containerWidth / 2);
+
+        const newContainer: Container = {
+          id: `container_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          color: screwColor,
+          position: {
+            x: containerCenterX,
+            y: startY + (containerHeight / 2)
+          },
+          holes: new Array(optimalHoles).fill(null),
+          reservedHoles: new Array(optimalHoles).fill(null),
+          maxHoles: optimalHoles,
+          isFull: false,
+          // Fade animation properties
+          fadeOpacity: 0,
+          fadeStartTime: Date.now(),
+          fadeDuration: 500, // 0.5 seconds
+          isFadingOut: false,
+          isFadingIn: true,
+        };
+
+        // Add to containers array
+        this.containers.push(newContainer);
+
+        // Update positioning of all containers to center them
+        this.repositionAllContainers();
+
+        // Update strategy manager
+        this.containerStrategy.updateContainerState(this.containers, []);
+
+        // Emit events
+        this.emit({
+          type: 'container:state:updated',
+          timestamp: Date.now(),
+          containers: this.containers
+        });
+
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`✅ Created additional container ${newContainer.id} for color ${screwColor} with ${optimalHoles} holes`);
+        }
+      }
+    });
+
+    return true;
+  }
+
+  /**
+   * Reposition all containers to center them properly when container count changes
+   */
+  private repositionAllContainers(): void {
+    const containerWidth = UI_CONSTANTS.containers.width;
+    const containerHeight = UI_CONSTANTS.containers.height;
+    const spacing = UI_CONSTANTS.containers.spacing;
+    const startY = UI_CONSTANTS.containers.startY;
+    
+    const totalContainersWidth = (this.containers.length * containerWidth) + ((this.containers.length - 1) * spacing);
+    const startX = (this.virtualGameWidth - totalContainersWidth) / 2;
+
+    this.containers.forEach((container, index) => {
+      const containerLeftX = startX + (index * (containerWidth + spacing));
+      const containerCenterX = containerLeftX + (containerWidth / 2);
+      
+      container.position.x = containerCenterX;
+      container.position.y = startY + (containerHeight / 2);
+    });
+  }
+
+  /**
+   * Proactively check if we need additional containers for newly visible colors
+   */
+  private checkForProactiveContainerCreation(visibleScrewColors: ScrewColor[]): void {
+    // Only create containers if we're under the limit
+    if (this.containers.length >= GAME_CONFIG.containers.count) {
+      return;
+    }
+
+    // Get existing container colors
+    const existingColors = new Set(this.containers.map(c => c.color));
+    
+    // Check which visible colors don't have containers
+    const colorsNeedingContainers = visibleScrewColors.filter(color => 
+      !existingColors.has(color)
+    );
+
+    if (DEBUG_CONFIG.logScrewDebug && colorsNeedingContainers.length > 0) {
+      console.log(`🏭 ContainerManager: Proactive check found ${colorsNeedingContainers.length} colors needing containers:`, colorsNeedingContainers);
+      console.log(`   Current containers: ${this.containers.length}/${GAME_CONFIG.containers.count}`);
+      console.log(`   Existing colors:`, Array.from(existingColors));
+    }
+
+    // Create containers for colors that need them, up to the limit
+    const remainingSlots = GAME_CONFIG.containers.count - this.containers.length;
+    const colorsToCreate = colorsNeedingContainers.slice(0, remainingSlots);
+    
+    for (const color of colorsToCreate) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🏭 ContainerManager: Proactively creating container for color ${color}`);
+      }
+      this.checkAndCreateAdditionalContainers(color);
+    }
+  }
+
+  /**
+   * Handle container creation requests from other systems
+   */
+  private handleContainerCreationRequested(event: import('../../events/EventTypes').ContainerCreationRequestedEvent): void {
+    this.executeIfActive(() => {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🏭 ContainerManager: Container creation requested for color ${event.screwColor}`);
+        console.log(`   Current containers: ${this.containers.length}/${GAME_CONFIG.containers.count}`);
+      }
+      
+      const created = this.checkAndCreateAdditionalContainers(event.screwColor);
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🏭 ContainerManager: Creation attempt result: ${created}`);
+      }
+    });
   }
 }
