@@ -68,6 +68,13 @@ export class GameState extends BaseSystem {
       // Initialize containers with screw colors when first layer is ready
       this.containerManager.initializeContainers(screwColors);
       
+      // Emit container colors updated event after initialization
+      this.emit({
+        type: 'container:colors:updated',
+        timestamp: Date.now(),
+        colors: this.containerManager.getContainers().map(c => c.color)
+      });
+      
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`GameState: Containers initialized with colors from layer shapes`);
       }

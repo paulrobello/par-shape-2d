@@ -419,6 +419,15 @@ export class ScrewManager extends BaseSystem {
       }
     }
     
+    // Also count screws that are currently being transferred from holding holes to containers
+    // These screws still need container space and should be included in sizing calculations
+    for (const screw of this.state.screws.values()) {
+      if (screw.isBeingTransferred && !screw.isCollected) {
+        const currentCount = counts.get(screw.color) || 0;
+        counts.set(screw.color, currentCount + 1);
+      }
+    }
+    
     // Count screws in holding holes - these also need container space eventually
     // But exclude ones already in same-color containers
     for (const hole of this.state.holdingHoles) {

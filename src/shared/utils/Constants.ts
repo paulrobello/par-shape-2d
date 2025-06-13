@@ -190,13 +190,14 @@ export const UI_CONSTANTS = {
     startY: 100,
     hole: {
       radius: 8,
+      innerRadius: 6,
       count: 3,
     },
   },
   holdingHoles: {
     radius: 8,
     spacing: 20,
-    startY: 187, // HUD bottom (200) - 5px gap - 8px radius = 187
+    startY: 158, // Reduced gap between containers and holding holes (was 187)
     innerRadius: 6,
   },
   screws: {
@@ -243,7 +244,7 @@ export const UI_CONSTANTS = {
 
 export const LAYOUT_CONSTANTS = {
   shapeArea: {
-    startY: 200,
+    startY: 171, // 5px past bottom of holding holes (158 + 8 + 5)
     backgroundColor: '#1A252F',
     borderColor: '#34495E',
   },

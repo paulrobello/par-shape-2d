@@ -3,11 +3,12 @@
  */
 
 import { IGameRenderManager, RenderState, IGameStateManager, IGameUIManager, IGameDebugManager } from './GameManagerTypes';
-import { GAME_CONFIG, UI_CONSTANTS, SCREW_COLORS, DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS, SCREW_COLORS, DEBUG_CONFIG, LAYOUT_CONSTANTS } from '@/shared/utils/Constants';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
 import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
 import { createRenderContext } from '@/shared/rendering/core/RenderContext';
 import { GeometryRenderer } from '@/shared/rendering/core/GeometryRenderer';
+import { ProgressBar } from '@/shared/rendering/components/ProgressBar';
 
 export class GameRenderManager implements IGameRenderManager {
   private state: RenderState;
@@ -16,9 +17,22 @@ export class GameRenderManager implements IGameRenderManager {
   private gameStateManager: IGameStateManager | null = null;
   private uiManager: IGameUIManager | null = null;
   private debugManager: IGameDebugManager | null = null;
+  
+  // UI Components
+  private progressBar: ProgressBar;
 
   constructor() {
     this.state = this.createInitialState();
+    
+    // Initialize progress bar
+    this.progressBar = new ProgressBar({
+      x: 20,
+      y: 15,
+      width: 200,
+      height: 16,
+      animationDuration: 300,
+      easing: 'ease-out'
+    });
   }
 
   private createInitialState(): RenderState {
@@ -226,22 +240,30 @@ export class GameRenderManager implements IGameRenderManager {
     if (!this.state.ctx) return;
 
     // Render HUD area background - extend to top of canvas
-    this.state.ctx.fillStyle = '#2C3E50';
+    this.state.ctx.fillStyle = '#222222'; // Dark gray HUD background
     this.state.ctx.fillRect(
       0, 
       0, // Start from very top of canvas
       this.state.virtualGameWidth, 
-      200 // Extended HUD area to bottom of containers
+      LAYOUT_CONSTANTS.shapeArea.startY // HUD area to 5px past holding holes
     );
 
-    // Render holding hole area background
-    this.state.ctx.fillStyle = '#2C3E50';
+    // Render shape area background (covers everything below HUD to bottom of canvas)
+    this.state.ctx.fillStyle = LAYOUT_CONSTANTS.shapeArea.backgroundColor;
     this.state.ctx.fillRect(
-      0, 
-      this.state.virtualGameHeight - 100, // Holding hole area Y
-      this.state.virtualGameWidth, 
-      100 // Holding hole area height
+      0,
+      LAYOUT_CONSTANTS.shapeArea.startY, // Start after HUD area
+      this.state.virtualGameWidth,
+      this.state.virtualGameHeight - LAYOUT_CONSTANTS.shapeArea.startY // Fill to bottom of canvas
     );
+
+    // Add border between HUD and shapes area
+    this.state.ctx.strokeStyle = LAYOUT_CONSTANTS.shapeArea.borderColor;
+    this.state.ctx.lineWidth = 2;
+    this.state.ctx.beginPath();
+    this.state.ctx.moveTo(0, LAYOUT_CONSTANTS.shapeArea.startY);
+    this.state.ctx.lineTo(this.state.virtualGameWidth, LAYOUT_CONSTANTS.shapeArea.startY);
+    this.state.ctx.stroke();
   }
 
   private renderContainers(): void {
@@ -283,14 +305,14 @@ export class GameRenderManager implements IGameRenderManager {
         const screwId = container.holes[i];
         const isOccupied = screwId !== null;
         
-        // Render hole
-        GeometryRenderer.renderCircle(this.state.ctx!, {
+        // Render two-layer hole using shared renderer
+        GeometryRenderer.renderTwoLayerHole(this.state.ctx!, {
           x: holeX,
           y: holeY,
-          radius: holeRadius,
-          fillColor: isOccupied ? '#2C3E50' : '#1A1A1A',
-          strokeColor: '#5F6368',
-          lineWidth: 1
+          outerRadius: holeRadius,
+          innerRadius: UI_CONSTANTS.containers.hole.innerRadius,
+          innerFillColor: isOccupied ? '#2C3E50' : '#0A0A0A',
+          innerStrokeColor: isOccupied ? '#E74C3C' : '#3C3C3C'
         });
         
         // If hole has a screw, render it using ScrewRenderer with smaller scale
@@ -325,24 +347,14 @@ export class GameRenderManager implements IGameRenderManager {
       const innerRadius = UI_CONSTANTS.holdingHoles.innerRadius;
       const isFilled = hole.screwId !== null;
       
-      // Render outer hole border
-      GeometryRenderer.renderCircle(this.state.ctx!, {
+      // Render two-layer hole using shared renderer
+      GeometryRenderer.renderTwoLayerHole(this.state.ctx!, {
         x: hole.position.x,
         y: hole.position.y,
-        radius: radius,
-        fillColor: '#1A1A1A',
-        strokeColor: '#5F6368',
-        lineWidth: 2
-      });
-      
-      // Render inner hole
-      GeometryRenderer.renderCircle(this.state.ctx!, {
-        x: hole.position.x,
-        y: hole.position.y,
-        radius: innerRadius,
-        fillColor: isFilled ? '#2C3E50' : '#0A0A0A',
-        strokeColor: isFilled ? '#E74C3C' : '#3C3C3C',
-        lineWidth: 1
+        outerRadius: radius,
+        innerRadius: innerRadius,
+        innerFillColor: isFilled ? '#2C3E50' : '#0A0A0A',
+        innerStrokeColor: isFilled ? '#E74C3C' : '#3C3C3C'
       });
 
       // If filled, render the actual screw using ScrewRenderer
@@ -413,29 +425,16 @@ export class GameRenderManager implements IGameRenderManager {
       });
     }
 
-    // Render progress bar with proper positioning
-    const progressBarX = 20;
-    const progressBarY = 15;
-    const progressBarWidth = 200;
-    const progressBarHeight = 16;
-
-    // Render progress bar background with border
-    this.state.ctx.fillStyle = 'rgba(44, 62, 80, 0.9)';
-    this.state.ctx.fillRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
-    
-    // Render progress bar border
-    this.state.ctx.strokeStyle = '#BDC3C7';
-    this.state.ctx.lineWidth = 1;
-    this.state.ctx.strokeRect(progressBarX, progressBarY, progressBarWidth, progressBarHeight);
-
-    // Render progress bar fill
-    if (progressPercent > 0) {
-      const fillWidth = Math.max(2, (progressBarWidth - 2) * progressPercent / 100);
-      this.state.ctx.fillStyle = progressPercent >= 100 ? '#27AE60' : '#3498DB';
-      this.state.ctx.fillRect(progressBarX + 1, progressBarY + 1, fillWidth, progressBarHeight - 2);
-    }
+    // Update and render animated progress bar
+    this.progressBar.setProgress(progressPercent);
+    this.progressBar.update();
+    this.progressBar.render(this.state.ctx);
 
     // Render progress text
+    const progressBarX = 20; // Match progress bar position
+    const progressBarY = 15;
+    const progressBarHeight = 16;
+    
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '14px Arial';
     this.state.ctx.textAlign = 'left';

@@ -46,7 +46,6 @@ export class ContainerManager extends BaseSystem {
     
     // Layer events for color updates
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
-    this.subscribe('layer:shapes:ready', this.handleLayerShapesReady.bind(this));
   }
 
   private handleContainerFilled(event: ContainerFilledEvent): void {
@@ -180,52 +179,6 @@ export class ContainerManager extends BaseSystem {
     });
   }
 
-  private handleLayerShapesReady(event: import('../../events/EventTypes').LayerShapesReadyEvent): void {
-    this.executeIfActive(() => {
-      const { screwColors } = event;
-
-      // Get holding hole colors to ensure containers are created for all screws
-      this.emit({
-        type: 'holding_hole_state:request',
-        timestamp: Date.now(),
-        callback: (holdingHoles: import('@/types/game').HoldingHole[]) => {
-          // Collect colors from holding holes
-          const holdingHoleColors: ScrewColor[] = [];
-          holdingHoles.forEach(hole => {
-            if (hole.screwColor && !holdingHoleColors.includes(hole.screwColor)) {
-              holdingHoleColors.push(hole.screwColor);
-            }
-          });
-
-          // Combine shape colors and holding hole colors
-          const allColors = [...screwColors];
-          holdingHoleColors.forEach(color => {
-            if (!allColors.includes(color)) {
-              allColors.push(color);
-            }
-          });
-
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`ContainerManager: Initializing containers with colors:`, {
-              fromShapes: screwColors,
-              fromHoldingHoles: holdingHoleColors,
-              combined: allColors
-            });
-          }
-
-          // Initialize containers with all colors
-          this.initializeContainers(allColors);
-
-          // Emit container colors updated event
-          this.emit({
-            type: 'container:colors:updated',
-            timestamp: Date.now(),
-            colors: this.containers.map(c => c.color)
-          });
-        }
-      });
-    });
-  }
 
   // Container Management Methods
   public initializeContainers(activeScrewColors?: ScrewColor[], virtualGameWidth?: number, virtualGameHeight?: number): void {
@@ -253,8 +206,24 @@ export class ContainerManager extends BaseSystem {
       console.log(`🎨 ContainerManager: Screw counts by color:`, Array.from(screwsByColor.entries()));
     }
     
-    // Prioritize colors that have screws needing containers
-    if (availableScrewColors.length >= GAME_CONFIG.containers.count) {
+    // At game start, screwsByColor might be empty because screws are still being initialized
+    // Fall back to activeScrewColors from layer shapes in that case
+    if (availableScrewColors.length === 0 && activeScrewColors && activeScrewColors.length > 0) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎨 ContainerManager: Using active screw colors from shapes for initial containers (screw data not yet available)`);
+      }
+      // Use the same smart logic as replacement containers - prioritize colors from shapes
+      if (activeScrewColors.length >= GAME_CONFIG.containers.count) {
+        colors = getRandomColorsFromList(activeScrewColors, GAME_CONFIG.containers.count);
+      } else {
+        colors = [...activeScrewColors];
+        const remainingSlots = GAME_CONFIG.containers.count - colors.length;
+        if (remainingSlots > 0) {
+          const additionalColors = getRandomScrewColors(remainingSlots);
+          colors.push(...additionalColors.filter(c => !colors.includes(c)));
+        }
+      }
+    } else if (availableScrewColors.length >= GAME_CONFIG.containers.count) {
       // Sort by screw count to prioritize colors with more screws
       const sortedColors = availableScrewColors.sort((a, b) => {
         const countA = screwsByColor.get(a) || 0;
@@ -291,7 +260,11 @@ export class ContainerManager extends BaseSystem {
       
       // Calculate optimal holes based on actual screw count (1-3 holes)
       const totalScrewsOfColor = screwsByColor.get(color) || 0;
-      const optimalHoles = Math.min(3, Math.max(1, totalScrewsOfColor));
+      // At game start, if screw data isn't available yet, use a reasonable default of 2 holes
+      // This will be corrected later when containers are replaced based on actual screw counts
+      const optimalHoles = totalScrewsOfColor > 0 
+        ? Math.min(3, Math.max(1, totalScrewsOfColor))
+        : 2; // Default for initial containers when screw data not yet available
       
       console.log(`🏭 Creating container ${index}: leftX=${containerLeftX}, centerX=${containerCenterX}, width=${containerWidth}, color=${color}, holes=${optimalHoles} (for ${totalScrewsOfColor} screws)`);
       

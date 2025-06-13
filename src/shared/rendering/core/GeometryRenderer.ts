@@ -74,6 +74,19 @@ export interface PointOptions {
   style?: 'circle' | 'cross' | 'dot';
 }
 
+export interface TwoLayerHoleOptions {
+  x: number;
+  y: number;
+  outerRadius: number;
+  innerRadius: number;
+  outerFillColor?: string;
+  outerStrokeColor?: string;
+  outerLineWidth?: number;
+  innerFillColor?: string;
+  innerStrokeColor?: string;
+  innerLineWidth?: number;
+}
+
 /**
  * Consolidated geometry rendering class
  */
@@ -106,6 +119,45 @@ export class GeometryRenderer {
       if (strokeColor) {
         ctx.stroke();
       }
+    });
+  }
+
+  /**
+   * Render a two-layer hole (outer border + inner hole)
+   * Used for container holes and holding holes
+   */
+  static renderTwoLayerHole(ctx: CanvasRenderingContext2D, options: TwoLayerHoleOptions): void {
+    const {
+      x,
+      y,
+      outerRadius,
+      innerRadius,
+      outerFillColor = '#1A1A1A',
+      outerStrokeColor = '#5F6368',
+      outerLineWidth = 2,
+      innerFillColor = '#0A0A0A',
+      innerStrokeColor = '#3C3C3C',
+      innerLineWidth = 1
+    } = options;
+
+    // Render outer hole border
+    this.renderCircle(ctx, {
+      x,
+      y,
+      radius: outerRadius,
+      fillColor: outerFillColor,
+      strokeColor: outerStrokeColor,
+      lineWidth: outerLineWidth
+    });
+
+    // Render inner hole
+    this.renderCircle(ctx, {
+      x,
+      y,
+      radius: innerRadius,
+      fillColor: innerFillColor,
+      strokeColor: innerStrokeColor,
+      lineWidth: innerLineWidth
     });
   }
 
