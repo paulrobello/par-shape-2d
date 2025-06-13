@@ -11,25 +11,29 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 ## Gameplay
 
 * The objective is to clear all container boxes by filling them with screws of the corresponding color.
-* The top of the screen has a HUD 
-* The first line of the HUD should have the current current screw progress with percent
-* The 2nd line of the HUD should level number
-* The 3rd line of the HUD should have the current level score
+* All game rendering takes place in an HTML Canvas element.
+* The top of the canvas has a HUD.
+* The first line of the HUD should be a progress bar that shows the current screw progress and percent complete.
+* The 2nd line of the HUD should have screws remaining count.
+* The 3rd line of the HUD should be level number
+* The 4th line of the HUD should have the current level score
 * After completing a level, increment the level number and reset the current level score to 0 and generate a new playing area.
-* Below the 3rd line of the HUD is a set of 4 container boxes each with 1 to 3 holes in them.
+* Below the 4th line of the HUD is a set of 4 container boxes each with 1 to 3 holes in them.
 * The number of holes in each container box is determined by the number of screws remaining of the corresponding color in both shapes and holding holes up to 3.
-* Each container box has a different color and is associated with a specific screw color.
+* Each container box has a color and is associated with a specific screw color.
 * When a screw is removed, it flies to the container box that matches its color, that has an empty hole and has the most holes filled.
 * When a container box is full, it should delay for 1 second then fade out. 
 * Each screw removed with the container box adds to the screw progress tracking and adds to the current level score. If the level is completed, the score is added to the game total score.
-* When a container box is removed a new container box should fade in with random color selected from screw colors that are in visible shapes or container holes.
+* When a container box is removed a new container box if needed should fade in with random color selected from screw colors that are in visible shapes or holding holes.
 * Under the row of container boxes is a row of 5 empty holding holes that are used to hold screws that get removed from shapes but do not match any of the container boxes.
 * When a new container box is added, if any screws are in the holding holes, they should be moved to the new container box if it has an empty hole that matches their color.
 * When all holding holes are full, the player has 5 seconds to try and free up a holding hole or they loose the game and must restart the current level.
-* Under the row of holding holes is a stack of layers that contain shapes.
+* Screws when moving to a holding hole or container box should reserve their target hole so no other screws can move to that hole.
+* Under the row of holding holes is shape area
+* The shape area is a stack of layers that contain shapes.
 * Each level has 10 or more layers but only 4 are visible at a time.
 * The number of layers is computed as 10 + floor(level number / 3).
-* 3 to 6 shapes are loaded into a layer.
+* 6 shapes are loaded into each layer.
 * 1 to 10 screws are loaded into each shape depending on shape and size.
 * Shapes physics only interact with the layer they are in.
 * The screws in the shape should not overlap with each other or the edge of the shape itself. Use a margin of 5 pixels from the edge of the shape or other screws.
@@ -43,7 +47,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * Screws should be randomly colored but must be one of the following colors: pink, red, green, blue, light blue, yellow, purple, orange, or brown.
 * If a blocked screw is clicked, it should shake to indicate it cannot be removed.
 * When all shapes are removed from a layer, if there are any more layers remaining the next layer should fade in and the player can continue removing screws from shapes.
-* All layers shouldbe generated at once so the total number of screws in the level is known.
+* All layers should be generated at start of the level so the total number of screws and number of each color of screw in the level is known.
 
 ## Physics
 
@@ -52,7 +56,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * Shapes are rigid bodies with low friction and can collide with each other in their layer.
 * Screws are constraints that are attached to the shapes and can be removed by the player.
 * Screws should only interact with the shape they are attached to.
-* If a shapes only has one screw in it, the shape can be allowed rotate around the screw.
+* If a shapes only has one screw in it, the shape is allowed rotate around the screw.
 
 ## Animation
 
@@ -60,6 +64,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * If a blocked screw is clicked, it should shake to indicate it cannot be removed.
 * The shake animation lasts 300ms with alternating horizontal/vertical oscillations.
 * Mobile devices provide haptic feedback (50ms vibration) when blocked screws are clicked.
+* The progress bar should animate smoothly when updated.
 
 ## Graphics
 
@@ -68,7 +73,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * Shapes should be rendered with a solid border and a translucent inner area.
 * Generate the shape graphics using a combination of HTML Canvas drawing functions.
 * Select points on the shapes for screw holes based on the shape type and size. Draw small transparent circles with solid borders at these points to represent the screw holes.
-* Screws should be rendered as small circles with a solid color and a small border. They should also have have a little x in the center to repsent the screw head.
+* Screws should be rendered as small circles with a solid color and a small border. They should also have have a little x in the center to represent the screw head.
 
 ## Mobile Support
 
@@ -105,5 +110,4 @@ npm run dev          # Start development server
 ## More Information 
 
 * Read all files in the `docs` folder including looking at any images
-* See `shared_refactor.md` for detailed architectural documentation
 * Check `CLAUDE.md` for development guidelines and patterns
