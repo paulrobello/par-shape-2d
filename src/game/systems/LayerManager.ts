@@ -11,7 +11,6 @@ import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG, getTotalLayer
 import { ScrewColor } from '@/types/game';
 import { randomIntBetween } from '@/game/utils/MathUtils';
 import Matter from 'matter-js';
-// Removed precomputation imports - no longer using precomputation system
 import {
   BoundsChangedEvent,
   LevelStartedEvent,

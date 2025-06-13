@@ -190,10 +190,13 @@ export class GameStateCore extends BaseSystem {
         console.log(`[GameStateCore] Progress details: ${event.totalScrews} screws, ${event.finalProgress}% complete`);
       }
       
-      // No auto-progression - GameManager now handles the 3-second delay and user confirmation
-      // Just emit the level:complete event for GameManager to handle
-      // NOTE: Do NOT add level score to total score here - it will be added later in the completion flow
+      // Add level score to total score once when level is completed
       this.state.levelComplete = true;
+      this.state.totalScore += this.state.levelScore;
+      
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`[GameStateCore] Level completed! Added ${this.state.levelScore} to total. New total: ${this.state.totalScore}`);
+      }
       
       this.emit({
         type: 'level:complete',
@@ -202,8 +205,11 @@ export class GameStateCore extends BaseSystem {
         score: this.state.levelScore
       });
 
-      // Don't emit total:score:updated here since score wasn't changed
-      // The score will be added to total when the level complete flow finishes
+      this.emit({
+        type: 'total:score:updated',
+        timestamp: Date.now(),
+        totalScore: this.state.totalScore
+      });
       
       this.markUnsavedChanges();
     });
@@ -314,21 +320,8 @@ export class GameStateCore extends BaseSystem {
 
   public nextLevel(): void {
     this.executeIfActive(() => {
-      // Add the previous level's score to the total before resetting
-      const previousLevelScore = this.state.levelScore;
-      if (previousLevelScore > 0) {
-        this.state.totalScore += previousLevelScore;
-        
-        this.emit({
-          type: 'total:score:updated',
-          timestamp: Date.now(),
-          totalScore: this.state.totalScore
-        });
-        
-        if (DEBUG_CONFIG.logEventFlow) {
-          console.log(`[GameStateCore] Added level score ${previousLevelScore} to total. New total: ${this.state.totalScore}`);
-        }
-      }
+      // NOTE: Level score is already added to total score in the level completion flow
+      // Do NOT add it again here to prevent duplication
       
       this.state.currentLevel++;
       this.state.levelScore = 0;
