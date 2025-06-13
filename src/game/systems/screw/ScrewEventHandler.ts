@@ -224,12 +224,30 @@ export class ScrewEventHandler implements IScrewEventHandler {
       }
     }
 
-    // Remove the screws
+    // Remove the screws, but preserve collected screws that are in containers or holding holes
     for (const screwId of screwsToRemove) {
-      this.callbacks.onScrewDestroyed?.(screwId);
-      this.state.screws.delete(screwId);
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`Removed screw ${screwId} from shape ${event.shape.id}`);
+      const screw = this.state.screws.get(screwId);
+      
+      // Check if this screw is in a container or holding hole
+      const isInContainer = this.state.containers.some(container => 
+        container.holes.includes(screwId)
+      );
+      const isInHoldingHole = this.state.holdingHoles.some(hole => 
+        hole.screwId === screwId
+      );
+      
+      if (screw && screw.isCollected && (isInContainer || isInHoldingHole)) {
+        // Don't delete collected screws that are placed in containers/holding holes
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`Preserving collected screw ${screwId} from shape ${event.shape.id} (in container: ${isInContainer}, in holding hole: ${isInHoldingHole})`);
+        }
+      } else {
+        // Safe to delete non-collected or unplaced screws
+        this.callbacks.onScrewDestroyed?.(screwId);
+        this.state.screws.delete(screwId);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`Removed screw ${screwId} from shape ${event.shape.id}`);
+        }
       }
     }
 
@@ -432,10 +450,31 @@ export class ScrewEventHandler implements IScrewEventHandler {
       }
     }
     
-    // Remove the screws
+    // Remove the screws, but preserve collected screws that are in containers or holding holes
     for (const screwId of screwsToRemove) {
-      this.callbacks.onScrewDestroyed?.(screwId);
-      this.state.screws.delete(screwId);
+      const screw = this.state.screws.get(screwId);
+      
+      // Check if this screw is in a container or holding hole
+      const isInContainer = this.state.containers.some(container => 
+        container.holes.includes(screwId)
+      );
+      const isInHoldingHole = this.state.holdingHoles.some(hole => 
+        hole.screwId === screwId
+      );
+      
+      if (screw && screw.isCollected && (isInContainer || isInHoldingHole)) {
+        // Don't delete collected screws that are placed in containers/holding holes
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`Preserving collected screw ${screwId} from layer ${event.layer.id} (in container: ${isInContainer}, in holding hole: ${isInHoldingHole})`);
+        }
+      } else {
+        // Safe to delete non-collected or unplaced screws
+        this.callbacks.onScrewDestroyed?.(screwId);
+        this.state.screws.delete(screwId);
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`Removed screw ${screwId} from layer ${event.layer.id}`);
+        }
+      }
     }
     
     // Also remove shapes from the cleared layer
