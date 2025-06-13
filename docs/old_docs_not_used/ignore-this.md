@@ -16,20 +16,12 @@ A comprehensive technical design documents are available in the `docs` docs whic
 ## Webserver
 
 * The app is running in a dev server at url http://localhost:3000/
-* If the user requests you take a screenshot of the app, use the Selenium MCP server to navigate to the app URL wait for the user to tell you to proceed then take a screenshot and save it to the project root as screenshot.png.
+* If the user requests you take a screenshot of the app, use the BrowserMCP server to navigate to the app URL **Important** WAIT for the user to tell you to proceed then take a screenshot.
 
-## Selenium MCP Screenshot Best Practices
+## Screenshots
 
-When taking screenshots using the Selenium MCP server:
-1. **Only take a screenshot if the user requests it**
-2. **Always save screenshots to a file first** using the `outputPath` parameter
-3. **Never directly read the screenshot data** from the MCP response as it can cause context size issues
+When taking screenshots using the Browser MCP server: **Only take a screenshot if the user requests it**
 
-Example workflow:
-```
-1. mcp__selenium__take_screenshot with outputPath: "/path/to/screenshot.png"
-2. Read file_path: "/path/to/screenshot.png"
-```
 
 ## Shape Editor
 
