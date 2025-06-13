@@ -512,9 +512,10 @@ export class ScrewEventHandler implements IScrewEventHandler {
       }
     }
     
-    // Count screws in shapes (not collected and not being collected)
+    // Count screws in shapes (not collected, not being collected, AND removable/clickable)
+    // Only count screws that are actually accessible to the player (in visible layers)
     for (const screw of this.state.screws.values()) {
-      if (!screw.isCollected && !screw.isBeingCollected) {
+      if (!screw.isCollected && !screw.isBeingCollected && screw.isRemovable) {
         const count = screwsByColor.get(screw.color) || 0;
         screwsByColor.set(screw.color, count + 1);
       }
@@ -537,10 +538,23 @@ export class ScrewEventHandler implements IScrewEventHandler {
     }
 
     if (DEBUG_CONFIG.logScrewDebug) {
+      // Additional debugging to track removable vs non-removable screws
+      const totalScrews = this.state.screws.size;
+      const collectedScrews = Array.from(this.state.screws.values()).filter(s => s.isCollected).length;
+      const beingCollectedScrews = Array.from(this.state.screws.values()).filter(s => s.isBeingCollected).length;
+      const removableScrews = Array.from(this.state.screws.values()).filter(s => !s.isCollected && !s.isBeingCollected && s.isRemovable).length;
+      const nonRemovableScrews = Array.from(this.state.screws.values()).filter(s => !s.isCollected && !s.isBeingCollected && !s.isRemovable).length;
+      
       const totalInContainers = Array.from(screwsInContainersByColor.values()).reduce((sum, set) => sum + set.size, 0);
-      console.log('Screws already in containers by color:', Array.from(screwsInContainersByColor.entries()).map(([color, set]) => `${color}: ${set.size}`));
-      console.log('Total screws in containers:', totalInContainers);
-      console.log('Screws needing container space by color:', Array.from(screwsByColor.entries()));
+      console.log('🔧 Remaining screw count analysis:');
+      console.log('  - Total screws:', totalScrews);
+      console.log('  - Collected screws:', collectedScrews);
+      console.log('  - Being collected screws:', beingCollectedScrews);
+      console.log('  - Removable screws (counted):', removableScrews);
+      console.log('  - Non-removable screws (hidden layers, excluded):', nonRemovableScrews);
+      console.log('  - Screws already in containers by color:', Array.from(screwsInContainersByColor.entries()).map(([color, set]) => `${color}: ${set.size}`));
+      console.log('  - Total screws in containers:', totalInContainers);
+      console.log('  - Screws needing container space by color:', Array.from(screwsByColor.entries()));
     }
 
     // Use the callback
