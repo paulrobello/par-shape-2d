@@ -192,8 +192,8 @@ export class GameStateCore extends BaseSystem {
       
       // No auto-progression - GameManager now handles the 3-second delay and user confirmation
       // Just emit the level:complete event for GameManager to handle
+      // NOTE: Do NOT add level score to total score here - it will be added later in the completion flow
       this.state.levelComplete = true;
-      this.state.totalScore += this.state.levelScore;
       
       this.emit({
         type: 'level:complete',
@@ -202,11 +202,8 @@ export class GameStateCore extends BaseSystem {
         score: this.state.levelScore
       });
 
-      this.emit({
-        type: 'total:score:updated',
-        timestamp: Date.now(),
-        totalScore: this.state.totalScore
-      });
+      // Don't emit total:score:updated here since score wasn't changed
+      // The score will be added to total when the level complete flow finishes
       
       this.markUnsavedChanges();
     });
@@ -317,6 +314,22 @@ export class GameStateCore extends BaseSystem {
 
   public nextLevel(): void {
     this.executeIfActive(() => {
+      // Add the previous level's score to the total before resetting
+      const previousLevelScore = this.state.levelScore;
+      if (previousLevelScore > 0) {
+        this.state.totalScore += previousLevelScore;
+        
+        this.emit({
+          type: 'total:score:updated',
+          timestamp: Date.now(),
+          totalScore: this.state.totalScore
+        });
+        
+        if (DEBUG_CONFIG.logEventFlow) {
+          console.log(`[GameStateCore] Added level score ${previousLevelScore} to total. New total: ${this.state.totalScore}`);
+        }
+      }
+      
       this.state.currentLevel++;
       this.state.levelScore = 0;
       this.state.levelComplete = false;
