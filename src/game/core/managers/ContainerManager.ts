@@ -57,6 +57,14 @@ export class ContainerManager extends BaseSystem {
         
         // Note: Progress tracking handled by ProgressTracker.ts
         
+        // Emit event to clear any holding holes containing screws from this container
+        this.emit({
+          type: 'container:removing:screws',
+          timestamp: Date.now(),
+          containerIndex: event.containerIndex,
+          screwIds: event.screws
+        });
+        
         this.markContainerForRemoval(container.id);
       }
     });
@@ -208,13 +216,34 @@ export class ContainerManager extends BaseSystem {
   private createInitialContainersWithOptimalHoles(screwsByColor: Map<string, number>, activeScrewColors?: ScrewColor[], virtualGameWidth?: number): void {
     let colors: ScrewColor[];
 
-    // Get colors from available screws or use provided colors
+    // Get colors from available screws (this includes holding hole screws from screwsByColor)
     const availableScrewColors = Array.from(screwsByColor.keys()).filter(color => screwsByColor.get(color)! > 0) as ScrewColor[];
     
-    if (activeScrewColors && activeScrewColors.length >= GAME_CONFIG.containers.count) {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🎨 ContainerManager: Available screw colors from all sources:`, availableScrewColors);
+      console.log(`🎨 ContainerManager: Active screw colors from shapes:`, activeScrewColors);
+      console.log(`🎨 ContainerManager: Screw counts by color:`, Array.from(screwsByColor.entries()));
+    }
+    
+    // Prioritize colors that have screws needing containers
+    if (availableScrewColors.length >= GAME_CONFIG.containers.count) {
+      // Sort by screw count to prioritize colors with more screws
+      const sortedColors = availableScrewColors.sort((a, b) => {
+        const countA = screwsByColor.get(a) || 0;
+        const countB = screwsByColor.get(b) || 0;
+        return countB - countA; // Descending order
+      });
+      colors = sortedColors.slice(0, GAME_CONFIG.containers.count);
+    } else if (availableScrewColors.length > 0) {
+      // Use all available colors and fill remaining slots randomly
+      colors = [...availableScrewColors];
+      const remainingSlots = GAME_CONFIG.containers.count - colors.length;
+      if (remainingSlots > 0) {
+        const additionalColors = getRandomScrewColors(remainingSlots);
+        colors.push(...additionalColors.filter(c => !colors.includes(c)));
+      }
+    } else if (activeScrewColors && activeScrewColors.length >= GAME_CONFIG.containers.count) {
       colors = getRandomColorsFromList(activeScrewColors, GAME_CONFIG.containers.count);
-    } else if (availableScrewColors.length >= GAME_CONFIG.containers.count) {
-      colors = getRandomColorsFromList(availableScrewColors, GAME_CONFIG.containers.count);
     } else {
       colors = getRandomScrewColors(GAME_CONFIG.containers.count);
     }
@@ -266,6 +295,12 @@ export class ContainerManager extends BaseSystem {
       type: 'container:state:updated',
       timestamp: Date.now(),
       containers: this.containers
+    });
+    
+    // Trigger automatic transfers from holding holes to new containers
+    this.emit({
+      type: 'holding_holes:check_transfers',
+      timestamp: Date.now()
     });
     
     if (DEBUG_CONFIG.logScrewDebug) {
@@ -342,6 +377,16 @@ export class ContainerManager extends BaseSystem {
   private checkAndReplaceContainer(containerIndex: number): void {
     if (containerIndex < 0 || containerIndex >= this.containers.length) return;
 
+    const targetContainer = this.containers[containerIndex];
+    
+    // Safety check: Only replace containers that are actually marked for removal and full
+    if (!targetContainer.isMarkedForRemoval || !targetContainer.isFull) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`[CONTAINER_STRATEGY] ⚠️ Skipping replacement for container ${targetContainer.id} - not marked for removal (${targetContainer.isMarkedForRemoval}) or not full (${targetContainer.isFull})`);
+      }
+      return;
+    }
+
     // Get real-time screw data from ScrewManager
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`[CONTAINER_STRATEGY] Requesting remaining screw counts for smart replacement...`);
@@ -378,14 +423,69 @@ export class ContainerManager extends BaseSystem {
             console.log(`[CONTAINER_STRATEGY] Color ${color}: ${count} screws, ${availableSpace} available space, need: ${need}`);
           }
           
-          if (need > 0) {
+          // Only consider replacement needed if there are actually screws that need space
+          // AND the need is significant (more than just 1 screw)
+          if (need > 1) {
             needsReplacement = true;
             if (need > maxNeed) {
               maxNeed = need;
               priorityColor = color as ScrewColor;
             }
+          } else if (need === 1) {
+            // For single screw needs, only replace if there are no other containers of this color
+            const otherContainersOfSameColor = this.containers.filter((c, idx) => 
+              idx !== containerIndex && c.color === color && !c.isFull && !c.isMarkedForRemoval
+            ).length;
+            
+            if (otherContainersOfSameColor === 0) {
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`[CONTAINER_STRATEGY] Single screw need for ${color}, no other containers available - replacement needed`);
+              }
+              needsReplacement = true;
+              if (need > maxNeed) {
+                maxNeed = need;
+                priorityColor = color as ScrewColor;
+              }
+            } else {
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`[CONTAINER_STRATEGY] Single screw need for ${color}, but ${otherContainersOfSameColor} other containers available - no replacement needed`);
+              }
+            }
           }
         });
+        
+        // Additional check: If there are screws in holding holes that would be stranded without containers,
+        // we need to create a replacement even if the basic need calculation says no replacement needed
+        if (!needsReplacement || !priorityColor) {
+          // Check for stranded holding hole screws before deciding no replacement is needed
+          const remainingContainersAfterRemoval = this.containers.filter((c, idx) => 
+            idx !== containerIndex && !c.isFull && !c.isMarkedForRemoval
+          );
+          
+          // Check if removing this container would leave holding hole screws without options
+          let hasStrandedHoldingHoleScrews = false;
+          screwsByColor.forEach((count, color) => {
+            if (count > 0) {
+              const availableContainersForColor = remainingContainersAfterRemoval.filter(c => c.color === color).length;
+              if (availableContainersForColor === 0) {
+                if (DEBUG_CONFIG.logScrewDebug) {
+                  console.log(`[CONTAINER_STRATEGY] Color ${color} has ${count} screws but no available containers after removal - stranded screws detected`);
+                }
+                hasStrandedHoldingHoleScrews = true;
+                if (!priorityColor) {
+                  priorityColor = color as ScrewColor;
+                }
+              }
+            }
+          });
+          
+          if (hasStrandedHoldingHoleScrews) {
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`[CONTAINER_STRATEGY] Forcing replacement due to stranded holding hole screws`);
+            }
+            needsReplacement = true;
+          }
+        }
         
         if (!needsReplacement || !priorityColor) {
           // No replacement needed - just remove the container
@@ -423,6 +523,21 @@ export class ContainerManager extends BaseSystem {
           }
           
           const oldContainer = this.containers[containerIndex];
+          
+          // Safety check: Only abort if container has screws but is NOT marked for removal
+          // If container is marked for removal, it's okay to replace it even with screws (they're being collected)
+          const screwsInOldContainer = oldContainer.holes.filter(id => id !== null).length;
+          if (screwsInOldContainer > 0 && !oldContainer.isMarkedForRemoval) {
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`[CONTAINER_STRATEGY] ⚠️ Aborting replacement - container ${oldContainer.id} has ${screwsInOldContainer} screws but is not marked for removal!`);
+            }
+            return;
+          }
+          
+          if (DEBUG_CONFIG.logScrewDebug && screwsInOldContainer > 0) {
+            console.log(`[CONTAINER_STRATEGY] Replacing container ${oldContainer.id} with ${screwsInOldContainer} screws (container marked for removal - screws will be collected)`);
+          }
+          
           const optimalContainer = this.createOptimalContainerFromStrategy(priorityColor, optimalHoles, oldContainer.position);
           
           // Replace the container
@@ -444,6 +559,12 @@ export class ContainerManager extends BaseSystem {
             type: 'container:state:updated',
             timestamp: Date.now(),
             containers: this.containers
+          });
+          
+          // Trigger automatic transfers from holding holes to the new container
+          this.emit({
+            type: 'holding_holes:check_transfers',
+            timestamp: Date.now()
           });
         }
         

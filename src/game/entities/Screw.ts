@@ -36,6 +36,9 @@ export class Screw implements IScrew {
   public shakeProgress: number = 0; // 0-1 for shake animation
   public shakeOffset: Vector2 = { x: 0, y: 0 }; // Current shake offset
 
+  // Debug throttling for position updates
+  private lastPositionLogTime: number = 0;
+
   constructor(
     id: string,
     shapeId: string,
@@ -249,12 +252,16 @@ export class Screw implements IScrew {
     this.position.x = shapeBody.position.x + (this.localOffset.x * cos - this.localOffset.y * sin);
     this.position.y = shapeBody.position.y + (this.localOffset.x * sin + this.localOffset.y * cos);
 
-    // DEBUG: Log when position updates occur (if debug enabled)
-    if (DEBUG_CONFIG.logScrewDebug) {
+    // DEBUG: Log when position updates occur (if debug enabled and throttled)
+    if (DEBUG_CONFIG.logScrewPositionUpdates) {
       const moved = Math.abs(oldPosition.x - this.position.x) > 0.1 || Math.abs(oldPosition.y - this.position.y) > 0.1;
       if (moved) {
-        console.log(`🔄 SCREW UPDATE: ${this.id} moved from (${oldPosition.x.toFixed(1)}, ${oldPosition.y.toFixed(1)}) to (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`);
-        console.log(`   Shape body: (${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)}), angle: ${(shapeBody.angle * 180 / Math.PI).toFixed(1)}°`);
+        const now = Date.now();
+        if (now - this.lastPositionLogTime >= DEBUG_CONFIG.screwPositionThrottleMs) {
+          console.log(`🔄 SCREW UPDATE: ${this.id} moved from (${oldPosition.x.toFixed(1)}, ${oldPosition.y.toFixed(1)}) to (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`);
+          console.log(`   Shape body: (${shapeBody.position.x.toFixed(1)}, ${shapeBody.position.y.toFixed(1)}), angle: ${(shapeBody.angle * 180 / Math.PI).toFixed(1)}°`);
+          this.lastPositionLogTime = now;
+        }
       }
     }
   }

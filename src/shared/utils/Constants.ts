@@ -42,7 +42,7 @@ export const GAME_CONFIG: GameConfig = {
   layer: {
     width: 640,
     height: 800,
-    maxVisible: 1,  // DEBUG: Reduce to 1 layer for easier debugging
+    maxVisible: 4,
   },
   shapes: {
     minPerLayer: 6,
@@ -317,32 +317,32 @@ export const SHAPE_VALIDATION_CONSTANTS = {
 
 export const DEBUG_CONFIG = {
   // Global debug settings
-  enableVerboseLogging: false,
+  enableVerboseLogging: true,
   
   // Component-specific debug flags
-  logContainerRendering: false,
-  logScrewPlacement: false,
-  logPhysicsStateChanges: false,  // Keep state changes for when screws are removed
+  logContainerRendering: true,
+  logScrewPlacement: true,
+  logPhysicsStateChanges: true,  // Keep state changes for when screws are removed
   logShapeDestruction: false,
   logPhysicsUpdates: false,
   logShapeCreation: false,
   logShapeDebug: false,
-  logScrewDebug: false,
-  logEventFlow: false,
+  logScrewDebug: true,
+  logEventFlow: true,
   logPhysicsDebug: false,  // Disable physics debug spam
   logLayerDebug: false,
   
   // Specific screw system debug flags
   logScrewRemovabilityUpdates: false,  // Controls "updateScrewRemovability called" messages
   logScrewLayerVisibility: false,      // Controls "Layer visibility check" messages
-  logProgressTracking: false,          // Controls progress system debug messages
+  logProgressTracking: true,          // Controls progress system debug messages
   
   // Shape rendering debug flags
   logShapePathCreation: false,         // Controls "Creating path for shape type" messages
   
   // System operation debug flags
   logLayerOperations: false,           // Controls layer creation/visibility messages
-  logScrewPositionUpdates: false,      // Controls screw position update messages
+  logScrewPositionUpdates: false,      // Controls screw position update messages (VERY SPAMMY - use with caution)
   logBoundsOperations: false,          // Controls bounds change and shape positioning
   logShapePositioning: false,          // Controls shape placement and positioning
   logSystemLifecycle: false,           // Controls system initialization/cleanup
@@ -352,6 +352,7 @@ export const DEBUG_CONFIG = {
   // Debug throttling settings (milliseconds)
   debugThrottleMs: 2000,               // Minimum time between debug logs for the same item (2 seconds)
   layerVisibilityThrottleMs: 5000,     // Minimum time between layer visibility debug logs (5 seconds)
+  screwPositionThrottleMs: 1000,       // Minimum time between screw position update logs (1 second)
   
   // Editor-specific debug settings
   editor: {
@@ -445,10 +446,10 @@ export const EDITOR_EVENTS = {
  * And so on... (+1 layer every 3 levels)
  */
 export function getTotalLayersForLevel(level: number): number {
-  // DEBUG: Return only 1 layer for easier debugging
+  // DEBUG: Return only 2 layer for easier debugging
   console.log(`DEBUG: getTotalLayersForLevel(${level}) -> returning 1 for debugging`);
-  return 1;
-  
+  return 2;
+
   // Original logic (commented out for debugging):
   // const baseLayers = 10;
   // const additionalLayers = Math.floor((level - 1) / 3);

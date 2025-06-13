@@ -11,4 +11,6 @@
 
 ## Items
 
-- Item 1: 
+- Item 1: Reduce vertical space between the top of the holding holes and the bottoms of the container boxes.
+- Item 2: Add a small border between the HUD and the start of the shapes area.
+- Item 3: Change the color of the HUD background to a dark gray (#222222).

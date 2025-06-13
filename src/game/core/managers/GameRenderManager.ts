@@ -357,8 +357,8 @@ export class GameRenderManager implements IGameRenderManager {
             scale: this.state.canvasScale
           };
           
-          // Render collected screw at smaller scale (about 62.5% of normal size to fit in holding hole)
-          ScrewRenderer.renderCollectedScrew(screw, hole.position, screwRenderContext, 0.625);
+          // Render collected screw at smaller scale (about 75% of normal size to fit in holding hole)
+          ScrewRenderer.renderCollectedScrew(screw, hole.position, screwRenderContext, 0.75);
         }
       }
     });
@@ -395,15 +395,19 @@ export class GameRenderManager implements IGameRenderManager {
     
     // Use actual progress data from ProgressTracker
     const progressPercent = gameState.progressData.progress;
+    // Calculate remaining screws to match what user sees on screen
+    const collectedScrews = gameState.progressData.screwsInContainer; // This actually represents collected screws
+    const remainingScrews = Math.max(0, gameState.progressData.totalScrews - collectedScrews);
     const screwsProgress = gameState.progressData.totalScrews > 0 
-      ? `${gameState.progressData.screwsInContainer}/${gameState.progressData.totalScrews}` 
-      : '0/0';
+      ? `${remainingScrews} remaining` 
+      : '0 remaining';
     
     // Debug: Log progress data occasionally to diagnose the issue
     if (DEBUG_CONFIG.logProgressTracking && Date.now() % 3000 < 16) { // Log roughly every 3 seconds (only during frame renders)
       console.log(`[GameRenderManager] Current progress data:`, {
         totalScrews: gameState.progressData.totalScrews,
-        screwsInContainer: gameState.progressData.screwsInContainer,
+        collectedScrews: collectedScrews,
+        remainingScrews: remainingScrews,
         progress: gameState.progressData.progress,
         displayText: screwsProgress
       });
@@ -435,7 +439,7 @@ export class GameRenderManager implements IGameRenderManager {
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '14px Arial';
     this.state.ctx.textAlign = 'left';
-    this.state.ctx.fillText(`Screws: ${screwsProgress} (${progressPercent.toFixed(1)}%)`, progressBarX, progressBarY + progressBarHeight + 18);
+    this.state.ctx.fillText(`${screwsProgress} (${progressPercent.toFixed(1)}% complete)`, progressBarX, progressBarY + progressBarHeight + 18);
 
     // Render level and score with better spacing
     this.state.ctx.fillText(`Level: ${gameState.currentLevel}`, progressBarX, progressBarY + progressBarHeight + 36);

@@ -189,6 +189,12 @@ export class ScrewManager extends BaseSystem {
               console.warn(`⚠️ Could not find shape for collected screw ${screwId}`);
             }
 
+            // Update transfer service state before placement to ensure fresh container/holding hole data
+            const transferState = this.transferService as unknown as { state: { virtualGameWidth: number; containers: Container[]; holdingHoles: HoldingHole[] } };
+            transferState.state.virtualGameWidth = this.state.virtualGameWidth;
+            transferState.state.containers = this.state.containers;
+            transferState.state.holdingHoles = this.state.holdingHoles;
+            
             // Place in destination
             this.transferService.placeScrewInDestination(screw);
           }
@@ -390,11 +396,42 @@ export class ScrewManager extends BaseSystem {
       counts.set(color, 0);
     }
     
-    // Count remaining screws (not collected and not being collected)
+    // Create map of screws already in containers by color (only exclude screws in same-color containers)
+    const screwsInContainersByColor = new Map<string, Set<string>>();
+    for (const container of this.state.containers) {
+      if (!screwsInContainersByColor.has(container.color)) {
+        screwsInContainersByColor.set(container.color, new Set());
+      }
+      const colorSet = screwsInContainersByColor.get(container.color)!;
+      
+      for (const screwId of container.holes) {
+        if (screwId) {
+          colorSet.add(screwId);
+        }
+      }
+    }
+    
+    // Count screws in shapes that need container space
     for (const screw of this.state.screws.values()) {
       if (!screw.isCollected && !screw.isBeingCollected) {
         const currentCount = counts.get(screw.color) || 0;
         counts.set(screw.color, currentCount + 1);
+      }
+    }
+    
+    // Count screws in holding holes - these also need container space eventually
+    // But exclude ones already in same-color containers
+    for (const hole of this.state.holdingHoles) {
+      if (hole.screwId) {
+        const screw = this.state.screws.get(hole.screwId);
+        if (screw) {
+          const sameColorContainerScrews = screwsInContainersByColor.get(screw.color) || new Set();
+          // Only count if not already in a same-color container
+          if (!sameColorContainerScrews.has(hole.screwId)) {
+            const currentCount = counts.get(screw.color) || 0;
+            counts.set(screw.color, currentCount + 1);
+          }
+        }
       }
     }
     

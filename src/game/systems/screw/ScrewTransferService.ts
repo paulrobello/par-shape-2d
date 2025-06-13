@@ -194,14 +194,8 @@ export class ScrewTransferService implements IScrewTransferService {
           toPosition
         });
         
-        // Clear the holding hole immediately
-        this.eventBus.emit({
-          type: 'holding_hole:filled',
-          timestamp: Date.now(),
-          source: this.source,
-          holeIndex,
-          screwId: null
-        });
+        // Note: HoldingHoleManager will clear the holding hole immediately when transfer starts
+        // This frees up the hole for other screws even while this screw is still animating
       }
     }
   }

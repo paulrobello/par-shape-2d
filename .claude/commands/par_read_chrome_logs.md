@@ -1,0 +1,1 @@
+Use the browsermcp tool to read the console logs from the current tab which is running the game

@@ -1,6 +1,7 @@
 /**
- * Progress tracking system that monitors screws moved to containers
- * Provides progress percentage based on total screws vs screws in containers
+ * Progress tracking system that monitors screw collection progress
+ * Screws are only counted as collected after their container is removed when full
+ * Provides progress percentage based on total screws vs screws from removed containers
  */
 
 import { BaseSystem } from '../core/BaseSystem';
@@ -18,9 +19,9 @@ import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 interface ProgressState {
   totalScrews: number;
-  screwsInContainer: number;
-  screwsFromRemovedContainers: number; // Track screws from filled containers that were removed
-  progress: number; // 0-100 percentage
+  screwsInContainer: number; // Screws currently placed in containers (not yet counted as collected)
+  screwsFromRemovedContainers: number; // Screws that are actually collected (from containers that were removed when full)
+  progress: number; // 0-100 percentage based only on screwsFromRemovedContainers
 }
 
 export class ProgressTracker extends BaseSystem {
@@ -88,21 +89,15 @@ export class ProgressTracker extends BaseSystem {
 
   private handleScrewCollected(event: ScrewCollectedEvent): void {
     this.executeIfActive(() => {
-      // Only count screws that go to containers, not holding holes
+      // Don't count screws as collected just for being placed in containers
+      // Screws should only be counted as collected after their container is removed when full
+      // This method now only handles the overflow check for totalScrews if needed
       if (event.destination === 'container') {
-        this.state.screwsInContainer++;
-        
-        // If we're about to exceed totalScrews, request an updated count
-        // This handles cases where screw generation happened after initial count
-        if (this.state.screwsInContainer > this.state.totalScrews) {
-          this.emit({
-            type: 'screw:count:requested',
-            timestamp: Date.now(),
-            source: 'ProgressTracker-overflow'
-          });
+        // Only check for overflow scenarios, but don't increment the collection count
+        // The actual collection counting happens in handleContainerFilled when containers are removed
+        if (DEBUG_CONFIG.logProgressTracking) {
+          console.log(`[ProgressTracker] Screw placed in container, but not counted as collected until container is removed`);
         }
-        
-        this.calculateAndEmitProgress();
       }
     });
   }
@@ -149,13 +144,14 @@ export class ProgressTracker extends BaseSystem {
 
   private handleContainerFilled(event: import('../events/EventTypes').ContainerFilledEvent): void {
     this.executeIfActive(() => {
-      // When a container is filled and removed, move screws from current containers to removed containers count
+      // When a container is filled and removed, count the screws as collected
       const screwsInFilledContainer = event.screws.length;
-      this.state.screwsInContainer -= screwsInFilledContainer;
+      
+      // Since we no longer pre-count screws in containers, we need to add them directly to the removed count
       this.state.screwsFromRemovedContainers += screwsInFilledContainer;
       
       if (DEBUG_CONFIG.logProgressTracking) {
-        console.log(`[ProgressTracker] Container filled with ${screwsInFilledContainer} screws. Current: ${this.state.screwsInContainer}, From removed: ${this.state.screwsFromRemovedContainers}`);
+        console.log(`[ProgressTracker] Container filled and removed with ${screwsInFilledContainer} screws. Total collected: ${this.state.screwsFromRemovedContainers}`);
       }
       
       this.calculateAndEmitProgress();
@@ -199,26 +195,50 @@ export class ProgressTracker extends BaseSystem {
     if (this.state.totalScrews === 0) {
       this.state.progress = 0; // Don't auto-complete during level initialization when totalScrews hasn't been set yet
     } else {
-      // Calculate total screws processed (current containers + removed containers)
-      const totalProcessedScrews = this.state.screwsInContainer + this.state.screwsFromRemovedContainers;
-      const actualProcessedScrews = Math.min(totalProcessedScrews, this.state.totalScrews);
-      this.state.progress = Math.floor((actualProcessedScrews / this.state.totalScrews) * 100);
+      // Calculate progress based on how many screws are truly collected (from removed containers)
+      const collectedScrews = this.state.screwsFromRemovedContainers;
+      const actualCollectedScrews = Math.min(collectedScrews, this.state.totalScrews);
+      this.state.progress = Math.floor((actualCollectedScrews / this.state.totalScrews) * 100);
+      
+      // When approaching completion, verify with real-time remaining screw count
+      if (this.state.progress >= 95) {
+        // Request verification of remaining screws before declaring completion
+        this.emit({
+          type: 'remaining:screws:requested',
+          timestamp: Date.now(),
+          callback: (screwsByColor: Map<string, number>) => {
+            let totalRemaining = 0;
+            screwsByColor.forEach(count => {
+              totalRemaining += count;
+            });
+            
+            // If there are still screws remaining, cap progress at 99%
+            if (totalRemaining > 0 && this.state.progress >= 100) {
+              this.state.progress = 99;
+              this.emitProgressEvent();
+            }
+          }
+        });
+      }
     }
 
     // Clamp progress to valid range
     this.state.progress = Math.max(0, Math.min(100, this.state.progress));
 
 
+    this.emitProgressEvent();
+  }
+
+  private emitProgressEvent(): void {
     // Only emit if progress actually changed
     if (this.state.progress !== this.previousProgress) {
       this.previousProgress = this.state.progress;
 
-      // Emit progress update event
-      const totalProcessedScrews = this.state.screwsInContainer + this.state.screwsFromRemovedContainers;
+      // Emit progress update event - only report actually collected screws
       const progressEvent: ProgressUpdatedEvent = {
         type: 'progress:updated',
         totalScrews: this.state.totalScrews,
-        screwsInContainer: Math.min(totalProcessedScrews, this.state.totalScrews),
+        screwsInContainer: Math.min(this.state.screwsFromRemovedContainers, this.state.totalScrews),
         progress: this.state.progress,
         timestamp: Date.now(),
         source: this.systemName

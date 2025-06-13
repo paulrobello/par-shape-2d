@@ -271,6 +271,12 @@ export interface ContainerFilledEvent extends BaseEvent {
   screws: string[]; // Screw IDs, not objects
 }
 
+export interface ContainerRemovingScrewsEvent extends BaseEvent {
+  type: 'container:removing:screws';
+  containerIndex: number;
+  screwIds: string[];
+}
+
 export interface ContainerReplacedEvent extends BaseEvent {
   type: 'container:replaced';
   containerIndex: number;
@@ -296,6 +302,10 @@ export interface HoldingHolesFullEvent extends BaseEvent {
 
 export interface HoldingHolesAvailableEvent extends BaseEvent {
   type: 'holding_holes:available';
+}
+
+export interface HoldingHolesCheckTransfersEvent extends BaseEvent {
+  type: 'holding_holes:check_transfers';
 }
 
 export interface ContainerColorsUpdatedEvent extends BaseEvent {
@@ -425,7 +435,7 @@ export interface ScoreUpdatedEvent extends BaseEvent {
   type: 'score:updated';
   points: number;
   total: number;
-  reason: 'screw_collected' | 'level_complete' | 'bonus';
+  reason: 'screw_collected' | 'level_complete' | 'bonus' | 'container_removed';
 }
 
 export interface LevelScoreUpdatedEvent extends BaseEvent {
@@ -627,10 +637,12 @@ export type GameEvent =
   | ScrewCountRequestedEvent
   | ScrewCountResponseEvent
   | ContainerFilledEvent
+  | ContainerRemovingScrewsEvent
   | ContainerReplacedEvent
   | HoldingHoleFilledEvent
   | HoldingHolesFullEvent
   | HoldingHolesAvailableEvent
+  | HoldingHolesCheckTransfersEvent
   | ContainerColorsUpdatedEvent
   | ContainerStateUpdatedEvent
   | HoldingHoleStateUpdatedEvent

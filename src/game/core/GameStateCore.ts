@@ -38,6 +38,7 @@ export class GameStateCore extends BaseSystem {
   private setupEventHandlers(): void {
     // Game lifecycle events
     this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
+    this.subscribe('container:filled', this.handleContainerFilled.bind(this));
     this.subscribe('bounds:changed', this.handleBoundsChanged.bind(this));
     
     // Level management events
@@ -89,14 +90,34 @@ export class GameStateCore extends BaseSystem {
         return;
       }
       
-      const { points } = event;
-      
-      // Award points for screw removal (regardless of destination)
-      this.addScore(points);
+      // Don't award points immediately - points are now awarded when containers are removed
       if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`Screw ${event.screw.id} collected to ${event.destination}, but points will be awarded when container is removed`);
+      }
+      
+      this.markUnsavedChanges();
+    });
+  }
+
+  private handleContainerFilled(event: import('../events/EventTypes').ContainerFilledEvent): void {
+    this.executeIfActive(() => {
+      if (this.isResetting) {
+        // Skip container filled handling during reset to prevent event loops
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Added ${points} points for removing screw ${event.screw.id} from shape`);
+          console.log(`⚠️ Skipping container filled scoring during reset`);
         }
+        return;
+      }
+      
+      // Award points for each screw in the filled container (10 points per screw)
+      const screwCount = event.screws.length;
+      const pointsPerScrew = 10;
+      const totalPoints = screwCount * pointsPerScrew;
+      
+      this.addScoreForContainerRemoval(totalPoints, screwCount);
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`Container filled and removed: awarded ${totalPoints} points for ${screwCount} screws`);
       }
       
       this.markUnsavedChanges();
@@ -345,6 +366,29 @@ export class GameStateCore extends BaseSystem {
       levelScore: this.state.levelScore,
       level: this.state.currentLevel
     });
+  }
+
+  private addScoreForContainerRemoval(points: number, screwCount: number): void {
+    this.state.levelScore += points;
+    
+    this.emit({
+      type: 'score:updated',
+      timestamp: Date.now(),
+      points,
+      total: this.state.totalScore + this.state.levelScore,
+      reason: 'container_removed'
+    });
+
+    this.emit({
+      type: 'level_score:updated',
+      timestamp: Date.now(),
+      levelScore: this.state.levelScore,
+      level: this.state.currentLevel
+    });
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`Awarded ${points} points for container removal with ${screwCount} screws. New level score: ${this.state.levelScore}`);
+    }
   }
 
   private markUnsavedChanges(): void {

@@ -78,18 +78,41 @@ export class GameState extends BaseSystem {
     this.executeIfActive(() => {
       const { screwId, screwColor, fromHoleIndex } = event;
       
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎯 GameState: Received transfer request for screw ${screwId} (${screwColor}) from hole ${fromHoleIndex}`);
+      }
+      
+      // Get current container state for debugging
+      const allContainers = this.containerManager.getContainers();
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🏭 GameState: Available containers:`, allContainers.map(c => ({
+          id: c.id,
+          color: c.color,
+          isFull: c.isFull,
+          holes: c.holes,
+          reservedHoles: c.reservedHoles,
+          availableHoles: c.holes.filter((h, i) => h === null && c.reservedHoles[i] === null).length
+        })));
+      }
+      
       // Find an available container for this screw color
       const targetContainer = this.containerManager.findAvailableContainer(screwColor);
       
       if (targetContainer) {
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`GameState: Found container for ${screwColor} screw ${screwId}, initiating transfer`);
+          console.log(`✅ GameState: Found container ${targetContainer.id} for ${screwColor} screw ${screwId}, initiating transfer`);
         }
         
         this.requestScrewTransfer(screwId, fromHoleIndex, targetContainer);
       } else {
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`GameState: No available container for ${screwColor} screw ${screwId}`);
+          console.log(`❌ GameState: No available container for ${screwColor} screw ${screwId}`);
+          const matchingContainers = allContainers.filter(c => c.color === screwColor);
+          console.log(`🔍 Matching color containers:`, matchingContainers.map(c => ({
+            id: c.id,
+            isFull: c.isFull,
+            availableHoles: c.holes.filter((h, i) => h === null && c.reservedHoles[i] === null).length
+          })));
         }
       }
     });
@@ -140,14 +163,35 @@ export class GameState extends BaseSystem {
     const containerIndex = containers.findIndex(c => c.id === targetContainer.id);
     if (containerIndex === -1) {
       console.error(`Container ${targetContainer.id} not found`);
+      this.emitTransferFailure(screwId, -1, -1, `Container ${targetContainer.id} not found`, holeIndex);
       return;
     }
 
-    // Find first empty hole in target container
-    const emptyHoleIndex = targetContainer.holes.findIndex(hole => hole === null);
+    // Find first hole that is both empty AND not reserved
+    const emptyHoleIndex = targetContainer.holes.findIndex((hole, idx) => 
+      hole === null && targetContainer.reservedHoles[idx] === null
+    );
     if (emptyHoleIndex === -1) {
-      console.error(`No empty hole found in container ${targetContainer.id}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.error(`No available hole found in container ${targetContainer.id} - holes:`, targetContainer.holes, 'reserved:', targetContainer.reservedHoles);
+      }
+      this.emitTransferFailure(screwId, containerIndex, -1, `No available holes in container ${targetContainer.id}`, holeIndex);
       return;
+    }
+
+    // Validate holding hole still contains the screw
+    if (holeIndex < 0 || holeIndex >= holdingHoles.length || holdingHoles[holeIndex].screwId !== screwId) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.error(`Holding hole ${holeIndex} no longer contains screw ${screwId}`);
+      }
+      this.emitTransferFailure(screwId, containerIndex, emptyHoleIndex, `Holding hole ${holeIndex} no longer contains screw`, holeIndex);
+      return;
+    }
+
+    // Reserve the hole immediately to prevent conflicts
+    targetContainer.reservedHoles[emptyHoleIndex] = screwId;
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔒 GameState: Reserved container ${containerIndex} hole ${emptyHoleIndex} for screw ${screwId}`);
     }
 
     // Calculate positions for animation
@@ -162,7 +206,7 @@ export class GameState extends BaseSystem {
     
     // Start the transfer animation
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`GameState: Starting transfer of screw ${screwId} from hole ${holeIndex} to container ${containerIndex}`);
+      console.log(`🚀 GameState: Starting transfer of screw ${screwId} from hole ${holeIndex} to container ${containerIndex}, hole ${emptyHoleIndex}`);
     }
     
     this.emit({
@@ -175,6 +219,22 @@ export class GameState extends BaseSystem {
       fromPosition,
       toPosition
     } as ScrewTransferStartedEvent);
+  }
+
+  private emitTransferFailure(screwId: string, containerIndex: number, holeIndex: number, reason: string, fromHoleIndex = -1): void {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`❌ GameState: Emitting transfer failure for screw ${screwId}: ${reason}`);
+    }
+    
+    this.emit({
+      type: 'screw:transfer:failed',
+      timestamp: Date.now(),
+      screwId,
+      fromHoleIndex,
+      toContainerIndex: containerIndex,
+      toHoleIndex: holeIndex,
+      reason
+    });
   }
 
   // Note: Progress tracking is handled by ProgressTracker.ts

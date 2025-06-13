@@ -15,30 +15,31 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * The first line of the HUD should have the current current screw progress with percent
 * The 2nd line of the HUD should level number
 * The 3rd line of the HUD should have the current level score
-* Each screw removed from a shape adds to the current level score and progress. If the level is completed, the score is added to the game total score.
 * After completing a level, increment the level number and reset the current level score to 0 and generate a new playing area.
 * Below the 3rd line of the HUD is a set of 4 container boxes each with 1 to 3 holes in them.
-* The number of holes in each container box is determined by the number of screws remaining of the coresponding color in the level.
+* The number of holes in each container box is determined by the number of screws remaining of the corresponding color in both shapes and holding holes up to 3.
 * Each container box has a different color and is associated with a specific screw color.
 * When a screw is removed, it flies to the container box that matches its color, that has an empty hole and has the most holes filled.
 * When a container box is full, it should delay for 1 second then fade out. 
+* Each screw removed with the container box adds to the screw progress tracking and adds to the current level score. If the level is completed, the score is added to the game total score.
 * When a container box is removed a new container box should fade in with random color selected from screw colors that are in visible shapes or container holes.
 * Under the row of container boxes is a row of 5 empty holding holes that are used to hold screws that get removed from shapes but do not match any of the container boxes.
 * When a new container box is added, if any screws are in the holding holes, they should be moved to the new container box if it has an empty hole that matches their color.
 * When all holding holes are full, the player has 5 seconds to try and free up a holding hole or they loose the game and must restart the current level.
 * Under the row of holding holes is a stack of layers that contain shapes.
-* Each level has 10 layers but only 4 are visible at a time.
+* Each level has 10 or more layers but only 4 are visible at a time.
+* The number of layers is computed as 10 + floor(level number / 3).
 * 3 to 6 shapes are loaded into a layer.
+* 1 to 10 screws are loaded into each shape depending on shape and size.
 * Shapes physics only interact with the layer they are in.
-* A Shape can have between 1 and 10 screws in it depending on the shape and size.
-* The screws in the shape should not overlap with each other or the edge of the shape itself.
+* The screws in the shape should not overlap with each other or the edge of the shape itself. Use a margin of 5 pixels from the edge of the shape or other screws.
 * When all screws are removed from a shape, it is allowed to fall from the screen and is removed from the layer once off-screen.
 * All shapes in a layer should have the same tint to indicate they are part of the same layer.
 * Shapes should have a solid border with a translucent inner area to allow the player to see the shapes behind them.
 * Shapes can be any of the following: rectangle, square, circle, polygon, capsule, star, arrow, chevron, horseshoe.
 * Shapes when placed in the layer should not overlap.
 * A screw can not be removed if it is even partially blocked by a shape in a layer that is visually in front of its layer.
-* Screws from any layer can be removed as long as they are not blocked.
+* Screws from any visible layer can be removed as long as they are not blocked.
 * Screws should be randomly colored but must be one of the following colors: pink, red, green, blue, light blue, yellow, purple, orange, or brown.
 * If a blocked screw is clicked, it should shake to indicate it cannot be removed.
 * When all shapes are removed from a layer, if there are any more layers remaining the next layer should fade in and the player can continue removing screws from shapes.
