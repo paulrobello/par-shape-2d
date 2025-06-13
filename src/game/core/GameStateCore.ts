@@ -151,23 +151,16 @@ export class GameStateCore extends BaseSystem {
     this.executeIfActive(() => {
       if (DEBUG_CONFIG.logLayerDebug) {
         if (DEBUG_CONFIG.logLayerOperations) {
-          console.log('GameStateCore: All layers cleared - completing level');
+          console.log('GameStateCore: All layers cleared - layer cleanup complete');
         }
       }
-      // Mark level as complete and emit proper level:complete event
-      // NOTE: Score is NOT added here to prevent duplication - ProgressTracker handles scoring
-      this.state.levelComplete = true;
+      // NOTE: Do NOT mark level as complete here - only ProgressTracker determines completion
+      // LayerManager clearing all layers is just a visual/layer management event
+      // Level completion is determined by ProgressTracker based on screw collection progress
       
-      // Emit level:complete with correct level and score data
-      this.emit({
-        type: 'level:complete',
-        timestamp: Date.now(),
-        level: this.state.currentLevel,
-        score: this.state.levelScore
-      });
-
-      // Don't emit total:score:updated here since score wasn't changed
-      // ProgressTracker's completion handler will update the total score
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log('GameStateCore: All layers cleared, but level completion is handled by ProgressTracker');
+      }
       
       this.markUnsavedChanges();
     });

@@ -678,10 +678,10 @@ export class LayerManager extends BaseSystem {
     // NOW update visibility after potentially revealing a new layer
     this.updateLayerVisibility();
     
-    // Check if level is complete (no more active layers)
+    // Emit layer state change for visibility updates
     if (this.state.layers.length === 0) {
       if (DEBUG_CONFIG.logLayerDebug) {
-        console.log('🎉 All layers cleared! Level complete!');
+        console.log('🎉 All layers cleared! (Level completion is determined by ProgressTracker)');
       }
       this.emit({
         type: 'all:layers:cleared',
