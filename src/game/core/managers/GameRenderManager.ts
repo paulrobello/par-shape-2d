@@ -410,9 +410,9 @@ export class GameRenderManager implements IGameRenderManager {
     // Calculate remaining screws to match what user sees on screen
     const collectedScrews = gameState.progressData.screwsInContainer; // This actually represents collected screws
     const remainingScrews = Math.max(0, gameState.progressData.totalScrews - collectedScrews);
-    const screwsProgress = gameState.progressData.totalScrews > 0 
-      ? `${remainingScrews} remaining` 
-      : '0 remaining';
+    const screwsText = gameState.progressData.totalScrews > 0 
+      ? `Screws remaining: ${remainingScrews}` 
+      : 'Screws remaining: 0';
     
     // Debug: Log progress data occasionally to diagnose the issue
     if (DEBUG_CONFIG.logProgressTracking && Date.now() % 3000 < 16) { // Log roughly every 3 seconds (only during frame renders)
@@ -421,7 +421,7 @@ export class GameRenderManager implements IGameRenderManager {
         collectedScrews: collectedScrews,
         remainingScrews: remainingScrews,
         progress: gameState.progressData.progress,
-        displayText: screwsProgress
+        displayText: screwsText
       });
     }
 
@@ -430,7 +430,7 @@ export class GameRenderManager implements IGameRenderManager {
     this.progressBar.update();
     this.progressBar.render(this.state.ctx);
 
-    // Render progress text
+    // Render screw count text
     const progressBarX = 20; // Match progress bar position
     const progressBarY = 15;
     const progressBarHeight = 16;
@@ -438,12 +438,11 @@ export class GameRenderManager implements IGameRenderManager {
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '14px Arial';
     this.state.ctx.textAlign = 'left';
-    this.state.ctx.fillText(`${screwsProgress} (${progressPercent.toFixed(1)}% complete)`, progressBarX, progressBarY + progressBarHeight + 18);
+    this.state.ctx.fillText(screwsText, progressBarX, progressBarY + progressBarHeight + 18);
 
     // Render level and score with better spacing
     this.state.ctx.fillText(`Level: ${gameState.currentLevel}`, progressBarX, progressBarY + progressBarHeight + 36);
     this.state.ctx.fillText(`Score: ${gameState.levelScore}`, progressBarX, progressBarY + progressBarHeight + 54);
-    this.state.ctx.fillText(`Total: ${gameState.totalScore}`, progressBarX, progressBarY + progressBarHeight + 72);
   }
 
   private renderMenuButton(): void {

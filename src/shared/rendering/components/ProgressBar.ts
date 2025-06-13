@@ -1,22 +1,25 @@
 /**
  * Animated Progress Bar Component
- * Reusable progress bar with rounded ends, gradient fill, drop shadow, and smooth animations
+ * Reusable progress bar with rounded ends, gradient fill, drop shadow, percentage text display, and smooth animations
  * 
  * @example
- * // Create a progress bar
+ * // Create a progress bar with percentage text
  * const progressBar = new ProgressBar({
  *   x: 50,
  *   y: 100,
  *   width: 300,
  *   height: 20,
  *   animationDuration: 500,
- *   easing: 'ease-out'
+ *   easing: 'ease-out',
+ *   showPercentage: true, // Show percentage by default
+ *   textColor: '#FFFFFF',
+ *   textBackdropAlpha: 0.6 // Subtle black backdrop for text
  * });
  * 
  * // In your render loop:
  * progressBar.setProgress(75); // Animate to 75%
  * progressBar.update(); // Update animation state
- * progressBar.render(ctx); // Render to canvas
+ * progressBar.render(ctx); // Render to canvas with percentage text
  */
 
 export interface ProgressBarOptions {
@@ -40,6 +43,12 @@ export interface ProgressBarOptions {
   shadowOffsetY?: number;
   animationDuration?: number; // Animation duration in milliseconds
   easing?: 'linear' | 'ease-out' | 'ease-in' | 'ease-in-out';
+  showPercentage?: boolean;
+  textColor?: string;
+  textBackdropColor?: string;
+  textBackdropAlpha?: number;
+  fontSize?: number;
+  fontFamily?: string;
 }
 
 export interface ProgressBarState {
@@ -76,7 +85,13 @@ export class ProgressBar {
       shadowOffsetX: options.shadowOffsetX || 0,
       shadowOffsetY: options.shadowOffsetY || 2,
       animationDuration: options.animationDuration || 500,
-      easing: options.easing || 'ease-out'
+      easing: options.easing || 'ease-out',
+      showPercentage: options.showPercentage ?? true,
+      textColor: options.textColor || '#FFFFFF',
+      textBackdropColor: options.textBackdropColor || '#000000',
+      textBackdropAlpha: options.textBackdropAlpha ?? 0.6,
+      fontSize: options.fontSize || Math.max(10, Math.floor(options.height * 0.6)),
+      fontFamily: options.fontFamily || 'Arial, sans-serif'
     };
 
     // Initialize state
@@ -210,6 +225,41 @@ export class ProgressBar {
       ctx.fill();
     }
 
+    // Render percentage text if enabled
+    if (this.options.showPercentage) {
+      const percentText = `${Math.round(this.state.currentProgress)}%`;
+      const centerX = x + width / 2;
+      const centerY = y + height / 2;
+
+      // Set font
+      ctx.font = `${this.options.fontSize}px ${this.options.fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      // Measure text for backdrop
+      const textMetrics = ctx.measureText(percentText);
+      const textWidth = textMetrics.width;
+      const textHeight = this.options.fontSize;
+      const padding = 4;
+
+      // Render text backdrop with subtle transparency
+      const backdropAlpha = this.options.textBackdropAlpha;
+      ctx.fillStyle = `${this.options.textBackdropColor}${Math.round(backdropAlpha * 255).toString(16).padStart(2, '0')}`;
+      ctx.beginPath();
+      ctx.roundRect(
+        centerX - textWidth / 2 - padding,
+        centerY - textHeight / 2 - padding / 2,
+        textWidth + padding * 2,
+        textHeight + padding,
+        3
+      );
+      ctx.fill();
+
+      // Render text
+      ctx.fillStyle = this.options.textColor;
+      ctx.fillText(percentText, centerX, centerY);
+    }
+
     // Restore context state
     ctx.restore();
   }
@@ -263,6 +313,40 @@ export class ProgressBar {
     }
     if (completionColors) {
       this.options.completionColors = completionColors;
+    }
+  }
+
+  /**
+   * Show or hide percentage text
+   */
+  setShowPercentage(show: boolean): void {
+    this.options.showPercentage = show;
+  }
+
+  /**
+   * Update text styling options
+   */
+  setTextStyle(options: {
+    textColor?: string;
+    textBackdropColor?: string;
+    textBackdropAlpha?: number;
+    fontSize?: number;
+    fontFamily?: string;
+  }): void {
+    if (options.textColor !== undefined) {
+      this.options.textColor = options.textColor;
+    }
+    if (options.textBackdropColor !== undefined) {
+      this.options.textBackdropColor = options.textBackdropColor;
+    }
+    if (options.textBackdropAlpha !== undefined) {
+      this.options.textBackdropAlpha = options.textBackdropAlpha;
+    }
+    if (options.fontSize !== undefined) {
+      this.options.fontSize = options.fontSize;
+    }
+    if (options.fontFamily !== undefined) {
+      this.options.fontFamily = options.fontFamily;
     }
   }
 }
