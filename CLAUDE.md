@@ -56,11 +56,20 @@ Both game and editor extend this shared foundation with their domain-specific ev
 
 **Physics** are provided by the Matter.js library with poly-decomp-es for accurate physics simulation.
 
+## Screw Ownership System
+
+The game implements a **robust ownership transfer system** for screws that ensures data integrity and prevents race conditions:
+
+- **Single Owner Principle**: Each screw has exactly one owner at any time (`shape`, `container`, or `holding_hole`)
+- **Immediate Ownership Transfer**: Ownership transfers when operations begin (not when animations complete)
+- **Deletion Protection**: Only the current owner can delete/destroy a screw
+- **Clean Architecture**: Eliminates complex cleanup logic through clear ownership rules
+
 ## Event Architecture
 
 The game uses **120+ game events** and **40+ editor events** with comprehensive type safety. Key event flows include:
 
-- **Game**: Screw removal flow, container management, level progression, physics integration
+- **Game**: Screw removal flow, container management, level progression, physics integration, ownership transfers
 - **Editor**: Shape creation, file management, physics simulation, drawing tools
 
 See `docs/game_event_flows.md` and `docs/editor_event_flows.md` for detailed event flows and architectural decisions.

@@ -460,6 +460,20 @@ export class Shape implements IShape {
   }
 
   public dispose(): void {
-    this.screws = [];
+    // Only dispose of screws that this shape still owns
+    this.screws = this.screws.filter(screw => {
+      if (screw.canBeDeletedBy(this.id)) {
+        // This shape owns the screw, it can be disposed
+        screw.dispose();
+        return false; // Remove from array
+      } else {
+        // Screw is owned by someone else (container/holding hole), keep reference
+        if (DEBUG_CONFIG.logScrewDebug) {
+          const ownerInfo = screw.getOwnerInfo();
+          console.log(`Shape ${this.id} preserving screw ${screw.id} - owned by ${ownerInfo.ownerType} ${ownerInfo.owner}`);
+        }
+        return true; // Keep in array
+      }
+    });
   }
 }

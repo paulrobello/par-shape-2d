@@ -46,6 +46,7 @@ The game event system provides a comprehensive, type-safe event-driven architect
 - **State Changes**: `screw:removed`, `screw:collected`, `screw:blocked`, `screw:unblocked`
 - **Animations**: `screw:animation:started`, `screw:animation:completed`
 - **Transfers**: `screw:transfer:started`, `screw:transfer:completed`, `screw:transfer:failed`
+- **Ownership**: Immediate ownership transfer when operations begin (not when animations complete)
 - **Generation**: `screws:generated`, `shape:screws:ready`
 - **Counting**: `remaining:screws:requested` - Counts screws in shapes AND holding holes
 
@@ -98,7 +99,7 @@ The game event system provides a comprehensive, type-safe event-driven architect
 
 ## Critical Event Flows
 
-### 1. Screw Removal Flow
+### 1. Screw Removal Flow (with Ownership Transfer)
 
 ```mermaid
 sequenceDiagram
@@ -121,11 +122,15 @@ sequenceDiagram
         SM->>EB: emit('screw:animation:started')
         
         alt Container available
+            Note over SM: Transfer ownership to container immediately
+            SM->>SM: screw.transferOwnership(containerId, 'container')
             SM->>CM: Animate to container
             SM->>EB: emit('screw:animation:completed')
             SM->>EB: emit('screw:collected', destination: 'container')
             CM->>EB: emit('container:filled') [if container full]
         else Container full, use holding hole
+            Note over SM: Transfer ownership to holding hole immediately
+            SM->>SM: screw.transferOwnership(holeId, 'holding_hole')
             SM->>HM: Animate to holding hole
             SM->>EB: emit('screw:animation:completed')
             SM->>EB: emit('screw:collected', destination: 'holding_hole')
@@ -290,6 +295,57 @@ sequenceDiagram
 - **Returns color-mapped counts**: Uses callback pattern with `Map<string, number>`
 - **Used by ContainerManager**: For intelligent container replacement decisions  
 - **Used by ProgressTracker**: For accurate win condition detection
+
+### 6. Ownership Transfer and Disposal Safety Flow
+
+The ownership system ensures data integrity during shape destruction and layer clearing:
+
+```mermaid
+sequenceDiagram
+    participant LM as LayerManager
+    participant Shape as Shape Entity
+    participant SEH as ScrewEventHandler
+    participant Screw as Screw Entity
+    participant EB as EventBus
+
+    LM->>EB: emit('shape:destroyed')
+    EB->>SEH: Route destruction event
+    
+    SEH->>SEH: Find screws by shapeId
+    
+    loop For each screw
+        SEH->>Screw: Check screw.canBeDeletedBy(shapeId)
+        
+        alt Shape still owns screw
+            Note over SEH: owner = shapeId && ownerType = 'shape'
+            SEH->>SEH: Delete screw safely
+            SEH->>EB: emit('screw:destroyed')
+        else Screw owned by container/hole
+            Note over SEH: Preserve screw - owned by container/holding_hole
+            SEH->>SEH: Skip deletion
+        end
+    end
+    
+    LM->>Shape: shape.dispose()
+    Shape->>Shape: Filter screws by ownership
+    
+    loop For each screw in shape.screws
+        Shape->>Screw: Check screw.canBeDeletedBy(this.id)
+        
+        alt Shape owns screw
+            Shape->>Screw: screw.dispose()
+            Shape->>Shape: Remove from array
+        else Screw transferred to container/hole
+            Shape->>Shape: Keep reference but don't dispose
+        end
+    end
+```
+
+**Ownership Benefits:**
+- **Race Condition Prevention**: Clear ownership eliminates complex cleanup checks
+- **Data Integrity**: Screws cannot be deleted by unauthorized systems
+- **Simplified Logic**: No need to check containers/holding holes during disposal
+- **Debug Visibility**: Complete ownership tracking with logging
 
 ## Event Naming Conventions
 

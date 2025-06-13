@@ -59,6 +59,10 @@ export interface Screw {
   targetPosition?: Vector2; // For collection animation
   targetContainerId?: string; // Which container this screw is flying to
   
+  // Ownership tracking
+  owner: string; // ID of current owner
+  ownerType: 'shape' | 'container' | 'holding_hole';
+  
   // Transfer animation properties (holding hole to container)
   isBeingTransferred: boolean;
   transferProgress: number; // 0-1 for transfer animation
@@ -81,6 +85,14 @@ export interface Screw {
   updateFromAnchorBody(): void;
   updateFromShapeBody(shapeBody: Body): void;
   setLocalOffset(shapeBody: Body): void;
+  
+  // Ownership methods
+  transferOwnership(newOwner: string, newOwnerType: 'shape' | 'container' | 'holding_hole'): void;
+  canBeDeletedBy(requesterId: string): boolean;
+  getOwnerInfo(): { owner: string; ownerType: 'shape' | 'container' | 'holding_hole' };
+  
+  // Cleanup method
+  dispose(): void;
 }
 
 export interface Container {

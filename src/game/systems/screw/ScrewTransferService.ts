@@ -171,10 +171,13 @@ export class ScrewTransferService implements IScrewTransferService {
           console.log(`🔄 Found matching container for screw ${screw.id} (${screw.color}) - transferring from holding hole ${holeIndex} to container ${containerIndex} hole ${emptyHoleIndex}`);
         }
         
+        // Transfer ownership to container immediately when transfer begins
+        screw.transferOwnership(matchingContainer.id, 'container');
+        
         // Reserve the container hole immediately
         matchingContainer.reservedHoles[emptyHoleIndex] = screw.id;
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`📌 Reserved container ${containerIndex} hole ${emptyHoleIndex} for screw ${screw.id}`);
+          console.log(`📌 Reserved container ${containerIndex} hole ${emptyHoleIndex} for screw ${screw.id} with ownership transfer`);
         }
         
         // Calculate positions for animation
@@ -206,6 +209,9 @@ export class ScrewTransferService implements IScrewTransferService {
     const holdingHole = this.state.holdingHoles[holeIndex];
     
     if (holeIndex !== -1 && holdingHole) {
+      // Transfer ownership to holding hole
+      screw.transferOwnership(holdingHole.id, 'holding_hole');
+      
       // Clear the reservation
       if (holdingHole.reservedBy === screw.id) {
         holdingHole.reservedBy = undefined;
@@ -225,7 +231,7 @@ export class ScrewTransferService implements IScrewTransferService {
       });
       
       if (DEBUG_CONFIG.logScrewPlacement && DEBUG_CONFIG.logScrewDebug) {
-        console.log(`✅ Placed screw ${screw.id} in holding hole ${holeIndex}`);
+        console.log(`✅ Placed screw ${screw.id} in holding hole ${holeIndex} with ownership transfer`);
       }
       
       // Check if there's now a matching container available
@@ -241,6 +247,9 @@ export class ScrewTransferService implements IScrewTransferService {
     const containerIndex = container ? this.state.containers.indexOf(container) : -1;
     
     if (container && containerIndex !== -1 && screw.targetHoleIndex !== undefined) {
+      // Transfer ownership to container
+      screw.transferOwnership(container.id, 'container');
+      
       // Clear the reservation
       if (container.reservedHoles[screw.targetHoleIndex] === screw.id) {
         container.reservedHoles[screw.targetHoleIndex] = null;
@@ -281,7 +290,7 @@ export class ScrewTransferService implements IScrewTransferService {
       });
       
       if (DEBUG_CONFIG.logScrewPlacement && DEBUG_CONFIG.logScrewDebug) {
-        console.log(`✅ Placed screw ${screw.id} in container ${containerIndex} hole ${screw.targetHoleIndex} (${filledCount}/${container.maxHoles} filled)`);
+        console.log(`✅ Placed screw ${screw.id} in container ${containerIndex} hole ${screw.targetHoleIndex} (${filledCount}/${container.maxHoles} filled) with ownership transfer`);
       }
     } else {
       console.error(`❌ Failed to find container for screw ${screw.id}`);

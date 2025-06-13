@@ -11,6 +11,10 @@ export class Screw implements IScrew {
   public isRemovable: boolean = true;
   public isCollected: boolean = false;
 
+  // Ownership tracking
+  public owner: string; // ID of current owner
+  public ownerType: 'shape' | 'container' | 'holding_hole';
+
   // Additional properties for screw management
   public isBeingCollected: boolean = false;
   public collectionProgress: number = 0; // 0-1 for animation
@@ -49,10 +53,42 @@ export class Screw implements IScrew {
     this.shapeId = shapeId;
     this.position = { ...position };
     this.color = color;
+    
+    // Set initial ownership to the shape
+    this.owner = shapeId;
+    this.ownerType = 'shape';
   }
 
   public setConstraint(constraint: Constraint): void {
     this.constraint = constraint;
+  }
+
+  /**
+   * Transfer ownership of this screw to a new owner
+   */
+  public transferOwnership(newOwner: string, newOwnerType: 'shape' | 'container' | 'holding_hole'): void {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔄 Ownership Transfer: Screw ${this.id} from ${this.ownerType} ${this.owner} to ${newOwnerType} ${newOwner}`);
+    }
+    this.owner = newOwner;
+    this.ownerType = newOwnerType;
+  }
+
+  /**
+   * Check if this screw can be deleted by the specified owner
+   */
+  public canBeDeletedBy(requesterId: string): boolean {
+    return this.owner === requesterId;
+  }
+
+  /**
+   * Get current owner information
+   */
+  public getOwnerInfo(): { owner: string; ownerType: 'shape' | 'container' | 'holding_hole' } {
+    return {
+      owner: this.owner,
+      ownerType: this.ownerType
+    };
   }
 
   public removeConstraint(): void {

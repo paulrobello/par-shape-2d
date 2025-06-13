@@ -224,29 +224,22 @@ export class ScrewEventHandler implements IScrewEventHandler {
       }
     }
 
-    // Remove the screws, but preserve collected screws that are in containers or holding holes
+    // Remove only screws that are still owned by this shape
     for (const screwId of screwsToRemove) {
       const screw = this.state.screws.get(screwId);
       
-      // Check if this screw is in a container or holding hole
-      const isInContainer = this.state.containers.some(container => 
-        container.holes.includes(screwId)
-      );
-      const isInHoldingHole = this.state.holdingHoles.some(hole => 
-        hole.screwId === screwId
-      );
-      
-      if (screw && screw.isCollected && (isInContainer || isInHoldingHole)) {
-        // Don't delete collected screws that are placed in containers/holding holes
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Preserving collected screw ${screwId} from shape ${event.shape.id} (in container: ${isInContainer}, in holding hole: ${isInHoldingHole})`);
-        }
-      } else {
-        // Safe to delete non-collected or unplaced screws
+      if (screw && screw.canBeDeletedBy(event.shape.id)) {
+        // Shape still owns this screw, safe to delete
         this.callbacks.onScrewDestroyed?.(screwId);
         this.state.screws.delete(screwId);
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Removed screw ${screwId} from shape ${event.shape.id}`);
+          console.log(`Removed screw ${screwId} from shape ${event.shape.id} (shape was owner)`);
+        }
+      } else if (screw) {
+        // Screw is owned by someone else (container or holding hole), preserve it
+        if (DEBUG_CONFIG.logScrewDebug) {
+          const ownerInfo = screw.getOwnerInfo();
+          console.log(`Preserving screw ${screwId} from shape ${event.shape.id} - owned by ${ownerInfo.ownerType} ${ownerInfo.owner}`);
         }
       }
     }
@@ -450,29 +443,27 @@ export class ScrewEventHandler implements IScrewEventHandler {
       }
     }
     
-    // Remove the screws, but preserve collected screws that are in containers or holding holes
+    // Remove only screws that are still owned by shapes on this layer
     for (const screwId of screwsToRemove) {
       const screw = this.state.screws.get(screwId);
       
-      // Check if this screw is in a container or holding hole
-      const isInContainer = this.state.containers.some(container => 
-        container.holes.includes(screwId)
-      );
-      const isInHoldingHole = this.state.holdingHoles.some(hole => 
-        hole.screwId === screwId
+      // Find the shape that originally owned this screw to check if it can delete it
+      const originalShape = this.state.allShapes.find(shape => 
+        shape.layerId === event.layer.id && shape.screws.some(s => s.id === screwId)
       );
       
-      if (screw && screw.isCollected && (isInContainer || isInHoldingHole)) {
-        // Don't delete collected screws that are placed in containers/holding holes
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Preserving collected screw ${screwId} from layer ${event.layer.id} (in container: ${isInContainer}, in holding hole: ${isInHoldingHole})`);
-        }
-      } else {
-        // Safe to delete non-collected or unplaced screws
+      if (screw && originalShape && screw.canBeDeletedBy(originalShape.id)) {
+        // Shape still owns this screw, safe to delete
         this.callbacks.onScrewDestroyed?.(screwId);
         this.state.screws.delete(screwId);
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Removed screw ${screwId} from layer ${event.layer.id}`);
+          console.log(`Removed screw ${screwId} from layer ${event.layer.id} (shape was owner)`);
+        }
+      } else if (screw) {
+        // Screw is owned by someone else (container or holding hole), preserve it
+        if (DEBUG_CONFIG.logScrewDebug) {
+          const ownerInfo = screw.getOwnerInfo();
+          console.log(`Preserving screw ${screwId} from layer ${event.layer.id} - owned by ${ownerInfo.ownerType} ${ownerInfo.owner}`);
         }
       }
     }

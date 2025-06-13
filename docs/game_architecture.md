@@ -93,23 +93,31 @@ Deep integration with Matter.js physics engine:
 - `level:completed` - Handles level completion logic
 
 #### **ScrewManager** (`src/game/systems/ScrewManager.ts`)
-**Responsibility**: Complete screw lifecycle management
+**Responsibility**: Complete screw lifecycle management with ownership tracking
 - Screw creation and placement within shapes
 - Click/touch event handling for screw selection
 - Collection animation management
 - Physics constraint management
 - Transfer coordination to containers/holding holes
+- **Ownership system** ensuring data integrity and preventing race conditions
 
 **Key Components**:
-- **ScrewEventHandler**: Event processing and routing
+- **ScrewEventHandler**: Event processing and routing with ownership validation
 - **ScrewAnimationService**: Collection animation management
-- **ScrewTransferService**: Destination finding and transfer logic
+- **ScrewTransferService**: Destination finding, transfer logic, and ownership transfers
 - **ScrewPhysicsService**: Physics constraint management
 - **ScrewPlacementService**: Strategic screw placement within shapes
+
+**Ownership System**:
+- **Single Owner Principle**: Each screw has exactly one owner (`shape`, `container`, `holding_hole`)
+- **Immediate Transfer**: Ownership changes when operations begin, not when animations complete
+- **Deletion Protection**: Only current owner can delete/destroy screws
+- **Clean Disposal**: Shapes only dispose screws they still own
 
 **Key Events**:
 - `screw:clicked` → `screw:removed` → `screw:collected`
 - `screw:animation:started` → `screw:animation:completed`
+- `screw:transfer:started` → `screw:transfer:completed` (with ownership transfer)
 
 #### **ContainerManager** (`src/game/core/managers/ContainerManager.ts`)
 **Responsibility**: Container lifecycle and screw assignment
@@ -291,6 +299,27 @@ sequenceDiagram
 ```
 
 ## Data Flow Architecture
+
+### Screw Ownership System
+
+The game implements a comprehensive ownership transfer system that ensures data integrity and prevents race conditions:
+
+#### **Ownership States**:
+1. **Shape Ownership**: Initial state when screw is created (`owner = shapeId`, `ownerType = 'shape'`)
+2. **Holding Hole Ownership**: Temporary storage (`owner = holeId`, `ownerType = 'holding_hole'`)
+3. **Container Ownership**: Final destination (`owner = containerId`, `ownerType = 'container'`)
+
+#### **Transfer Rules**:
+- **Immediate Transfer**: Ownership changes when transfer operations begin
+- **Atomic Operations**: Transfer and ownership change happen together
+- **Single Owner**: Each screw has exactly one owner at any time
+- **Deletion Authority**: Only current owner can delete/destroy screws
+
+#### **Benefits**:
+- **Race Condition Prevention**: Clear ownership eliminates complex cleanup logic
+- **Data Integrity**: Screws cannot be lost or duplicated
+- **Simplified Logic**: No need to check containers/holding holes for disposal decisions
+- **Debug Visibility**: Complete ownership tracking for troubleshooting
 
 ### State Management
 
