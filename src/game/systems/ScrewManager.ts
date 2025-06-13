@@ -693,9 +693,17 @@ export class ScrewManager extends BaseSystem {
         const reservedScrewId = container.reservedHoles[i];
         if (reservedScrewId) {
           const screw = this.state.screws.get(reservedScrewId);
-          if (!screw || (!screw.isBeingCollected && !screw.isBeingTransferred && !screw.isShaking)) {
+          
+          // Only clean up reservations if:
+          // 1. The screw doesn't exist anymore, OR
+          // 2. The screw exists but isn't in any active transfer state AND the hole isn't actually occupied
+          const shouldCleanup = !screw || 
+            (!screw.isBeingCollected && !screw.isBeingTransferred && !screw.isShaking && 
+             container.holes[i] !== reservedScrewId);
+          
+          if (shouldCleanup) {
             if (DEBUG_CONFIG.logScrewDebug) {
-              console.log(`🧹 Cleaning stale reservation for screw ${reservedScrewId} in container ${container.id} hole ${i}`);
+              console.log(`🧹 Cleaning stale reservation for screw ${reservedScrewId} in container ${container.id} hole ${i} (screw exists: ${!!screw}, hole occupied: ${container.holes[i] === reservedScrewId})`);
             }
             container.reservedHoles[i] = null;
           }

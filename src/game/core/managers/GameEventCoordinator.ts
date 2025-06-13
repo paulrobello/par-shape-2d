@@ -60,6 +60,7 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     // Rendering data events (to keep rendering data in sync)
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
+    this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
     this.subscribe('score:updated', this.handleScoreUpdated.bind(this));
     this.subscribe('level:score:updated', this.handleLevelScoreUpdated.bind(this));
     this.subscribe('total:score:updated', this.handleTotalScoreUpdated.bind(this));
@@ -206,6 +207,21 @@ export class GameEventCoordinator implements IGameEventCoordinator {
       
       this.managers.renderManager.updateRenderData({
         visibleLayers: visibleLayers,
+        allScrews: allScrews
+      });
+    }
+  }
+
+  private handleScrewCollected(event: unknown): void {
+    void event; // ScrewCollectedEvent - unused but required for signature
+    if (!this.managers || !this.systemCoordinator) return;
+    
+    // When a screw is collected, update the allScrews array for rendering
+    const screwManager = this.systemCoordinator.getScrewManager();
+    
+    if (screwManager) {
+      const allScrews = screwManager.getAllScrews();
+      this.managers.renderManager.updateRenderData({
         allScrews: allScrews
       });
     }

@@ -219,11 +219,28 @@ export class ContainerManager extends BaseSystem {
       console.log(`🎨 ContainerManager: Screw counts by color:`, Array.from(screwsByColor.entries()));
     }
     
-    // At game start, screwsByColor might be empty because screws are still being initialized
-    // Fall back to activeScrewColors from layer shapes in that case
+    // Check if we have valid screw data
+    const totalScrews = Array.from(screwsByColor.values()).reduce((sum, count) => sum + count, 0);
+    
+    if (totalScrews === 0 && activeScrewColors && activeScrewColors.length > 0) {
+      // Screw data not ready yet, schedule a retry after a short delay
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎨 ContainerManager: Screw data not ready (${totalScrews} total screws), retrying in 50ms`);
+      }
+      
+      setTimeout(() => {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔄 ContainerManager: Retrying container initialization with real screw data`);
+        }
+        this.initializeContainers(activeScrewColors, virtualGameWidth);
+      }, 50);
+      return; // Don't create containers until we have real screw data
+    }
+    
+    // At this point we have screw data, so use it
     if (availableScrewColors.length === 0 && activeScrewColors && activeScrewColors.length > 0) {
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`🎨 ContainerManager: Using active screw colors from shapes for initial containers (screw data not yet available)`);
+        console.log(`🎨 ContainerManager: No screws available but have active colors, using fallback logic`);
       }
       // Use the same smart logic as replacement containers - prioritize colors from shapes
       if (activeScrewColors.length >= GAME_CONFIG.containers.count) {
