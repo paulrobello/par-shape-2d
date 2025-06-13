@@ -184,17 +184,45 @@ export class ContainerManager extends BaseSystem {
     this.executeIfActive(() => {
       const { screwColors } = event;
 
-      // Initialize containers with screw colors from shapes
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`ContainerManager: Initializing containers with screw colors:`, screwColors);
-      }
-      this.initializeContainers(screwColors);
-
-      // Emit container colors updated event
+      // Get holding hole colors to ensure containers are created for all screws
       this.emit({
-        type: 'container:colors:updated',
+        type: 'holding_hole_state:request',
         timestamp: Date.now(),
-        colors: this.containers.map(c => c.color)
+        callback: (holdingHoles: import('@/types/game').HoldingHole[]) => {
+          // Collect colors from holding holes
+          const holdingHoleColors: ScrewColor[] = [];
+          holdingHoles.forEach(hole => {
+            if (hole.screwColor && !holdingHoleColors.includes(hole.screwColor)) {
+              holdingHoleColors.push(hole.screwColor);
+            }
+          });
+
+          // Combine shape colors and holding hole colors
+          const allColors = [...screwColors];
+          holdingHoleColors.forEach(color => {
+            if (!allColors.includes(color)) {
+              allColors.push(color);
+            }
+          });
+
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`ContainerManager: Initializing containers with colors:`, {
+              fromShapes: screwColors,
+              fromHoldingHoles: holdingHoleColors,
+              combined: allColors
+            });
+          }
+
+          // Initialize containers with all colors
+          this.initializeContainers(allColors);
+
+          // Emit container colors updated event
+          this.emit({
+            type: 'container:colors:updated',
+            timestamp: Date.now(),
+            colors: this.containers.map(c => c.color)
+          });
+        }
       });
     });
   }
