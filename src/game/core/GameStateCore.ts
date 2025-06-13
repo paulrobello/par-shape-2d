@@ -155,8 +155,8 @@ export class GameStateCore extends BaseSystem {
         }
       }
       // Mark level as complete and emit proper level:complete event
+      // NOTE: Score is NOT added here to prevent duplication - ProgressTracker handles scoring
       this.state.levelComplete = true;
-      this.state.totalScore += this.state.levelScore;
       
       // Emit level:complete with correct level and score data
       this.emit({
@@ -166,11 +166,8 @@ export class GameStateCore extends BaseSystem {
         score: this.state.levelScore
       });
 
-      this.emit({
-        type: 'total:score:updated',
-        timestamp: Date.now(),
-        totalScore: this.state.totalScore
-      });
+      // Don't emit total:score:updated here since score wasn't changed
+      // ProgressTracker's completion handler will update the total score
       
       this.markUnsavedChanges();
     });
