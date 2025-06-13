@@ -439,13 +439,13 @@ export interface ScoreUpdatedEvent extends BaseEvent {
 }
 
 export interface LevelScoreUpdatedEvent extends BaseEvent {
-  type: 'level_score:updated';
+  type: 'level:score:updated';
   levelScore: number;
   level: number;
 }
 
 export interface TotalScoreUpdatedEvent extends BaseEvent {
-  type: 'total_score:updated';
+  type: 'total:score:updated';
   totalScore: number;
 }
 
@@ -563,32 +563,32 @@ export interface ScrewTransferRequestEvent extends BaseEvent {
 }
 
 export interface ContainerStateRequestEvent extends BaseEvent {
-  type: 'container_state:request';
+  type: 'container:state:request';
   callback?: (containers: import('@/types/game').Container[]) => void;
 }
 
 export interface HoldingHoleStateRequestEvent extends BaseEvent {
-  type: 'holding_hole_state:request';
+  type: 'holding:hole:state:request';
   callback?: (holdingHoles: import('@/types/game').HoldingHole[]) => void;
 }
 
 export interface GameStateRequestEvent extends BaseEvent {
-  type: 'game_state:request';
+  type: 'game:state:request';
   callback?: (state: import('@/types/game').GameState, level: import('@/types/game').Level) => void;
 }
 
 export interface ContainerStateRestoreEvent extends BaseEvent {
-  type: 'container_state:restore';
+  type: 'container:state:restore';
   containers: import('@/types/game').Container[];
 }
 
 export interface HoldingHoleStateRestoreEvent extends BaseEvent {
-  type: 'holding_hole_state:restore';
+  type: 'holding:hole:state:restore';
   holdingHoles: import('@/types/game').HoldingHole[];
 }
 
 export interface GameStateRestoreEvent extends BaseEvent {
-  type: 'game_state:restore';
+  type: 'game:state:restore';
   gameState: import('@/types/game').GameState;
   level: import('@/types/game').Level;
 }

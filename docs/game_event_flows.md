@@ -305,15 +305,68 @@ sequenceDiagram
 3. **Request-Response Patterns**: Use `:requested` for requests
    -  `save:requested`, `restore:requested`
 
-### Naming Convention Issues Found
+### Naming Convention Fixes Applied
 
-**Inconsistent Separator Usage**:
-- `screw_colors:requested` � Should be `screw:colors:requested`
-- `remaining_screws:requested` � Should be `remaining:screws:requested`
-- `screw_count:requested` � Should be `screw:count:requested`
+**Fixed Inconsistent Separator Usage** (✅ Completed):
+- `level_score:updated` → `level:score:updated`
+- `total_score:updated` → `total:score:updated` 
+- `game_state:request` → `game:state:request`
+- `container_state:request` → `container:state:request`
+- `holding_hole_state:request` → `holding:hole:state:request`
+- `game_state:restore` → `game:state:restore`
+- `container_state:restore` → `container:state:restore`
+- `holding_hole_state:restore` → `holding:hole:state:restore`
 
-**Mixed Request Patterns**:
-- Some use `:requested`, others could use `:request` for consistency
+**Standardized Pattern**: All events now follow consistent `domain:action` or `domain:subdomain:action` format with colon separators.
+
+## System Reliability Improvements
+
+### Critical Race Condition Fixes (✅ Completed)
+
+#### **Container Replacement Race Condition**
+**Issue**: Container replacement used `setTimeout()` which created race conditions where containers could be removed or indices could change during the 500ms delay.
+
+**Solution**: Moved replacement logic to the animation update cycle in `ContainerManager.updateContainerAnimations()`. Replacement now triggers when fade-out animation completes, eliminating timing-based race conditions.
+
+**Files Modified**:
+- `src/game/core/managers/ContainerManager.ts` - Added `containersBeingProcessed` Set for duplicate prevention
+- Replaced `setTimeout()` with event-driven animation completion handling
+
+#### **Physics Constraint Race Condition**
+**Issue**: Physics constraints were removed immediately when screw collection started, but screw state (`isBeingCollected`) wasn't set until later, creating a window for duplicate clicks.
+
+**Solution**: Made screw collection atomic by moving physics constraint removal inside the state-setting operation.
+
+**Files Modified**:
+- `src/game/systems/ScrewManager.ts` - Modified `startScrewCollection()` to handle physics atomically
+- `src/game/systems/screw/ScrewEventHandler.ts` - Added validation to prevent duplicate clicks
+
+#### **State Validation Improvements**
+**Issue**: Missing validation allowed operations on invalid states (e.g., placing screws in occupied holes).
+
+**Solution**: Added comprehensive validation throughout the codebase:
+- Container state validation before operations
+- Screw state validation to prevent race conditions
+- Hole availability validation before placement
+
+### Shared Utilities Framework (✅ Completed)
+
+Created comprehensive shared utilities to eliminate code duplication and ensure consistency:
+
+#### **EventEmissionUtils** (`src/shared/utils/EventEmissionUtils.ts`)
+- Standardized event creation with automatic timestamps
+- Consistent completion event patterns
+- Eliminates duplicate event emission code
+
+#### **StateValidationUtils** (`src/shared/utils/StateValidationUtils.ts`)
+- Unified validation patterns for systems, game state, screws, and containers
+- Atomic validation operations with clear error reporting
+- Prevents invalid state transitions
+
+#### **DebugLogger** (`src/shared/utils/DebugLogger.ts`)
+- Consistent debug logging across all systems
+- Conditional logging based on debug flags
+- Standardized log formatting with emojis for easy identification
 
 ## Performance Considerations
 

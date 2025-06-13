@@ -353,7 +353,19 @@ export class ScrewManager extends BaseSystem {
 
   public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }, forceRemoval = false): boolean {
     return this.executeIfActive(() => {
-      return this.transferService.startScrewCollection(screwId, targetPosition, destinationInfo, forceRemoval);
+      // Attempt to start collection first (this sets isBeingCollected atomically)
+      const success = this.transferService.startScrewCollection(screwId, targetPosition, destinationInfo, forceRemoval);
+      
+      if (success) {
+        // Only remove physics constraint if collection state was successfully set
+        this.physicsService.removeConstraintOnly(screwId);
+        
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔧 Physics constraint removed atomically for screw ${screwId} (collection confirmed)`);
+        }
+      }
+      
+      return success;
     }) || false;
   }
 
@@ -569,18 +581,10 @@ export class ScrewManager extends BaseSystem {
       }
     }
 
-    // Start collection
+    // Start collection (this will also handle physics constraint removal atomically)
     if (this.startScrewCollection(screw.id, destination.position, destination, forceRemoval)) {
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`✅ Started collection for screw ${screw.id} to ${destination.type}`);
-      }
-
-      // IMMEDIATELY remove physics constraint when collection starts (not when animation ends)
-      // This allows the shape to start falling right away
-      this.physicsService.removeConstraintOnly(screw.id);
-      
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`🔧 Physics constraint removed immediately for screw ${screw.id} (collection started)`);
       }
 
       // Find associated shape and update active screw count

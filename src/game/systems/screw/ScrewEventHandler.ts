@@ -261,7 +261,13 @@ export class ScrewEventHandler implements IScrewEventHandler {
       return;
     }
 
-    console.log(`👆 Screw clicked: ${screw.id} (removable: ${screw.isRemovable}, collected: ${screw.isCollected})`);
+    // Validate screw state to prevent race conditions
+    if (screw.isCollected || screw.isBeingCollected) {
+      console.log(`⚠️ Ignoring click on screw ${screw.id} - already processed (collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
+      return;
+    }
+
+    console.log(`👆 Screw clicked: ${screw.id} (removable: ${screw.isRemovable}, collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
     console.log(`🎯 Calling onScrewClicked callback...`);
 
     const forceRemoval = event.forceRemoval === true;

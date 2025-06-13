@@ -12,6 +12,8 @@ import {
 } from '../../events/EventTypes';
 
 export class SaveLoadManager extends BaseSystem {
+  private isSaving = false;
+
   constructor() {
     super('SaveLoadManager');
   }
@@ -29,22 +31,20 @@ export class SaveLoadManager extends BaseSystem {
   private handleSaveRequested(event: SaveRequestedEvent): void {
     void event;
     this.executeIfActive(() => {
+      // Prevent concurrent save operations
+      if (this.isSaving) {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.warn('SaveLoadManager: Save already in progress, ignoring request');
+        }
+        return;
+      }
+
       try {
+        this.isSaving = true;
         // Request current state from other managers
         this.requestCurrentStateAndSave();
-        
-        this.emit({
-          type: 'save:completed',
-          timestamp: Date.now(),
-          success: true
-        });
-
-        this.emit({
-          type: 'save:state:changed',
-          timestamp: Date.now(),
-          hasUnsavedChanges: false
-        });
       } catch (error) {
+        this.isSaving = false;
         this.emit({
           type: 'save:completed',
           timestamp: Date.now(),
@@ -91,17 +91,17 @@ export class SaveLoadManager extends BaseSystem {
   private requestCurrentStateAndSave(): void {
     // Request state from GameState core
     this.emit({
-      type: 'game_state:request',
+      type: 'game:state:request',
       timestamp: Date.now(),
       callback: (gameState: IGameState, level: Level) => {
         // Request container state
         this.emit({
-          type: 'container_state:request',
+          type: 'container:state:request',
           timestamp: Date.now(),
           callback: (containers: Container[]) => {
             // Request holding hole state
             this.emit({
-              type: 'holding_hole_state:request',
+              type: 'holding:hole:state:request',
               timestamp: Date.now(),
               callback: (holdingHoles: HoldingHole[]) => {
                 // Now save with all collected state
@@ -115,29 +115,53 @@ export class SaveLoadManager extends BaseSystem {
   }
 
   private saveCurrentState(gameState: IGameState, level: Level, containers: Container[], holdingHoles: HoldingHole[]): void {
-    const saveData: FullGameSave = {
-      gameState,
-      level,
-      containers,
-      holdingHoles,
-      layerManagerState: {
-        layers: [],
-        layerCounter: 0,
-        depthCounter: 0,
-        physicsGroupCounter: 0,
-        colorCounter: 0,
-        totalLayersForLevel: getTotalLayersForLevel(gameState.currentLevel),
-        layersGeneratedThisLevel: 0,
-      },
-      screwManagerState: {
-        animatingScrews: [],
-      },
-    };
-    
-    localStorage.setItem('par-shape-2d-save', JSON.stringify(saveData));
-    
-    if (DEBUG_CONFIG.logScrewDebug) {
-      console.log('SaveLoadManager: Game state saved successfully');
+    try {
+      const saveData: FullGameSave = {
+        gameState,
+        level,
+        containers,
+        holdingHoles,
+        layerManagerState: {
+          layers: [],
+          layerCounter: 0,
+          depthCounter: 0,
+          physicsGroupCounter: 0,
+          colorCounter: 0,
+          totalLayersForLevel: getTotalLayersForLevel(gameState.currentLevel),
+          layersGeneratedThisLevel: 0,
+        },
+        screwManagerState: {
+          animatingScrews: [],
+        },
+      };
+      
+      localStorage.setItem('par-shape-2d-save', JSON.stringify(saveData));
+      
+      // Save completed successfully
+      this.emit({
+        type: 'save:completed',
+        timestamp: Date.now(),
+        success: true
+      });
+
+      this.emit({
+        type: 'save:state:changed',
+        timestamp: Date.now(),
+        hasUnsavedChanges: false
+      });
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log('SaveLoadManager: Game state saved successfully');
+      }
+    } catch (error) {
+      this.emit({
+        type: 'save:completed',
+        timestamp: Date.now(),
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    } finally {
+      this.isSaving = false;
     }
   }
 
@@ -195,7 +219,7 @@ export class SaveLoadManager extends BaseSystem {
     }
 
     this.emit({
-      type: 'game_state:restore',
+      type: 'game:state:restore',
       timestamp: Date.now(),
       gameState,
       level
@@ -237,7 +261,7 @@ export class SaveLoadManager extends BaseSystem {
     });
 
     this.emit({
-      type: 'container_state:restore',
+      type: 'container:state:restore',
       timestamp: Date.now(),
       containers
     });
@@ -247,7 +271,7 @@ export class SaveLoadManager extends BaseSystem {
     const holdingHoles = data.holdingHoles || [];
 
     this.emit({
-      type: 'holding_hole_state:restore',
+      type: 'holding:hole:state:restore',
       timestamp: Date.now(),
       holdingHoles
     });

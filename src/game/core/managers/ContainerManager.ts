@@ -21,6 +21,7 @@ export class ContainerManager extends BaseSystem {
   private virtualGameHeight = GAME_CONFIG.canvas.height;
   private availableScrewColors: ScrewColor[] = [];
   private containerStrategy: ContainerStrategyManager;
+  private containersBeingProcessed = new Set<string>();
 
   constructor() {
     super('ContainerManager');
@@ -76,7 +77,19 @@ export class ContainerManager extends BaseSystem {
       if (toContainerIndex >= 0 && toContainerIndex < this.containers.length) {
         const container = this.containers[toContainerIndex];
         
+        // Validate container state and hole availability
+        if (container.isMarkedForRemoval) {
+          console.warn(`⚠️ Cannot complete transfer to container ${container.id} - marked for removal`);
+          return;
+        }
+        
         if (toHoleIndex >= 0 && toHoleIndex < container.maxHoles) {
+          // Validate hole state before placing screw
+          if (container.holes[toHoleIndex] !== null) {
+            console.error(`❌ Cannot place screw ${screwId} - hole ${toHoleIndex} in container ${container.id} is already occupied!`);
+            return;
+          }
+          
           // Clear the reservation and place the screw in the actual hole
           container.reservedHoles[toHoleIndex] = null;
           container.holes[toHoleIndex] = screwId;
@@ -352,26 +365,10 @@ export class ContainerManager extends BaseSystem {
         console.log(`🎭 Starting fade-out animation for container ${container.id} (opacity: ${container.fadeOpacity})`);
       }
       
-      // Check if replacement is needed before creating new container
+      // Replacement will be handled when fade-out animation completes in updateContainerAnimations()
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`[CONTAINER_REMOVAL] Setting timeout to check replacement for container ${container.id} in 500ms`);
+        console.log(`[CONTAINER_REMOVAL] Container ${container.id} marked for removal, replacement will happen when fade-out completes`);
       }
-      
-      setTimeout(() => {
-        // Find the container index BEFORE it's removed
-        const currentContainerIndex = this.containers.findIndex(c => c.id === container.id);
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`[CONTAINER_REMOVAL] ⏰ Timeout fired! Checking replacement for container ${container.id}, current index: ${currentContainerIndex}`);
-        }
-        
-        if (currentContainerIndex >= 0) {
-          this.checkAndReplaceContainer(currentContainerIndex);
-        } else {
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`[CONTAINER_REMOVAL] ❌ Container ${container.id} no longer exists in containers array`);
-          }
-        }
-      }, 500); // 0.5 seconds for fade-out
     }
   }
 
@@ -753,6 +750,16 @@ export class ContainerManager extends BaseSystem {
             container.fadeOpacity = 0;
             if (DEBUG_CONFIG.logLayerDebug) {
               console.log(`🎭 Fade-out completed for container ${container.id}`);
+            }
+            
+            // Trigger replacement check when fade-out completes (no race condition)
+            if (container.isMarkedForRemoval && !this.containersBeingProcessed.has(container.id)) {
+              this.containersBeingProcessed.add(container.id);
+              const containerIndex = this.containers.findIndex(c => c.id === container.id);
+              if (containerIndex >= 0) {
+                this.checkAndReplaceContainer(containerIndex);
+              }
+              this.containersBeingProcessed.delete(container.id);
             }
           }
         } else if (container.isFadingIn) {
