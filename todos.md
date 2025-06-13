@@ -2,7 +2,8 @@
 
 **Important** You must follow the TODO rules below.
 
-## Rules
+## TODO Rules
+
 - Just because lint and build pass does not mean an item is complete. 
 - Items should only be marked complete when the user has stated they are complete.
 - Only address one item at a time.
@@ -11,9 +12,13 @@
 
 ## Items
 
-- Item 1: The screw transfer / collection system is not working correctly.
-  - Read the `README.md` and `game_event_flows.md` to understand how the system is supposed to work.
+- Item 1: Audit and fix logic flows and event system and update documentation
+  - Read the `README.md`, `game_architecture.md`, and `game_event_flows.md` to understand how the system is supposed to work.
+  - If you see any discrepancies between the documentation and the code, fix the code.
+  - When updating documentation create Mermaid diagrams where appropriate.
   - Do a full audit of the entire event system and ensure `game_event_flows.md` is up to date.
-  - Do a full audit of logic flows for all systems / aspects of the game and update `game_logic_flows.md`. Create Mermaid diagrams where appropriate.
-  - Once all the system have been audited and the documentation is up to date, fix any bugs / race conditions / logic flow issues found focusing first on the screw transfer / collection system.
-  - Update documentation as needed when bugs are fixed.
+  - Do a full audit of logic flows for all systems / aspects of the game and update `game_architecture.md`.
+  - Fix any bugs / race conditions / logic flow issues found.
+  - If you find duplicate code, refactor it into a shared utility.
+  - Look for "TODO's" / "FIXME's" / "Needs to be implemented" comments in the code and address them.
+  - **IMPORTANT** Update documentation as needed when bugs are fixed or logic is changed.

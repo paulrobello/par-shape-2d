@@ -1,5 +1,11 @@
 # Editor Event Flows Documentation
 
+## Documentation Guidelines
+
+**Note**: This document does not maintain statistics on emission/subscription counts. These change frequently and are not essential for understanding the event architecture.
+
+**Updates**: Changes should be integrated directly into existing sections rather than added to a separate "updates" section. Only add new sections when entirely new systems are introduced.
+
 ## Overview
 
 The editor event system provides a comprehensive, type-safe event-driven architecture for the shape editor component of the 2D physics puzzle game. It extends the shared event foundation with editor-specific functionality for shape creation, property management, and physics simulation.

@@ -1,1 +1,1 @@
-# Archived files for historical reference. Not used in the current project.
+# Archived files for historical reference by user. Not to be used by AI.
