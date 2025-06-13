@@ -11,6 +11,9 @@
 
 ## Items
 
-- Item 1: Reduce vertical space between the top of the holding holes and the bottoms of the container boxes.
-- Item 2: Add a small border between the HUD and the start of the shapes area.
-- Item 3: Change the color of the HUD background to a dark gray (#222222).
+- Item 1: The screw transfer / collection system is not working correctly.
+  - Read the `README.md` and `game_event_flows.md` to understand how the system is supposed to work.
+  - Do a full audit of the entire event system and ensure `game_event_flows.md` is up to date.
+  - Do a full audit of logic flows for all systems / aspects of the game and update `game_logic_flows.md`. Create Mermaid diagrams where appropriate.
+  - Once all the system have been audited and the documentation is up to date, fix any bugs / race conditions / logic flow issues found focusing first on the screw transfer / collection system.
+  - Update documentation as needed when bugs are fixed.
