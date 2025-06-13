@@ -52,8 +52,8 @@ export class GameStateCore extends BaseSystem {
     this.subscribe('shape:destroyed', this.handleShapeDestroyed.bind(this));
 
     // Save/load coordination events
-    this.subscribe('game_state:request', this.handleGameStateRequest.bind(this));
-    this.subscribe('game_state:restore', this.handleGameStateRestore.bind(this));
+    this.subscribe('game:state:request', this.handleGameStateRequest.bind(this));
+    this.subscribe('game:state:restore', this.handleGameStateRestore.bind(this));
   }
 
   private createInitialState(): IGameState {
@@ -167,7 +167,7 @@ export class GameStateCore extends BaseSystem {
       });
 
       this.emit({
-        type: 'total_score:updated',
+        type: 'total:score:updated',
         timestamp: Date.now(),
         totalScore: this.state.totalScore
       });
@@ -206,7 +206,7 @@ export class GameStateCore extends BaseSystem {
       });
 
       this.emit({
-        type: 'total_score:updated',
+        type: 'total:score:updated',
         timestamp: Date.now(),
         totalScore: this.state.totalScore
       });
@@ -339,7 +339,7 @@ export class GameStateCore extends BaseSystem {
       });
 
       this.emit({
-        type: 'level_score:updated',
+        type: 'level:score:updated',
         timestamp: Date.now(),
         levelScore: 0,
         level: this.state.currentLevel
@@ -361,7 +361,7 @@ export class GameStateCore extends BaseSystem {
     });
 
     this.emit({
-      type: 'level_score:updated',
+      type: 'level:score:updated',
       timestamp: Date.now(),
       levelScore: this.state.levelScore,
       level: this.state.currentLevel
@@ -380,7 +380,7 @@ export class GameStateCore extends BaseSystem {
     });
 
     this.emit({
-      type: 'level_score:updated',
+      type: 'level:score:updated',
       timestamp: Date.now(),
       levelScore: this.state.levelScore,
       level: this.state.currentLevel

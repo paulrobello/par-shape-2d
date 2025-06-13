@@ -61,8 +61,8 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
     this.subscribe('score:updated', this.handleScoreUpdated.bind(this));
-    this.subscribe('level_score:updated', this.handleLevelScoreUpdated.bind(this));
-    this.subscribe('total_score:updated', this.handleTotalScoreUpdated.bind(this));
+    this.subscribe('level:score:updated', this.handleLevelScoreUpdated.bind(this));
+    this.subscribe('total:score:updated', this.handleTotalScoreUpdated.bind(this));
     this.subscribe('level:started', this.handleLevelStarted.bind(this));
     this.subscribe('level:progress:updated', this.handleLevelProgressUpdated.bind(this));
     if (DEBUG_CONFIG.logEventFlow) {

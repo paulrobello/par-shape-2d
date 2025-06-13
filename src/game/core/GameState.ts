@@ -53,12 +53,12 @@ export class GameState extends BaseSystem {
     this.subscribe('screw:transfer:request', this.handleScrewTransferRequest.bind(this));
     
     // Handle state requests from SaveLoadManager
-    this.subscribe('container_state:request', this.handleContainerStateRequest.bind(this));
-    this.subscribe('holding_hole_state:request', this.handleHoldingHoleStateRequest.bind(this));
+    this.subscribe('container:state:request', this.handleContainerStateRequest.bind(this));
+    this.subscribe('holding:hole:state:request', this.handleHoldingHoleStateRequest.bind(this));
     
     // Handle state restoration
-    this.subscribe('container_state:restore', this.handleContainerStateRestore.bind(this));
-    this.subscribe('holding_hole_state:restore', this.handleHoldingHoleStateRestore.bind(this));
+    this.subscribe('container:state:restore', this.handleContainerStateRestore.bind(this));
+    this.subscribe('holding:hole:state:restore', this.handleHoldingHoleStateRestore.bind(this));
   }
 
   private handleLayerShapesReady(event: LayerShapesReadyEvent): void {
