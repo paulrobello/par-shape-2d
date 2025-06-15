@@ -295,7 +295,9 @@ export class GameStateCore extends BaseSystem {
 
   public endGame(): void {
     this.executeIfActive(() => {
-      const finalScore = this.state.totalScore + this.state.levelScore;
+      // Use totalScore directly - levelScore was already added in level completion flow
+      // Adding it again would double the final score
+      const finalScore = this.state.totalScore;
       
       this.state.gameOver = true;
       this.state.gameStarted = false;

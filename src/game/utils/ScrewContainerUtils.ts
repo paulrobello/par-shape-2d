@@ -141,6 +141,86 @@ export function findScrewDestination(
 }
 
 /**
+ * Atomically find and reserve a destination for a screw to prevent race conditions
+ * This function combines destination finding and reservation in a single operation
+ */
+export function findAndReserveScrewDestination(
+  screw: Screw,
+  containers: Container[],
+  holdingHoles: HoldingHole[],
+  virtualGameWidth: number
+): { type: 'container' | 'holding_hole'; position: Vector2; id: string; holeIndex?: number } | null {
+  // First, collect all matching containers with available space
+  const matchingContainers: { container: Container; index: number; availableHoles: number }[] = [];
+  
+  for (let i = 0; i < containers.length; i++) {
+    const container = containers[i];
+    // Skip full containers or containers without proper structure
+    if (container.isFull || !container.holes || !container.reservedHoles) {
+      continue;
+    }
+    
+    if (container.color === screw.color) {
+      // Count available holes in this container
+      let availableHoles = 0;
+      for (let j = 0; j < container.holes.length; j++) {
+        if (!container.holes[j] && !container.reservedHoles[j]) {
+          availableHoles++;
+        }
+      }
+      
+      if (availableHoles > 0) {
+        matchingContainers.push({ container, index: i, availableHoles });
+      }
+    }
+  }
+  
+  // If we found matching containers, choose the one with fewest available holes
+  if (matchingContainers.length > 0) {
+    // Sort by available holes (ascending) to get container with fewest holes first
+    matchingContainers.sort((a, b) => a.availableHoles - b.availableHoles);
+    
+    const chosen = matchingContainers[0];
+    const container = chosen.container;
+    const containerIndex = chosen.index;
+    
+    // ATOMIC: Find first available hole and reserve it immediately
+    for (let holeIndex = 0; holeIndex < container.holes.length; holeIndex++) {
+      if (!container.holes[holeIndex] && !container.reservedHoles[holeIndex]) {
+        // Reserve the hole immediately to prevent race conditions
+        container.reservedHoles[holeIndex] = screw.id;
+        
+        return {
+          type: 'container',
+          position: calculateContainerHolePosition(containerIndex, holeIndex, virtualGameWidth, containers),
+          id: container.id,
+          holeIndex
+        };
+      }
+    }
+  }
+  
+  // If no matching container, find first available holding hole and reserve it
+  const holdingPositions = calculateHoldingHolePositions(virtualGameWidth);
+  for (let i = 0; i < holdingHoles.length; i++) {
+    const hole = holdingHoles[i];
+    // ATOMIC: Check and reserve in one operation
+    if (!hole.screwId && !hole.reservedBy) {
+      hole.reservedBy = screw.id;
+      
+      return {
+        type: 'holding_hole',
+        position: holdingPositions[i],
+        id: hole.id,
+        holeIndex: i
+      };
+    }
+  }
+  
+  return null; // No space available anywhere
+}
+
+/**
  * Determine destination type based on screw's current position
  */
 export function determineDestinationType(

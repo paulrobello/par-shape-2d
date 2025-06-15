@@ -13,7 +13,8 @@ import {
   LevelStartedEvent,
   GameOverEvent,
   ScrewCollectedEvent,
-  ScrewCountResponseEvent
+  ScrewCountResponseEvent,
+  ContainerRemovedEvent
 } from '../events/EventTypes';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
@@ -60,6 +61,7 @@ export class ProgressTracker extends BaseSystem {
     
     // Listen for container events
     this.subscribe('container:all_removed', this.handleAllContainersRemoved.bind(this));
+    this.subscribe('container:removed', this.handleContainerRemoved.bind(this));
     this.subscribe('container:filled', this.handleContainerFilled.bind(this));
   }
 
@@ -144,14 +146,23 @@ export class ProgressTracker extends BaseSystem {
 
   private handleContainerFilled(event: import('../events/EventTypes').ContainerFilledEvent): void {
     this.executeIfActive(() => {
-      // When a container is filled and removed, count the screws as collected
-      const screwsInFilledContainer = event.screws.length;
+      // Container is filled but not yet removed - don't count screws as collected yet
+      // Wait for container:removed event to actually count the screws
+      if (DEBUG_CONFIG.logProgressTracking) {
+        console.log(`[ProgressTracker] Container filled with ${event.screws.length} screws, but waiting for removal to count as collected`);
+      }
+    });
+  }
+
+  private handleContainerRemoved(event: ContainerRemovedEvent): void {
+    this.executeIfActive(() => {
+      // When a container is actually removed, count the screws as collected
+      const screwsInRemovedContainer = event.screwIds.length;
       
-      // Since we no longer pre-count screws in containers, we need to add them directly to the removed count
-      this.state.screwsFromRemovedContainers += screwsInFilledContainer;
+      this.state.screwsFromRemovedContainers += screwsInRemovedContainer;
       
       if (DEBUG_CONFIG.logProgressTracking) {
-        console.log(`[ProgressTracker] Container filled and removed with ${screwsInFilledContainer} screws. Total collected: ${this.state.screwsFromRemovedContainers}`);
+        console.log(`[ProgressTracker] Container removed with ${screwsInRemovedContainer} screws. Total collected: ${this.state.screwsFromRemovedContainers}`);
       }
       
       this.calculateAndEmitProgress();

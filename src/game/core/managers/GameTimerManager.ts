@@ -30,9 +30,9 @@ export class GameTimerManager implements IGameTimerManager {
       clearInterval(this.state.gameOverCountdown);
     }
 
-    console.log('🚨 Starting game over countdown (10 seconds)');
+    console.log('🚨 Starting game over countdown (5 seconds)');
     
-    let countdown = 10;
+    let countdown = 5;
     this.state.gameOverCountdown = setInterval(() => {
       countdown--;
       console.log(`⏱️ Game over in ${countdown} seconds`);

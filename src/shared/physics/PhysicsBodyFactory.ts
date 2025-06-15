@@ -361,10 +361,11 @@ export class PhysicsBodyFactory {
     Body.setPosition(screwAnchor, screwPosition);
 
     // For dynamic composite bodies, we need to ensure the constraint stiffness is appropriate
-    // to prevent oscillation/orbiting behavior
-    const constraintStiffness = (shapeBody.parts && shapeBody.parts.length > 1 && !shapeBody.isStatic) 
-      ? 0.95  // High stiffness for composite bodies to prevent drift
-      : (options.stiffness ?? PHYSICS_CONSTANTS.constraint.stiffness);
+    // High stiffness for multiple-screw scenarios, lower for single-screw to allow pivoting
+    const constraintStiffness = options.stiffness ?? 
+      ((shapeBody.parts && shapeBody.parts.length > 1 && !shapeBody.isStatic) 
+        ? 0.95  // High stiffness for composite bodies to prevent drift (multi-screw)
+        : PHYSICS_CONSTANTS.constraint.stiffness);
     
     // Use standard damping for good movement speed
     const constraintDamping = options.damping ?? PHYSICS_CONSTANTS.constraint.damping;

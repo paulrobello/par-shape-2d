@@ -10,6 +10,7 @@ import { Vector2, ScrewColor, Container, HoldingHole } from '@/types/game';
 import { GAME_CONFIG, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { ScrewConstraintResult } from '@/shared/physics/ConstraintUtils';
 import { eventBus } from '../events/EventBus';
+import { findAndReserveScrewDestination } from '../utils/ScrewContainerUtils';
 // Utility imports no longer needed due to refactoring
 import {
   ScrewAnimationService,
@@ -125,6 +126,7 @@ export class ScrewManager extends BaseSystem {
         onCheckTransfers: this.checkAllHoldingHolesForTransfers.bind(this),
         onClearAll: this.clearAllScrews.bind(this),
         onUpdateRemovability: this.updateScrewRemovability.bind(this),
+        onContainerRemoved: this.handleContainerRemoved.bind(this),
       }
     );
   }
@@ -157,6 +159,11 @@ export class ScrewManager extends BaseSystem {
         this.validateAndCleanupReservations();
       }
 
+      // Check for stuck shapes that should be falling periodically
+      if (this.cleanupCounter % 300 === 0) { // ~5 seconds at 60 FPS
+        this.checkForStuckShapes();
+      }
+
       // Update collection animations
       const { completed, screws: collectedScrews } = this.animationService.updateCollectionAnimations(deltaTime);
       if (completed.length > 0) {
@@ -164,8 +171,8 @@ export class ScrewManager extends BaseSystem {
           const screwId = completed[i];
           const screw = collectedScrews[i];
           if (screw) {
-            // Mark as collected FIRST before physics updates
-            screw.collect();
+            // Mark as placed in container FIRST before physics updates (not yet collected)
+            screw.placeInContainer();
             
             // Find associated shape for logging (constraint already removed when collection started)
             const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
@@ -342,13 +349,13 @@ export class ScrewManager extends BaseSystem {
 
   // Transfer and collection delegation
   private findScrewDestination(screw: Screw): { type: 'container' | 'holding_hole'; position: Vector2; id: string; holeIndex?: number } | null {
-    // Update transfer service state with current values
-    const transferState = this.transferService as unknown as { state: { virtualGameWidth: number; containers: Container[]; holdingHoles: HoldingHole[] } };
-    transferState.state.virtualGameWidth = this.state.virtualGameWidth;
-    transferState.state.containers = this.state.containers;
-    transferState.state.holdingHoles = this.state.holdingHoles;
-    
-    return this.transferService.findScrewDestination(screw);
+    // Use the atomic function that combines finding and reserving to prevent race conditions
+    return findAndReserveScrewDestination(
+      screw,
+      this.state.containers,
+      this.state.holdingHoles,
+      this.state.virtualGameWidth
+    );
   }
 
   public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }, forceRemoval = false): boolean {
@@ -357,8 +364,20 @@ export class ScrewManager extends BaseSystem {
       const success = this.transferService.startScrewCollection(screwId, targetPosition, destinationInfo, forceRemoval);
       
       if (success) {
-        // Only remove physics constraint if collection state was successfully set
+        // Remove physics constraint
         this.physicsService.removeConstraintOnly(screwId);
+        
+        // Remove screw from shape's screw list so it stops being rendered on the shape
+        const screw = this.state.screws.get(screwId);
+        if (screw) {
+          const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
+          if (shape) {
+            shape.removeScrew(screwId);
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`🔧 Removed screw ${screwId} from shape ${shape.id} screw list`);
+            }
+          }
+        }
         
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`🔧 Physics constraint removed atomically for screw ${screwId} (collection confirmed)`);
@@ -423,18 +442,10 @@ export class ScrewManager extends BaseSystem {
       }
     }
     
-    // Count screws in shapes that need container space
+    // Count screws that need container space
+    // This includes: screws in shapes, screws being collected, and screws being transferred
     for (const screw of this.state.screws.values()) {
-      if (!screw.isCollected && !screw.isBeingCollected) {
-        const currentCount = counts.get(screw.color) || 0;
-        counts.set(screw.color, currentCount + 1);
-      }
-    }
-    
-    // Also count screws that are currently being transferred from holding holes to containers
-    // These screws still need container space and should be included in sizing calculations
-    for (const screw of this.state.screws.values()) {
-      if (screw.isBeingTransferred && !screw.isCollected) {
+      if (!screw.isCollected && screw.isRemovable) {
         const currentCount = counts.get(screw.color) || 0;
         counts.set(screw.color, currentCount + 1);
       }
@@ -555,56 +566,53 @@ export class ScrewManager extends BaseSystem {
     if (!destination) {
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`❌ No destination found for screw ${screw.id} (color: ${screw.color})`);
+        console.log(`   Current containers: ${this.state.containers.length}/${GAME_CONFIG.containers.count}`);
+        console.log(`   Container details:`, this.state.containers.map(c => ({ id: c.id, color: c.color, holes: c.holes.length, filled: c.holes.filter(h => h !== null).length })));
       }
+      
+      // Note: Container creation is now handled by the clean ContainerPlanner system
+      // No reactive container creation needed - containers are calculated optimally
+      
       if (forceRemoval) {
         console.warn(`Force removal requested but no destination for screw ${screw.id}`);
       }
       return;
     }
 
-    // Handle reservation for destination
-    if (destination.type === 'container' && destination.holeIndex !== undefined) {
-      const container = this.state.containers.find(c => c.id === destination.id);
-      if (container) {
-        container.reservedHoles[destination.holeIndex] = screw.id;
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Reserved container ${destination.id} hole ${destination.holeIndex} for screw ${screw.id}`);
-        }
-      }
-    } else if (destination.type === 'holding_hole') {
-      const holdingHole = this.state.holdingHoles.find(h => h.id === destination.id);
-      if (holdingHole) {
-        holdingHole.reservedBy = screw.id;
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Reserved holding hole ${destination.id} for screw ${screw.id}`);
-        }
-      }
-    }
-
+    // Note: Reservation is already handled atomically by findAndReserveScrewDestination()
+    
+    // Get shape
+    const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
+    
     // Start collection (this will also handle physics constraint removal atomically)
     if (this.startScrewCollection(screw.id, destination.position, destination, forceRemoval)) {
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`✅ Started collection for screw ${screw.id} to ${destination.type}`);
       }
 
-      // Find associated shape and update active screw count
-      const shape = this.state.allShapes.find(s => s.id === screw.shapeId);
-      if (shape) {
-        // Now the screw should be marked as isBeingCollected, so count correctly
-        const activeScrews = this.getScrewsForShape(screw.shapeId).filter(
-          s => !s.isCollected && !s.isBeingCollected
-        );
-        const activeCount = activeScrews.length; // No need to subtract 1 now
+      // The physics constraint removal in startScrewCollection->removeConstraintOnly 
+      // already handles making shapes partially dynamic when they have 1 screw left.
+      // We don't need to do anything extra here for that case.
+      
+      // We only need to check if this leaves the shape with 0 screws, which wouldn't
+      // be caught by removeConstraintOnly since it excludes the screw being removed
+      const shapeScrews = shape ? shape.getAllScrews() : [];
+      const shapeHasNoScrews = shape && shapeScrews.length === 0;
 
-        if (DEBUG_CONFIG.logPhysicsStateChanges && DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Shape ${shape.id} active screws after collection started: ${activeCount} (screw ${screw.id} now isBeingCollected=${screw.isBeingCollected})`);
+      if (DEBUG_CONFIG.logPhysicsStateChanges) {
+        console.log(`🔧 AFTER screw ${screw.id} collection started: Shape ${shape?.id || 'NOT_FOUND'} screws in shape list: ${shapeScrews.length}`);
+        if (shapeScrews.length > 0) {
+          console.log(`   Remaining screws in shape list: ${shapeScrews.map(s => s.id).join(', ')}`);
         }
+      }
 
-        if (activeCount === 0) {
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`Shape ${shape.id} will start falling immediately - no more active screws`);
-          }
+      // Edge case: If the shape's screw list is empty but physics didn't catch it
+      // This can happen if there's a timing issue with the constraint removal
+      if (shapeHasNoScrews && shape && shape.body.isStatic) {
+        if (DEBUG_CONFIG.logPhysicsStateChanges) {
+          console.log(`🚨 Edge case: Shape ${shape.id} has no screws but is still static - forcing dynamic`);
         }
+        this.physicsService.makeFullyDynamic(shape);
       }
     } else {
       if (DEBUG_CONFIG.logScrewDebug) {
@@ -626,6 +634,13 @@ export class ScrewManager extends BaseSystem {
 
   private handleTransferStarted(screw: Screw, event: ScrewTransferStartedEvent): void {
     // Start the transfer animation
+    console.log(`📦 ScrewManager handling transfer started for screw ${screw.id}:`, {
+      fromPosition: event.fromPosition,
+      toPosition: event.toPosition,
+      screwCurrentPos: screw.position,
+      isBeingTransferred: screw.isBeingTransferred
+    });
+    
     screw.startTransfer(
       event.fromPosition,
       event.toPosition,
@@ -633,6 +648,14 @@ export class ScrewManager extends BaseSystem {
       event.toContainerIndex,
       event.toHoleIndex
     );
+    
+    console.log(`✅ Transfer started - screw ${screw.id} state:`, {
+      isBeingTransferred: screw.isBeingTransferred,
+      transferProgress: screw.transferProgress,
+      position: screw.position,
+      startPos: screw.transferStartPosition,
+      targetPos: screw.transferTargetPosition
+    });
   }
 
   private handleTransferCompleted(screw: Screw, event: ScrewTransferCompletedEvent): void {
@@ -673,17 +696,66 @@ export class ScrewManager extends BaseSystem {
       }
     }
     
-    // Mark screw as collected
-    screw.collect();
+    // Mark screw as placed in container (not yet collected)
+    screw.placeInContainer();
     
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`Transfer completed for screw ${screw.id}`);
     }
   }
 
+  private handleContainerRemoved(screwIds: string[]): void {
+    this.executeIfActive(() => {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔧 ScrewManager: Marking ${screwIds.length} screws as truly collected after container removal:`, screwIds);
+      }
+      
+      // Mark all screws in the removed container as truly collected
+      for (const screwId of screwIds) {
+        const screw = this.state.screws.get(screwId);
+        if (screw) {
+          screw.collect(); // Now mark as truly collected
+          
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`  ✅ Screw ${screwId} marked as collected`);
+          }
+        } else {
+          console.warn(`⚠️ Screw ${screwId} not found when marking as collected`);
+        }
+      }
+    });
+  }
+
   // Utility methods
   private cleanupThrottlingStates(): void {
     this.collisionService.cleanupThrottlingStates();
+  }
+
+  private checkForStuckShapes(): void {
+    this.executeIfActive(() => {
+      // Check all shapes to see if any should be falling but are stuck
+      for (const shape of this.state.allShapes) {
+        if (!shape.body) continue;
+
+        // Get active screws for this shape
+        const activeScrews = this.getScrewsForShape(shape.id).filter(
+          s => !s.isCollected && !s.isBeingCollected
+        );
+
+        // If shape has no active screws but is still static, make it dynamic
+        if (activeScrews.length === 0 && shape.body.isStatic) {
+          if (DEBUG_CONFIG.logPhysicsStateChanges) {
+            console.log(`🚨 STUCK SHAPE DETECTED: Shape ${shape.id} has no screws but is still static - making dynamic`);
+          }
+          
+          this.physicsService.makeFullyDynamic(shape);
+          
+          if (DEBUG_CONFIG.logPhysicsStateChanges) {
+            console.log(`🔧 Fixed stuck shape ${shape.id}: isStatic=${shape.body.isStatic}, velocity=(${shape.body.velocity.x.toFixed(2)}, ${shape.body.velocity.y.toFixed(2)})`);
+          }
+        }
+      }
+    });
   }
 
   private validateAndCleanupReservations(): void {

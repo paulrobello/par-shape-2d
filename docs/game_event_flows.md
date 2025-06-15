@@ -58,6 +58,7 @@ The game event system provides a comprehensive, type-safe event-driven architect
 - **Management**: `layer:created`, `layer:cleared`, `layer:visibility:changed`
 - **State**: `layers:updated`, `layer:bounds:changed`, `layer:indices:updated`
 - **Readiness**: `layer:shapes:ready`, `all_layers:screws:ready`
+- **Layer Clearing**: `all:layers:cleared` - **Note**: Visual state only, NOT level completion
 
 ### Container System Events
 - **State Changes**: `container:filled`, `container:replaced`, `container:all_removed`

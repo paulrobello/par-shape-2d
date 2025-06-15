@@ -133,12 +133,14 @@ Deep integration with Matter.js physics engine:
 - **Reservation System**: Prevents duplicate screw assignments
 
 #### **LayerManager** (`src/game/systems/LayerManager.ts`)
-**Responsibility**: Multi-layer shape organization
+**Responsibility**: Multi-layer shape organization and visual management
 - Layer creation and management (10+ layers per level)
 - Shape placement within layers
 - Layer visibility and depth management
 - Physics group isolation between layers
 - Progressive layer revelation
+- **Layer state notifications**: Emits layer clearing events for UI updates
+- **Note**: Does NOT determine level completion - only handles layer management
 
 **Layer Properties**:
 - Each layer has unique visual tinting
@@ -170,11 +172,13 @@ Deep integration with Matter.js physics engine:
 - Visual feedback for available/occupied holes
 
 #### **ProgressTracker** (`src/game/systems/ProgressTracker.ts`)
-**Responsibility**: Game progress calculation and monitoring
+**Responsibility**: **Authoritative game progress tracking and level completion**
 - Real-time progress percentage calculation
 - Screw counting across shapes and holding holes
-- Level completion detection
+- **Single source of truth for level completion detection**
 - Progress bar updates
+- **Score integration**: Triggers score addition to total when level completes
+- **Win condition evaluation**: Determines when all game objectives are met
 
 #### **SaveLoadManager** (`src/game/core/managers/SaveLoadManager.ts`)
 **Responsibility**: Game state persistence
@@ -191,6 +195,31 @@ Deep integration with Matter.js physics engine:
 - Container and holding hole visualization
 - Animation coordination
 - Mobile responsiveness
+
+## Level Completion Architecture
+
+### Single Responsibility Principle
+
+The game follows a **strict single responsibility pattern** for level completion:
+
+#### **ProgressTracker: Authoritative Source**
+- **Sole determinant** of level completion based on actual game objectives
+- Monitors screw collection progress across all containers
+- Emits `level:completed` when all screws are properly collected
+- **Score Management**: Adds level score to total score upon completion
+- **Win Condition Logic**: Evaluates when level objectives are fully met
+
+#### **LayerManager: Visual Management Only**
+- Handles layer creation, visibility, and physics organization
+- Emits `all:layers:cleared` for UI state updates
+- **Does NOT determine level completion** - purely layer management
+- Layer clearing is independent of actual game progress
+
+#### **Benefits of This Architecture**
+- **Clear Separation**: Each system has a single, well-defined responsibility
+- **Accurate Completion**: Level completion based on actual game objectives (screw collection)
+- **No Race Conditions**: Single authoritative source prevents competing completion logic
+- **Maintainable**: Easy to reason about and debug completion flow
 
 ## Game Logic Flows
 
@@ -233,7 +262,7 @@ sequenceDiagram
     end
 ```
 
-### 2. Level Progression Flow
+### 2. Level Progression Flow (ProgressTracker Authoritative)
 
 ```mermaid
 sequenceDiagram
@@ -254,16 +283,20 @@ sequenceDiagram
         
         Note over PT: Count remaining screws in shapes + holes
         
-        alt No screws remaining
+        alt No screws remaining (AUTHORITATIVE)
             PT->>EB: emit('level:completed')
-            EB->>GSC: Process completion
+            EB->>GSC: Process completion & add score
+            Note over GSC: Add level score to total score
             GSC->>EB: emit('level:complete')
             EB->>GM: Handle level transition
-            GM->>LM: Clear current layers
+            GM->>LM: Clear current layers (visual only)
             GM->>LM: Generate next level
             GM->>EB: emit('level:started')
         end
     end
+    
+    Note over PT,LM: LayerManager clearing is independent of completion
+    Note over PT: ProgressTracker is SOLE completion authority
 ```
 
 ### 3. Container Management Flow

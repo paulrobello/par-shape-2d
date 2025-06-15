@@ -22,6 +22,7 @@ import {
   LayerClearedEvent,
   ScrewCountRequestedEvent,
   LevelStartedEvent,
+  ContainerRemovedEvent,
 } from '@/game/events/EventTypes';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { Screw } from '@/game/entities/Screw';
@@ -51,6 +52,7 @@ export interface IScrewEventHandler {
   handleScrewCountRequested(event: ScrewCountRequestedEvent): void;
   handleRemainingScrewCountsRequested(event: import('@/game/events/EventTypes').RemainingScrewCountsRequestedEvent): void;
   handleLevelStarted(event: LevelStartedEvent): void;
+  handleContainerRemoved(event: ContainerRemovedEvent): void;
 }
 
 interface EventHandlerState {
@@ -76,6 +78,7 @@ interface EventHandlerCallbacks {
   onCheckTransfers?: () => void;
   onClearAll?: () => void;
   onUpdateRemovability?: () => void;
+  onContainerRemoved?: (screwIds: string[]) => void;
 }
 
 export class ScrewEventHandler implements IScrewEventHandler {
@@ -113,6 +116,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     
     // Container events
     subscribe('container:colors:updated', this.handleContainerColorsUpdated.bind(this));
+    subscribe('container:removed', this.handleContainerRemoved.bind(this));
     
     // Bounds change events
     subscribe('bounds:changed', this.handleBoundsChanged.bind(this));
@@ -491,7 +495,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleRemainingScrewCountsRequested(event: import('@/game/events/EventTypes').RemainingScrewCountsRequestedEvent): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log('Remaining screw counts requested');
+      console.log('🔧 Remaining screw counts requested - analyzing all screws...');
     }
     
     // Count screws by color that need container space (shapes + holding holes, excluding same-color containers)
@@ -512,13 +516,51 @@ export class ScrewEventHandler implements IScrewEventHandler {
       }
     }
     
-    // Count screws in shapes (not collected, not being collected, AND removable/clickable)
+    // Count screws that need container space - ONLY screws currently on shapes
+    // Screws in holding holes are counted separately below
     // Only count screws that are actually accessible to the player (in visible layers)
+    let totalCountedScrews = 0;
+    const screwDetailsByColor = new Map<string, Array<{id: string, isRemovable: boolean, ownerType: string, isCollected: boolean, isBeingCollected: boolean, isBeingTransferred: boolean}>>();
+    
     for (const screw of this.state.screws.values()) {
-      if (!screw.isCollected && !screw.isBeingCollected && screw.isRemovable) {
+      // Only count screws that are on shapes (not in containers or holding holes)
+      if (!screw.isCollected && screw.isRemovable && screw.ownerType === 'shape') {
         const count = screwsByColor.get(screw.color) || 0;
         screwsByColor.set(screw.color, count + 1);
+        totalCountedScrews++;
+        
+        // Track details for debugging
+        if (!screwDetailsByColor.has(screw.color)) {
+          screwDetailsByColor.set(screw.color, []);
+        }
+        screwDetailsByColor.get(screw.color)!.push({
+          id: screw.id,
+          isRemovable: screw.isRemovable,
+          ownerType: screw.ownerType,
+          isCollected: screw.isCollected,
+          isBeingCollected: screw.isBeingCollected,
+          isBeingTransferred: screw.isBeingTransferred
+        });
       }
+    }
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`📊 Screw analysis details:`, {
+        totalCountedScrews,
+        screwDetailsByColor: Object.fromEntries(screwDetailsByColor)
+      });
+      
+      // Additional debug: analyze what's being excluded
+      const allScrews = Array.from(this.state.screws.values());
+      const excludedScrews = allScrews.filter(s => s.isCollected || !s.isRemovable);
+      console.log(`🚫 Excluded screws (${excludedScrews.length} total):`, {
+        collected: excludedScrews.filter(s => s.isCollected).length,
+        notRemovable: excludedScrews.filter(s => !s.isRemovable && !s.isCollected).length,
+        excludedDetails: excludedScrews.reduce((acc, s) => {
+          acc[s.color] = (acc[s.color] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      });
     }
     
     // Count screws in holding holes - these need container space eventually
@@ -542,7 +584,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
       const totalScrews = this.state.screws.size;
       const collectedScrews = Array.from(this.state.screws.values()).filter(s => s.isCollected).length;
       const beingCollectedScrews = Array.from(this.state.screws.values()).filter(s => s.isBeingCollected).length;
-      const removableScrews = Array.from(this.state.screws.values()).filter(s => !s.isCollected && !s.isBeingCollected && s.isRemovable).length;
+      const removableScrews = Array.from(this.state.screws.values()).filter(s => !s.isCollected && s.isRemovable).length;
       const nonRemovableScrews = Array.from(this.state.screws.values()).filter(s => !s.isCollected && !s.isBeingCollected && !s.isRemovable).length;
       
       const totalInContainers = Array.from(screwsInContainersByColor.values()).reduce((sum, set) => sum + set.size, 0);
@@ -550,7 +592,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
       console.log('  - Total screws:', totalScrews);
       console.log('  - Collected screws:', collectedScrews);
       console.log('  - Being collected screws:', beingCollectedScrews);
-      console.log('  - Removable screws (counted):', removableScrews);
+      console.log('  - Removable screws needing container space (counted):', removableScrews);
       console.log('  - Non-removable screws (hidden layers, excluded):', nonRemovableScrews);
       console.log('  - Screws already in containers by color:', Array.from(screwsInContainersByColor.entries()).map(([color, set]) => `${color}: ${set.size}`));
       console.log('  - Total screws in containers:', totalInContainers);
@@ -576,5 +618,14 @@ export class ScrewEventHandler implements IScrewEventHandler {
     
     // Clear visible layers
     this.state.visibleLayers.clear();
+  }
+
+  public handleContainerRemoved(event: ContainerRemovedEvent): void {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`ScrewEventHandler: Container removed with ${event.screwIds.length} screws:`, event.screwIds);
+    }
+    
+    // Notify ScrewManager to mark these screws as truly collected
+    this.callbacks.onContainerRemoved?.(event.screwIds);
   }
 }

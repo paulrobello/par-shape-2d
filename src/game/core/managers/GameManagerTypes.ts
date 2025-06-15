@@ -21,6 +21,8 @@ export interface RenderState {
   holdingHoles: HoldingHole[];
   allScrews: Screw[];
   lastRenderLogTime?: number;
+  cachedClickableScrews?: number;
+  lastClickableScrewsUpdate?: number;
 }
 
 export interface GameState {
@@ -104,6 +106,7 @@ export interface IGameTimerManager {
   shouldLogCollision(): boolean;
   updateCollisionLogTime(): void;
   clearLevelCompleteTimerManual(): void;
+  clearGameOverTimer(): void;
 }
 
 export interface IGameDebugManager {

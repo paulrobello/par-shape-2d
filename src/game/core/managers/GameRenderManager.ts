@@ -115,6 +115,21 @@ export class GameRenderManager implements IGameRenderManager {
   }
 
   updateRenderData(data: Partial<Pick<RenderState, 'visibleLayers' | 'containers' | 'holdingHoles' | 'allScrews'>>): void {
+    // Debug when allScrews data is updated
+    if (DEBUG_CONFIG.logScrewDebug && data.allScrews) {
+      const transferringScrews = data.allScrews.filter(s => s.isBeingTransferred);
+      if (transferringScrews.length > 0) {
+        console.log(`📊 GameRenderManager.updateRenderData: Received ${data.allScrews.length} screws, ${transferringScrews.length} transferring:`, 
+          transferringScrews.map(s => ({ 
+            id: s.id, 
+            isBeingTransferred: s.isBeingTransferred, 
+            owner: s.owner, 
+            ownerType: s.ownerType,
+            transferProgress: s.transferProgress
+          }))
+        );
+      }
+    }
     this.state = { ...this.state, ...data };
   }
 
@@ -398,6 +413,84 @@ export class GameRenderManager implements IGameRenderManager {
         });
       });
     });
+
+    // Render animating screws (screws that are being collected but removed from shapes)
+    // Use the allScrews array to find screws that are being collected but no longer on shapes
+    const animatingScrews = this.state.allScrews.filter(screw => 
+      screw.isBeingCollected && !screw.isCollected && !screw.isInContainer
+    );
+    
+    animatingScrews.forEach(screw => {
+      // Render animating screws on top of everything else
+      ScrewRenderer.renderScrew(screw, renderContext);
+    });
+
+    // Render transfer animations (screws moving from holding holes to containers)
+    // These screws are being transferred but are no longer in holding holes
+    // Note: During transfer, isInContainer might be true due to ownership transfer, but we still need to render them
+    const transferringScrews = this.state.allScrews.filter(screw => 
+      screw.isBeingTransferred && !screw.isCollected
+    );
+    
+    // Debug logging for transfer rendering
+    if (DEBUG_CONFIG.logScrewDebug) {
+      // Check if any screws are transferring in the allScrews array
+      const allTransferring = this.state.allScrews.filter(s => s.isBeingTransferred);
+      const allBeingCollected = this.state.allScrews.filter(s => s.isBeingCollected);
+      
+      if (allTransferring.length > 0 || allBeingCollected.length > 0) {
+        console.log(`🔍 Screw states in allScrews (${this.state.allScrews.length} total):`, {
+          transferring: allTransferring.map(s => ({ 
+            id: s.id, 
+            isBeingTransferred: s.isBeingTransferred,
+            isCollected: s.isCollected,
+            isInContainer: s.isInContainer,
+            transferProgress: s.transferProgress,
+            owner: s.owner,
+            ownerType: s.ownerType
+          })),
+          beingCollected: allBeingCollected.map(s => ({ 
+            id: s.id, 
+            isBeingCollected: s.isBeingCollected,
+            isCollected: s.isCollected,
+            isInContainer: s.isInContainer,
+            owner: s.owner,
+            ownerType: s.ownerType
+          })),
+          filteredTransferring: transferringScrews.length,
+          filterCriteria: 'isBeingTransferred && !isCollected'
+        });
+        
+        // Debug why transferring screws might be filtered out
+        if (allTransferring.length > 0 && transferringScrews.length === 0) {
+          console.log(`❌ RENDER FILTER ISSUE: ${allTransferring.length} transferring screws found but 0 passed filter!`);
+          allTransferring.forEach(s => {
+            console.log(`   Screw ${s.id}: isBeingTransferred=${s.isBeingTransferred}, isCollected=${s.isCollected}, isInContainer=${s.isInContainer}`);
+            console.log(`   Filter result: ${s.isBeingTransferred && !s.isCollected}`);
+          });
+        }
+      }
+      
+      if (transferringScrews.length > 0) {
+        console.log(`🎨 Rendering ${transferringScrews.length} transferring screws:`, 
+          transferringScrews.map(s => ({ 
+            id: s.id, 
+            isBeingTransferred: s.isBeingTransferred,
+            transferProgress: s.transferProgress,
+            position: s.position,
+            startPos: s.transferStartPosition,
+            targetPos: s.transferTargetPosition,
+            owner: s.owner,
+            ownerType: s.ownerType
+          }))
+        );
+      }
+    }
+    
+    transferringScrews.forEach(screw => {
+      // Render transferring screws on top of everything else
+      ScrewRenderer.renderScrew(screw, renderContext);
+    });
   }
 
   private renderHUD(): void {
@@ -407,20 +500,24 @@ export class GameRenderManager implements IGameRenderManager {
     
     // Use actual progress data from ProgressTracker
     const progressPercent = gameState.progressData.progress;
-    // Calculate remaining screws to match what user sees on screen
-    const collectedScrews = gameState.progressData.screwsInContainer; // This actually represents collected screws
-    const remainingScrews = Math.max(0, gameState.progressData.totalScrews - collectedScrews);
-    const screwsText = gameState.progressData.totalScrews > 0 
-      ? `Screws remaining: ${remainingScrews}` 
+    
+    // Calculate remaining screws based purely on ProgressTracker data (not individual screw states)
+    // This ensures the count only changes when containers are removed, not during screw animations
+    const totalScrews = gameState.progressData.totalScrews;
+    const screwsCollectedFromRemovedContainers = gameState.progressData.screwsInContainer;
+    const screwsRemaining = Math.max(0, totalScrews - screwsCollectedFromRemovedContainers);
+    
+    const screwsText = totalScrews > 0 
+      ? `Screws remaining: ${screwsRemaining}` 
       : 'Screws remaining: 0';
     
     // Debug: Log progress data occasionally to diagnose the issue
     if (DEBUG_CONFIG.logProgressTracking && Date.now() % 3000 < 16) { // Log roughly every 3 seconds (only during frame renders)
       console.log(`[GameRenderManager] Current progress data:`, {
-        totalScrews: gameState.progressData.totalScrews,
-        collectedScrews: collectedScrews,
-        remainingScrews: remainingScrews,
-        progress: gameState.progressData.progress,
+        totalScrews: totalScrews,
+        screwsCollectedFromRemovedContainers: screwsCollectedFromRemovedContainers,
+        screwsRemaining: screwsRemaining,
+        progress: progressPercent,
         displayText: screwsText
       });
     }

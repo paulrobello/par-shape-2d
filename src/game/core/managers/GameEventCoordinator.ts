@@ -61,6 +61,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
     this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
+    this.subscribe('screw:animation:started', this.handleScrewAnimationStarted.bind(this));
+    this.subscribe('screw:transfer:started', this.handleScrewTransferStarted.bind(this));
+    this.subscribe('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this));
     this.subscribe('score:updated', this.handleScoreUpdated.bind(this));
     this.subscribe('level:score:updated', this.handleLevelScoreUpdated.bind(this));
     this.subscribe('total:score:updated', this.handleTotalScoreUpdated.bind(this));
@@ -246,6 +249,65 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     }
   }
 
+  private handleScrewAnimationStarted(event: unknown): void {
+    void event; // ScrewAnimationStartedEvent - unused but required for signature
+    if (!this.managers || !this.systemCoordinator) return;
+    
+    // When a screw animation starts, update the allScrews array for rendering
+    const screwManager = this.systemCoordinator.getScrewManager();
+    
+    if (screwManager) {
+      const allScrews = screwManager.getAllScrews();
+      this.managers.renderManager.updateRenderData({
+        allScrews: allScrews
+      });
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        const animatingScrews = allScrews.filter(s => s.isBeingCollected);
+        console.log(`🎬 [GameEventCoordinator] Animation started - updated render data with ${allScrews.length} screws (${animatingScrews.length} animating)`);
+      }
+    }
+  }
+
+  private handleScrewTransferStarted(event: unknown): void {
+    void event; // ScrewTransferStartedEvent - unused but required for signature
+    if (!this.managers || !this.systemCoordinator) return;
+    
+    // When a screw transfer starts, update the allScrews array for rendering
+    const screwManager = this.systemCoordinator.getScrewManager();
+    
+    if (screwManager) {
+      const allScrews = screwManager.getAllScrews();
+      this.managers.renderManager.updateRenderData({
+        allScrews: allScrews
+      });
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        const transferringScrews = allScrews.filter(s => s.isBeingTransferred);
+        console.log(`🔄 [GameEventCoordinator] Transfer started - updated render data with ${allScrews.length} screws (${transferringScrews.length} transferring)`);
+      }
+    }
+  }
+
+  private handleScrewTransferCompleted(event: unknown): void {
+    void event; // ScrewTransferCompletedEvent - unused but required for signature
+    if (!this.managers || !this.systemCoordinator) return;
+    
+    // When a screw transfer completes, update the allScrews array for rendering
+    const screwManager = this.systemCoordinator.getScrewManager();
+    
+    if (screwManager) {
+      const allScrews = screwManager.getAllScrews();
+      this.managers.renderManager.updateRenderData({
+        allScrews: allScrews
+      });
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`✅ [GameEventCoordinator] Transfer completed - updated render data with ${allScrews.length} screws`);
+      }
+    }
+  }
+
   private handleScoreUpdated(event: unknown): void {
     void event;
     // Score updates are handled by level/total score events
@@ -341,8 +403,24 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     if (!this.managers) return;
     
     this.managers.uiManager.setHoldingHolesFull(true);
+    
+    // Start 5-second countdown to game over
+    this.managers.timerManager.startGameOverCountdown(() => {
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log('⏰ 5-second countdown complete - triggering game over');
+      }
+      
+      // Emit game:over event directly - this will trigger the proper game over flow
+      this.emit({
+        type: 'game:over',
+        timestamp: Date.now(),
+        finalScore: this.managers!.stateManager.getScore().total,
+        reason: 'holding_holes_full'
+      });
+    });
+    
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log('🔴 All holding holes are full! No more screws can be placed');
+      console.log('🔴 All holding holes are full! Starting 5-second countdown to game over');
     }
   }
 
@@ -350,6 +428,12 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     if (!this.managers) return;
     
     this.managers.uiManager.setHoldingHolesFull(false);
+    
+    // Clear the game over countdown timer since holding holes are now available
+    this.managers.timerManager.clearGameOverTimer();
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log(`🔄 Game over countdown cleared - holding holes now available`);
+    }
     
     // Also clear level complete timer if it's running (shouldn't normally happen but safety first)
     this.managers.timerManager.clearLevelCompleteTimerManual();

@@ -284,6 +284,13 @@ export interface ContainerReplacedEvent extends BaseEvent {
   newColor: import('@/types/game').ScrewColor;
 }
 
+export interface ContainerRemovedEvent extends BaseEvent {
+  type: 'container:removed';
+  containerIndex: number;
+  screwIds: string[];
+  color: import('@/types/game').ScrewColor;
+}
+
 export interface ContainerAllRemovedEvent extends BaseEvent {
   type: 'container:all_removed';
 }
@@ -316,6 +323,15 @@ export interface ContainerColorsUpdatedEvent extends BaseEvent {
 export interface ContainerStateUpdatedEvent extends BaseEvent {
   type: 'container:state:updated';
   containers: import('@/types/game').Container[];
+}
+
+export interface ContainerCreationRequestedEvent extends BaseEvent {
+  type: 'container:creation:requested';
+  screwColor: import('@/types/game').ScrewColor;
+}
+
+export interface ContainerInitializeEvent extends BaseEvent {
+  type: 'container:initialize';
 }
 
 export interface HoldingHoleStateUpdatedEvent extends BaseEvent {
@@ -639,12 +655,15 @@ export type GameEvent =
   | ContainerFilledEvent
   | ContainerRemovingScrewsEvent
   | ContainerReplacedEvent
+  | ContainerRemovedEvent
   | HoldingHoleFilledEvent
   | HoldingHolesFullEvent
   | HoldingHolesAvailableEvent
   | HoldingHolesCheckTransfersEvent
   | ContainerColorsUpdatedEvent
   | ContainerStateUpdatedEvent
+  | ContainerCreationRequestedEvent
+  | ContainerInitializeEvent
   | HoldingHoleStateUpdatedEvent
   | ScrewColorsRequestedEvent
   | ScrewTransferColorCheckEvent

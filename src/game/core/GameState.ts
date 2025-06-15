@@ -47,6 +47,7 @@ export class GameState extends BaseSystem {
     this.setupEventHandlers();
   }
 
+
   private setupEventHandlers(): void {
     // Handle coordination between managers
     this.subscribe('layer:shapes:ready', this.handleLayerShapesReady.bind(this));
@@ -63,20 +64,16 @@ export class GameState extends BaseSystem {
 
   private handleLayerShapesReady(event: LayerShapesReadyEvent): void {
     this.executeIfActive(() => {
-      const { screwColors } = event;
+      void event; // Acknowledge event parameter
 
-      // Initialize containers with screw colors when first layer is ready
-      this.containerManager.initializeContainers(screwColors);
-      
-      // Emit container colors updated event after initialization
+      // Initialize containers using the new clean container system
       this.emit({
-        type: 'container:colors:updated',
-        timestamp: Date.now(),
-        colors: this.containerManager.getContainers().map(c => c.color)
+        type: 'container:initialize',
+        timestamp: Date.now()
       });
       
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`GameState: Containers initialized with colors from layer shapes`);
+        console.log(`GameState: Emitted container:initialize for clean container planning`);
       }
     });
   }
@@ -274,8 +271,11 @@ export class GameState extends BaseSystem {
     this.executeIfActive(() => {
       this.gameStateCore.nextLevel();
       
-      // Reinitialize containers and holding holes for new level
-      this.containerManager.initializeContainers();
+      // Reinitialize containers and holding holes for new level using clean system
+      this.emit({
+        type: 'container:initialize',
+        timestamp: Date.now()
+      });
       this.holdingHoleManager.initializeHoldingHoles();
     });
   }
@@ -285,7 +285,10 @@ export class GameState extends BaseSystem {
       console.log('🔄 GameState: Starting coordinated reset operation');
       
       this.gameStateCore.reset();
-      this.containerManager.initializeContainers();
+      this.emit({
+        type: 'container:initialize',
+        timestamp: Date.now()
+      });
       this.holdingHoleManager.initializeHoldingHoles();
       this.saveLoadManager.clearSavedGame();
       
@@ -318,12 +321,16 @@ export class GameState extends BaseSystem {
     return this.saveLoadManager.hasGameInProgress();
   }
 
-  // Delegate update method to container manager for animations
+  // Delegate update method to container manager for animations and periodic checks
   public update(deltaTime: number): void {
-    void deltaTime; // GameState doesn't need frame timing
     this.executeIfActive(() => {
-      // Update container animations
-      this.containerManager.updateContainerAnimations();
+      // Update container manager (handles animations and periodic resizing checks)
+      this.containerManager.update(deltaTime);
+      
+      // Update holding hole manager if it has an update method
+      if ('update' in this.holdingHoleManager && typeof this.holdingHoleManager.update === 'function') {
+        this.holdingHoleManager.update(deltaTime);
+      }
     });
   }
 

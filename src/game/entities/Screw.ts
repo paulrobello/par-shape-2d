@@ -10,6 +10,7 @@ export class Screw implements IScrew {
   public constraint: Constraint | null = null;
   public isRemovable: boolean = true;
   public isCollected: boolean = false;
+  public isInContainer: boolean = false; // True when placed in container but not yet collected
 
   // Ownership tracking
   public owner: string; // ID of current owner
@@ -103,10 +104,20 @@ export class Screw implements IScrew {
     this.isRemovable = removable;
   }
 
+  public placeInContainer(): void {
+    if (this.isCollected || this.isInContainer) return;
+    
+    this.isInContainer = true;
+    this.isRemovable = false;
+    this.isBeingCollected = false; // No longer being collected since it's placed
+    this.removeConstraint();
+  }
+
   public collect(): void {
     if (this.isCollected) return;
     
     this.isCollected = true;
+    this.isInContainer = false; // No longer in container, now truly collected
     this.isRemovable = false;
     this.removeConstraint();
   }
@@ -175,7 +186,13 @@ export class Screw implements IScrew {
     const animationDuration = 600; // Slightly faster than collection animation
     const progressIncrement = deltaTime / animationDuration;
     
+    const oldProgress = this.transferProgress;
     this.transferProgress = Math.min(1, this.transferProgress + progressIncrement);
+
+    // Debug logging for transfer animation
+    if (DEBUG_CONFIG.logScrewDebug && Math.abs(this.transferProgress - oldProgress) > 0.01) {
+      console.log(`🎬 Transfer animation update for ${this.id}: progress ${oldProgress.toFixed(3)} → ${this.transferProgress.toFixed(3)}, deltaTime: ${deltaTime}ms`);
+    }
 
     // Update position based on animation progress
     if (this.transferProgress < 1) {
@@ -188,8 +205,15 @@ export class Screw implements IScrew {
       const targetX = this.transferTargetPosition.x;
       const targetY = this.transferTargetPosition.y;
       
+      const oldPosX = this.position.x;
+      const oldPosY = this.position.y;
       this.position.x = startX + (targetX - startX) * easedProgress;
       this.position.y = startY + (targetY - startY) * easedProgress;
+      
+      // Debug position changes
+      if (DEBUG_CONFIG.logScrewDebug && (Math.abs(this.position.x - oldPosX) > 1 || Math.abs(this.position.y - oldPosY) > 1)) {
+        console.log(`📍 Transfer position update for ${this.id}: (${oldPosX.toFixed(1)}, ${oldPosY.toFixed(1)}) → (${this.position.x.toFixed(1)}, ${this.position.y.toFixed(1)})`);
+      }
       
       return false; // Animation not complete
     } else {

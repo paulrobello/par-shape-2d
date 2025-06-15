@@ -109,35 +109,48 @@ export class HoldingHoleManager extends BaseSystem {
     this.executeIfActive(() => {
       const { fromHoleIndex, screwId } = event;
       
-      // Clear the holding hole immediately when transfer starts to free it up for other screws
+      // Delay clearing the holding hole to allow transfer animation to start properly
+      // This prevents the teleporting issue where screws disappear before animation begins
       if (fromHoleIndex >= 0 && fromHoleIndex < this.holdingHoles.length) {
         const hole = this.holdingHoles[fromHoleIndex];
-        const wasFullBefore = this.isHoldingAreaFull();
         
         if (hole.screwId === screwId) {
-          // Clear the holding hole immediately to free it up
-          hole.screwId = null;
-          hole.screwColor = undefined;
-          
           if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`🚀 HoldingHoleManager: Transfer started - immediately cleared holding hole ${fromHoleIndex} for screw ${screwId}`);
+            console.log(`🚀 HoldingHoleManager: Transfer started - will clear holding hole ${fromHoleIndex} for screw ${screwId} after animation starts`);
           }
           
-          // If holes were full before but not anymore, cancel the timer
-          if (wasFullBefore && !this.isHoldingAreaFull()) {
-            console.log(`✅ Holding holes no longer full after transfer start - cancelling game over timer`);
-            this.emit({
-              type: 'holding_holes:available',
-              timestamp: Date.now()
-            });
-          }
+          // Use setTimeout to clear the hole after animation has time to start
+          // This ensures the screw remains visible during the initial animation frame
+          setTimeout(() => {
+            if (this.holdingHoles[fromHoleIndex]?.screwId === screwId) {
+              const wasFullBefore = this.isHoldingAreaFull();
+              
+              // Clear the holding hole to free it up for other screws
+              hole.screwId = null;
+              hole.screwColor = undefined;
+              
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`🧹 HoldingHoleManager: Delayed clear of holding hole ${fromHoleIndex} for screw ${screwId}`);
+              }
+              
+              // If holes were full before but not anymore, cancel the timer
+              if (wasFullBefore && !this.isHoldingAreaFull()) {
+                console.log(`✅ Holding holes no longer full after delayed transfer clear - cancelling game over timer`);
+                this.emit({
+                  type: 'holding_holes:available',
+                  timestamp: Date.now()
+                });
+              }
+              
+              // Emit holding hole state update
+              this.emit({
+                type: 'holding_hole:state:updated',
+                timestamp: Date.now(),
+                holdingHoles: this.holdingHoles
+              });
+            }
+          }, 50); // 50ms delay allows animation to start before clearing
           
-          // Emit holding hole state update
-          this.emit({
-            type: 'holding_hole:state:updated',
-            timestamp: Date.now(),
-            holdingHoles: this.holdingHoles
-          });
         } else if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`⚠️ HoldingHoleManager: Transfer started but hole ${fromHoleIndex} contains different screw (${hole.screwId} vs ${screwId})`);
         }

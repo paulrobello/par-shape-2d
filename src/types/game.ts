@@ -54,6 +54,7 @@ export interface Screw {
   constraint: Constraint | null;
   isRemovable: boolean;
   isCollected: boolean;
+  isInContainer: boolean; // Whether screw is placed in container but not yet collected
   isBeingCollected: boolean; // Whether screw is currently animating to target
   collectionProgress: number; // 0-1 for animation
   targetPosition?: Vector2; // For collection animation

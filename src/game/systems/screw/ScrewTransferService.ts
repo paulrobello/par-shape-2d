@@ -8,7 +8,7 @@ import { Vector2, Container, HoldingHole } from '@/types/game';
 import { EventBus } from '@/game/events/EventBus';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import {
-  findScrewDestination,
+  findAndReserveScrewDestination,
   calculateContainerHolePosition,
 } from '@/game/utils/ScrewContainerUtils';
 
@@ -61,7 +61,7 @@ export class ScrewTransferService implements IScrewTransferService {
       })));
     }
     
-    const destination = findScrewDestination(
+    const destination = findAndReserveScrewDestination(
       screw,
       this.state.containers,
       this.state.holdingHoles,
@@ -185,6 +185,14 @@ export class ScrewTransferService implements IScrewTransferService {
         const toPosition = calculateContainerHolePosition(containerIndex, emptyHoleIndex, this.state.virtualGameWidth, this.state.containers);
         
         // Start transfer animation
+        console.log(`🚀 Emitting screw:transfer:started for screw ${screw.id}:`, {
+          fromPosition,
+          toPosition,
+          fromHoleIndex: holeIndex,
+          toContainerIndex: containerIndex,
+          toHoleIndex: emptyHoleIndex
+        });
+        
         this.eventBus.emit({
           type: 'screw:transfer:started',
           timestamp: Date.now(),
@@ -242,9 +250,40 @@ export class ScrewTransferService implements IScrewTransferService {
   }
 
   private placeScrewInContainer(screw: Screw): void {
-    // Find the container by ID
-    const container = this.state.containers.find(c => c.id === screw.targetContainerId);
-    const containerIndex = container ? this.state.containers.indexOf(container) : -1;
+    // Try to find the container by ID first
+    let container = this.state.containers.find(c => c.id === screw.targetContainerId);
+    let containerIndex = container ? this.state.containers.indexOf(container) : -1;
+    
+    // If original container not found (due to container replacement), find an available container of the same color
+    if (!container && screw.targetContainerId) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔄 Container ${screw.targetContainerId} not found for screw ${screw.id}, finding available container of color ${screw.color}`);
+      }
+      
+      container = this.state.containers.find(c => 
+        c.color === screw.color && 
+        !c.isFull &&
+        c.holes.some((hole, idx) => hole === null && c.reservedHoles[idx] === null)
+      );
+      containerIndex = container ? this.state.containers.indexOf(container) : -1;
+      
+      if (container) {
+        // Find the first available hole
+        const availableHoleIndex = container.holes.findIndex((hole, idx) => 
+          hole === null && container!.reservedHoles[idx] === null
+        );
+        
+        if (availableHoleIndex !== -1) {
+          // Update the screw's target info to match the new container
+          screw.targetContainerId = container.id;
+          screw.targetHoleIndex = availableHoleIndex;
+          
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`✅ Found replacement container ${container.id} for screw ${screw.id}, hole ${availableHoleIndex}`);
+          }
+        }
+      }
+    }
     
     if (container && containerIndex !== -1 && screw.targetHoleIndex !== undefined) {
       // Transfer ownership to container
@@ -293,7 +332,18 @@ export class ScrewTransferService implements IScrewTransferService {
         console.log(`✅ Placed screw ${screw.id} in container ${containerIndex} hole ${screw.targetHoleIndex} (${filledCount}/${container.maxHoles} filled) with ownership transfer`);
       }
     } else {
-      console.error(`❌ Failed to find container for screw ${screw.id}`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.error(`❌ Failed to find available container for screw ${screw.id} (color: ${screw.color})`);
+        console.error(`   Original target: ${screw.targetContainerId}`);
+        console.error(`   Available containers:`, this.state.containers.map(c => ({
+          id: c.id,
+          color: c.color,
+          isFull: c.isFull,
+          availableHoles: c.holes.filter((h, i) => h === null && c.reservedHoles[i] === null).length
+        })));
+      } else {
+        console.error(`❌ Failed to find container for screw ${screw.id}`);
+      }
     }
   }
 }

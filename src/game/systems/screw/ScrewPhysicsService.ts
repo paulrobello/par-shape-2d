@@ -16,6 +16,7 @@ export interface IScrewPhysicsService {
   removeConstraintOnly(screwId: string): boolean;
   updateShapeConstraints(shapeId: string): void;
   updateScrewPositions(): void;
+  makeFullyDynamic(shape: Shape): void;
 }
 
 interface PhysicsState {
@@ -169,7 +170,9 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
     } else if (shapeScrews.length === 1) {
       // One screw left - make shape dynamic but keep it anchored
       if (DEBUG_CONFIG.logPhysicsStateChanges && DEBUG_CONFIG.logScrewDebug) {
-        console.log(`🔧 Shape ${shape.id} has 1 screw left - making partially dynamic and updating constraints`);
+        console.log(`🔧 Shape ${shape.id} has 1 screw left - making partially dynamic`);
+        console.log(`   Remaining screw: ${shapeScrews[0].id}`);
+        console.log(`   Shape current state: isStatic=${shape.body.isStatic}`);
       }
       this.makeShapePartiallyDynamic(shape);
       // Update constraints for the remaining single screw
@@ -178,6 +181,7 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
       // Multiple screws still attached - shape remains static
       if (DEBUG_CONFIG.logPhysicsStateChanges && DEBUG_CONFIG.logScrewDebug) {
         console.log(`🔧 Shape ${shape.id} still has ${shapeScrews.length} screws - remaining static`);
+        console.log(`   Remaining screws: ${shapeScrews.map(s => s.id).join(', ')}`);
       }
     }
 
@@ -232,10 +236,17 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
             console.log(`  Screw.position: (${remainingScrew.position.x.toFixed(1)}, ${remainingScrew.position.y.toFixed(1)})`);
           }
           
-          // Use shared utilities to recreate constraint
+          // Use shared utilities to recreate constraint with single-screw appropriate stiffness
+          // For single-screw constraints, use lower stiffness to allow natural pivoting movement
+          const singleScrewOptions = {
+            stiffness: shape.isComposite ? 0.7 : 0.8, // Lower stiffness for better movement
+            damping: 0.1 // Good damping for smooth movement
+          };
+          
           const newConstraintResult = ConstraintUtils.createSingleScrewConstraint(
             shapeBody,
-            remainingScrew
+            remainingScrew,
+            singleScrewOptions
           );
           
           if (DEBUG_CONFIG.logPhysicsDebug) {
@@ -401,10 +412,36 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
     Body.setVelocity(shape.body, linearVelocity);
     Body.setAngularVelocity(shape.body, capturedAngularVelocity);
     
+    // Add a small nudge if the shape has very little velocity to overcome perfect balance
+    // This handles cases where shapes are perfectly balanced on their last screw position
+    if (Math.abs(linearVelocity.x) < 0.1 && Math.abs(linearVelocity.y) < 0.1) {
+      const nudgeVelocity = {
+        x: (Math.random() - 0.5) * 0.2, // Small random horizontal nudge
+        y: 0.1 // Small downward nudge to start falling
+      };
+      Body.setVelocity(shape.body, nudgeVelocity);
+      
+      if (DEBUG_CONFIG.logPhysicsStateChanges) {
+        console.log(`🔧 Applied physics nudge to perfectly balanced shape ${shape.id}: (${nudgeVelocity.x.toFixed(3)}, ${nudgeVelocity.y.toFixed(3)})`);
+      }
+    }
+    
     // Shape physics state changed - now fully dynamic
     if (DEBUG_CONFIG.logPhysicsDebug) {
       console.log(`Shape ${shape.id} made fully dynamic - no screws left`);
     }
+  }
+
+  /**
+   * Public method to make a shape fully dynamic when all screws are removed
+   */
+  public makeFullyDynamic(shape: Shape): void {
+    // Create a mock screw for the private method (since it needs a lastScrew parameter)
+    const mockScrew = {
+      position: { x: shape.position.x, y: shape.position.y }
+    } as Screw;
+    
+    this.makeShapeDynamic(shape, mockScrew);
   }
 
   private makeShapePartiallyDynamic(shape: Shape): void {
@@ -419,10 +456,17 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
       // CRITICAL: Synchronize shape position with physics body after state change
       shape.updateFromBody();
       
-      // Small nudge to ensure physics activation (not too large to avoid continuous rotation)
+      // Small nudge to ensure physics activation - more effective for composite bodies
       const nudgeDirection = Math.random() > 0.5 ? 1 : -1;
-      const nudgeAmount = 0.005; // Reduced from 0.02 to prevent excessive rotation
+      const nudgeAmount = shape.isComposite ? 0.01 : 0.005; // Slightly larger nudge for composite bodies
       Body.setAngularVelocity(shape.body, nudgeDirection * nudgeAmount);
+      
+      // Also add a small linear velocity nudge to help overcome static friction
+      const linearNudge = {
+        x: (Math.random() - 0.5) * 0.1,
+        y: Math.random() * 0.05 // Small downward component
+      };
+      Body.setVelocity(shape.body, linearNudge);
       
       if (DEBUG_CONFIG.logPhysicsStateChanges && DEBUG_CONFIG.logScrewDebug) {
         console.log(`🔧 Shape ${shape.id} AFTER makePartiallyDynamic: isStatic=${shape.body.isStatic}, isSleeping=${shape.body.isSleeping}, velocity=(${shape.body.velocity.x.toFixed(3)}, ${shape.body.velocity.y.toFixed(3)}), angularVel=${shape.body.angularVelocity.toFixed(3)}`);
