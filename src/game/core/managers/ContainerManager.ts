@@ -193,7 +193,7 @@ export class ContainerManager extends BaseSystem {
       // Fade animation properties
       fadeOpacity: 1.0,
       fadeStartTime: 0,
-      fadeDuration: 1000,
+      fadeDuration: 500,
       isFadingOut: false,
       isFadingIn: false,
     };
@@ -220,34 +220,9 @@ export class ContainerManager extends BaseSystem {
         container.isFadingOut = true;
         container.fadeStartTime = Date.now();
         
-        // IMMEDIATELY calculate replacement containers while container is marked for removal
-        // This prevents race conditions where screws are placed during the fade animation
-        if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`🔄 Container marked for removal - immediately checking for replacement needs...`);
-        }
-        
-        this.emit({
-          type: 'remaining:screws:requested',
-          timestamp: Date.now(),
-          callback: (screwInventory: Map<string, number>) => {
-            const totalRemainingScrews = Array.from(screwInventory.values()).reduce((sum, count) => sum + count, 0);
-            
-            if (totalRemainingScrews > 0) {
-              if (DEBUG_CONFIG.logScrewDebug) {
-                console.log(`🔄 Container being removed, ${totalRemainingScrews} screws remaining - creating replacement containers immediately...`);
-              }
-              this.updateContainersFromInventory();
-            } else {
-              if (DEBUG_CONFIG.logScrewDebug) {
-                console.log(`✅ Container being removed, no remaining screws - no replacement needed`);
-              }
-            }
-          }
-        });
-        
-        // Schedule physical container removal after fade animation
+        // Schedule both container removal AND replacement after fade animation completes
         setTimeout(() => {
-          // Remove the container
+          // Remove the container first
           this.containers.splice(event.containerIndex, 1);
           
           // Emit removal event
@@ -263,7 +238,27 @@ export class ContainerManager extends BaseSystem {
             console.log(`🗑️ Container ${container.id} physically removed after fade animation`);
           }
           
-        }, container.fadeDuration || 1000);
+          // NOW check for replacement containers and create them with fade-in animation
+          this.emit({
+            type: 'remaining:screws:requested',
+            timestamp: Date.now(),
+            callback: (screwInventory: Map<string, number>) => {
+              const totalRemainingScrews = Array.from(screwInventory.values()).reduce((sum, count) => sum + count, 0);
+              
+              if (totalRemainingScrews > 0) {
+                if (DEBUG_CONFIG.logScrewDebug) {
+                  console.log(`🔄 Container removed, ${totalRemainingScrews} screws remaining - creating replacement containers with fade-in...`);
+                }
+                this.createReplacementContainersWithFadeIn(screwInventory);
+              } else {
+                if (DEBUG_CONFIG.logScrewDebug) {
+                  console.log(`✅ Container removed, no remaining screws - no replacement needed`);
+                }
+              }
+            }
+          });
+          
+        }, container.fadeDuration || 500);
       }
     });
   }
@@ -421,6 +416,79 @@ export class ContainerManager extends BaseSystem {
   }
 
   // ========== ESSENTIAL UTILITY METHODS ==========
+
+  /**
+   * Create replacement containers with fade-in animation based on screw inventory
+   */
+  private createReplacementContainersWithFadeIn(screwInventory: Map<string, number>): void {
+    // Calculate optimal container plan
+    const newPlan = ContainerPlanner.calculateOptimalContainers(screwInventory);
+    
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log('📋 Calculated replacement container plan:', newPlan);
+    }
+    
+    // Find colors that need containers but don't have them
+    const existingColors = new Set(this.containers.map(c => c.color));
+    const neededColors = newPlan.containers.map(spec => spec.color);
+    const missingColors = neededColors.filter(color => !existingColors.has(color));
+    
+    if (missingColors.length > 0) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🎭 Creating fade-in containers for missing colors: ${missingColors.join(', ')}`);
+      }
+      
+      // Add containers for missing colors with fade-in animation
+      missingColors.forEach(color => {
+        const spec = newPlan.containers.find(s => s.color === color);
+        if (spec && this.containers.length < GAME_CONFIG.containers.count) {
+          const container = this.createContainerFromSpecWithFadeIn(spec, this.containers.length);
+          this.containers.push(container);
+          
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`✨ Added fade-in container for color ${color} with ${spec.holes} holes`);
+          }
+        }
+      });
+      
+      // Position all containers
+      this.repositionAllContainers();
+      
+      // Emit state update
+      this.emit({
+        type: 'container:state:updated',
+        timestamp: Date.now(),
+        containers: this.containers
+      });
+    }
+  }
+
+  /**
+   * Create a container from spec with fade-in animation
+   */
+  private createContainerFromSpecWithFadeIn(spec: { color: ScrewColor; holes: number }, index: number): Container {
+    const containerHeight = UI_CONSTANTS.containers.height;
+    const startY = UI_CONSTANTS.containers.startY;
+    
+    return {
+      id: `container_replacement_${Date.now()}_${index}`,
+      color: spec.color,
+      position: {
+        x: 0, // Will be positioned by repositionAllContainers
+        y: startY + (containerHeight / 2)
+      },
+      holes: new Array(spec.holes).fill(null),
+      reservedHoles: new Array(spec.holes).fill(null),
+      maxHoles: spec.holes,
+      isFull: false,
+      // Fade-in animation properties
+      fadeOpacity: 0.0, // Start invisible
+      fadeStartTime: Date.now(), // Start fading in immediately
+      fadeDuration: 500,
+      isFadingOut: false,
+      isFadingIn: true, // Start with fade-in animation
+    };
+  }
 
   /**
    * Reposition all containers to center them properly

@@ -190,24 +190,23 @@ sequenceDiagram
     
     alt Container becomes full
         CM->>EB: emit('container:filled')
-        CM->>CM: Mark container for removal
+        CM->>CM: Mark container for removal & start fade-out
         CM->>EB: emit('container:removing:screws')
         
-        Note over CM: IMMEDIATELY check for replacement (before fade)
+        Note over CM: Wait 500ms for fade-out animation
+        CM->>CM: Remove container physically
+        CM->>EB: emit('container:removed')
+        
+        Note over CM: IMMEDIATELY check for replacement (after removal)
         CM->>EB: emit('remaining:screws:requested')
         EB->>SEH: Process remaining screw count request
         SEH->>CM: Return screws by color (callback)
         
         alt More screws need containers
-            CM->>CP: calculateOptimalContainers(screwInventory)
-            CM->>CM: applyContainerPlan() - Conservative updates
+            CM->>CM: createReplacementContainersWithFadeIn()
             CM->>EB: emit('container:state:updated')
-            Note over CM: Replacement containers created immediately
+            Note over CM: Replacement containers start fade-in (500ms)
         end
-        
-        Note over CM: Wait 1000ms for fade-out animation
-        CM->>CM: Remove container
-        CM->>EB: emit('container:removed')
     end
 ```
 
@@ -522,13 +521,13 @@ The container system now listens to events that indicate screw availability chan
 #### **Container Replacement Timing Fix**
 **Problem**: Container replacement calculations were happening after the 500ms fade animation completed, creating a race condition where screws could be placed in holding holes during the fade delay, causing replacement containers to not be created.
 
-**Solution**: Move replacement calculation to happen **immediately** when container is marked for removal, before the fade animation starts.
+**Solution**: Create replacement containers with fade-in animation immediately after the previous container's fade-out completes.
 
 **Timing Flow**:
-1. Container filled → Mark for removal → **IMMEDIATELY calculate replacements**
-2. Start fade animation (1000ms)
-3. Replacement containers created during fade
-4. Original container physically removed after fade completes
+1. Container filled → Mark for removal → Start fade-out animation (500ms)
+2. After fade-out completes → Remove container physically
+3. **IMMEDIATELY** create replacement containers with fade-in animation (500ms)
+4. Replacement containers become fully visible
 
 **Benefits**:
 - Containers are ready BEFORE users need them, not after
