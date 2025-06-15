@@ -193,9 +193,7 @@ sequenceDiagram
         CM->>CM: Mark container for removal
         CM->>EB: emit('container:removing:screws')
         
-        Note over CM: Wait 500ms for fade-out animation
-        CM->>CM: Remove container
-        CM->>EB: emit('container:removed')
+        Note over CM: IMMEDIATELY check for replacement (before fade)
         CM->>EB: emit('remaining:screws:requested')
         EB->>SEH: Process remaining screw count request
         SEH->>CM: Return screws by color (callback)
@@ -204,7 +202,12 @@ sequenceDiagram
             CM->>CP: calculateOptimalContainers(screwInventory)
             CM->>CM: applyContainerPlan() - Conservative updates
             CM->>EB: emit('container:state:updated')
+            Note over CM: Replacement containers created immediately
         end
+        
+        Note over CM: Wait 500ms for fade-out animation
+        CM->>CM: Remove container
+        CM->>EB: emit('container:removed')
     end
 ```
 
@@ -516,11 +519,23 @@ The container system now listens to events that indicate screw availability chan
 - `src/game/core/managers/ContainerManager.ts` - Added proactive event handlers and throttling
 - `src/game/utils/ContainerPlanner.ts` - New pure function utility for container planning
 
+#### **Container Replacement Timing Fix**
+**Problem**: Container replacement calculations were happening after the 500ms fade animation completed, creating a race condition where screws could be placed in holding holes during the fade delay, causing replacement containers to not be created.
+
+**Solution**: Move replacement calculation to happen **immediately** when container is marked for removal, before the fade animation starts.
+
+**Timing Flow**:
+1. Container filled → Mark for removal → **IMMEDIATELY calculate replacements**
+2. Start fade animation (500ms)
+3. Replacement containers created during fade
+4. Original container physically removed after fade completes
+
 **Benefits**:
 - Containers are ready BEFORE users need them, not after
 - Eliminates reactive delays in container creation
 - Maintains performance through intelligent throttling
 - Conservative approach prevents unwanted container changes
+- **Prevents race conditions during fade animations**
 
 ## Performance Considerations
 

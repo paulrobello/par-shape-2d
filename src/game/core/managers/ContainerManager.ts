@@ -220,7 +220,32 @@ export class ContainerManager extends BaseSystem {
         container.isFadingOut = true;
         container.fadeStartTime = Date.now();
         
-        // Schedule container recalculation after removal
+        // IMMEDIATELY calculate replacement containers while container is marked for removal
+        // This prevents race conditions where screws are placed during the fade animation
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔄 Container marked for removal - immediately checking for replacement needs...`);
+        }
+        
+        this.emit({
+          type: 'remaining:screws:requested',
+          timestamp: Date.now(),
+          callback: (screwInventory: Map<string, number>) => {
+            const totalRemainingScrews = Array.from(screwInventory.values()).reduce((sum, count) => sum + count, 0);
+            
+            if (totalRemainingScrews > 0) {
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`🔄 Container being removed, ${totalRemainingScrews} screws remaining - creating replacement containers immediately...`);
+              }
+              this.updateContainersFromInventory();
+            } else {
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`✅ Container being removed, no remaining screws - no replacement needed`);
+              }
+            }
+          }
+        });
+        
+        // Schedule physical container removal after fade animation
         setTimeout(() => {
           // Remove the container
           this.containers.splice(event.containerIndex, 1);
@@ -234,25 +259,9 @@ export class ContainerManager extends BaseSystem {
             color: container.color
           });
           
-          // Only recalculate containers if there are screws that need container space
-          this.emit({
-            type: 'remaining:screws:requested',
-            timestamp: Date.now(),
-            callback: (screwInventory: Map<string, number>) => {
-              const totalRemainingScrews = Array.from(screwInventory.values()).reduce((sum, count) => sum + count, 0);
-              
-              if (totalRemainingScrews > 0) {
-                if (DEBUG_CONFIG.logScrewDebug) {
-                  console.log(`🔄 Container removed, ${totalRemainingScrews} screws remaining - recalculating optimal containers...`);
-                }
-                this.updateContainersFromInventory();
-              } else {
-                if (DEBUG_CONFIG.logScrewDebug) {
-                  console.log(`✅ Container removed, no remaining screws - no recalculation needed`);
-                }
-              }
-            }
-          });
+          if (DEBUG_CONFIG.logScrewDebug) {
+            console.log(`🗑️ Container ${container.id} physically removed after fade animation`);
+          }
           
         }, container.fadeDuration || 500);
       }
