@@ -64,6 +64,8 @@ The game event system provides a comprehensive, type-safe event-driven architect
 - **State Changes**: `container:filled`, `container:replaced`, `container:all_removed`
 - **Progress**: `container:progress:updated`, `container:state:updated`
 - **Colors**: `container:colors:updated`
+- **Lifecycle**: `container:initialize`, `container:removing:screws`
+- **Transfers**: `screw:transfer:completed`, `screw:transfer:failed`, `screw:transfer:color_check`
 
 ### Physics Events
 - **Bodies**: `physics:body:added`, `physics:body:removed`, `physics:body:removed:immediate`
@@ -81,7 +83,7 @@ The game event system provides a comprehensive, type-safe event-driven architect
 
 | System | Primary Events Emitted |
 |--------|------------------------|
-| **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed` |
+| **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed`, `container:removing:screws` |
 | **HoldingHoleManager** | `holding_hole:filled`, `holding_hole:state:updated`, `holding_holes:full`, `holding_holes:available` |
 | **ScrewManager** | `screw:collected`, `screw:removed`, `screw:animation:*`, `screw:transfer:*` |
 | **GameStateCore** | Game state transitions, progress tracking events |
@@ -93,7 +95,7 @@ The game event system provides a comprehensive, type-safe event-driven architect
 | System | Primary Events Subscribed |
 |--------|---------------------------|
 | **GameEventCoordinator** | `game:started`, `game:over`, `level:complete`, `debug:*`, `score:*`, `progress:updated`, `holding_hole:filled`, `container:filled` |
-| **ContainerManager** | `container:filled`, `screw:transfer:*`, `bounds:changed`, `layers:updated`, `layer:shapes:ready` |
+| **ContainerManager** | `container:filled`, `container:initialize`, `screw:transfer:*`, `screw:collected`, `bounds:changed`, `layers:updated`, `layer:indices:updated` |
 | **GameRenderManager** | Render-related events, bounds changes |
 | **GameDebugManager** | `debug:mode:toggled`, `debug:info:requested` |
 | **SaveLoadManager** | `save:requested`, `restore:requested` |
@@ -144,45 +146,66 @@ sequenceDiagram
     end
 ```
 
-### 2. Container Management Flow
+### 2. Container Management Flow (Proactive + Reactive)
 
 ```mermaid
 sequenceDiagram
+    participant LM as LayerManager
     participant CM as ContainerManager
     participant EB as EventBus
     participant SM as ScrewManager
     participant SEH as ScrewEventHandler
-    participant UI as GameUI
+    participant CP as ContainerPlanner
 
+    Note over CM: PROACTIVE CONTAINER MANAGEMENT
+    
+    alt Layer state changes (affects screw removability)
+        LM->>EB: emit('layers:updated')
+        EB->>CM: Route to handleLayersUpdated()
+        CM->>CM: Check throttle (1 second)
+        CM->>EB: emit('remaining:screws:requested')
+        EB->>SEH: Process remaining screw count request
+        SEH->>SEH: Count screws in shapes + holding holes
+        SEH->>CM: Return screws by color (callback)
+        CM->>CP: calculateOptimalContainers(screwInventory)
+        CP->>CM: Return ContainerPlan
+        
+        alt Plan changed or missing containers
+            CM->>CM: applyContainerPlan() - Add missing containers only
+            CM->>EB: emit('container:state:updated')
+            Note over CM: Containers ready BEFORE user needs them
+        end
+    end
+    
+    alt Layer indices change
+        LM->>EB: emit('layer:indices:updated')
+        EB->>CM: Route to handleLayerIndicesUpdated()
+        Note over CM: Same proactive flow as layers:updated
+    end
+
+    Note over CM: REACTIVE CONTAINER MANAGEMENT (Existing)
+    
     EB->>CM: 'screw:collected' (destination: 'container')
     CM->>CM: Add screw to container
     
     alt Container becomes full
         CM->>EB: emit('container:filled')
         CM->>CM: Mark container for removal
+        CM->>EB: emit('container:removing:screws')
         
         Note over CM: Wait 500ms for fade-out animation
+        CM->>CM: Remove container
+        CM->>EB: emit('container:removed')
         CM->>EB: emit('remaining:screws:requested')
         EB->>SEH: Process remaining screw count request
-        SEH->>SEH: Count screws in shapes + holding holes
         SEH->>CM: Return screws by color (callback)
         
-        alt Replacement needed
-            CM->>CM: Create replacement container
-            CM->>EB: emit('container:replaced')
-        else No replacement needed
-            CM->>CM: Remove container
-            alt Last container removed
-                CM->>EB: emit('container:all_removed')
-            end
+        alt More screws need containers
+            CM->>CP: calculateOptimalContainers(screwInventory)
+            CM->>CM: applyContainerPlan() - Conservative updates
+            CM->>EB: emit('container:state:updated')
         end
-        
-        CM->>EB: emit('container:state:updated')
     end
-    
-    EB->>CM: 'layers:updated'
-    CM->>CM: Update available screw colors
-    CM->>EB: emit('container:colors:updated')
 ```
 
 ### 3. Level Progression Flow
@@ -406,6 +429,38 @@ sequenceDiagram
 - Screw state validation to prevent race conditions
 - Hole availability validation before placement
 
+#### **Screw Physics State Management Race Condition**
+**Issue**: Physics service was not properly accounting for screws in containers (`isInContainer` state) when determining if shapes should become dynamic. This caused shapes to remain static even when they logically had only 1 active screw left.
+
+**Root Cause**: Screws have multiple states:
+- `isBeingCollected` (during animation)
+- `isInContainer` (placed in container but not truly collected) 
+- `isCollected` (when container is removed)
+
+The physics service was only filtering out `isCollected` and `isBeingCollected` screws, missing `isInContainer` screws.
+
+**Solution**: Updated all screw filtering logic to exclude `isInContainer` screws:
+- `removeConstraintOnly()`: Fixed screw counting for physics state decisions
+- `updateShapeConstraints()`: Fixed single-screw constraint recreation  
+- `checkForStuckShapes()`: Fixed stuck shape detection
+- `handleScrewClicked()`: Fixed duplicate click prevention
+
+**Files Modified**:
+- `src/game/systems/screw/ScrewPhysicsService.ts` - Updated constraint logic and stiffness for single-screw scenarios
+- `src/game/systems/ScrewManager.ts` - Updated screw state filtering
+- `src/shared/physics/PhysicsBodyFactory.ts` - Improved constraint creation for dynamic shapes
+
+#### **Physics Constraint Stiffness Optimization**
+**Issue**: When shapes had only 1 screw left, constraint recreation was using very high stiffness (0.95) for composite bodies which prevented natural movement around the pivot point.
+
+**Solution**: 
+- Use lower stiffness (0.7 for composite, 0.8 for regular) in single-screw constraints
+- Allow custom stiffness options to override default composite body logic  
+- Enhanced physics nudges for partially dynamic shapes with both angular and linear components
+- More effective nudging for composite bodies vs regular shapes
+
+This allows shapes with 1 screw to move naturally around their pivot point while still being properly constrained.
+
 ### Shared Utilities Framework (✅ Completed)
 
 Created comprehensive shared utilities to eliminate code duplication and ensure consistency:
@@ -424,6 +479,48 @@ Created comprehensive shared utilities to eliminate code duplication and ensure 
 - Consistent debug logging across all systems
 - Conditional logging based on debug flags
 - Standardized log formatting with emojis for easy identification
+
+### Proactive Container Management System (✅ Completed)
+
+#### **Container Planning System**
+**Problem**: Containers were only created reactively after filled containers were removed, causing delays where users had removable screws of multiple colors but insufficient containers.
+
+**Solution**: Implemented proactive container management using `ContainerPlanner` utility and event-driven updates.
+
+**Key Components**:
+
+#### **ContainerPlanner** (`src/game/utils/ContainerPlanner.ts`)
+- Pure function utility for optimal container calculation
+- `calculateOptimalContainers()`: Takes screw inventory, returns optimal container plan
+- `plansEqual()`: Efficiently compares container plans to prevent unnecessary updates
+- Conservative approach: Only adds missing containers, never replaces existing ones with screws
+
+#### **Proactive Event Triggers**
+The container system now listens to events that indicate screw availability changes:
+- `layers:updated` - When layer visibility changes (affects screw removability)
+- `layer:indices:updated` - When layer ordering changes (affects screw accessibility)  
+- `screw:collected` - When screws are placed in containers (changes inventory needs)
+
+#### **Throttled Updates**
+- 1-second throttle prevents excessive recalculations during rapid state changes
+- `proactivelyUpdateContainers()` method handles throttling logic
+- Debug logging shows throttling decisions for troubleshooting
+
+#### **Conservative Container Updates**
+- `applyContainerPlan()` with `clearExisting=false` only adds missing containers
+- Never removes containers that have screws in them
+- Maintains existing container positions and states
+- Only creates containers for colors that don't have containers yet
+
+**Files Modified**:
+- `src/game/core/managers/ContainerManager.ts` - Added proactive event handlers and throttling
+- `src/game/utils/ContainerPlanner.ts` - New pure function utility for container planning
+
+**Benefits**:
+- Containers are ready BEFORE users need them, not after
+- Eliminates reactive delays in container creation
+- Maintains performance through intelligent throttling
+- Conservative approach prevents unwanted container changes
 
 ## Performance Considerations
 
