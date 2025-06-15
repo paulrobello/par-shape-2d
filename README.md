@@ -40,7 +40,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * When all screws are removed from a shape, it is allowed to fall from the screen and is removed from the layer once off-screen.
 * All shapes in a layer should have the same tint to indicate they are part of the same layer.
 * Shapes should have a solid border with a translucent inner area to allow the player to see the shapes behind them.
-* Shapes can be any of the following: rectangle, square, circle, polygon, capsule, star, arrow, chevron, horseshoe.
+* Shapes can be any of the following: circle, capsule, arrow, chevron, star, triangle, square, rectangle, pentagon, hexagon, heptagon, octagon, horseshoe (currently disabled).
 * Shapes when placed in the layer should not overlap.
 * A screw can not be removed if it is even partially blocked by a shape in a layer that is visually in front of its layer.
 * Screws from any visible layer can be removed as long as they are not blocked.

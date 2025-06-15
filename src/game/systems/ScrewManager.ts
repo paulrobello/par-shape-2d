@@ -358,6 +358,19 @@ export class ScrewManager extends BaseSystem {
     );
   }
 
+  /**
+   * Initiates the collection process for a screw, handling physics removal and animation setup.
+   * 
+   * This method atomically starts the screw collection by setting the screw state,
+   * removing physics constraints, and initiating the collection animation toward
+   * the target destination (container or holding hole).
+   * 
+   * @param screwId - The unique identifier of the screw to collect
+   * @param targetPosition - The world position where the screw should animate to
+   * @param destinationInfo - Optional destination details (container/holding hole)
+   * @param forceRemoval - Whether to force removal even if screw appears blocked
+   * @returns True if collection started successfully, false if screw is invalid/busy
+   */
   public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }, forceRemoval = false): boolean {
     return this.executeIfActive(() => {
       // Attempt to start collection first (this sets isBeingCollected atomically)

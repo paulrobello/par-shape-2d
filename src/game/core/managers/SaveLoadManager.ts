@@ -234,7 +234,7 @@ export class SaveLoadManager extends BaseSystem {
       if (container.fadeOpacity === undefined) {
         container.fadeOpacity = 1.0;
         container.fadeStartTime = 0;
-        container.fadeDuration = 500;
+        container.fadeDuration = 1000;
         container.isFadingOut = false;
         container.isFadingIn = false;
       }

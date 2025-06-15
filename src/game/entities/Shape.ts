@@ -2,6 +2,29 @@ import { Body } from 'matter-js';
 import { Shape as IShape, ShapeType, Vector2, Screw } from '@/types/game';
 import { UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 
+/**
+ * Represents a shape entity in the physics puzzle game with integrated screw management.
+ * 
+ * Shapes are the primary interactive objects that players manipulate by removing screws.
+ * Each shape maintains its own physics body, visual properties, and collection of screws
+ * that hold it in place within the game layer.
+ * 
+ * Key features:
+ * - Integration with Matter.js physics engine
+ * - Dynamic screw placement and removal
+ * - Layer-based organization and collision
+ * - Path2D generation for rendering
+ * - Composite shape support for complex geometries
+ * - Tinting system for layer identification
+ * 
+ * @example
+ * ```typescript
+ * const shape = new Shape('shape-1', 'rectangle', 'rect-def', {x: 100, y: 100}, 
+ *                        0, physicsBody, 'layer-1', '#ff0000', '#ffcccc');
+ * shape.addScrew(screw);
+ * shape.setColor('#00ff00');
+ * ```
+ */
 export class Shape implements IShape {
   public id: string;
   public type: ShapeType;

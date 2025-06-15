@@ -2,6 +2,27 @@ import { Constraint, Body } from 'matter-js';
 import { Screw as IScrew, ScrewColor, Vector2 } from '@/types/game';
 import { UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
 
+/**
+ * Represents a screw entity in the physics puzzle game with ownership tracking and animation management.
+ * 
+ * Screws are the core interactive elements that players remove from shapes to progress through levels.
+ * Each screw has a clear ownership model (shape → container/holding_hole) and supports multiple
+ * animation states for smooth gameplay interactions.
+ * 
+ * Key features:
+ * - Ownership transfer system preventing race conditions
+ * - Physics constraint management for shape attachment
+ * - Collection and transfer animations
+ * - Shake animation for blocked interactions
+ * - Comprehensive state tracking for game logic
+ * 
+ * @example
+ * ```typescript
+ * const screw = new Screw('screw-1', 'shape-1', {x: 100, y: 100}, 'red');
+ * screw.setConstraint(physicsConstraint);
+ * screw.transferOwnership('container-1', 'container');
+ * ```
+ */
 export class Screw implements IScrew {
   public id: string;
   public shapeId: string;
@@ -60,12 +81,24 @@ export class Screw implements IScrew {
     this.ownerType = 'shape';
   }
 
+  /**
+   * Sets the physics constraint that attaches this screw to a shape.
+   * 
+   * @param constraint - The Matter.js constraint object for physics attachment
+   */
   public setConstraint(constraint: Constraint): void {
     this.constraint = constraint;
   }
 
   /**
-   * Transfer ownership of this screw to a new owner
+   * Transfers ownership of this screw to a new owner to prevent race conditions.
+   * 
+   * This is a critical part of the ownership system that ensures data integrity
+   * by establishing clear ownership chains: shape → container/holding_hole.
+   * Only the current owner can delete or modify the screw's state.
+   * 
+   * @param newOwner - The ID of the new owner (shape, container, or holding hole ID)
+   * @param newOwnerType - The type of the new owner
    */
   public transferOwnership(newOwner: string, newOwnerType: 'shape' | 'container' | 'holding_hole'): void {
     if (DEBUG_CONFIG.logScrewDebug) {
@@ -76,14 +109,22 @@ export class Screw implements IScrew {
   }
 
   /**
-   * Check if this screw can be deleted by the specified owner
+   * Checks if this screw can be deleted by the specified owner.
+   * 
+   * This is a key part of the ownership system that prevents unauthorized
+   * deletion and ensures data integrity during shape destruction.
+   * 
+   * @param requesterId - The ID of the entity requesting deletion
+   * @returns True if the requester is the current owner, false otherwise
    */
   public canBeDeletedBy(requesterId: string): boolean {
     return this.owner === requesterId;
   }
 
   /**
-   * Get current owner information
+   * Gets the current owner information for debugging and validation purposes.
+   * 
+   * @returns Object containing the current owner ID and owner type
    */
   public getOwnerInfo(): { owner: string; ownerType: 'shape' | 'container' | 'holding_hole' } {
     return {
@@ -92,18 +133,34 @@ export class Screw implements IScrew {
     };
   }
 
+  /**
+   * Removes the physics constraint, allowing the screw to detach from its shape.
+   */
   public removeConstraint(): void {
     this.constraint = null;
   }
 
+  /**
+   * Checks if this screw has an active physics constraint.
+   * 
+   * @returns True if the screw has a constraint, false otherwise
+   */
   public hasConstraint(): boolean {
     return this.constraint !== null;
   }
 
+  /**
+   * Sets whether this screw can be removed by the player.
+   * 
+   * @param removable - True if the screw can be removed, false if blocked
+   */
   public setRemovable(removable: boolean): void {
     this.isRemovable = removable;
   }
 
+  /**
+   * Marks the screw as placed in a container but not yet collected.
+   */
   public placeInContainer(): void {
     if (this.isCollected || this.isInContainer) return;
     

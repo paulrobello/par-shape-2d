@@ -205,7 +205,7 @@ sequenceDiagram
             Note over CM: Replacement containers created immediately
         end
         
-        Note over CM: Wait 500ms for fade-out animation
+        Note over CM: Wait 1000ms for fade-out animation
         CM->>CM: Remove container
         CM->>EB: emit('container:removed')
     end
@@ -526,7 +526,7 @@ The container system now listens to events that indicate screw availability chan
 
 **Timing Flow**:
 1. Container filled → Mark for removal → **IMMEDIATELY calculate replacements**
-2. Start fade animation (500ms)
+2. Start fade animation (1000ms)
 3. Replacement containers created during fade
 4. Original container physically removed after fade completes
 

@@ -193,7 +193,7 @@ export class ContainerManager extends BaseSystem {
       // Fade animation properties
       fadeOpacity: 1.0,
       fadeStartTime: 0,
-      fadeDuration: 500,
+      fadeDuration: 1000,
       isFadingOut: false,
       isFadingIn: false,
     };
@@ -263,7 +263,7 @@ export class ContainerManager extends BaseSystem {
             console.log(`🗑️ Container ${container.id} physically removed after fade animation`);
           }
           
-        }, container.fadeDuration || 500);
+        }, container.fadeDuration || 1000);
       }
     });
   }

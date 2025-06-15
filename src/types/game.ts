@@ -110,7 +110,7 @@ export interface Container {
   // Fade animation properties
   fadeOpacity: number; // 0-1 for fade animation
   fadeStartTime: number; // When fade animation started
-  fadeDuration: number; // Duration of fade in milliseconds (500ms)
+  fadeDuration: number; // Duration of fade in milliseconds (1000ms)
   isFadingOut: boolean; // Whether container is fading out
   isFadingIn: boolean; // Whether container is fading in
 }
