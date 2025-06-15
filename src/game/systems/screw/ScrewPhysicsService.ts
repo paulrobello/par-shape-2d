@@ -148,8 +148,9 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
     
     const allShapeScrews = this.getScrewsForShape(screw.shapeId);
     // Count screws that are still constraining the shape
+    // Exclude collected, being collected, and in-container screws
     const shapeScrews = allShapeScrews.filter(s => 
-      !s.isCollected && !s.isBeingCollected && s.id !== screwId
+      !s.isCollected && !s.isBeingCollected && !s.isInContainer && s.id !== screwId
     );
     
     if (DEBUG_CONFIG.logPhysicsStateChanges) {
@@ -157,7 +158,7 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
         console.log(`Shape ${shape.id}: Total screws=${allShapeScrews.length}, Constraining screws=${shapeScrews.length} after removing ${screwId}`);
       }
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`  Screws: ${allShapeScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected})`).join(', ')}`);
+        console.log(`  Screws: ${allShapeScrews.map(s => `${s.id}(collected:${s.isCollected},collecting:${s.isBeingCollected},inContainer:${s.isInContainer})`).join(', ')}`);
       }
     }
     
@@ -192,7 +193,7 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
    * Update constraints when shape has only one screw remaining
    */
   public updateShapeConstraints(shapeId: string): void {
-    const shapeScrews = this.getScrewsForShape(shapeId).filter(s => !s.isCollected && !s.isBeingCollected);
+    const shapeScrews = this.getScrewsForShape(shapeId).filter(s => !s.isCollected && !s.isBeingCollected && !s.isInContainer);
 
     if (shapeScrews.length === 1) {
       const remainingScrew = shapeScrews[0];
@@ -336,7 +337,7 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
     // Debug logging for single-screw composite bodies
     if (DEBUG_CONFIG.logPhysicsDebug) {
       for (const shape of this.state.allShapes) {
-        const shapeScrews = this.getScrewsForShape(shape.id).filter(s => !s.isCollected && !s.isBeingCollected);
+        const shapeScrews = this.getScrewsForShape(shape.id).filter(s => !s.isCollected && !s.isBeingCollected && !s.isInContainer);
         if (shapeScrews.length === 1 && shape.isComposite && shape.body && !shape.body.isStatic) {
           const screw = shapeScrews[0];
           const constraint = this.state.constraints.get(screw.id);

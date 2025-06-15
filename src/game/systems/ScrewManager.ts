@@ -526,7 +526,7 @@ export class ScrewManager extends BaseSystem {
     // Check if screw is blocked
     const isBlockedForGameplay = this.isScrewBlockedForGameplay(screw.id);
 
-    if (isBlockedForGameplay && !screw.isCollected && !screw.isBeingCollected && !forceRemoval) {
+    if (isBlockedForGameplay && !screw.isCollected && !screw.isBeingCollected && !screw.isInContainer && !forceRemoval) {
       if (DEBUG_CONFIG.logScrewDebug) {
         console.log(`👆 Screw ${screw.id} is blocked - starting shake animation`);
       }
@@ -550,10 +550,10 @@ export class ScrewManager extends BaseSystem {
       return;
     }
 
-    // Skip if already collected or being collected
-    if (screw.isCollected || screw.isBeingCollected) {
+    // Skip if already collected, being collected, or in container
+    if (screw.isCollected || screw.isBeingCollected || screw.isInContainer) {
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`⏭️ Screw ${screw.id} already collected (${screw.isCollected}) or being collected (${screw.isBeingCollected}) - skipping duplicate event`);
+        console.log(`⏭️ Screw ${screw.id} already processed - collected: ${screw.isCollected}, being collected: ${screw.isBeingCollected}, in container: ${screw.isInContainer}`);
       }
       return;
     }
@@ -739,7 +739,7 @@ export class ScrewManager extends BaseSystem {
 
         // Get active screws for this shape
         const activeScrews = this.getScrewsForShape(shape.id).filter(
-          s => !s.isCollected && !s.isBeingCollected
+          s => !s.isCollected && !s.isBeingCollected && !s.isInContainer
         );
 
         // If shape has no active screws but is still static, make it dynamic
