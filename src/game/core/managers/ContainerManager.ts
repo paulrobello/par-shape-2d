@@ -19,6 +19,10 @@ export class ContainerManager extends BaseSystem {
   private virtualGameWidth = GAME_CONFIG.canvas.width;
   private virtualGameHeight = GAME_CONFIG.canvas.height;
   private currentPlan: ContainerPlan | null = null;
+  
+  // Throttling for proactive container updates
+  private lastProactiveUpdate = 0;
+  private static readonly PROACTIVE_UPDATE_THROTTLE_MS = 1000; // 1 second throttle
 
   constructor() {
     super('ContainerManager');
@@ -44,6 +48,11 @@ export class ContainerManager extends BaseSystem {
     this.subscribe('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this));
     this.subscribe('screw:transfer:failed', this.handleScrewTransferFailed.bind(this));
     this.subscribe('screw:transfer:color_check', this.handleScrewTransferColorCheck.bind(this));
+    
+    // Proactive container management - update when screw availability changes
+    this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
+    this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
+    this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
     
     // Bounds events
     this.subscribe('bounds:changed', this.handleBoundsChanged.bind(this));
@@ -342,6 +351,45 @@ export class ContainerManager extends BaseSystem {
           callback(validTransfers);
         }
       });
+    });
+  }
+
+  private handleLayersUpdated(): void {
+    this.executeIfActive(() => {
+      this.proactivelyUpdateContainers('layers updated');
+    });
+  }
+
+  private handleLayerIndicesUpdated(): void {
+    this.executeIfActive(() => {
+      this.proactivelyUpdateContainers('layer indices updated');
+    });
+  }
+
+  /**
+   * Proactively update containers with throttling to prevent excessive recalculations
+   */
+  private proactivelyUpdateContainers(reason: string): void {
+    const now = Date.now();
+    if (now - this.lastProactiveUpdate < ContainerManager.PROACTIVE_UPDATE_THROTTLE_MS) {
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔄 ContainerManager: Throttling proactive update (${reason}) - last update was ${now - this.lastProactiveUpdate}ms ago`);
+      }
+      return;
+    }
+    
+    this.lastProactiveUpdate = now;
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔄 ContainerManager: Proactively updating containers (${reason})...`);
+    }
+    this.updateContainersFromInventory();
+  }
+
+  private handleScrewCollected(): void {
+    this.executeIfActive(() => {
+      // When screws are collected, proactively update containers
+      // This is less critical than layer updates but ensures consistency
+      this.proactivelyUpdateContainers('screw collected');
     });
   }
 
