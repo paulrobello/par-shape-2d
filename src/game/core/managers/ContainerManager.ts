@@ -16,6 +16,11 @@ import {
 
 export class ContainerManager extends BaseSystem {
   private containers: Container[] = [];
+  
+  // Fixed slot positions for containers to prevent shifting
+  private static readonly MAX_CONTAINER_SLOTS = 4;
+  private containerSlots: (Container | null)[] = new Array(ContainerManager.MAX_CONTAINER_SLOTS).fill(null);
+  
   private virtualGameWidth = GAME_CONFIG.canvas.width;
   private virtualGameHeight = GAME_CONFIG.canvas.height;
   private currentPlan: ContainerPlan | null = null;
@@ -119,10 +124,14 @@ export class ContainerManager extends BaseSystem {
     if (clearExisting) {
       // Clear all existing containers and create fresh ones (for level initialization)
       this.containers = [];
+      this.containerSlots.fill(null);
       
       plan.containers.forEach((containerSpec, index) => {
-        const container = this.createContainerFromSpec(containerSpec, index);
-        this.containers.push(container);
+        if (index < ContainerManager.MAX_CONTAINER_SLOTS) {
+          const container = this.createContainerFromSpec(containerSpec, index);
+          this.containers.push(container);
+          this.containerSlots[index] = container;
+        }
       });
       
       if (DEBUG_CONFIG.logScrewDebug) {
@@ -144,12 +153,17 @@ export class ContainerManager extends BaseSystem {
         // Add containers for missing colors only
         missingColors.forEach(color => {
           const spec = plan.containers.find(s => s.color === color);
-          if (spec && this.containers.length < GAME_CONFIG.containers.count) {
-            const container = this.createContainerFromSpec(spec, this.containers.length);
-            this.containers.push(container);
-            
-            if (DEBUG_CONFIG.logScrewDebug) {
-              console.log(`✅ Added container for color ${color} with ${spec.holes} holes`);
+          if (spec) {
+            // Find first vacant slot
+            const vacantSlotIndex = this.containerSlots.findIndex(slot => slot === null);
+            if (vacantSlotIndex !== -1) {
+              const container = this.createContainerFromSpec(spec, vacantSlotIndex);
+              this.containers.push(container);
+              this.containerSlots[vacantSlotIndex] = container;
+              
+              if (DEBUG_CONFIG.logScrewDebug) {
+                console.log(`✅ Added container for color ${color} with ${spec.holes} holes in slot ${vacantSlotIndex}`);
+              }
             }
           }
         });
@@ -168,7 +182,7 @@ export class ContainerManager extends BaseSystem {
     this.emit({
       type: 'container:state:updated',
       timestamp: Date.now(),
-      containers: this.containers
+      containers: this.getContainers() // Use getter to maintain proper order
     });
   }
 
@@ -201,7 +215,9 @@ export class ContainerManager extends BaseSystem {
 
   private handleContainerFilled(event: ContainerFilledEvent): void {
     this.executeIfActive(() => {
-      const container = this.containers[event.containerIndex];
+      // Get container from visual order (getContainers returns slot-ordered containers)
+      const orderedContainers = this.getContainers();
+      const container = orderedContainers[event.containerIndex];
       if (container && container.isFull && !container.isMarkedForRemoval) {
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`🏭 Container ${container.id} filled - will be removed and containers recalculated`);
@@ -222,8 +238,18 @@ export class ContainerManager extends BaseSystem {
         
         // Schedule both container removal AND replacement after fade animation completes
         setTimeout(() => {
-          // Remove the container first
-          this.containers.splice(event.containerIndex, 1);
+          // Find the container's slot position
+          const slotIndex = this.containerSlots.indexOf(container);
+          if (slotIndex !== -1) {
+            // Clear the slot but preserve the position
+            this.containerSlots[slotIndex] = null;
+          }
+          
+          // Remove from containers array
+          const arrayIndex = this.containers.indexOf(container);
+          if (arrayIndex !== -1) {
+            this.containers.splice(arrayIndex, 1);
+          }
           
           // Emit removal event
           this.emit({
@@ -267,8 +293,10 @@ export class ContainerManager extends BaseSystem {
     this.executeIfActive(() => {
       const { screwId, toContainerIndex, toHoleIndex } = event;
       
-      if (toContainerIndex >= 0 && toContainerIndex < this.containers.length) {
-        const container = this.containers[toContainerIndex];
+      // Get container from visual order (getContainers returns slot-ordered containers)
+      const orderedContainers = this.getContainers();
+      if (toContainerIndex >= 0 && toContainerIndex < orderedContainers.length) {
+        const container = orderedContainers[toContainerIndex];
         
         // Validate container state and hole availability
         if (container.isMarkedForRemoval) {
@@ -307,7 +335,7 @@ export class ContainerManager extends BaseSystem {
           this.emit({
             type: 'container:state:updated',
             timestamp: Date.now(),
-            containers: this.containers
+            containers: this.getContainers() // Use getter to maintain proper order
           });
         }
       }
@@ -323,8 +351,10 @@ export class ContainerManager extends BaseSystem {
       }
       
       // Clear the reservation if it was made
-      if (toContainerIndex >= 0 && toContainerIndex < this.containers.length) {
-        const container = this.containers[toContainerIndex];
+      // Get container from visual order (getContainers returns slot-ordered containers)
+      const orderedContainers = this.getContainers();
+      if (toContainerIndex >= 0 && toContainerIndex < orderedContainers.length) {
+        const container = orderedContainers[toContainerIndex];
         if (toHoleIndex >= 0 && toHoleIndex < container.maxHoles) {
           if (container.reservedHoles[toHoleIndex] === screwId) {
             container.reservedHoles[toHoleIndex] = null;
@@ -410,12 +440,22 @@ export class ContainerManager extends BaseSystem {
       this.emit({
         type: 'container:state:updated',
         timestamp: Date.now(),
-        containers: this.containers
+        containers: this.getContainers() // Use getter to maintain proper order
       });
     });
   }
 
   // ========== ESSENTIAL UTILITY METHODS ==========
+
+  /**
+   * Get container by slot index (visual position)
+   */
+  private getContainerBySlotIndex(slotIndex: number): Container | null {
+    if (slotIndex >= 0 && slotIndex < this.containerSlots.length) {
+      return this.containerSlots[slotIndex];
+    }
+    return null;
+  }
 
   /**
    * Create replacement containers with fade-in animation based on screw inventory
@@ -441,12 +481,19 @@ export class ContainerManager extends BaseSystem {
       // Add containers for missing colors with fade-in animation
       missingColors.forEach(color => {
         const spec = newPlan.containers.find(s => s.color === color);
-        if (spec && this.containers.length < GAME_CONFIG.containers.count) {
-          const container = this.createContainerFromSpecWithFadeIn(spec, this.containers.length);
-          this.containers.push(container);
-          
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`✨ Added fade-in container for color ${color} with ${spec.holes} holes`);
+        if (spec) {
+          // Find first vacant slot
+          const vacantSlotIndex = this.containerSlots.findIndex(slot => slot === null);
+          if (vacantSlotIndex !== -1) {
+            const container = this.createContainerFromSpecWithFadeIn(spec, vacantSlotIndex);
+            
+            // Add to both arrays
+            this.containers.push(container);
+            this.containerSlots[vacantSlotIndex] = container;
+            
+            if (DEBUG_CONFIG.logScrewDebug) {
+              console.log(`✨ Added fade-in container for color ${color} with ${spec.holes} holes in slot ${vacantSlotIndex}`);
+            }
           }
         }
       });
@@ -458,7 +505,7 @@ export class ContainerManager extends BaseSystem {
       this.emit({
         type: 'container:state:updated',
         timestamp: Date.now(),
-        containers: this.containers
+        containers: this.getContainers() // Use getter to maintain proper order
       });
     }
   }
@@ -491,25 +538,28 @@ export class ContainerManager extends BaseSystem {
   }
 
   /**
-   * Reposition all containers to center them properly
+   * Reposition all containers to their fixed slot positions
    */
   private repositionAllContainers(): void {
-    if (this.containers.length === 0) return;
-    
     const containerWidth = UI_CONSTANTS.containers.width;
     const containerHeight = UI_CONSTANTS.containers.height;
     const spacing = UI_CONSTANTS.containers.spacing;
     const startY = UI_CONSTANTS.containers.startY;
     
-    const totalContainersWidth = (this.containers.length * containerWidth) + ((this.containers.length - 1) * spacing);
-    const startX = (this.virtualGameWidth - totalContainersWidth) / 2;
+    // Calculate positions for all slots (not just filled ones)
+    const totalSlotsWidth = (ContainerManager.MAX_CONTAINER_SLOTS * containerWidth) + 
+                           ((ContainerManager.MAX_CONTAINER_SLOTS - 1) * spacing);
+    const startX = (this.virtualGameWidth - totalSlotsWidth) / 2;
 
-    this.containers.forEach((container, index) => {
-      const containerLeftX = startX + (index * (containerWidth + spacing));
-      const containerCenterX = containerLeftX + (containerWidth / 2);
-      
-      container.position.x = containerCenterX;
-      container.position.y = startY + (containerHeight / 2);
+    // Position each container in its slot
+    this.containerSlots.forEach((container, slotIndex) => {
+      if (container) {
+        const containerLeftX = startX + (slotIndex * (containerWidth + spacing));
+        const containerCenterX = containerLeftX + (containerWidth / 2);
+        
+        container.position.x = containerCenterX;
+        container.position.y = startY + (containerHeight / 2);
+      }
     });
   }
 
@@ -563,7 +613,8 @@ export class ContainerManager extends BaseSystem {
    * Get all containers (for rendering)
    */
   public getContainers(): Container[] {
-    return [...this.containers];
+    // Return only non-null containers from slots, maintaining their visual order
+    return this.containerSlots.filter((container): container is Container => container !== null);
   }
 
   /**
