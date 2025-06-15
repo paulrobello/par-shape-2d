@@ -215,19 +215,28 @@ export class ContainerManager extends BaseSystem {
 
   private handleContainerFilled(event: ContainerFilledEvent): void {
     this.executeIfActive(() => {
-      // Get container from visual order (getContainers returns slot-ordered containers)
-      const orderedContainers = this.getContainers();
-      const container = orderedContainers[event.containerIndex];
-      if (container && container.isFull && !container.isMarkedForRemoval) {
+      // Find the container by matching color and full status
+      // This is more reliable than using index which can be inconsistent
+      const container = this.containers.find(c => 
+        c.color === event.color && 
+        c.isFull && 
+        !c.isMarkedForRemoval
+      );
+      
+      if (container) {
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log(`🏭 Container ${container.id} filled - will be removed and containers recalculated`);
         }
+        
+        // Find the actual visual index of this container
+        const orderedContainers = this.getContainers();
+        const visualIndex = orderedContainers.indexOf(container);
         
         // Emit event to clear any holding holes containing screws from this container
         this.emit({
           type: 'container:removing:screws',
           timestamp: Date.now(),
-          containerIndex: event.containerIndex,
+          containerIndex: visualIndex,
           screwIds: event.screws
         });
         
@@ -255,7 +264,7 @@ export class ContainerManager extends BaseSystem {
           this.emit({
             type: 'container:removed',
             timestamp: Date.now(),
-            containerIndex: event.containerIndex,
+            containerIndex: visualIndex,
             screwIds: event.screws,
             color: container.color
           });
