@@ -73,66 +73,17 @@ export class ScrewRenderer {
     ctx.arc(highlightX, highlightY, highlightRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Add a VERY prominent notch/groove on the screw rim to show rotation clearly
+    // Add a simple notch on the screw rim to show rotation
     if (screw.isSpinning || rotation !== 0) {
-      const notchDistance = radius * 0.9;
+      const notchDistance = radius * 0.85;
       const notchX = renderPosition.x + Math.cos(rotation) * notchDistance;
       const notchY = renderPosition.y + Math.sin(rotation) * notchDistance;
       
-      // Draw a distinctive rectangular notch (larger and more prominent)
-      const notchWidth = radius * 0.18;
-      const notchHeight = radius * 0.4;
-      
-      ctx.save();
-      ctx.translate(notchX, notchY);
-      ctx.rotate(rotation);
-      ctx.fillStyle = '#1A252F'; // Darker than border
-      ctx.fillRect(-notchWidth / 2, -notchHeight / 2, notchWidth, notchHeight);
-      ctx.restore();
-
-      // Add radial lines/scratches from center outward for realistic top-down screw appearance
-      const scratchCount = 8;
-      for (let i = 0; i < scratchCount; i++) {
-        const scratchAngle = (rotation + (i * Math.PI * 2) / scratchCount) % (Math.PI * 2);
-        const innerDistance = radius * 0.3;
-        const outerDistance = radius * 0.8;
-        const scratchX1 = renderPosition.x + Math.cos(scratchAngle) * innerDistance;
-        const scratchY1 = renderPosition.y + Math.sin(scratchAngle) * innerDistance;
-        const scratchX2 = renderPosition.x + Math.cos(scratchAngle) * outerDistance;
-        const scratchY2 = renderPosition.y + Math.sin(scratchAngle) * outerDistance;
-        
-        // Make some scratches more prominent for rotation visibility
-        const isDeepScratch = i % 2 === 0;
-        const scratchOpacity = isDeepScratch ? 0.6 : 0.3;
-        const scratchWidth = isDeepScratch ? 1.5 : 1;
-        
-        ctx.strokeStyle = hexToRgba('#1A252F', scratchOpacity);
-        ctx.lineWidth = scratchWidth;
-        ctx.beginPath();
-        ctx.moveTo(scratchX1, scratchY1);
-        ctx.lineTo(scratchX2, scratchY2);
-        ctx.stroke();
-      }
-
-      // Add a distinctive arrow pointer on the rim for maximum rotation visibility
-      const arrowDistance = radius * 0.75;
-      const arrowX = renderPosition.x + Math.cos(rotation + Math.PI / 2) * arrowDistance;
-      const arrowY = renderPosition.y + Math.sin(rotation + Math.PI / 2) * arrowDistance;
-      const arrowSize = radius * 0.2;
-      
-      ctx.save();
-      ctx.translate(arrowX, arrowY);
-      ctx.rotate(rotation + Math.PI / 2);
-      ctx.fillStyle = '#2C3E50';
-      
-      // Draw triangle arrow
+      // Draw a small, simple notch
+      ctx.fillStyle = '#1A252F';
       ctx.beginPath();
-      ctx.moveTo(0, -arrowSize);
-      ctx.lineTo(-arrowSize * 0.6, arrowSize * 0.5);
-      ctx.lineTo(arrowSize * 0.6, arrowSize * 0.5);
-      ctx.closePath();
+      ctx.arc(notchX, notchY, radius * 0.1, 0, Math.PI * 2);
       ctx.fill();
-      ctx.restore();
     }
 
     // Draw cross/plus symbol (this will also rotate with the screw)
@@ -168,58 +119,17 @@ export class ScrewRenderer {
     ctx.lineCap = 'round';
 
     const halfSize = size / 2;
-    const quarterSize = size / 4;
 
-    // Main horizontal line
+    // Horizontal line
     ctx.beginPath();
     ctx.moveTo(centerX - halfSize, centerY);
     ctx.lineTo(centerX + halfSize, centerY);
     ctx.stroke();
 
-    // Main vertical line
+    // Vertical line
     ctx.beginPath();
     ctx.moveTo(centerX, centerY - halfSize);
     ctx.lineTo(centerX, centerY + halfSize);
-    ctx.stroke();
-
-    // Enhanced asymmetric elements for MUCH more visible rotation
-    
-    // 1. Prominent diagonal slash in top-right quadrant (bigger and thicker)
-    const diagOffset = quarterSize * 0.8;
-    ctx.lineWidth = UI_CONSTANTS.screws.cross.lineWidth * scale * 1.2; // Thicker
-    ctx.beginPath();
-    ctx.moveTo(centerX + diagOffset - quarterSize * 0.5, centerY - diagOffset + quarterSize * 0.5);
-    ctx.lineTo(centerX + diagOffset + quarterSize * 0.5, centerY - diagOffset - quarterSize * 0.5);
-    ctx.stroke();
-
-    // 2. Large distinctive dot in bottom-left quadrant 
-    ctx.fillStyle = '#2C3E50';
-    ctx.beginPath();
-    ctx.arc(centerX - quarterSize * 0.8, centerY + quarterSize * 0.8, UI_CONSTANTS.screws.cross.lineWidth * scale * 2, 0, Math.PI * 2);
-    ctx.fill();
-
-    // 3. Extended arrow-like tick on right side
-    ctx.lineWidth = UI_CONSTANTS.screws.cross.lineWidth * scale;
-    ctx.beginPath();
-    ctx.moveTo(centerX + halfSize * 0.5, centerY - quarterSize * 0.6);
-    ctx.lineTo(centerX + halfSize * 0.9, centerY - quarterSize * 0.2);
-    ctx.stroke();
-
-    // 4. L-shaped notch on bottom for distinctive rotation marker
-    ctx.beginPath();
-    ctx.moveTo(centerX - quarterSize * 0.4, centerY + halfSize * 0.8);
-    ctx.lineTo(centerX + quarterSize * 0.4, centerY + halfSize * 0.8);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(centerX + quarterSize * 0.4, centerY + halfSize * 0.8);
-    ctx.lineTo(centerX + quarterSize * 0.4, centerY + halfSize * 0.5);
-    ctx.stroke();
-
-    // 5. Add a distinctive marker line on the left side for extra rotation visibility
-    ctx.lineWidth = UI_CONSTANTS.screws.cross.lineWidth * scale * 0.8;
-    ctx.beginPath();
-    ctx.moveTo(centerX - halfSize * 0.8, centerY + quarterSize * 0.3);
-    ctx.lineTo(centerX - halfSize * 0.5, centerY + quarterSize * 0.6);
     ctx.stroke();
   }
 

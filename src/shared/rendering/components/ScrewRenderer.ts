@@ -217,67 +217,16 @@ export class ScrewRenderer {
         fillColor: hexToRgba(theme.screws.highlight, 0.4),
       });
 
-      // Add a VERY prominent notch/groove on the screw rim to show rotation clearly
-      const notchDistance = radius * 0.9;
+      // Add a simple notch on the screw rim to show rotation
+      const notchDistance = radius * 0.85;
       const notchX = position.x + Math.cos(rotation) * notchDistance;
       const notchY = position.y + Math.sin(rotation) * notchDistance;
 
-      // Make the notch a distinctive rectangular shape instead of circular
-      const notchWidth = radius * 0.15;
-      const notchHeight = radius * 0.4;
-      const notchAngle = rotation;
-      
-      withContext(ctx, () => {
-        ctx.translate(notchX, notchY);
-        ctx.rotate(notchAngle);
-        ctx.fillStyle = hexToRgba(theme.screws.border, 1.0); // Full opacity
-        ctx.fillRect(-notchWidth / 2, -notchHeight / 2, notchWidth, notchHeight);
-      });
-
-      // Add radial scratches/lines from center outward for realistic top-down screw view
-      const scratchCount = 8;
-      for (let i = 0; i < scratchCount; i++) {
-        const scratchAngle = (rotation + (i * Math.PI * 2) / scratchCount) % (Math.PI * 2);
-        const innerDistance = radius * 0.3;
-        const outerDistance = radius * 0.8;
-        const scratchX1 = position.x + Math.cos(scratchAngle) * innerDistance;
-        const scratchY1 = position.y + Math.sin(scratchAngle) * innerDistance;
-        const scratchX2 = position.x + Math.cos(scratchAngle) * outerDistance;
-        const scratchY2 = position.y + Math.sin(scratchAngle) * outerDistance;
-        
-        // Make some scratches more prominent for rotation visibility
-        const isDeepScratch = i % 2 === 0;
-        const scratchOpacity = isDeepScratch ? 0.6 : 0.3;
-        const scratchWidth = isDeepScratch ? 2 : 1;
-        
-        GeometryRenderer.renderLine(ctx, {
-          x1: scratchX1,
-          y1: scratchY1,
-          x2: scratchX2,
-          y2: scratchY2,
-          strokeColor: hexToRgba(theme.screws.border, scratchOpacity),
-          lineWidth: scratchWidth,
-        });
-      }
-
-      // Add a distinctive arrow pointer on the rim for maximum rotation visibility
-      const arrowDistance = radius * 0.75;
-      const arrowX = position.x + Math.cos(rotation + Math.PI / 2) * arrowDistance;
-      const arrowY = position.y + Math.sin(rotation + Math.PI / 2) * arrowDistance;
-      const arrowSize = radius * 0.2;
-      
-      withContext(ctx, () => {
-        ctx.translate(arrowX, arrowY);
-        ctx.rotate(rotation + Math.PI / 2);
-        ctx.fillStyle = hexToRgba(theme.screws.cross, 1.0);
-        
-        // Draw triangle arrow
-        ctx.beginPath();
-        ctx.moveTo(0, -arrowSize);
-        ctx.lineTo(-arrowSize * 0.6, arrowSize * 0.5);
-        ctx.lineTo(arrowSize * 0.6, arrowSize * 0.5);
-        ctx.closePath();
-        ctx.fill();
+      GeometryRenderer.renderCircle(ctx, {
+        x: notchX,
+        y: notchY,
+        radius: radius * 0.1,
+        fillColor: hexToRgba(theme.screws.border, 1.0),
       });
 
       // Draw cross symbol with rotation
@@ -420,7 +369,7 @@ export class ScrewRenderer {
   }
 
   /**
-   * Draw enhanced cross symbol with prominent asymmetric elements to make rotation clearly visible
+   * Draw simple 4-point cross symbol
    */
   private static drawCrossSymbol(
     ctx: CanvasRenderingContext2D,
@@ -432,14 +381,13 @@ export class ScrewRenderer {
   ): void {
     const lineWidth = UI_CONSTANTS.screws.cross.lineWidth * scale;
     const halfSize = size / 2;
-    const quarterSize = size / 4;
 
     withContext(ctx, () => {
       ctx.strokeStyle = theme.screws.cross;
       ctx.lineWidth = lineWidth;
       ctx.lineCap = 'round';
 
-      // Main horizontal line
+      // Horizontal line
       GeometryRenderer.renderLine(ctx, {
         x1: centerX - halfSize,
         y1: centerY,
@@ -449,7 +397,7 @@ export class ScrewRenderer {
         lineWidth,
       });
 
-      // Main vertical line
+      // Vertical line
       GeometryRenderer.renderLine(ctx, {
         x1: centerX,
         y1: centerY - halfSize,
@@ -457,63 +405,6 @@ export class ScrewRenderer {
         y2: centerY + halfSize,
         strokeColor: theme.screws.cross,
         lineWidth,
-      });
-
-      // Enhanced asymmetric elements for MUCH more visible rotation
-      
-      // 1. Prominent diagonal slash in top-right quadrant (bigger and thicker)
-      const diagOffset = quarterSize * 0.8;
-      GeometryRenderer.renderLine(ctx, {
-        x1: centerX + diagOffset - quarterSize * 0.5,
-        y1: centerY - diagOffset + quarterSize * 0.5,
-        x2: centerX + diagOffset + quarterSize * 0.5,
-        y2: centerY - diagOffset - quarterSize * 0.5,
-        strokeColor: theme.screws.cross,
-        lineWidth: lineWidth * 1.2, // Thicker for visibility
-      });
-
-      // 2. Large distinctive dot in bottom-left quadrant 
-      ctx.fillStyle = theme.screws.cross;
-      ctx.beginPath();
-      ctx.arc(centerX - quarterSize * 0.8, centerY + quarterSize * 0.8, lineWidth * 2, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 3. Extended arrow-like tick on right side
-      GeometryRenderer.renderLine(ctx, {
-        x1: centerX + halfSize * 0.5,
-        y1: centerY - quarterSize * 0.6,
-        x2: centerX + halfSize * 0.9,
-        y2: centerY - quarterSize * 0.2,
-        strokeColor: theme.screws.cross,
-        lineWidth: lineWidth * 1.0,
-      });
-
-      // 4. L-shaped notch on bottom for distinctive rotation marker
-      GeometryRenderer.renderLine(ctx, {
-        x1: centerX - quarterSize * 0.4,
-        y1: centerY + halfSize * 0.8,
-        x2: centerX + quarterSize * 0.4,
-        y2: centerY + halfSize * 0.8,
-        strokeColor: theme.screws.cross,
-        lineWidth: lineWidth * 1.0,
-      });
-      GeometryRenderer.renderLine(ctx, {
-        x1: centerX + quarterSize * 0.4,
-        y1: centerY + halfSize * 0.8,
-        x2: centerX + quarterSize * 0.4,
-        y2: centerY + halfSize * 0.5,
-        strokeColor: theme.screws.cross,
-        lineWidth: lineWidth * 1.0,
-      });
-
-      // 5. Add a distinctive marker line on the left side for extra rotation visibility
-      GeometryRenderer.renderLine(ctx, {
-        x1: centerX - halfSize * 0.8,
-        y1: centerY + quarterSize * 0.3,
-        x2: centerX - halfSize * 0.5,
-        y2: centerY + quarterSize * 0.6,
-        strokeColor: theme.screws.cross,
-        lineWidth: lineWidth * 0.8,
       });
     });
   }
