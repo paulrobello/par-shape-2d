@@ -48,7 +48,7 @@ This document records significant refactoring changes made to the PAR Shape 2D c
 
 ### Container Replacement Race Condition
 
-**Problem**: Container replacement used `setTimeout()` which created race conditions where containers could be removed or indices could change during the 500ms delay.
+**Problem**: Container replacement used `setTimeout()` which created race conditions where containers could be removed or indices could change during the fade delay.
 
 **Solution**: 
 - Moved replacement logic to animation update cycle in `ContainerManager.updateContainerAnimations()`
@@ -171,22 +171,76 @@ This document records significant refactoring changes made to the PAR Shape 2D c
 - More intelligent container selection
 - Better resource utilization
 
-### Container Replacement Timing
+### Container Replacement Timing Fix
 
-**Problem**: Replacement calculations happened after fade animation, creating race conditions.
+**Problem**: Container replacement calculations were happening after the 500ms fade animation completed, creating race conditions where screws could be placed in holding holes during the fade delay.
 
-**Solution**: Move replacement calculation to happen immediately when container is marked for removal.
+**Solution**: Create replacement containers with fade-in animation immediately after the previous container's fade-out completes.
 
 **Timing Flow**:
-1. Container filled → Mark for removal → Immediately calculate replacements
-2. Start fade animation (500ms)
-3. Replacement containers created during fade
-4. Original container removed after fade
+1. Container filled → Mark for removal → Start fade-out animation (500ms)
+2. After fade-out completes → Remove container physically  
+3. **IMMEDIATELY** create replacement containers with fade-in animation (500ms)
+4. Replacement containers become fully visible
 
 **Benefits**:
-- Eliminates race conditions during animations
-- Seamless container transitions
-- Better user experience
+- Eliminates race conditions during fade animations
+- Containers ready BEFORE users need them
+- Seamless visual transitions with no gaps
+- Better player experience with predictable container availability
+
+### Fixed-Slot Container System
+
+**Problem**: When containers were removed, all containers to the right would shift left, causing jarring visual effects and making replacement containers appear at unpredictable positions.
+
+**Solution**: Implement a fixed 4-slot positioning system where containers maintain their visual positions.
+
+**Key Features**:
+- **4 Fixed Slots**: Containers have predetermined positions regardless of how many are active
+- **Slot Preservation**: When a container is removed, its slot remains empty until needed
+- **Vacant Slot Usage**: New containers appear in the first available vacant slot  
+- **No Shifting**: Existing containers never change position when others are removed
+
+**Implementation**:
+- `containerSlots[]` array tracks which slots are occupied
+- `getContainers()` returns only non-null containers in slot order
+- Positioning calculated for all 4 slots, not just filled ones
+- Container lookup by color instead of index for reliability
+
+**Benefits**:
+- **Stable Visual Layout**: No unexpected position changes
+- **Intuitive Replacement**: Containers appear exactly where previous ones were
+- **Smoother Animations**: Only fade in/out, no sliding movements
+- **Better UX**: Players can predict where containers will appear
+
+### Container Identification Fix
+
+**Problem**: Near the end of levels, containers would stop being removed when full due to index mismatches between events and the slot system.
+
+**Root Cause**: 
+- `containerIndex` in events referred to original array positions
+- With slot system, containers might not be in sequential positions
+- `orderedContainers[event.containerIndex]` could return `undefined`
+
+**Solution**: Find containers by color and status instead of relying on potentially invalid indices.
+
+**Implementation**:
+```typescript
+// OLD: Index-based lookup (unreliable)
+const container = orderedContainers[event.containerIndex];
+
+// NEW: Color-based lookup (reliable)
+const container = this.containers.find(c => 
+  c.color === event.color && 
+  c.isFull && 
+  !c.isMarkedForRemoval
+);
+```
+
+**Benefits**:
+- **Reliable Removal**: Containers always removed when full, even near level end
+- **Index Consistency**: Events use calculated visual indices from slot positions
+- **Robust Logic**: Works with any container arrangement in slots
 
 ## Performance Optimizations
 

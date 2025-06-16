@@ -38,6 +38,17 @@ The codebase features a **comprehensive shared utilities framework** that elimin
 
 ```
 src/shared/
+├── utils/
+│   ├── EasingFunctions.ts     # Comprehensive easing library with 24+ functions
+│   ├── AnimationUtils.ts      # Animation state management and utilities
+│   └── ...
+├── styles/
+│   ├── ButtonStyles.ts        # Polished button styling system
+│   └── ...
+└── rendering/
+    ├── core/
+    │   └── GeometryRenderer.ts # Enhanced with shadows and rounded corners
+    └── ...
 ```
 
 ### Shared Event System
@@ -51,6 +62,43 @@ The **shared event system** (`src/shared/events/`) provides a unified, high-perf
 Both game and editor extend this shared foundation with their domain-specific events while reusing all common infrastructure. This eliminates duplicate event handling code and ensures consistent behavior across the application.
 
 **Event Naming Convention**: All events follow `domain:action` or `domain:subdomain:action` format with colon separators (e.g., `screw:clicked`, `physics:body:added`, `editor:shape:created`).
+
+## Animation & Polish System
+
+The game features a **comprehensive animation and polish system** that provides smooth, professional-quality visual effects:
+
+### Easing Functions Library (`src/shared/utils/EasingFunctions.ts`)
+
+- **24+ easing functions** including cubic, back, elastic, bounce, and more
+- **Type-safe** with `EasingFunctionName` enum for compile-time checking
+- **Preset configurations** for common use cases (UI, game, physics animations)
+- **Composite easing** support for complex multi-stage animations
+- **Utility functions** for interpolation and custom easing creation
+
+### Enhanced Button Styling (`src/shared/styles/ButtonStyles.ts`)
+
+- **Modern visual effects**: shadows, highlights, gradients, hover states
+- **Consistent design system** across all UI components
+- **Multiple variants**: primary, secondary, success, danger, warning, info
+- **Size options**: small, medium, large with proper touch targets
+- **Accessibility-friendly** with proper focus indicators and contrast
+- **Both inline styles and Tailwind classes** for maximum flexibility
+
+### Canvas Rendering Polish (`src/shared/rendering/core/GeometryRenderer.ts`)
+
+- **Enhanced shadow effects** with customizable blur, color, and offset
+- **Glow effects** with multi-layer rendering for depth
+- **Rounded corners** support for rectangles and polygons
+- **Automatic corner radius** defaults for modern appearance
+- **Performance optimized** with proper context management
+
+### Screw Animation System (`src/game/entities/Screw.ts`)
+
+- **Spinning rotation effects** during collection and transfer
+- **Enhanced easing** with back and elastic effects for natural movement
+- **Velocity-based rotation** with smooth deceleration
+- **Visual feedback** with enhanced shadows and glows for active screws
+- **Rotation state tracking** for proper rendering and physics integration
 
 ## Physics
 

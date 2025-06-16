@@ -120,17 +120,26 @@ Deep integration with Matter.js physics engine:
 - `screw:transfer:started` → `screw:transfer:completed` (with ownership transfer)
 
 #### **ContainerManager** (`src/game/core/managers/ContainerManager.ts`)
-**Responsibility**: Container lifecycle and screw assignment
+**Responsibility**: Container lifecycle and screw assignment with fixed-slot positioning
 - Container creation with appropriate colors
 - Screw placement and hole management
 - Container completion detection
-- Intelligent container replacement
-- Fade animation management
+- Intelligent container replacement with fade animations
+- Fixed 4-slot positioning system
 
 **Key Features**:
+- **Fixed-Slot System**: 4 predetermined positions prevent container shifting
 - **Smart Replacement**: Uses real-time screw data for optimal container selection
-- **Race Condition Prevention**: Event-driven replacement (no setTimeout)
+- **Vacant Slot Usage**: New containers appear in first available slot
+- **Color-Based Identification**: Finds containers by color instead of index for reliability
+- **Race Condition Prevention**: Event-driven replacement with immediate fade-in
 - **Reservation System**: Prevents duplicate screw assignments
+
+**Slot Architecture**:
+- `containerSlots[]` maintains 4 fixed positions
+- `getContainers()` returns slot-ordered containers
+- Positioning calculated for all slots, not just filled ones
+- Container removal preserves slot positions
 
 #### **LayerManager** (`src/game/systems/LayerManager.ts`)
 **Responsibility**: Multi-layer shape organization and visual management
@@ -299,33 +308,41 @@ sequenceDiagram
     Note over PT: ProgressTracker is SOLE completion authority
 ```
 
-### 3. Container Management Flow
+### 3. Container Management Flow (Fixed-Slot System)
 
 ```mermaid
 sequenceDiagram
     participant CM as ContainerManager
     participant EB as EventBus
     participant SEH as ScrewEventHandler
+    participant Slots as ContainerSlots[4]
 
     EB->>CM: 'screw:collected'
     CM->>CM: Add screw to container
     
     alt Container becomes full
-        CM->>CM: Mark for removal & start fade
-        CM->>EB: emit('container:filled')
+        CM->>EB: emit('container:filled') with color & screws
+        CM->>CM: Find container by color (not index)
+        CM->>CM: Mark for removal & start fade-out
         
         Note over CM: Fade animation plays (500ms)
         
-        CM->>CM: Animation completion detected
+        CM->>Slots: Clear slot but preserve position
+        CM->>CM: Remove from containers array
+        CM->>EB: emit('container:removed') with visualIndex
+        
         CM->>EB: emit('remaining:screws:requested')
         EB->>SEH: Count screws by color
         SEH->>CM: Return screw counts
         
         alt Replacement needed
-            CM->>CM: Create new container
-            CM->>EB: emit('container:replaced')
+            CM->>Slots: Find first vacant slot
+            CM->>CM: Create container with fade-in at slot
+            CM->>Slots: Assign container to vacant slot
+            CM->>EB: emit('container:state:updated')
+            Note over CM: New container fades in at exact position (500ms)
         else No replacement needed
-            CM->>CM: Remove container
+            Note over Slots: Slot remains vacant until needed
             CM->>EB: emit('container:all_removed')
         end
     end

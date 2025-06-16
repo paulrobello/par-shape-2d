@@ -4,6 +4,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { EditorManager } from '@/editor/core/EditorManager';
 import { EditorTheme } from '@/editor/utils/theme';
+import { getInlineButtonStyle } from '@/shared/styles/ButtonStyles';
 
 interface FileControlsProps {
   editorManager: EditorManager | null;
@@ -14,6 +15,13 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager, theme
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
   const [hover, setHover] = useState(false);
+  
+  // Button hover states for polished interactions
+  const [buttonHoverStates, setButtonHoverStates] = useState({
+    save: false,
+    copy: false,
+    new: false,
+  });
 
   const handleFileSelect = useCallback(async (files: FileList | null) => {
     if (!files || files.length === 0 || !editorManager) return;
@@ -156,17 +164,12 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager, theme
         <button
           onClick={handleSaveClick}
           title="Save Shape"
-          style={{
-            padding: '8px 12px',
-            border: `1px solid ${theme.button.border}`,
-            borderRadius: '4px',
-            backgroundColor: theme.button.background,
-            color: theme.button.text,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          onMouseEnter={() => setButtonHoverStates(prev => ({ ...prev, save: true }))}
+          onMouseLeave={() => setButtonHoverStates(prev => ({ ...prev, save: false }))}
+          style={getInlineButtonStyle(
+            { variant: 'primary', size: 'small' },
+            buttonHoverStates.save ? 'hover' : 'normal'
+          )}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M17 3H5C3.89 3 3 3.9 3 5V19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V7L17 3M19 19H5V5H16.17L19 7.83V19M12 12C13.66 12 15 13.34 15 15S13.66 18 12 18 9 16.66 9 15 10.34 12 12 12M6 6H15V10H6V6Z"/>
@@ -176,17 +179,12 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager, theme
         <button
           onClick={handleCopyToClipboard}
           title="Copy to clipboard"
-          style={{
-            padding: '8px 12px',
-            border: `1px solid ${theme.button.border}`,
-            borderRadius: '4px',
-            backgroundColor: theme.button.background,
-            color: theme.button.text,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          onMouseEnter={() => setButtonHoverStates(prev => ({ ...prev, copy: true }))}
+          onMouseLeave={() => setButtonHoverStates(prev => ({ ...prev, copy: false }))}
+          style={getInlineButtonStyle(
+            { variant: 'info', size: 'small' },
+            buttonHoverStates.copy ? 'hover' : 'normal'
+          )}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M19,21H8V7H19M19,5H8A2,2 0 0,0 6,7V21A2,2 0 0,0 8,23H19A2,2 0 0,0 21,21V7A2,2 0 0,0 19,5M16,1H4A2,2 0 0,0 2,3V17H4V3H16V1Z"/>
@@ -200,17 +198,12 @@ export const FileControls: React.FC<FileControlsProps> = ({ editorManager, theme
             }
           }}
           title="Start fresh with a new shape"
-          style={{
-            padding: '8px 12px',
-            border: `1px solid ${theme.button.border}`,
-            borderRadius: '4px',
-            backgroundColor: theme.button.background,
-            color: theme.button.text,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
+          onMouseEnter={() => setButtonHoverStates(prev => ({ ...prev, new: true }))}
+          onMouseLeave={() => setButtonHoverStates(prev => ({ ...prev, new: false }))}
+          style={getInlineButtonStyle(
+            { variant: 'secondary', size: 'small' },
+            buttonHoverStates.new ? 'hover' : 'normal'
+          )}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="M13,9H18.5L13,3.5V9M6,2H14L20,8V20A2,2 0 0,1 18,22H6C4.89,22 4,21.1 4,20V4C4,2.89 4.89,2 6,2M15,18V16H6V18H15M18,14V12H6V14H18Z"/>

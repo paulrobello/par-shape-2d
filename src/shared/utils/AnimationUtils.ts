@@ -53,41 +53,37 @@ export const ANIMATION_CONSTANTS = {
   }
 } as const;
 
+import { getEasingFunction, EasingFunctionName, applyEasing } from './EasingFunctions';
+
 /**
- * Easing function: ease-in-out cubic
+ * Legacy function - use applyEasing from EasingFunctions instead
+ * @deprecated Use applyEasing from EasingFunctions
  */
 export function easeInOutCubic(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  return applyEasing(t, 'easeInOutCubic');
 }
 
 /**
- * Easing function: linear
+ * Legacy function - use applyEasing from EasingFunctions instead
+ * @deprecated Use applyEasing from EasingFunctions
  */
 export function linear(t: number): number {
-  return t;
+  return applyEasing(t, 'linear');
 }
 
 /**
- * Easing function: ease-in-out sine
+ * Legacy function - use applyEasing from EasingFunctions instead
+ * @deprecated Use applyEasing from EasingFunctions
  */
 export function easeInOutSine(t: number): number {
-  return -(Math.cos(Math.PI * t) - 1) / 2;
+  return applyEasing(t, 'easeInOutSine');
 }
 
 /**
- * Get easing function by name
+ * Legacy function - use getEasingFunction from EasingFunctions instead
+ * @deprecated Use getEasingFunction from EasingFunctions
  */
-export function getEasingFunction(name: string): (t: number) => number {
-  switch (name) {
-    case 'easeInOutCubic':
-      return easeInOutCubic;
-    case 'easeInOutSine':
-      return easeInOutSine;
-    case 'linear':
-    default:
-      return linear;
-  }
-}
+export { getEasingFunction };
 
 /**
  * Create a new position animation state
@@ -113,7 +109,7 @@ export function createPositionAnimation(
 export function updatePositionAnimation(
   state: PositionAnimationState,
   deltaTime: number,
-  easingName: string = 'easeInOutCubic'
+  easingName: EasingFunctionName = 'easeInOutCubic'
 ): boolean {
   if (!state.isActive) return true;
 
@@ -121,8 +117,7 @@ export function updatePositionAnimation(
   state.progress = Math.min(1, state.progress + progressIncrement);
 
   if (state.progress < 1) {
-    const easingFunction = getEasingFunction(easingName);
-    const easedProgress = easingFunction(state.progress);
+    const easedProgress = applyEasing(state.progress, easingName);
     
     // Interpolate position
     state.currentPosition.x = state.startPosition.x + 
@@ -266,11 +261,20 @@ export class AnimationManager {
       // Update animation based on type
       switch (animation.type) {
         case 'collection':
+          if ('currentPosition' in animation.state) {
+            isComplete = updatePositionAnimation(
+              animation.state as PositionAnimationState,
+              deltaTime,
+              'easeInOutBack'
+            );
+          }
+          break;
         case 'transfer':
           if ('currentPosition' in animation.state) {
             isComplete = updatePositionAnimation(
               animation.state as PositionAnimationState,
-              deltaTime
+              deltaTime,
+              'easeInOutElastic'
             );
           }
           break;

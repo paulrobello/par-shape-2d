@@ -54,6 +54,8 @@ export interface RenderableScrew {
   shakeOffset?: { x: number; y: number };
   collectionProgress?: number;
   transferProgress?: number;
+  rotation?: number; // Rotation in radians
+  isSpinning?: boolean;
   
   // Debug properties
   constraint?: { bodyA?: { position: { x: number; y: number } } };
@@ -154,7 +156,7 @@ export class ScrewRenderer {
   }
 
   /**
-   * Render full screw with all details
+   * Render full screw with all details and rotation
    */
   private static renderFullScrew(
     screw: RenderableScrew,
@@ -166,37 +168,61 @@ export class ScrewRenderer {
     const { ctx } = context;
     const radius = UI_CONSTANTS.screws.radius * (options.scale || 1);
     const borderWidth = UI_CONSTANTS.screws.borderWidth * (options.scale || 1);
+    const rotation = screw.rotation || 0;
     
     // Get screw color
     const screwColor = SCREW_COLORS[screw.color as keyof typeof SCREW_COLORS] || screw.color;
 
-    // Draw screw body
-    GeometryRenderer.renderCircle(ctx, {
-      x: position.x,
-      y: position.y,
-      radius,
-      fillColor: screwColor,
-      strokeColor: theme.screws.border,
-      lineWidth: borderWidth,
+    // Apply rotation transform if needed
+    withContext(ctx, () => {
+      if (rotation !== 0) {
+        ctx.translate(position.x, position.y);
+        ctx.rotate(rotation);
+        ctx.translate(-position.x, -position.y);
+      }
+
+      // Enhanced shadow effects for spinning screws
+      if (screw.isSpinning) {
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+        ctx.shadowOffsetX = 2;
+        ctx.shadowOffsetY = 2;
+      }
+
+      // Draw screw body with enhanced effects
+      GeometryRenderer.renderCircle(ctx, {
+        x: position.x,
+        y: position.y,
+        radius,
+        fillColor: screwColor,
+        strokeColor: theme.screws.border,
+        lineWidth: borderWidth,
+        shadowBlur: screw.isSpinning ? 6 : 3,
+        shadowColor: 'rgba(0, 0, 0, 0.2)',
+        shadowOffsetX: 1,
+        shadowOffsetY: 1,
+        glowColor: screw.isSpinning ? screwColor : undefined,
+        glowBlur: screw.isSpinning ? 4 : undefined,
+      });
+
+      // Add inner highlight
+      const highlightX = position.x - UI_CONSTANTS.screws.highlight.offsetX * (options.scale || 1);
+      const highlightY = position.y - UI_CONSTANTS.screws.highlight.offsetY * (options.scale || 1);
+      const highlightRadius = radius * UI_CONSTANTS.screws.highlight.sizeRatio;
+
+      GeometryRenderer.renderCircle(ctx, {
+        x: highlightX,
+        y: highlightY,
+        radius: highlightRadius,
+        fillColor: hexToRgba(theme.screws.highlight, 0.4),
+      });
+
+      // Draw cross symbol with rotation
+      const crossSize = radius * UI_CONSTANTS.screws.cross.sizeRatio;
+      this.drawCrossSymbol(ctx, position.x, position.y, crossSize, options.scale || 1, theme);
     });
 
-    // Add inner highlight
-    const highlightX = position.x - UI_CONSTANTS.screws.highlight.offsetX * (options.scale || 1);
-    const highlightY = position.y - UI_CONSTANTS.screws.highlight.offsetY * (options.scale || 1);
-    const highlightRadius = radius * UI_CONSTANTS.screws.highlight.sizeRatio;
-
-    GeometryRenderer.renderCircle(ctx, {
-      x: highlightX,
-      y: highlightY,
-      radius: highlightRadius,
-      fillColor: hexToRgba(theme.screws.highlight, 0.3),
-    });
-
-    // Draw cross symbol
-    const crossSize = radius * UI_CONSTANTS.screws.cross.sizeRatio;
-    this.drawCrossSymbol(ctx, position.x, position.y, crossSize, options.scale || 1, theme);
-
-    // Draw state indicators
+    // Draw state indicators (outside rotation context to keep them stable)
     this.renderStateIndicators(screw, position, radius, context, theme, options);
 
     // Selection/hover effects

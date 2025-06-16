@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { DrawingToolManager } from '../systems/DrawingToolManager';
+import { getButtonClasses } from '@/shared/styles/ButtonStyles';
 
 interface ToolPaletteProps {
   drawingToolManager: DrawingToolManager;
@@ -74,16 +75,17 @@ export function ToolPalette({ drawingToolManager, className = '' }: ToolPaletteP
               key={tool.name}
               onClick={() => handleToolSelect(tool.name)}
               title={tool.description || tool.displayName}
-              className={`
-                px-3 py-2 rounded border text-sm font-medium transition-all duration-200
-                flex items-center space-x-2 min-w-[80px] justify-center
-                ${activeTool === tool.name
-                  ? 'bg-blue-500 text-white border-blue-500 shadow-md'
-                  : 'bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600'
-                }
-              `}
+              className={getButtonClasses({
+                variant: activeTool === tool.name ? 'primary' : 'secondary',
+                size: 'small',
+                active: activeTool === tool.name
+              })}
+              style={{
+                minWidth: '80px',
+                gap: '6px',
+              }}
             >
-              <span className="text-base">{getToolIcon(tool.name)}</span>
+              <span style={{ fontSize: '16px' }}>{getToolIcon(tool.name)}</span>
               <span>{tool.displayName}</span>
             </button>
           ))}

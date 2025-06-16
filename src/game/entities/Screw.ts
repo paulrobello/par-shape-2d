@@ -1,6 +1,7 @@
 import { Constraint, Body } from 'matter-js';
 import { Screw as IScrew, ScrewColor, Vector2 } from '@/types/game';
 import { UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { applyEasing, EasingPresets } from '@/shared/utils/EasingFunctions';
 
 /**
  * Represents a screw entity in the physics puzzle game with ownership tracking and animation management.
@@ -61,6 +62,11 @@ export class Screw implements IScrew {
   public isShaking: boolean = false;
   public shakeProgress: number = 0; // 0-1 for shake animation
   public shakeOffset: Vector2 = { x: 0, y: 0 }; // Current shake offset
+
+  // Rotation animation properties (for spinning effects)
+  public rotation: number = 0; // Current rotation in radians
+  public rotationVelocity: number = 0; // Current rotation velocity in radians/second
+  public isSpinning: boolean = false; // Whether the screw is currently spinning
 
   // Debug throttling for position updates
   private lastPositionLogTime: number = 0;
@@ -186,6 +192,10 @@ export class Screw implements IScrew {
     this.targetPosition = { ...targetPosition };
     this.animationStartPosition = { ...this.position }; // Save original position
     this.collectionProgress = 0;
+    
+    // Start spinning animation for collection
+    this.isSpinning = true;
+    this.rotationVelocity = Math.PI * 4; // 2 full rotations per second
   }
 
   public updateCollectionAnimation(deltaTime: number): boolean {
@@ -197,10 +207,20 @@ export class Screw implements IScrew {
     
     this.collectionProgress = Math.min(1, this.collectionProgress + progressIncrement);
 
+    // Update rotation animation if spinning
+    if (this.isSpinning) {
+      const deltaTimeSeconds = deltaTime / 1000;
+      this.rotation += this.rotationVelocity * deltaTimeSeconds;
+      
+      // Add some rotation deceleration as the screw approaches the target
+      const slowdownFactor = Math.max(0.3, 1 - this.collectionProgress * 0.7);
+      this.rotationVelocity *= slowdownFactor;
+    }
+
     // Update position based on animation progress
     if (this.collectionProgress < 1) {
-      // Use easing for smooth animation
-      const easedProgress = this.easeInOutCubic(this.collectionProgress);
+      // Use enhanced easing for smoother animation with bounce effect
+      const easedProgress = applyEasing(this.collectionProgress, EasingPresets.game.collection);
       
       // Calculate current position between start and target using saved start position
       const startX = this.animationStartPosition.x;
@@ -216,6 +236,8 @@ export class Screw implements IScrew {
       // Animation complete
       this.position = { ...this.targetPosition };
       this.isBeingCollected = false;
+      this.isSpinning = false;
+      this.rotationVelocity = 0;
       // Don't call collect() here - let the ScrewManager handle final placement
       return true; // Animation complete
     }
@@ -234,6 +256,10 @@ export class Screw implements IScrew {
     this.transferFromHoleIndex = fromHoleIndex;
     this.transferToContainerIndex = toContainerIndex;
     this.transferToHoleIndex = toHoleIndex;
+    
+    // Start spinning animation for transfer (faster than collection)
+    this.isSpinning = true;
+    this.rotationVelocity = Math.PI * 6; // 3 full rotations per second
   }
 
   public updateTransferAnimation(deltaTime: number): boolean {
@@ -246,15 +272,25 @@ export class Screw implements IScrew {
     const oldProgress = this.transferProgress;
     this.transferProgress = Math.min(1, this.transferProgress + progressIncrement);
 
+    // Update rotation animation if spinning
+    if (this.isSpinning) {
+      const deltaTimeSeconds = deltaTime / 1000;
+      this.rotation += this.rotationVelocity * deltaTimeSeconds;
+      
+      // Add some rotation deceleration as the screw approaches the target
+      const slowdownFactor = Math.max(0.4, 1 - this.transferProgress * 0.6);
+      this.rotationVelocity *= slowdownFactor;
+    }
+
     // Debug logging for transfer animation
     if (DEBUG_CONFIG.logScrewDebug && Math.abs(this.transferProgress - oldProgress) > 0.01) {
-      console.log(`🎬 Transfer animation update for ${this.id}: progress ${oldProgress.toFixed(3)} → ${this.transferProgress.toFixed(3)}, deltaTime: ${deltaTime}ms`);
+      console.log(`🎬 Transfer animation update for ${this.id}: progress ${oldProgress.toFixed(3)} → ${this.transferProgress.toFixed(3)}, rotation: ${(this.rotation * 180 / Math.PI).toFixed(1)}°`);
     }
 
     // Update position based on animation progress
     if (this.transferProgress < 1) {
-      // Use easing for smooth animation
-      const easedProgress = this.easeInOutCubic(this.transferProgress);
+      // Use enhanced easing for smooth animation with slight elastic effect
+      const easedProgress = applyEasing(this.transferProgress, EasingPresets.game.transfer);
       
       // Calculate current position between start and target
       const startX = this.transferStartPosition.x;
@@ -277,6 +313,8 @@ export class Screw implements IScrew {
       // Animation complete
       this.position = { ...this.transferTargetPosition };
       this.isBeingTransferred = false;
+      this.isSpinning = false;
+      this.rotationVelocity = 0;
       return true; // Animation complete
     }
   }
@@ -324,9 +362,6 @@ export class Screw implements IScrew {
     }
   }
 
-  private easeInOutCubic(t: number): number {
-    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-  }
 
   public getBounds(): { x: number; y: number; width: number; height: number } {
     const radius = UI_CONSTANTS.screws.radius;
@@ -439,6 +474,9 @@ export class Screw implements IScrew {
     cloned.isShaking = this.isShaking;
     cloned.shakeProgress = this.shakeProgress;
     cloned.shakeOffset = { ...this.shakeOffset };
+    cloned.rotation = this.rotation;
+    cloned.rotationVelocity = this.rotationVelocity;
+    cloned.isSpinning = this.isSpinning;
     return cloned;
   }
 
@@ -454,5 +492,8 @@ export class Screw implements IScrew {
     this.isShaking = false;
     this.shakeProgress = 0;
     this.shakeOffset = { x: 0, y: 0 };
+    this.rotation = 0;
+    this.rotationVelocity = 0;
+    this.isSpinning = false;
   }
 }

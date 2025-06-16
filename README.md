@@ -18,13 +18,13 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * The 3rd line of the HUD should be level number
 * The 4th line of the HUD should have the current level score
 * After completing a level, increment the level number and reset the current level score to 0 and generate a new playing area.
-* Below the 4th line of the HUD is a set of 4 container boxes each with 1 to 3 holes in them.
+* Below the 4th line of the HUD is a set of up to 4 container boxes positioned in fixed slots, each with 1 to 3 holes in them.
 * The number of holes in each container box is determined by the number of screws remaining of the corresponding color in both shapes and holding holes up to 3.
 * Each container box has a color and is associated with a specific screw color.
 * When a screw is removed, it flies to the container box that matches its color, that has an empty hole and has the most holes filled.
 * When a container box is full, it should fade out over 500ms (0.5 seconds). 
 * Each screw removed with the container box adds to the screw progress tracking and adds to the current level score. If the level is completed, the score is added to the game total score.
-* When a container box is removed a new container box if needed should fade in with random color selected from screw colors that are in visible shapes or holding holes.
+* When a container box is removed a new container box if needed should fade in at the same position with color selected from screw colors that are in visible shapes or holding holes.
 * Under the row of container boxes is a row of 5 empty holding holes that are used to hold screws that get removed from shapes but do not match any of the container boxes.
 * When a new container box is added, if any screws are in the holding holes, they should be moved to the new container box if it has an empty hole that matches their color.
 * When all holding holes are full, the player has 5 seconds to try and free up a holding hole or they loose the game and must restart the current level.

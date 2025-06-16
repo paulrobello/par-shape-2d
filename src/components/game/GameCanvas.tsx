@@ -10,6 +10,7 @@ import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { initializePolyDecomp } from '@/game/utils/PhysicsInit';
 import { eventBus } from '@/game/events/EventBus';
 import { DebugUtils } from '@/shared/utils/DebugUtils';
+import { getInlineButtonStyle } from '@/shared/styles/ButtonStyles';
 
 // Type guard for Visual Viewport API support
 function hasVisualViewport(window: Window): window is Window & { visualViewport: VisualViewport } {
@@ -118,6 +119,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     eventsBySources: Record<string, number>;
     recentEvents: GameEvent[];
   } | null>(null);
+  
+  // Button hover states for polished interactions
+  const [buttonHoverStates, setButtonHoverStates] = useState({
+    start: false,
+    restart: false,
+    debug: false,
+  });
   
   const handleRestart = useCallback(() => {
     if (coordinatorRef.current) {
@@ -604,59 +612,38 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
       }}>
         <button
           onClick={handleStart}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#27AE60',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: '600',
-            minHeight: '44px',
-            minWidth: '80px',
-            touchAction: 'manipulation',
-          }}
+          onMouseEnter={() => setButtonHoverStates(prev => ({ ...prev, start: true }))}
+          onMouseLeave={() => setButtonHoverStates(prev => ({ ...prev, start: false }))}
+          style={getInlineButtonStyle(
+            { variant: 'success', size: 'medium' },
+            buttonHoverStates.start ? 'hover' : 'normal'
+          )}
         >
-          Start
+          🎮 Start
         </button>
         
         <button
           onClick={handleRestart}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: '#E74C3C',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: '600',
-            minHeight: '44px',
-            minWidth: '80px',
-            touchAction: 'manipulation',
-          }}
+          onMouseEnter={() => setButtonHoverStates(prev => ({ ...prev, restart: true }))}
+          onMouseLeave={() => setButtonHoverStates(prev => ({ ...prev, restart: false }))}
+          style={getInlineButtonStyle(
+            { variant: 'danger', size: 'medium' },
+            buttonHoverStates.restart ? 'hover' : 'normal'
+          )}
         >
-          Restart
+          🔄 Restart
         </button>
         
         <button
           onClick={toggleDebug}
-          style={{
-            padding: '12px 24px',
-            backgroundColor: debugMode ? '#9B59B6' : '#7F8C8D',
-            color: 'white',
-            border: 'none',
-            borderRadius: '8px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: '600',
-            minHeight: '44px',
-            minWidth: '100px',
-            touchAction: 'manipulation',
-          }}
+          onMouseEnter={() => setButtonHoverStates(prev => ({ ...prev, debug: true }))}
+          onMouseLeave={() => setButtonHoverStates(prev => ({ ...prev, debug: false }))}
+          style={getInlineButtonStyle(
+            { variant: debugMode ? 'warning' : 'secondary', size: 'medium', active: debugMode },
+            buttonHoverStates.debug ? 'hover' : 'normal'
+          )}
         >
-          Debug: {debugMode ? 'ON' : 'OFF'}
+          🔍 Debug: {debugMode ? 'ON' : 'OFF'}
         </button>
       </div>
 

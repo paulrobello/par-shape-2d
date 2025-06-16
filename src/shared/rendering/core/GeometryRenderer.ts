@@ -15,6 +15,12 @@ export interface CircleOptions {
   startAngle?: number;
   endAngle?: number;
   counterClockwise?: boolean;
+  shadowBlur?: number;
+  shadowColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  glowColor?: string;
+  glowBlur?: number;
 }
 
 export interface RectangleOptions {
@@ -26,6 +32,12 @@ export interface RectangleOptions {
   strokeColor?: string;
   lineWidth?: number;
   cornerRadius?: number;
+  shadowBlur?: number;
+  shadowColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  glowColor?: string;
+  glowBlur?: number;
 }
 
 export interface PolygonOptions {
@@ -34,6 +46,13 @@ export interface PolygonOptions {
   strokeColor?: string;
   lineWidth?: number;
   closed?: boolean;
+  cornerRadius?: number;
+  shadowBlur?: number;
+  shadowColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  glowColor?: string;
+  glowBlur?: number;
 }
 
 export interface CapsuleOptions {
@@ -44,6 +63,12 @@ export interface CapsuleOptions {
   fillColor?: string;
   strokeColor?: string;
   lineWidth?: number;
+  shadowBlur?: number;
+  shadowColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  glowColor?: string;
+  glowBlur?: number;
 }
 
 export interface PathOptions {
@@ -88,9 +113,68 @@ export interface TwoLayerHoleOptions {
 }
 
 /**
+ * Interface for shadow/glow effects
+ */
+interface ShadowGlowOptions {
+  shadowBlur?: number;
+  shadowColor?: string;
+  shadowOffsetX?: number;
+  shadowOffsetY?: number;
+  glowColor?: string;
+  glowBlur?: number;
+}
+
+/**
  * Consolidated geometry rendering class
  */
 export class GeometryRenderer {
+  /**
+   * Apply shadow effects to context
+   */
+  private static applyShadow(ctx: CanvasRenderingContext2D, options: ShadowGlowOptions): void {
+    if (options.shadowBlur || options.shadowColor) {
+      ctx.shadowBlur = options.shadowBlur || 0;
+      ctx.shadowColor = options.shadowColor || 'rgba(0,0,0,0.3)';
+      ctx.shadowOffsetX = options.shadowOffsetX || 2;
+      ctx.shadowOffsetY = options.shadowOffsetY || 2;
+    }
+  }
+
+  /**
+   * Apply glow effects by rendering multiple times with increasing blur
+   */
+  private static applyGlow(
+    ctx: CanvasRenderingContext2D, 
+    options: ShadowGlowOptions,
+    renderFn: () => void
+  ): void {
+    if (options.glowColor && options.glowBlur) {
+      // Render glow effect by drawing multiple times with increasing blur
+      const glowLayers = 3;
+      const maxBlur = options.glowBlur || 5;
+      
+      for (let i = 0; i < glowLayers; i++) {
+        withContext(ctx, () => {
+          ctx.shadowColor = options.glowColor!;
+          ctx.shadowBlur = maxBlur * (i + 1) / glowLayers;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          ctx.globalCompositeOperation = 'screen';
+          renderFn();
+        });
+      }
+    }
+  }
+
+  /**
+   * Clear shadow effects from context
+   */
+  private static clearShadowGlow(ctx: CanvasRenderingContext2D): void {
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+  }
   /**
    * Render a circle
    */
@@ -107,9 +191,7 @@ export class GeometryRenderer {
       counterClockwise = false,
     } = options;
 
-    withContext(ctx, () => {
-      setFillAndStroke(ctx, fillColor, strokeColor, lineWidth);
-      
+    const renderCircle = () => {
       ctx.beginPath();
       ctx.arc(x, y, radius, startAngle, endAngle, counterClockwise);
       
@@ -119,6 +201,22 @@ export class GeometryRenderer {
       if (strokeColor) {
         ctx.stroke();
       }
+    };
+
+    withContext(ctx, () => {
+      setFillAndStroke(ctx, fillColor, strokeColor, lineWidth);
+      
+      // Apply glow effect first (behind the shape)
+      this.applyGlow(ctx, options, renderCircle);
+      
+      // Apply shadow effects
+      this.applyShadow(ctx, options);
+      
+      // Render the main shape
+      renderCircle();
+      
+      // Clear shadow effects
+      this.clearShadowGlow(ctx);
     });
   }
 
@@ -162,7 +260,7 @@ export class GeometryRenderer {
   }
 
   /**
-   * Render a rectangle (with optional rounded corners)
+   * Render a rectangle (with optional rounded corners and enhanced effects)
    */
   static renderRectangle(ctx: CanvasRenderingContext2D, options: RectangleOptions): void {
     const {
@@ -173,14 +271,12 @@ export class GeometryRenderer {
       fillColor,
       strokeColor,
       lineWidth = 1,
-      cornerRadius = 0,
+      cornerRadius = 4, // Default rounded corners for polish
     } = options;
 
-    withContext(ctx, () => {
-      setFillAndStroke(ctx, fillColor, strokeColor, lineWidth);
-      
+    const renderRectangle = () => {
       if (cornerRadius > 0) {
-        // Rounded rectangle
+        // Enhanced rounded rectangle with better curves
         const r = Math.min(cornerRadius, width / 2, height / 2);
         ctx.beginPath();
         ctx.moveTo(x + r, y);
@@ -205,30 +301,111 @@ export class GeometryRenderer {
       if (strokeColor) {
         ctx.stroke();
       }
-    });
-  }
-
-  /**
-   * Render a polygon from points
-   */
-  static renderPolygon(ctx: CanvasRenderingContext2D, options: PolygonOptions): void {
-    const { points, fillColor, strokeColor, lineWidth = 1, closed = true } = options;
-
-    if (points.length < 2) return;
+    };
 
     withContext(ctx, () => {
       setFillAndStroke(ctx, fillColor, strokeColor, lineWidth);
       
+      // Apply glow effect first (behind the shape)
+      this.applyGlow(ctx, options, renderRectangle);
+      
+      // Apply shadow effects
+      this.applyShadow(ctx, options);
+      
+      // Render the main shape
+      renderRectangle();
+      
+      // Clear shadow effects
+      this.clearShadowGlow(ctx);
+    });
+  }
+
+  /**
+   * Create a rounded polygon path
+   */
+  private static createRoundedPolygonPath(
+    ctx: CanvasRenderingContext2D,
+    points: { x: number; y: number }[],
+    cornerRadius: number,
+    closed: boolean
+  ): void {
+    if (points.length < 2) return;
+    
+    if (cornerRadius <= 0) {
+      // No rounding, draw regular polygon
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
-      
       for (let i = 1; i < points.length; i++) {
         ctx.lineTo(points[i].x, points[i].y);
       }
-      
       if (closed) {
         ctx.closePath();
       }
+      return;
+    }
+
+    // Draw rounded polygon
+    ctx.beginPath();
+    
+    const processPoints = closed ? [...points, points[0], points[1]] : points;
+    
+    for (let i = 0; i < processPoints.length - 2; i++) {
+      const p1 = processPoints[i];
+      const p2 = processPoints[i + 1];
+      const p3 = processPoints[i + 2];
+      
+      if (i === 0) {
+        ctx.moveTo(p1.x, p1.y);
+      }
+      
+      // Calculate vectors
+      const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
+      const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
+      
+      // Normalize vectors
+      const len1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
+      const len2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
+      
+      if (len1 > 0 && len2 > 0) {
+        v1.x /= len1;
+        v1.y /= len1;
+        v2.x /= len2;
+        v2.y /= len2;
+        
+        // Calculate corner points
+        const radius = Math.min(cornerRadius, len1 / 2, len2 / 2);
+        const cp1 = { x: p2.x + v1.x * radius, y: p2.y + v1.y * radius };
+        const cp2 = { x: p2.x + v2.x * radius, y: p2.y + v2.y * radius };
+        
+        ctx.lineTo(cp1.x, cp1.y);
+        ctx.quadraticCurveTo(p2.x, p2.y, cp2.x, cp2.y);
+      } else {
+        ctx.lineTo(p2.x, p2.y);
+      }
+    }
+    
+    if (closed) {
+      ctx.closePath();
+    }
+  }
+
+  /**
+   * Render a polygon from points with enhanced effects
+   */
+  static renderPolygon(ctx: CanvasRenderingContext2D, options: PolygonOptions): void {
+    const { 
+      points, 
+      fillColor, 
+      strokeColor, 
+      lineWidth = 1, 
+      closed = true,
+      cornerRadius = 0,
+    } = options;
+
+    if (points.length < 2) return;
+
+    const renderPolygon = () => {
+      this.createRoundedPolygonPath(ctx, points, cornerRadius, closed);
       
       if (fillColor && closed) {
         ctx.fill();
@@ -236,18 +413,32 @@ export class GeometryRenderer {
       if (strokeColor) {
         ctx.stroke();
       }
-    });
-  }
-
-  /**
-   * Render a capsule (rounded rectangle)
-   */
-  static renderCapsule(ctx: CanvasRenderingContext2D, options: CapsuleOptions): void {
-    const { x, y, width, height, fillColor, strokeColor, lineWidth = 1 } = options;
+    };
 
     withContext(ctx, () => {
       setFillAndStroke(ctx, fillColor, strokeColor, lineWidth);
       
+      // Apply glow effect first (behind the shape)
+      this.applyGlow(ctx, options, renderPolygon);
+      
+      // Apply shadow effects
+      this.applyShadow(ctx, options);
+      
+      // Render the main shape
+      renderPolygon();
+      
+      // Clear shadow effects
+      this.clearShadowGlow(ctx);
+    });
+  }
+
+  /**
+   * Render a capsule (rounded rectangle) with enhanced effects
+   */
+  static renderCapsule(ctx: CanvasRenderingContext2D, options: CapsuleOptions): void {
+    const { x, y, width, height, fillColor, strokeColor, lineWidth = 1 } = options;
+
+    const renderCapsule = () => {
       const radius = Math.min(width, height) / 2;
       
       ctx.beginPath();
@@ -290,6 +481,22 @@ export class GeometryRenderer {
       if (strokeColor) {
         ctx.stroke();
       }
+    };
+
+    withContext(ctx, () => {
+      setFillAndStroke(ctx, fillColor, strokeColor, lineWidth);
+      
+      // Apply glow effect first (behind the shape)
+      this.applyGlow(ctx, options, renderCapsule);
+      
+      // Apply shadow effects
+      this.applyShadow(ctx, options);
+      
+      // Render the main shape
+      renderCapsule();
+      
+      // Clear shadow effects
+      this.clearShadowGlow(ctx);
     });
   }
 

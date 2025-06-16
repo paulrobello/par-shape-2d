@@ -66,6 +66,7 @@ The game event system provides a comprehensive, type-safe event-driven architect
 - **Colors**: `container:colors:updated`
 - **Lifecycle**: `container:initialize`, `container:removing:screws`
 - **Transfers**: `screw:transfer:completed`, `screw:transfer:failed`, `screw:transfer:color_check`
+- **Positioning**: Fixed 4-slot system prevents container shifting on removal
 
 ### Physics Events
 - **Bodies**: `physics:body:added`, `physics:body:removed`, `physics:body:removed:immediate`
@@ -189,13 +190,15 @@ sequenceDiagram
     CM->>CM: Add screw to container
     
     alt Container becomes full
-        CM->>EB: emit('container:filled')
+        CM->>EB: emit('container:filled') with color & screws
+        CM->>CM: Find container by color (not index)
         CM->>CM: Mark container for removal & start fade-out
-        CM->>EB: emit('container:removing:screws')
+        CM->>EB: emit('container:removing:screws') with calculated visualIndex
         
         Note over CM: Wait 500ms for fade-out animation
-        CM->>CM: Remove container physically
-        CM->>EB: emit('container:removed')
+        CM->>CM: Clear slot but preserve position
+        CM->>CM: Remove from containers array
+        CM->>EB: emit('container:removed') with visualIndex
         
         Note over CM: IMMEDIATELY check for replacement (after removal)
         CM->>EB: emit('remaining:screws:requested')
@@ -203,9 +206,10 @@ sequenceDiagram
         SEH->>CM: Return screws by color (callback)
         
         alt More screws need containers
-            CM->>CM: createReplacementContainersWithFadeIn()
+            CM->>CM: Find first vacant slot
+            CM->>CM: createReplacementContainersWithFadeIn(slot)
             CM->>EB: emit('container:state:updated')
-            Note over CM: Replacement containers start fade-in (500ms)
+            Note over CM: Replacement appears in vacant slot with fade-in (500ms)
         end
     end
 ```
@@ -535,6 +539,49 @@ The container system now listens to events that indicate screw availability chan
 - Maintains performance through intelligent throttling
 - Conservative approach prevents unwanted container changes
 - **Prevents race conditions during fade animations**
+
+#### **Fixed-Slot Container System**
+**Problem**: When containers were removed, all containers to the right would shift left, causing jarring visual effects. Replacement containers always appeared at the end.
+
+**Solution**: Implement a fixed 4-slot positioning system where containers maintain their visual positions.
+
+**Key Features**:
+- **4 Fixed Slots**: Containers have predetermined positions regardless of how many are active
+- **Slot Preservation**: When a container is removed, its slot remains empty until needed
+- **Vacant Slot Usage**: New containers appear in the first available vacant slot
+- **No Shifting**: Existing containers never change position when others are removed
+
+**Implementation Details**:
+- `containerSlots[]` array tracks which slots are occupied
+- `getContainers()` returns only non-null containers in slot order
+- Positioning calculated for all 4 slots, not just filled ones
+- Container lookup by color instead of index for reliability
+
+**Benefits**:
+- **Stable Visual Layout**: No unexpected position changes
+- **Intuitive Replacement**: Containers appear exactly where previous ones were
+- **Smoother Animations**: Only fade in/out, no sliding movements
+- **Better UX**: Players can predict where containers will appear
+
+#### **Container Identification Fix**
+**Problem**: Near the end of levels, containers would stop being removed when full due to index mismatches between events and the slot system.
+
+**Solution**: Find containers by color and status instead of relying on potentially invalid indices.
+
+**Root Cause**: 
+- `containerIndex` in events referred to original array positions
+- With slot system, containers might not be in sequential positions
+- `orderedContainers[event.containerIndex]` could return `undefined`
+
+**Fix**:
+- Find containers using `containers.find(c => c.color === event.color && c.isFull)`
+- Calculate proper `visualIndex` from slot position for events
+- Ensures containers are always found and removed regardless of their slot position
+
+**Benefits**:
+- **Reliable Removal**: Containers always removed when full, even near level end
+- **Index Consistency**: Events use calculated visual indices
+- **Robust Logic**: Works with any container arrangement in slots
 
 ## Performance Considerations
 
