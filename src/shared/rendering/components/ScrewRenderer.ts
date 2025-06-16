@@ -234,24 +234,29 @@ export class ScrewRenderer {
         ctx.fillRect(-notchWidth / 2, -notchHeight / 2, notchWidth, notchHeight);
       });
 
-      // Add highly visible thread indicators around the screw 
-      const threadCount = 12; // More threads for better rotation feedback
-      for (let i = 0; i < threadCount; i++) {
-        const threadAngle = (rotation + (i * Math.PI * 2) / threadCount) % (Math.PI * 2);
-        const threadDistance = radius * 0.65;
-        const threadX = position.x + Math.cos(threadAngle) * threadDistance;
-        const threadY = position.y + Math.sin(threadAngle) * threadDistance;
+      // Add radial scratches/lines from center outward for realistic top-down screw view
+      const scratchCount = 8;
+      for (let i = 0; i < scratchCount; i++) {
+        const scratchAngle = (rotation + (i * Math.PI * 2) / scratchCount) % (Math.PI * 2);
+        const innerDistance = radius * 0.3;
+        const outerDistance = radius * 0.8;
+        const scratchX1 = position.x + Math.cos(scratchAngle) * innerDistance;
+        const scratchY1 = position.y + Math.sin(scratchAngle) * innerDistance;
+        const scratchX2 = position.x + Math.cos(scratchAngle) * outerDistance;
+        const scratchY2 = position.y + Math.sin(scratchAngle) * outerDistance;
         
-        // Make some threads larger/more prominent for rotation visibility
-        const isMarkerThread = i % 3 === 0; // Every 3rd thread is a marker
-        const threadRadius = isMarkerThread ? radius * 0.1 : radius * 0.06;
-        const threadOpacity = isMarkerThread ? 0.8 : 0.4;
+        // Make some scratches more prominent for rotation visibility
+        const isDeepScratch = i % 2 === 0;
+        const scratchOpacity = isDeepScratch ? 0.6 : 0.3;
+        const scratchWidth = isDeepScratch ? 2 : 1;
         
-        GeometryRenderer.renderCircle(ctx, {
-          x: threadX,
-          y: threadY,
-          radius: threadRadius,
-          fillColor: hexToRgba(theme.screws.border, threadOpacity),
+        GeometryRenderer.renderLine(ctx, {
+          x1: scratchX1,
+          y1: scratchY1,
+          x2: scratchX2,
+          y2: scratchY2,
+          strokeColor: hexToRgba(theme.screws.border, scratchOpacity),
+          lineWidth: scratchWidth,
         });
       }
 

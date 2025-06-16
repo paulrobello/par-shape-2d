@@ -90,23 +90,28 @@ export class ScrewRenderer {
       ctx.fillRect(-notchWidth / 2, -notchHeight / 2, notchWidth, notchHeight);
       ctx.restore();
 
-      // Add thread indicators around the screw for enhanced rotation visibility
-      const threadCount = 12;
-      for (let i = 0; i < threadCount; i++) {
-        const threadAngle = (rotation + (i * Math.PI * 2) / threadCount) % (Math.PI * 2);
-        const threadDistance = radius * 0.7;
-        const threadX = renderPosition.x + Math.cos(threadAngle) * threadDistance;
-        const threadY = renderPosition.y + Math.sin(threadAngle) * threadDistance;
+      // Add radial lines/scratches from center outward for realistic top-down screw appearance
+      const scratchCount = 8;
+      for (let i = 0; i < scratchCount; i++) {
+        const scratchAngle = (rotation + (i * Math.PI * 2) / scratchCount) % (Math.PI * 2);
+        const innerDistance = radius * 0.3;
+        const outerDistance = radius * 0.8;
+        const scratchX1 = renderPosition.x + Math.cos(scratchAngle) * innerDistance;
+        const scratchY1 = renderPosition.y + Math.sin(scratchAngle) * innerDistance;
+        const scratchX2 = renderPosition.x + Math.cos(scratchAngle) * outerDistance;
+        const scratchY2 = renderPosition.y + Math.sin(scratchAngle) * outerDistance;
         
-        // Make some threads larger/more prominent for rotation visibility
-        const isMarkerThread = i % 3 === 0; // Every 3rd thread is a marker
-        const threadRadius = isMarkerThread ? radius * 0.08 : radius * 0.04;
-        const threadOpacity = isMarkerThread ? 0.8 : 0.4;
+        // Make some scratches more prominent for rotation visibility
+        const isDeepScratch = i % 2 === 0;
+        const scratchOpacity = isDeepScratch ? 0.6 : 0.3;
+        const scratchWidth = isDeepScratch ? 1.5 : 1;
         
-        ctx.fillStyle = hexToRgba('#2C3E50', threadOpacity);
+        ctx.strokeStyle = hexToRgba('#1A252F', scratchOpacity);
+        ctx.lineWidth = scratchWidth;
         ctx.beginPath();
-        ctx.arc(threadX, threadY, threadRadius, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(scratchX1, scratchY1);
+        ctx.lineTo(scratchX2, scratchY2);
+        ctx.stroke();
       }
 
       // Add a distinctive arrow pointer on the rim for maximum rotation visibility
