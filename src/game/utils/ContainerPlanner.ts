@@ -28,7 +28,7 @@ export class ContainerPlanner {
 
     const containers = availableColors.map(([color, count]) => ({
       color: color as ScrewColor,
-      holes: Math.min(3, Math.max(1, count)) // 1-3 holes based on screw count
+      holes: Math.max(1, count) // Number of holes matches screw count (minimum 1)
     }));
 
     return {

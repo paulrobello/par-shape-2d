@@ -52,7 +52,7 @@ export const GAME_CONFIG: GameConfig = {
   },
   containers: {
     count: 4,
-    maxHoles: 3,
+    maxHoles: 10, // Increased from 3 to allow containers to match actual screw counts
   },
   holdingHoles: {
     count: 5,
