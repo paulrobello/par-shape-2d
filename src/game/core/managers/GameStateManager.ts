@@ -117,6 +117,13 @@ export class GameStateManager implements IGameStateManager {
     });
   }
 
+  hideLevelComplete(): void {
+    this.updateGameState({
+      levelComplete: false,
+      levelWon: false
+    });
+  }
+
   updateLevelScore(score: number): void {
     this.updateGameState({
       levelScore: score

@@ -254,6 +254,18 @@ export class GameManager extends BaseSystem {
       return;
     }
 
+    // Handle level complete screen clicks
+    if (gameState.levelComplete) {
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log('🎯 Level complete screen clicked, requesting next level');
+      }
+      this.emit({
+        type: 'next:level:requested',
+        timestamp: Date.now()
+      });
+      return;
+    }
+
     if (!gameState.gameStarted || gameState.gameOver) {
       return;
     }

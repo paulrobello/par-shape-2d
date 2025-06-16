@@ -77,6 +77,7 @@ export interface IGameStateManager {
   startLevel(level: number): void;
   completeLevel(level: number, score: number): void;
   showLevelComplete(): void;
+  hideLevelComplete(): void;
   updateLevelScore(score: number): void;
   updateTotalScore(score: number): void;
   updateProgress(totalScrews: number, screwsInContainer: number, progress: number): void;

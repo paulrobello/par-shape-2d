@@ -12,6 +12,7 @@ import {
   GameOverEvent,
   LevelCompleteEvent,
   LevelCompletedEvent,
+  NextLevelRequestedEvent,
   DebugModeToggledEvent,
   DebugInfoRequestedEvent,
   LevelScoreUpdatedEvent,
@@ -52,6 +53,7 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     this.subscribe('game:over', this.handleGameOver.bind(this));
     this.subscribe('level:complete', this.handleLevelComplete.bind(this));
     this.subscribe('level:completed', this.handleLevelCompletedByProgress.bind(this));
+    this.subscribe('next:level:requested', this.handleNextLevelRequested.bind(this));
     
     // Debug events
     this.subscribe('debug:mode:toggled', this.handleDebugModeToggled.bind(this));
@@ -171,6 +173,32 @@ export class GameEventCoordinator implements IGameEventCoordinator {
         console.log(`✨ Showing level complete screen after 3-second delay`);
       }
     });
+  }
+
+  private handleNextLevelRequested(event: unknown): void {
+    const nextLevelEvent = event as NextLevelRequestedEvent;
+    void nextLevelEvent; // Acknowledge event parameter
+    if (!this.managers || !this.systemCoordinator) return;
+    
+    if (DEBUG_CONFIG.logEventFlow) {
+      console.log('🚀 Next level requested, progressing to next level');
+    }
+    
+    // Clear level complete state and timers
+    this.managers.timerManager.clearLevelCompleteTimerManual();
+    this.managers.stateManager.hideLevelComplete();
+    
+    // Get the GameState system and call nextLevel
+    const gameState = this.systemCoordinator.getSystem('GameState');
+    if (gameState && 'nextLevel' in gameState && typeof gameState.nextLevel === 'function') {
+      gameState.nextLevel();
+      
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log('✅ Next level progression completed');
+      }
+    } else {
+      console.error('GameState system not found or nextLevel method not available');
+    }
   }
 
   private handleDebugModeToggled(event: unknown): void {
