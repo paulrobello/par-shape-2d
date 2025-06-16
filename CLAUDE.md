@@ -94,9 +94,9 @@ The game features a **comprehensive animation and polish system** that provides 
 
 ### Screw Animation System (`src/game/entities/Screw.ts`)
 
-- **Spinning rotation effects** during collection and transfer
-- **Enhanced easing** with back and elastic effects for natural movement
-- **Velocity-based rotation** with smooth deceleration
+- **Spinning rotation effects** during collection and transfer with constant velocity
+- **Smooth sine easing** for natural slow-fast-slow movement without overshoot
+- **Precise targeting** ensures screws stop exactly at their destination holes
 - **Visual feedback** with enhanced shadows and glows for active screws
 - **Rotation state tracking** for proper rendering and physics integration
 

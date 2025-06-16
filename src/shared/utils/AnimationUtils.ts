@@ -265,7 +265,7 @@ export class AnimationManager {
             isComplete = updatePositionAnimation(
               animation.state as PositionAnimationState,
               deltaTime,
-              'easeInOutBack'
+              'easeInOutSine'
             );
           }
           break;
@@ -274,7 +274,7 @@ export class AnimationManager {
             isComplete = updatePositionAnimation(
               animation.state as PositionAnimationState,
               deltaTime,
-              'easeInOutElastic'
+              'easeInOutSine'
             );
           }
           break;

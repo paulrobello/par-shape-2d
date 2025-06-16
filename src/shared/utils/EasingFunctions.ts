@@ -239,8 +239,8 @@ export const EasingPresets = {
   
   // Game animations
   game: {
-    collection: 'easeInOutBack' as EasingFunctionName,
-    transfer: 'easeInOutElastic' as EasingFunctionName,
+    collection: 'easeInOutSine' as EasingFunctionName, // Smooth without overshoot
+    transfer: 'easeInOutSine' as EasingFunctionName,   // Smooth without overshoot
     movement: 'easeInOutCubic' as EasingFunctionName,
     bounce: 'easeOutBounce' as EasingFunctionName,
   },

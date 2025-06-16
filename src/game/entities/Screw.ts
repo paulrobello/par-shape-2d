@@ -207,19 +207,16 @@ export class Screw implements IScrew {
     
     this.collectionProgress = Math.min(1, this.collectionProgress + progressIncrement);
 
-    // Update rotation animation if spinning
+    // Update rotation animation if spinning - keep constant speed
     if (this.isSpinning) {
       const deltaTimeSeconds = deltaTime / 1000;
       this.rotation += this.rotationVelocity * deltaTimeSeconds;
-      
-      // Add some rotation deceleration as the screw approaches the target
-      const slowdownFactor = Math.max(0.3, 1 - this.collectionProgress * 0.7);
-      this.rotationVelocity *= slowdownFactor;
+      // Keep rotation velocity constant - no deceleration
     }
 
     // Update position based on animation progress
     if (this.collectionProgress < 1) {
-      // Use enhanced easing for smoother animation with bounce effect
+      // Use smooth sine easing without overshoot - slow then fast then slow
       const easedProgress = applyEasing(this.collectionProgress, EasingPresets.game.collection);
       
       // Calculate current position between start and target using saved start position
@@ -272,14 +269,11 @@ export class Screw implements IScrew {
     const oldProgress = this.transferProgress;
     this.transferProgress = Math.min(1, this.transferProgress + progressIncrement);
 
-    // Update rotation animation if spinning
+    // Update rotation animation if spinning - keep constant speed
     if (this.isSpinning) {
       const deltaTimeSeconds = deltaTime / 1000;
       this.rotation += this.rotationVelocity * deltaTimeSeconds;
-      
-      // Add some rotation deceleration as the screw approaches the target
-      const slowdownFactor = Math.max(0.4, 1 - this.transferProgress * 0.6);
-      this.rotationVelocity *= slowdownFactor;
+      // Keep rotation velocity constant - no deceleration
     }
 
     // Debug logging for transfer animation
@@ -289,7 +283,7 @@ export class Screw implements IScrew {
 
     // Update position based on animation progress
     if (this.transferProgress < 1) {
-      // Use enhanced easing for smooth animation with slight elastic effect
+      // Use smooth sine easing without overshoot - slow then fast then slow
       const easedProgress = applyEasing(this.transferProgress, EasingPresets.game.transfer);
       
       // Calculate current position between start and target
