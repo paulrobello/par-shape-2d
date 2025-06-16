@@ -55,7 +55,7 @@ This standardization provides consistent, predictable event names and easier und
 ### Game Lifecycle Events
 - **Game State**: `game:started`, `game:paused`, `game:resumed`, `game:over`
 - **Level Management**: `level:started`, `level:complete`, `level:progress:updated`
-- **System Coordination**: `system:ready`, `all_layers:cleared`
+- **System Coordination**: `system:ready`, `all:layers:cleared`
 
 ### Screw System Events (Core Gameplay)
 - **User Interactions**: `screw:clicked`, `screw:blocked:clicked`
@@ -64,7 +64,7 @@ This standardization provides consistent, predictable event names and easier und
 - **Transfers**: `screw:transfer:started`, `screw:transfer:completed`, `screw:transfer:failed`
 - **Ownership**: Immediate ownership transfer when operations begin (not when animations complete)
 - **Generation**: `screws:generated`, `shape:screws:ready`
-- **Counting**: `remaining:screws:requested` - Counts screws in shapes AND holding holes
+- **Counting**: `remaining:screws:requested` - Counts ALL screws in shapes (regardless of removability) AND holding holes for container planning
 
 ### Shape System Events
 - **Lifecycle**: `shape:created`, `shape:destroyed`, `shape:fell_off_screen`
@@ -83,6 +83,7 @@ This standardization provides consistent, predictable event names and easier und
 - **Lifecycle**: `container:initialize`, `container:removing:screws`
 - **Transfers**: `screw:transfer:completed`, `screw:transfer:failed`, `screw:transfer:color_check`
 - **Positioning**: Fixed 4-slot system prevents container shifting on removal
+- **Hole Planning**: Container holes sized for ALL remaining screws of each color (1-3 holes max), not just currently removable screws
 
 ### Physics Events
 - **Bodies**: `physics:body:added`, `physics:body:removed`, `physics:body:removed:immediate`
@@ -256,7 +257,7 @@ sequenceDiagram
             PT->>EB: emit('level:completed')
             EB->>GM: Process level completion
             GM->>LM: Clear all layers
-            LM->>EB: emit('all_layers:cleared')
+            LM->>EB: emit('all:layers:cleared')
             GM->>EB: emit('level:complete')
         end
     end
@@ -407,19 +408,9 @@ sequenceDiagram
 3. **Request-Response Patterns**: Use `:requested` for requests
    -  `save:requested`, `restore:requested`
 
-### Naming Convention Fixes Applied
+### Event Naming Consistency
 
-**Fixed Inconsistent Separator Usage** (✅ Completed):
-- `level_score:updated` → `level:score:updated`
-- `total_score:updated` → `total:score:updated` 
-- `game_state:request` → `game:state:request`
-- `container_state:request` → `container:state:request`
-- `holding_hole_state:request` → `holding:hole:state:request`
-- `game_state:restore` → `game:state:restore`
-- `container_state:restore` → `container:state:restore`
-- `holding_hole_state:restore` → `holding:hole:state:restore`
-
-**Standardized Pattern**: All events now follow consistent `domain:action` or `domain:subdomain:action` format with colon separators.
+All events follow a consistent `domain:action` or `domain:subdomain:action` format with colon separators for predictable hierarchy and industry alignment. This standardization provides consistent, predictable event names and easier understanding of event hierarchy.
 
 ## System Reliability Improvements
 
@@ -514,6 +505,7 @@ Created comprehensive shared utilities to eliminate code duplication and ensure 
 #### **ContainerPlanner** (`src/game/utils/ContainerPlanner.ts`)
 - Pure function utility for optimal container calculation
 - `calculateOptimalContainers()`: Takes screw inventory, returns optimal container plan
+- **Hole Sizing**: Counts ALL screws (regardless of removability) - containers planned for future needs
 - `plansEqual()`: Efficiently compares container plans to prevent unnecessary updates
 - Conservative approach: Only adds missing containers, never replaces existing ones with screws
 

@@ -129,7 +129,8 @@ Deep integration with Matter.js physics engine:
 
 #### **ContainerManager** (`src/game/core/managers/ContainerManager.ts`)
 **Responsibility**: Container lifecycle and screw assignment with fixed-slot positioning
-- Container creation with appropriate colors
+- Container creation with appropriate colors and hole counts (1-3 holes per container)
+- **Hole Planning**: Sizes containers for ALL remaining screws of each color, not just removable ones
 - Screw placement and hole management
 - Container completion detection
 - Intelligent container replacement with fade animations
@@ -157,6 +158,7 @@ Deep integration with Matter.js physics engine:
 
 **Proactive Container Management**:
 - **ContainerPlanner** utility for optimal container calculation
+- **Hole Sizing**: Counts ALL remaining screws (regardless of removability) for proper planning
 - Event-driven updates on layer changes
 - Throttled updates (1-second) to prevent excessive recalculation
 - Conservative updates that only add missing containers
