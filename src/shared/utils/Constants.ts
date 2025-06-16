@@ -337,6 +337,7 @@ export const DEBUG_CONFIG = {
   logScrewRemovabilityUpdates: false,  // Controls "updateScrewRemovability called" messages
   logScrewLayerVisibility: false,      // Controls "Layer visibility check" messages
   logProgressTracking: true,          // Controls progress system debug messages
+  logPolygonRounding: false,          // Controls polygon corner rounding debug messages
   
   // Shape rendering debug flags
   logShapePathCreation: false,         // Controls "Creating path for shape type" messages
@@ -381,6 +382,11 @@ export const ANIMATION_CONSTANTS = {
     fast: 150,
     normal: 300,
     slow: 600,
+  },
+  // Screw rotation speeds (radians per second)
+  screwRotation: {
+    collection: Math.PI * 2,  // 1 full rotation per second (was 2)
+    transfer: Math.PI * 3,    // 1.5 full rotations per second (was 3)
   },
 } as const;
 

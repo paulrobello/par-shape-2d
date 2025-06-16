@@ -1,6 +1,6 @@
 import { Constraint, Body } from 'matter-js';
 import { Screw as IScrew, ScrewColor, Vector2 } from '@/types/game';
-import { UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { UI_CONSTANTS, DEBUG_CONFIG, ANIMATION_CONSTANTS } from '@/shared/utils/Constants';
 import { applyEasing, EasingPresets } from '@/shared/utils/EasingFunctions';
 
 /**
@@ -195,7 +195,7 @@ export class Screw implements IScrew {
     
     // Start spinning animation for collection
     this.isSpinning = true;
-    this.rotationVelocity = Math.PI * 4; // 2 full rotations per second
+    this.rotationVelocity = ANIMATION_CONSTANTS.screwRotation.collection; // 1 full rotation per second
   }
 
   public updateCollectionAnimation(deltaTime: number): boolean {
@@ -256,7 +256,7 @@ export class Screw implements IScrew {
     
     // Start spinning animation for transfer (faster than collection)
     this.isSpinning = true;
-    this.rotationVelocity = Math.PI * 6; // 3 full rotations per second
+    this.rotationVelocity = ANIMATION_CONSTANTS.screwRotation.transfer; // 1.5 full rotations per second
   }
 
   public updateTransferAnimation(deltaTime: number): boolean {
