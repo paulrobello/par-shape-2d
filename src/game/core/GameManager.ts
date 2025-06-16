@@ -7,6 +7,7 @@ import { BaseSystem } from './BaseSystem';
 import { GameLoop } from './GameLoop';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { Vector2, Screw } from '@/types/game';
+import { pointInRectangle } from '@/game/utils/MathUtils';
 
 // Import all manager modules
 import {
@@ -224,7 +225,7 @@ export class GameManager extends BaseSystem {
           this.handleSpaceKey();
           break;
         case 'escape':
-          this.uiManager.hideMenuOverlay();
+          this.hideMenuOverlayWithResume();
           break;
       }
     });
@@ -242,6 +243,16 @@ export class GameManager extends BaseSystem {
   private handleGameInput(point: Vector2, inputType: 'mouse' | 'touch'): void {
     const gameState = this.stateManager.getGameState();
     const uiState = this.uiManager.getUIState();
+
+    // Check for menu button clicks when menu button is visible (start screen and during game)
+    const isMenuButtonVisible = !gameState.gameOver && !gameState.levelComplete;
+    if (isMenuButtonVisible && this.isMenuButtonClicked(point)) {
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log('🎛️ Menu button clicked, toggling menu overlay');
+      }
+      this.toggleMenuOverlayWithPause();
+      return;
+    }
 
     if (!gameState.gameStarted || gameState.gameOver) {
       return;
@@ -291,6 +302,32 @@ export class GameManager extends BaseSystem {
     });
 
     return closestScrew;
+  }
+
+  private isMenuButtonClicked(point: Vector2): boolean {
+    // Menu button coordinates match those in GameRenderManager.renderMenuButton()
+    const renderState = this.renderManager.getRenderState();
+    const buttonX = renderState.virtualGameWidth - 50;
+    const buttonY = 15;
+    const buttonSize = 30;
+    
+    const buttonRect = { 
+      x: buttonX, 
+      y: buttonY, 
+      width: buttonSize, 
+      height: buttonSize 
+    };
+    
+    const isClicked = pointInRectangle(point, buttonRect);
+    
+    if (DEBUG_CONFIG.logSystemLifecycle && isClicked) {
+      console.log('🎯 Menu button hit test passed:', { 
+        clickPoint: point, 
+        buttonRect: buttonRect 
+      });
+    }
+    
+    return isClicked;
   }
 
   private getPointFromMouseEvent(event: MouseEvent): Vector2 {
@@ -352,9 +389,47 @@ export class GameManager extends BaseSystem {
     const uiState = this.uiManager.getUIState();
     
     if (uiState.showMenuOverlay) {
-      this.uiManager.hideMenuOverlay();
+      this.hideMenuOverlayWithResume();
     } else {
-      this.uiManager.showMenuOverlay();
+      this.showMenuOverlayWithPause();
+    }
+  }
+
+  private toggleMenuOverlayWithPause(): void {
+    const uiState = this.uiManager.getUIState();
+    
+    if (uiState.showMenuOverlay) {
+      this.hideMenuOverlayWithResume();
+    } else {
+      this.showMenuOverlayWithPause();
+    }
+  }
+
+  private showMenuOverlayWithPause(): void {
+    this.uiManager.showMenuOverlay();
+    
+    // Pause physics when menu is shown
+    this.emit({
+      type: 'game:paused',
+      timestamp: Date.now()
+    });
+
+    if (DEBUG_CONFIG.logSystemLifecycle) {
+      console.log('🔋 Game paused: Menu overlay shown');
+    }
+  }
+
+  private hideMenuOverlayWithResume(): void {
+    this.uiManager.hideMenuOverlay();
+    
+    // Resume physics when menu is hidden
+    this.emit({
+      type: 'game:resumed',
+      timestamp: Date.now()
+    });
+
+    if (DEBUG_CONFIG.logSystemLifecycle) {
+      console.log('▶️ Game resumed: Menu overlay hidden');
     }
   }
 
