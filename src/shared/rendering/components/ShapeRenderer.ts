@@ -575,6 +575,7 @@ export class ShapeRenderer {
             strokeColor: colors.stroke,
             lineWidth: finalOptions.lineWidth,
             closed: true,
+            cornerRadius: 8, // Add rounded corners for polish
           });
         }
         break;

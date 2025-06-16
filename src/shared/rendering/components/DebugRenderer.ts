@@ -121,6 +121,7 @@ export class DebugRenderer {
         ],
         fillColor: options.velocityColor || debugColors.warning,
         closed: true,
+        cornerRadius: 2, // Small rounded corners for debug arrows
       });
     }
 

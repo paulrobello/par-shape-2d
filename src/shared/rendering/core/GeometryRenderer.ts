@@ -344,21 +344,46 @@ export class GeometryRenderer {
       return;
     }
 
-    // Draw rounded polygon
+    // For non-closed paths with less than 3 points, can't create proper rounded corners
+    if (!closed && points.length < 3) {
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      return;
+    }
+
+    // Draw rounded polygon - calculate all corner data first
     ctx.beginPath();
     
-    const processPoints = closed ? [...points, points[0], points[1]] : points;
+    interface CornerData {
+      p1: { x: number; y: number };
+      p2: { x: number; y: number };
+      p3: { x: number; y: number };
+      cp1: { x: number; y: number };
+      cp2: { x: number; y: number };
+      radius: number;
+    }
     
-    for (let i = 0; i < processPoints.length - 2; i++) {
-      const p1 = processPoints[i];
-      const p2 = processPoints[i + 1];
-      const p3 = processPoints[i + 2];
+    const cornerData: CornerData[] = [];
+    
+    // Calculate corner data for each vertex
+    const numCorners = closed ? points.length : Math.max(0, points.length - 2);
+    for (let i = 0; i < numCorners; i++) {
+      let p1, p2, p3;
       
-      if (i === 0) {
-        ctx.moveTo(p1.x, p1.y);
+      if (closed) {
+        p1 = points[(i - 1 + points.length) % points.length];
+        p2 = points[i];
+        p3 = points[(i + 1) % points.length];
+      } else {
+        p1 = points[i];
+        p2 = points[i + 1];
+        p3 = points[i + 2];
       }
       
-      // Calculate vectors
+      // Calculate vectors from p2 to adjacent points
       const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
       const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
       
@@ -372,20 +397,83 @@ export class GeometryRenderer {
         v2.x /= len2;
         v2.y /= len2;
         
+        // Calculate effective radius (limited by edge lengths)
+        // Use a minimum threshold to ensure visible rounding
+        const radius = Math.max(1, Math.min(cornerRadius, len1 / 2, len2 / 2));
+        
         // Calculate corner points
-        const radius = Math.min(cornerRadius, len1 / 2, len2 / 2);
         const cp1 = { x: p2.x + v1.x * radius, y: p2.y + v1.y * radius };
         const cp2 = { x: p2.x + v2.x * radius, y: p2.y + v2.y * radius };
         
-        ctx.lineTo(cp1.x, cp1.y);
-        ctx.quadraticCurveTo(p2.x, p2.y, cp2.x, cp2.y);
+        cornerData.push({ p1, p2, p3, cp1, cp2, radius });
       } else {
-        ctx.lineTo(p2.x, p2.y);
+        // Degenerate case - treat as sharp corner
+        cornerData.push({ 
+          p1, p2, p3, 
+          cp1: p2, 
+          cp2: p2, 
+          radius: 0 
+        });
       }
     }
     
+    if (cornerData.length === 0) {
+      // Fallback to regular polygon
+      ctx.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
+      }
+      if (closed) {
+        ctx.closePath();
+      }
+      return;
+    }
+    
     if (closed) {
+      // For closed polygons, start at the end of the last corner curve
+      const lastCorner = cornerData[cornerData.length - 1];
+      ctx.moveTo(lastCorner.cp2.x, lastCorner.cp2.y);
+      
+      // Draw each segment: line to corner start, then curve around corner
+      for (const corner of cornerData) {
+        ctx.lineTo(corner.cp1.x, corner.cp1.y);
+        if (corner.radius > 0) {
+          ctx.quadraticCurveTo(corner.p2.x, corner.p2.y, corner.cp2.x, corner.cp2.y);
+        }
+      }
+      
       ctx.closePath();
+    } else {
+      // For open paths, start at first point and process middle corners only
+      ctx.moveTo(points[0].x, points[0].y);
+      
+      if (cornerData.length > 0) {
+        // Line to first corner start
+        ctx.lineTo(cornerData[0].cp1.x, cornerData[0].cp1.y);
+        
+        // Draw all corners
+        for (const corner of cornerData) {
+          if (corner.radius > 0) {
+            ctx.quadraticCurveTo(corner.p2.x, corner.p2.y, corner.cp2.x, corner.cp2.y);
+          } else {
+            ctx.lineTo(corner.p2.x, corner.p2.y);
+          }
+          
+          // If not the last corner, draw line to next corner start
+          const cornerIndex = cornerData.indexOf(corner);
+          if (cornerIndex < cornerData.length - 1) {
+            ctx.lineTo(cornerData[cornerIndex + 1].cp1.x, cornerData[cornerIndex + 1].cp1.y);
+          }
+        }
+        
+        // Line to final point
+        ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+      } else {
+        // No corners to round, draw straight lines
+        for (let i = 1; i < points.length; i++) {
+          ctx.lineTo(points[i].x, points[i].y);
+        }
+      }
     }
   }
 

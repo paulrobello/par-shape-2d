@@ -1,6 +1,7 @@
 import { BaseTool, type DrawingState } from './BaseTool';
 import type { Point } from '../../systems/GridManager';
 import type { ShapeDefinition } from '@/types/shapes';
+import { GeometryRenderer } from '@/shared/rendering/core/GeometryRenderer';
 
 interface PolygonDrawingData {
   center: Point;
@@ -284,17 +285,17 @@ export class PolygonTool extends BaseTool {
       // Calculate polygon vertices
       const vertices = this.calculatePolygonVertices(center, radius, this.sides);
       
-      // Draw preview polygon
-      ctx.beginPath();
+      // Draw preview polygon using GeometryRenderer for rounded corners
       if (vertices.length > 0) {
-        ctx.moveTo(vertices[0].x, vertices[0].y);
-        for (let i = 1; i < vertices.length; i++) {
-          ctx.lineTo(vertices[i].x, vertices[i].y);
-        }
-        ctx.closePath();
+        GeometryRenderer.renderPolygon(ctx, {
+          points: vertices,
+          fillColor: ctx.fillStyle as string,
+          strokeColor: ctx.strokeStyle as string,
+          lineWidth: ctx.lineWidth,
+          closed: true,
+          cornerRadius: 8, // Add rounded corners for polygon tool preview
+        });
       }
-      ctx.fill();
-      ctx.stroke();
     }
 
     // Draw center point

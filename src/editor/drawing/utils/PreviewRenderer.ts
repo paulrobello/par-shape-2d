@@ -1,4 +1,5 @@
 import type { Point } from '../../systems/GridManager';
+import { GeometryRenderer } from '@/shared/rendering/core/GeometryRenderer';
 
 export interface PreviewStyle {
   strokeColor: string;
@@ -89,7 +90,7 @@ export class PreviewRenderer {
   }
 
   /**
-   * Render a preview polygon
+   * Render a preview polygon using GeometryRenderer for consistent rounded corners
    */
   public renderPolygon(
     ctx: CanvasRenderingContext2D,
@@ -100,28 +101,24 @@ export class PreviewRenderer {
   ): void {
     if (sides < 3) return;
 
-    this.applyStyle(ctx);
-
-    ctx.beginPath();
+    // Generate polygon points
+    const points: { x: number; y: number }[] = [];
     for (let i = 0; i < sides; i++) {
       const angle = (2 * Math.PI * i) / sides - Math.PI / 2;
       const x = center.x + radius * Math.cos(angle);
       const y = center.y + radius * Math.sin(angle);
-      
-      if (i === 0) {
-        ctx.moveTo(x, y);
-      } else {
-        ctx.lineTo(x, y);
-      }
+      points.push({ x, y });
     }
-    ctx.closePath();
 
-    if (filled) {
-      ctx.fill();
-    }
-    ctx.stroke();
-
-    this.restoreStyle(ctx);
+    // Use GeometryRenderer for consistent rounded corners
+    GeometryRenderer.renderPolygon(ctx, {
+      points,
+      fillColor: filled ? this.style.fillColor : undefined,
+      strokeColor: this.style.strokeColor,
+      lineWidth: this.style.lineWidth,
+      closed: true,
+      cornerRadius: 6, // Add rounded corners for polish in editor previews
+    });
   }
 
   /**
@@ -177,7 +174,7 @@ export class PreviewRenderer {
   }
 
   /**
-   * Render a preview path
+   * Render a preview path using GeometryRenderer for rounded corners
    */
   public renderPath(
     ctx: CanvasRenderingContext2D,
@@ -187,25 +184,30 @@ export class PreviewRenderer {
   ): void {
     if (points.length < 2) return;
 
-    this.applyStyle(ctx);
-
-    ctx.beginPath();
-    ctx.moveTo(points[0].x, points[0].y);
-    
-    for (let i = 1; i < points.length; i++) {
-      ctx.lineTo(points[i].x, points[i].y);
-    }
-    
-    if (closed) {
-      ctx.closePath();
-      if (filled) {
-        ctx.fill();
+    // Use GeometryRenderer for consistent rounded corners when closed
+    if (closed && points.length >= 3) {
+      GeometryRenderer.renderPolygon(ctx, {
+        points,
+        fillColor: filled ? this.style.fillColor : undefined,
+        strokeColor: this.style.strokeColor,
+        lineWidth: this.style.lineWidth,
+        closed: true,
+        cornerRadius: 6, // Add rounded corners for closed paths
+      });
+    } else {
+      // For open paths, use direct drawing (no corners to round)
+      this.applyStyle(ctx);
+      
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(points[i].x, points[i].y);
       }
+      
+      ctx.stroke();
+      this.restoreStyle(ctx);
     }
-    
-    ctx.stroke();
-
-    this.restoreStyle(ctx);
   }
 
   /**
