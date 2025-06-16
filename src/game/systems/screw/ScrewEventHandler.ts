@@ -523,8 +523,10 @@ export class ScrewEventHandler implements IScrewEventHandler {
     const screwDetailsByColor = new Map<string, Array<{id: string, isRemovable: boolean, ownerType: string, isCollected: boolean, isBeingCollected: boolean, isBeingTransferred: boolean}>>();
     
     for (const screw of this.state.screws.values()) {
-      // Only count screws that are on shapes (not in containers or holding holes)
-      if (!screw.isCollected && screw.isRemovable && screw.ownerType === 'shape') {
+      // Count ALL screws that are on shapes (not in containers or holding holes)
+      // Containers should be sized for all screws that will eventually need collection,
+      // not just currently removable ones (removability depends on layer blocking)
+      if (!screw.isCollected && screw.ownerType === 'shape') {
         const count = screwsByColor.get(screw.color) || 0;
         screwsByColor.set(screw.color, count + 1);
         totalCountedScrews++;
@@ -552,10 +554,10 @@ export class ScrewEventHandler implements IScrewEventHandler {
       
       // Additional debug: analyze what's being excluded
       const allScrews = Array.from(this.state.screws.values());
-      const excludedScrews = allScrews.filter(s => s.isCollected || !s.isRemovable);
+      const excludedScrews = allScrews.filter(s => s.isCollected || s.ownerType !== 'shape');
       console.log(`🚫 Excluded screws (${excludedScrews.length} total):`, {
         collected: excludedScrews.filter(s => s.isCollected).length,
-        notRemovable: excludedScrews.filter(s => !s.isRemovable && !s.isCollected).length,
+        notOnShapes: excludedScrews.filter(s => !s.isCollected && s.ownerType !== 'shape').length,
         excludedDetails: excludedScrews.reduce((acc, s) => {
           acc[s.color] = (acc[s.color] || 0) + 1;
           return acc;
@@ -580,20 +582,20 @@ export class ScrewEventHandler implements IScrewEventHandler {
     }
 
     if (DEBUG_CONFIG.logScrewDebug) {
-      // Additional debugging to track removable vs non-removable screws
+      // Additional debugging to track screw distribution
       const totalScrews = this.state.screws.size;
       const collectedScrews = Array.from(this.state.screws.values()).filter(s => s.isCollected).length;
       const beingCollectedScrews = Array.from(this.state.screws.values()).filter(s => s.isBeingCollected).length;
-      const removableScrews = Array.from(this.state.screws.values()).filter(s => !s.isCollected && s.isRemovable).length;
-      const nonRemovableScrews = Array.from(this.state.screws.values()).filter(s => !s.isCollected && !s.isBeingCollected && !s.isRemovable).length;
+      const screwsOnShapes = Array.from(this.state.screws.values()).filter(s => !s.isCollected && s.ownerType === 'shape').length;
+      const screwsNotOnShapes = Array.from(this.state.screws.values()).filter(s => !s.isCollected && !s.isBeingCollected && s.ownerType !== 'shape').length;
       
       const totalInContainers = Array.from(screwsInContainersByColor.values()).reduce((sum, set) => sum + set.size, 0);
       console.log('🔧 Remaining screw count analysis:');
       console.log('  - Total screws:', totalScrews);
       console.log('  - Collected screws:', collectedScrews);
       console.log('  - Being collected screws:', beingCollectedScrews);
-      console.log('  - Removable screws needing container space (counted):', removableScrews);
-      console.log('  - Non-removable screws (hidden layers, excluded):', nonRemovableScrews);
+      console.log('  - Screws on shapes needing container space (counted):', screwsOnShapes);
+      console.log('  - Screws not on shapes (in containers/holes, excluded):', screwsNotOnShapes);
       console.log('  - Screws already in containers by color:', Array.from(screwsInContainersByColor.entries()).map(([color, set]) => `${color}: ${set.size}`));
       console.log('  - Total screws in containers:', totalInContainers);
       console.log('  - Screws needing container space by color:', Array.from(screwsByColor.entries()));
