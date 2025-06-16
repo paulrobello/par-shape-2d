@@ -32,6 +32,8 @@ This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. 
 
 It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection, proper physics simulation reset functionality, aligned screw placement indicators, streamlined UI controls, and a complete shape creation system with drawing tools.
 
+The game features enhanced visual polish including configurable screw rotation animations (1-1.5 rotations per second), clean 4-point cross design, rounded polygon corners, and professional UI styling throughout.
+
 ## Shared Architecture
 
 The codebase features a **comprehensive shared utilities framework** that eliminates code duplication and provides a robust foundation for all functionality:
@@ -58,6 +60,15 @@ The **shared event system** (`src/shared/events/`) provides a unified, high-perf
 - **SharedEventBus**: Core event bus with priority handling, loop detection, and performance tracking
 - **BaseEventTypes**: Common event interfaces for physics, shapes, validation, and file operations
 - **EventUtils**: Utilities for debugging, performance monitoring, and event flow analysis
+
+### Shared Utilities Framework
+
+The shared utilities provide comprehensive functionality:
+
+- **EasingFunctions**: 24+ professional easing functions with type-safe enums and presets
+- **ScrewRenderer**: Enhanced screw visualization with configurable rotation speeds and clean design
+- **GeometryRenderer**: Advanced shape rendering with rounded polygon corners and visual effects
+- **Constants**: Centralized configuration including animation speeds and rendering parameters
 
 Both game and editor extend this shared foundation with their domain-specific events while reusing all common infrastructure. This eliminates duplicate event handling code and ensures consistent behavior across the application.
 
@@ -88,9 +99,13 @@ The game features a **comprehensive animation and polish system** that provides 
 
 - **Enhanced shadow effects** with customizable blur, color, and offset
 - **Glow effects** with multi-layer rendering for depth
-- **Rounded corners** support for rectangles and polygons
-- **Automatic corner radius** defaults for modern appearance
-- **Performance optimized** with proper context management
+- **Advanced rounded polygon system** with sophisticated quadratic curve algorithms
+  - Full support for complex polygons (hexagons, octagons, stars, arrows, etc.)
+  - Smart edge length detection to prevent over-rounding
+  - Dual rendering paths: canvas drawing and Path2D generation
+  - Debug controls via `DEBUG_CONFIG.logPolygonRounding`
+- **Automatic corner radius** defaults: rectangles (4px), polygons (4px), previews (12px)
+- **Performance optimized** with proper context management and batched operations
 
 ### Screw Animation System (`src/game/entities/Screw.ts`)
 
@@ -99,6 +114,28 @@ The game features a **comprehensive animation and polish system** that provides 
 - **Precise targeting** ensures screws stop exactly at their destination holes
 - **Visual feedback** with enhanced shadows and glows for active screws
 - **Rotation state tracking** for proper rendering and physics integration
+
+## Shape Rendering Architecture
+
+The game uses a **multi-layered shape rendering system** that ensures consistent visual quality across all shape types:
+
+### Rendering Pipeline
+1. **Shape Entity** (`src/game/entities/Shape.ts`) - Generates rounded Path2D objects via `getPath2D()`
+2. **Game ShapeRenderer** (`src/game/rendering/ShapeRenderer.ts`) - Converts game shapes to renderable format
+3. **Shared ShapeRenderer** (`src/shared/rendering/components/ShapeRenderer.ts`) - Applies transforms and rendering
+4. **GeometryRenderer** (`src/shared/rendering/core/GeometryRenderer.ts`) - Low-level shape drawing with polish
+
+### Shape Type Support
+- **Standard shapes**: circle, rectangle, polygon, capsule with automatic rounding
+- **Named polygons**: triangle, pentagon, hexagon, heptagon, octagon
+- **Custom shapes**: arrow, chevron, star, horseshoe with vertex-based rendering
+- **All shapes** support rounded corners with appropriate radius values (10-12px)
+
+### Key Features
+- **Consistent corner rounding** across all polygon types
+- **Physics-aware rendering** that matches Matter.js body vertices
+- **Transform-based positioning** for optimal performance
+- **Debug visualization** for development and troubleshooting
 
 ## Physics
 
