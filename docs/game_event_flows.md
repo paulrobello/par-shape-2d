@@ -12,12 +12,28 @@
 
 The game event system provides a comprehensive, type-safe event-driven architecture for the 2D physics puzzle game. It follows a clean separation of concerns with a shared foundation that both game and editor extend.
 
+### Event Naming Convention Standardization
+
+All events follow a consistent `domain:action` or `domain:subdomain:action` format with colon separators for predictable hierarchy and industry alignment. Key migration examples:
+- `level_score:updated` → `level:score:updated`
+- `game_state:request` → `game:state:request`
+- `container_state:request` → `container:state:request`
+
+This standardization provides consistent, predictable event names and easier understanding of event hierarchy.
+
 ## Architecture
 
 ### Core Components
 
 1. **SharedEventBus** (`src/shared/events/SharedEventBus.ts`)
    - Core event bus with priority handling, loop detection, and performance tracking
+   - **Key Features**:
+     - Priority-based event processing for critical operations
+     - Loop detection with contextual keys (threshold: 50) prevents infinite chains
+     - Performance monitoring and metrics built-in
+     - Comprehensive debugging capabilities
+     - Event history tracking (limited to 1000 entries for memory management)
+   - **Benefits**: Eliminated code duplication, consistent event handling, better debugging
    - Supports both synchronous and asynchronous event processing
    - Provides comprehensive debugging and monitoring capabilities
 

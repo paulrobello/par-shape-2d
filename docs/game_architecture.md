@@ -48,9 +48,9 @@ All game systems extend `BaseSystem` and operate independently:
 
 Comprehensive utilities eliminate code duplication and ensure consistency:
 
-- **EventEmissionUtils**: Standardized event creation and emission patterns
-- **StateValidationUtils**: Unified validation across all systems
-- **DebugLogger**: Consistent debug logging with conditional output
+- **EventEmissionUtils**: Standardized event creation with automatic timestamps and completion patterns
+- **StateValidationUtils**: Unified validation with system, game state, and screw validation helpers  
+- **DebugLogger**: Consistent debug logging with conditional output, standardized formatting, and emojis
 - **Enhanced Animation System**:
   - **EasingFunctions**: 24+ professional easing functions (cubic, elastic, bounce, etc.)
   - **AnimationUtils**: State management with deprecation notices for legacy functions
@@ -149,6 +149,18 @@ Deep integration with Matter.js physics engine:
 - Positioning calculated for all slots, not just filled ones
 - Container removal preserves slot positions
 
+**Container Replacement Timing**:
+1. Container filled → Mark for removal → Start fade-out animation (500ms)
+2. After fade-out completes → Remove container physically  
+3. **IMMEDIATELY** create replacement containers with fade-in animation (500ms)
+4. Replacement containers become fully visible
+
+**Proactive Container Management**:
+- **ContainerPlanner** utility for optimal container calculation
+- Event-driven updates on layer changes
+- Throttled updates (1-second) to prevent excessive recalculation
+- Conservative updates that only add missing containers
+
 #### **LayerManager** (`src/game/systems/LayerManager.ts`)
 **Responsibility**: Multi-layer shape organization and visual management
 - Layer creation and management (10+ layers per level)
@@ -178,6 +190,17 @@ Deep integration with Matter.js physics engine:
 - Screw constraint handling
 - Layer-based collision groups
 - Real-time physics stepping
+
+**Physics State Management**:
+- Proper handling of screw states: `isBeingCollected`, `isInContainer`, `isCollected`
+- Atomic screw collection prevents duplicate clicks and race conditions
+- Updated constraint stiffness for natural movement
+- Optimized constraint removal for immediate shape falling
+
+**Race Condition Prevention**:
+- Physics constraints removed atomically with state changes
+- State validation prevents duplicate operations
+- Proper screw filtering logic excludes `isInContainer` screws
 
 ### Supporting Systems
 
@@ -421,22 +444,25 @@ The game uses distributed state management with eventual consistency:
 ### Optimization Strategies
 
 #### **Event System**:
-- Event history limited to 1000 entries
-- Loop detection prevents infinite chains
+- Event history limited to 1000 entries for memory management
+- Loop detection prevents infinite chains (threshold: 50 with contextual keys)
 - Priority-based processing for critical events
 - Throttled high-frequency events (removability updates)
+- Performance monitoring and metrics built-in
 
 #### **Physics Integration**:
 - Layer-based collision groups reduce computation
 - Constraint removal optimized for immediate shape falling
 - Dormant body management for inactive shapes
 - Spatial partitioning for collision detection
+- Adjusted constraint stiffness for natural movement
 
 #### **Memory Management**:
 - Automatic cleanup of completed animations
 - Physics body removal for off-screen shapes
 - Event subscription cleanup on system destruction
-- Throttling state cleanup for long-running games
+- Bounded memory usage with automatic limits
+- Container replacement moved from setTimeout to animation cycle
 
 #### **Rendering Optimization**:
 - **Canvas scaling** with proper aspect ratio maintenance and high-DPI support
