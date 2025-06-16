@@ -30,6 +30,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. The game follows a **clean event-driven architecture** with complete decoupling between systems for optimal maintainability and testing.
 
+**Recent Major Improvements:**
+- **Complete Mobile Support**: Intelligent multi-touch selection, haptic feedback (50ms timing), container priority algorithm
+- **Physics Pause Fix**: Menu overlay now properly pauses physics simulation - no more background movement
+- **Legacy Code Removal**: ~200 lines of deprecated code removed for cleaner architecture
+- **Professional Polish**: Enhanced animations, shadows, rounded corners, modern UI throughout
+
 It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection, proper physics simulation reset functionality, aligned screw placement indicators, streamlined UI controls, and a complete shape creation system with drawing tools.
 
 The game features enhanced visual polish including configurable screw rotation animations (1-1.5 rotations per second), clean 4-point cross design, rounded polygon corners, and professional UI styling throughout.

@@ -60,11 +60,13 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Animation
 
-* Screws should fly to their destination container box or holding hole when removed.
-* If a blocked screw is clicked, it should shake to indicate it cannot be removed.
-* The shake animation lasts 300ms with alternating horizontal/vertical oscillations.
-* Mobile devices provide haptic feedback (50ms vibration) when blocked screws are clicked.
-* The progress bar should animate smoothly when updated.
+* **Screw Collection**: Smooth sine-wave easing for screw movement to containers/holding holes
+* **Screw Spinning**: Enhanced rotation effects during collection with constant velocity
+* **Blocked Screw Feedback**: 300ms shake animation with alternating horizontal/vertical oscillations
+* **Haptic Integration**: 50ms vibration for blocked screws, celebration patterns for successes
+* **Progress Bar**: Smooth animated transitions with configurable easing functions
+* **Container Transitions**: Professional fade in/out animations (500ms) for container management
+* **Visual Polish**: Enhanced shadows, glows, and rounded corners throughout UI
 
 ## Graphics
 
@@ -77,26 +79,39 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Mobile Support
 
-* The game should be playable on mobile devices.
-* Use touch events to allow the player to remove screws by tapping on them.
-* If more than 1 unblocked screws are within the touch area, select the screw that matches the color of the container box that has an empty hole.
-* Ensure the game is responsive and works well on different screen sizes.
-* Use a mobile-friendly UI for the game controls and information display.
-* Ensure the game is playable with one hand, as the player may need to hold their device with one hand while playing.
-* Haptic feedback should be provided when a screw is removed or a container box is filled.
+* **Touch Controls**: Optimized touch events with intelligent multi-touch screw selection
+* **Container Priority Selection**: When multiple screws are in touch area, prioritizes screws matching available container colors
+* **Adaptive Touch Radius**: Larger touch radius (30px) for mobile vs desktop (15px) for better accessibility
+* **Haptic Feedback**: Comprehensive vibration feedback system:
+  - 50ms vibration for successful screw removal
+  - 50ms vibration for blocked screw attempts  
+  - [100, 50, 100] pattern for container filling celebration
+* **Mobile Menu System**: Canvas-rendered menu accessible via HUD menu button
+* **Responsive Design**: Scales perfectly across all screen sizes and orientations
+* **One-Handed Play**: Optimized for single-handed mobile gameplay
 
 ## Technical Architecture
 
-This project features a comprehensive shared utilities framework that provides:
+This project features a **clean event-driven architecture** with comprehensive shared utilities:
 
-- **Event-driven architecture** with complete system decoupling
-- **Shared utilities ecosystem** eliminating code duplication across game and editor
-- **TypeScript type safety** throughout the entire codebase
-- **Comprehensive physics integration** with Matter.js
-- **Advanced rendering system** with multi-mode support
-- **Robust validation framework** for all data operations
+### Core Systems
+- **Event-Driven Design**: 120+ game events, 40+ editor events with complete type safety
+- **Modular Architecture**: Clean separation between GameManager modules for maintainability
+- **Physics Integration**: Matter.js with proper pause/resume, boundaries, and collision detection
+- **Shared Framework**: Eliminates code duplication across game and editor systems
 
-The architecture includes both a gameplay mode and a shape editor for creating custom shapes.
+### Key Features
+- **Mobile-First**: Complete touch support with intelligent multi-selection
+- **Professional UI**: Modern button styling, shadows, highlights, and responsive design
+- **Animation System**: 24+ easing functions with smooth transitions throughout
+- **Rendering Engine**: Multi-layer canvas system with rounded polygons and visual effects
+- **Physics Pause**: Proper game pause when menu is shown - physics simulation actually stops
+
+### Dual Modes
+- **Game Mode**: Full physics puzzle gameplay with progressive difficulty
+- **Shape Editor**: Comprehensive creation tools with real-time physics simulation
+
+The architecture ensures scalability, maintainability, and professional polish throughout.
 
 ## Development
 
