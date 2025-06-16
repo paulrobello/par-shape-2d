@@ -293,7 +293,7 @@ export class PolygonTool extends BaseTool {
           strokeColor: ctx.strokeStyle as string,
           lineWidth: ctx.lineWidth,
           closed: true,
-          cornerRadius: 8, // Add rounded corners for polygon tool preview
+          cornerRadius: 12, // Add rounded corners for polygon tool preview (increased for visibility)
         });
       }
     }

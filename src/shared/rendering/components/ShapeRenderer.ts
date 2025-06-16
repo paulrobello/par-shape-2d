@@ -214,16 +214,18 @@ export class ShapeRenderer {
    * Get Path2D for the shape (using origin-relative coordinates for transform compatibility)
    */
   private static getShapePath(shape: RenderableShape): Path2D | null {
+    // Debug logging to trace shape path creation
+    console.log(`🛤️ Creating path for shape type: ${shape.type}, vertices: ${shape.vertices?.length || 'none'}`);
+    
     // Use custom getPath2D if available
     if (shape.getPath2D) {
+      console.log(`📐 Using custom getPath2D for ${shape.type}`);
       return shape.getPath2D();
     }
 
     // Generate path based on shape type and properties
     // IMPORTANT: Use origin-relative coordinates (0,0) since transforms will be applied
     const path = new Path2D();
-    
-    // Debug logging (removed to avoid TypeScript error)
 
     switch (shape.type) {
       case 'circle':
@@ -257,11 +259,9 @@ export class ShapeRenderer {
             y: v.y - shape.position.y
           }));
           
-          path.moveTo(relativeVertices[0].x, relativeVertices[0].y);
-          for (let i = 1; i < relativeVertices.length; i++) {
-            path.lineTo(relativeVertices[i].x, relativeVertices[i].y);
-          }
-          path.closePath();
+          // Use rounded polygon path for a polished look
+          const cornerRadius = 12; // Reasonable corner radius
+          return GeometryRenderer.createRoundedPolygonPath2D(relativeVertices, cornerRadius, true);
         }
         break;
 
@@ -282,11 +282,18 @@ export class ShapeRenderer {
             y: v.y - shape.position.y
           }));
           
-          path.moveTo(relativeVertices[0].x, relativeVertices[0].y);
-          for (let i = 1; i < relativeVertices.length; i++) {
-            path.lineTo(relativeVertices[i].x, relativeVertices[i].y);
+          // Use rounded polygon path for a polished look on polygon-like shapes
+          if (relativeVertices.length >= 3) {
+            const cornerRadius = 8; // Slightly smaller radius for custom shapes
+            return GeometryRenderer.createRoundedPolygonPath2D(relativeVertices, cornerRadius, true);
+          } else {
+            // Fallback for shapes with < 3 vertices
+            path.moveTo(relativeVertices[0].x, relativeVertices[0].y);
+            for (let i = 1; i < relativeVertices.length; i++) {
+              path.lineTo(relativeVertices[i].x, relativeVertices[i].y);
+            }
+            path.closePath();
           }
-          path.closePath();
         }
         break;
     }
@@ -575,7 +582,7 @@ export class ShapeRenderer {
             strokeColor: colors.stroke,
             lineWidth: finalOptions.lineWidth,
             closed: true,
-            cornerRadius: 8, // Add rounded corners for polish
+            cornerRadius: 12, // Add rounded corners for polish (increased for visibility)
           });
         }
         break;

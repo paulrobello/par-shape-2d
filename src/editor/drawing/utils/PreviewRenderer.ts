@@ -117,7 +117,7 @@ export class PreviewRenderer {
       strokeColor: this.style.strokeColor,
       lineWidth: this.style.lineWidth,
       closed: true,
-      cornerRadius: 6, // Add rounded corners for polish in editor previews
+      cornerRadius: 12, // Add rounded corners for polish in editor previews (increased for visibility)
     });
   }
 
@@ -192,7 +192,7 @@ export class PreviewRenderer {
         strokeColor: this.style.strokeColor,
         lineWidth: this.style.lineWidth,
         closed: true,
-        cornerRadius: 6, // Add rounded corners for closed paths
+        cornerRadius: 12, // Add rounded corners for closed paths (increased for visibility)
       });
     } else {
       // For open paths, use direct drawing (no corners to round)

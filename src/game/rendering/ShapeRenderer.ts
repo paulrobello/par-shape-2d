@@ -64,6 +64,9 @@ export class ShapeRenderer {
     const renderable = this.shapeToRenderable(shape);
     const sharedContext = this.toSharedContext(context);
     
+    // Debug logging to trace shape rendering
+    console.log(`🎨 Game rendering shape: ${shape.type} (id: ${shape.id})`);
+    
     const options: Partial<ShapeRenderOptions> = {
       mode: 'physics',
       showHoles: true,

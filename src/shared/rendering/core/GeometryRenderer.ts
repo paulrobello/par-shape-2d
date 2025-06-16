@@ -321,7 +321,145 @@ export class GeometryRenderer {
   }
 
   /**
-   * Create a rounded polygon path
+   * Create a rounded polygon Path2D object
+   */
+  static createRoundedPolygonPath2D(
+    points: { x: number; y: number }[],
+    cornerRadius: number,
+    closed: boolean = true
+  ): Path2D {
+    const path = new Path2D();
+    
+    if (points.length < 2) return path;
+    
+    // Ensure we have a meaningful radius
+    const radius = Math.max(3, cornerRadius);
+    
+    // Debug logging to check if method is being called
+    if (radius > 0) {
+      console.log(`🔷 Creating rounded polygon Path2D: ${points.length} points, radius: ${radius}`);
+    }
+    
+    if (radius <= 0 || points.length < 3) {
+      // No rounding or insufficient points, draw regular polygon
+      path.moveTo(points[0].x, points[0].y);
+      for (let i = 1; i < points.length; i++) {
+        path.lineTo(points[i].x, points[i].y);
+      }
+      if (closed) {
+        path.closePath();
+      }
+      return path;
+    }
+    
+    if (closed) {
+      // For closed polygons, process all corners
+      for (let i = 0; i < points.length; i++) {
+        const current = points[i];
+        const next = points[(i + 1) % points.length];
+        const prev = points[(i - 1 + points.length) % points.length];
+        
+        // Calculate edge vectors
+        const edge1x = current.x - prev.x;
+        const edge1y = current.y - prev.y;
+        const edge2x = next.x - current.x;
+        const edge2y = next.y - current.y;
+        
+        // Calculate edge lengths
+        const len1 = Math.sqrt(edge1x * edge1x + edge1y * edge1y);
+        const len2 = Math.sqrt(edge2x * edge2x + edge2y * edge2y);
+        
+        if (len1 > 0 && len2 > 0) {
+          // Calculate safe radius (can't be more than half of either edge)
+          const safeRadius = Math.min(radius, len1 / 2, len2 / 2);
+          
+          // Calculate unit vectors
+          const u1x = edge1x / len1;
+          const u1y = edge1y / len1;
+          const u2x = edge2x / len2;
+          const u2y = edge2y / len2;
+          
+          // Calculate corner start and end points
+          const cornerStartX = current.x - u1x * safeRadius;
+          const cornerStartY = current.y - u1y * safeRadius;
+          const cornerEndX = current.x + u2x * safeRadius;
+          const cornerEndY = current.y + u2y * safeRadius;
+          
+          if (i === 0) {
+            // Start the path at the first corner start
+            path.moveTo(cornerStartX, cornerStartY);
+          } else {
+            // Draw line to this corner's start
+            path.lineTo(cornerStartX, cornerStartY);
+          }
+          
+          // Draw the rounded corner using quadratic curve
+          path.quadraticCurveTo(current.x, current.y, cornerEndX, cornerEndY);
+        } else {
+          // Degenerate edge, just draw to the point
+          if (i === 0) {
+            path.moveTo(current.x, current.y);
+          } else {
+            path.lineTo(current.x, current.y);
+          }
+        }
+      }
+      
+      path.closePath();
+    } else {
+      // For open paths, start at first point
+      path.moveTo(points[0].x, points[0].y);
+      
+      // Process middle points only (skip first and last)
+      for (let i = 1; i < points.length - 1; i++) {
+        const current = points[i];
+        const next = points[i + 1];
+        const prev = points[i - 1];
+        
+        // Calculate edge vectors
+        const edge1x = current.x - prev.x;
+        const edge1y = current.y - prev.y;
+        const edge2x = next.x - current.x;
+        const edge2y = next.y - current.y;
+        
+        // Calculate edge lengths
+        const len1 = Math.sqrt(edge1x * edge1x + edge1y * edge1y);
+        const len2 = Math.sqrt(edge2x * edge2x + edge2y * edge2y);
+        
+        if (len1 > 0 && len2 > 0) {
+          // Calculate safe radius
+          const safeRadius = Math.min(radius, len1 / 2, len2 / 2);
+          
+          // Calculate unit vectors
+          const u1x = edge1x / len1;
+          const u1y = edge1y / len1;
+          const u2x = edge2x / len2;
+          const u2y = edge2y / len2;
+          
+          // Calculate corner points
+          const cornerStartX = current.x - u1x * safeRadius;
+          const cornerStartY = current.y - u1y * safeRadius;
+          const cornerEndX = current.x + u2x * safeRadius;
+          const cornerEndY = current.y + u2y * safeRadius;
+          
+          // Draw to corner start, then curve around corner
+          path.lineTo(cornerStartX, cornerStartY);
+          path.quadraticCurveTo(current.x, current.y, cornerEndX, cornerEndY);
+        } else {
+          // Degenerate edge, just draw to the point
+          path.lineTo(current.x, current.y);
+        }
+      }
+      
+      // Draw to final point
+      path.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+    }
+    
+    return path;
+  }
+
+  /**
+   * Create a rounded polygon path using a simple, reliable approach
    */
   private static createRoundedPolygonPath(
     ctx: CanvasRenderingContext2D,
@@ -331,8 +469,16 @@ export class GeometryRenderer {
   ): void {
     if (points.length < 2) return;
     
-    if (cornerRadius <= 0) {
-      // No rounding, draw regular polygon
+    // Ensure we have a meaningful radius
+    const radius = Math.max(3, cornerRadius);
+    
+    // Debug logging to check if method is being called
+    if (radius > 0) {
+      console.log(`🔷 Creating rounded polygon: ${points.length} points, radius: ${radius}`);
+    }
+    
+    if (radius <= 0 || points.length < 3) {
+      // No rounding or insufficient points, draw regular polygon
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
       for (let i = 1; i < points.length; i++) {
@@ -344,136 +490,109 @@ export class GeometryRenderer {
       return;
     }
 
-    // For non-closed paths with less than 3 points, can't create proper rounded corners
-    if (!closed && points.length < 3) {
-      ctx.beginPath();
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
-      }
-      return;
-    }
-
-    // Draw rounded polygon - calculate all corner data first
     ctx.beginPath();
     
-    interface CornerData {
-      p1: { x: number; y: number };
-      p2: { x: number; y: number };
-      p3: { x: number; y: number };
-      cp1: { x: number; y: number };
-      cp2: { x: number; y: number };
-      radius: number;
-    }
-    
-    const cornerData: CornerData[] = [];
-    
-    // Calculate corner data for each vertex
-    const numCorners = closed ? points.length : Math.max(0, points.length - 2);
-    for (let i = 0; i < numCorners; i++) {
-      let p1, p2, p3;
-      
-      if (closed) {
-        p1 = points[(i - 1 + points.length) % points.length];
-        p2 = points[i];
-        p3 = points[(i + 1) % points.length];
-      } else {
-        p1 = points[i];
-        p2 = points[i + 1];
-        p3 = points[i + 2];
-      }
-      
-      // Calculate vectors from p2 to adjacent points
-      const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
-      const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
-      
-      // Normalize vectors
-      const len1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y);
-      const len2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y);
-      
-      if (len1 > 0 && len2 > 0) {
-        v1.x /= len1;
-        v1.y /= len1;
-        v2.x /= len2;
-        v2.y /= len2;
-        
-        // Calculate effective radius (limited by edge lengths)
-        // Use a minimum threshold to ensure visible rounding
-        const radius = Math.max(1, Math.min(cornerRadius, len1 / 2, len2 / 2));
-        
-        // Calculate corner points
-        const cp1 = { x: p2.x + v1.x * radius, y: p2.y + v1.y * radius };
-        const cp2 = { x: p2.x + v2.x * radius, y: p2.y + v2.y * radius };
-        
-        cornerData.push({ p1, p2, p3, cp1, cp2, radius });
-      } else {
-        // Degenerate case - treat as sharp corner
-        cornerData.push({ 
-          p1, p2, p3, 
-          cp1: p2, 
-          cp2: p2, 
-          radius: 0 
-        });
-      }
-    }
-    
-    if (cornerData.length === 0) {
-      // Fallback to regular polygon
-      ctx.moveTo(points[0].x, points[0].y);
-      for (let i = 1; i < points.length; i++) {
-        ctx.lineTo(points[i].x, points[i].y);
-      }
-      if (closed) {
-        ctx.closePath();
-      }
-      return;
-    }
-    
     if (closed) {
-      // For closed polygons, start at the end of the last corner curve
-      const lastCorner = cornerData[cornerData.length - 1];
-      ctx.moveTo(lastCorner.cp2.x, lastCorner.cp2.y);
-      
-      // Draw each segment: line to corner start, then curve around corner
-      for (const corner of cornerData) {
-        ctx.lineTo(corner.cp1.x, corner.cp1.y);
-        if (corner.radius > 0) {
-          ctx.quadraticCurveTo(corner.p2.x, corner.p2.y, corner.cp2.x, corner.cp2.y);
+      // For closed polygons, process all corners
+      for (let i = 0; i < points.length; i++) {
+        const current = points[i];
+        const next = points[(i + 1) % points.length];
+        const prev = points[(i - 1 + points.length) % points.length];
+        
+        // Calculate edge vectors
+        const edge1x = current.x - prev.x;
+        const edge1y = current.y - prev.y;
+        const edge2x = next.x - current.x;
+        const edge2y = next.y - current.y;
+        
+        // Calculate edge lengths
+        const len1 = Math.sqrt(edge1x * edge1x + edge1y * edge1y);
+        const len2 = Math.sqrt(edge2x * edge2x + edge2y * edge2y);
+        
+        if (len1 > 0 && len2 > 0) {
+          // Calculate safe radius (can't be more than half of either edge)
+          const safeRadius = Math.min(radius, len1 / 2, len2 / 2);
+          
+          // Calculate unit vectors
+          const u1x = edge1x / len1;
+          const u1y = edge1y / len1;
+          const u2x = edge2x / len2;
+          const u2y = edge2y / len2;
+          
+          // Calculate corner start and end points
+          const cornerStartX = current.x - u1x * safeRadius;
+          const cornerStartY = current.y - u1y * safeRadius;
+          const cornerEndX = current.x + u2x * safeRadius;
+          const cornerEndY = current.y + u2y * safeRadius;
+          
+          if (i === 0) {
+            // Start the path at the first corner start
+            ctx.moveTo(cornerStartX, cornerStartY);
+          } else {
+            // Draw line to this corner's start
+            ctx.lineTo(cornerStartX, cornerStartY);
+          }
+          
+          // Draw the rounded corner using quadratic curve
+          ctx.quadraticCurveTo(current.x, current.y, cornerEndX, cornerEndY);
+        } else {
+          // Degenerate edge, just draw to the point
+          if (i === 0) {
+            ctx.moveTo(current.x, current.y);
+          } else {
+            ctx.lineTo(current.x, current.y);
+          }
         }
       }
       
       ctx.closePath();
     } else {
-      // For open paths, start at first point and process middle corners only
+      // For open paths, start at first point
       ctx.moveTo(points[0].x, points[0].y);
       
-      if (cornerData.length > 0) {
-        // Line to first corner start
-        ctx.lineTo(cornerData[0].cp1.x, cornerData[0].cp1.y);
+      // Process middle points only (skip first and last)
+      for (let i = 1; i < points.length - 1; i++) {
+        const current = points[i];
+        const next = points[i + 1];
+        const prev = points[i - 1];
         
-        // Draw all corners
-        for (const corner of cornerData) {
-          if (corner.radius > 0) {
-            ctx.quadraticCurveTo(corner.p2.x, corner.p2.y, corner.cp2.x, corner.cp2.y);
-          } else {
-            ctx.lineTo(corner.p2.x, corner.p2.y);
-          }
+        // Calculate edge vectors
+        const edge1x = current.x - prev.x;
+        const edge1y = current.y - prev.y;
+        const edge2x = next.x - current.x;
+        const edge2y = next.y - current.y;
+        
+        // Calculate edge lengths
+        const len1 = Math.sqrt(edge1x * edge1x + edge1y * edge1y);
+        const len2 = Math.sqrt(edge2x * edge2x + edge2y * edge2y);
+        
+        if (len1 > 0 && len2 > 0) {
+          // Calculate safe radius
+          const safeRadius = Math.min(radius, len1 / 2, len2 / 2);
           
-          // If not the last corner, draw line to next corner start
-          const cornerIndex = cornerData.indexOf(corner);
-          if (cornerIndex < cornerData.length - 1) {
-            ctx.lineTo(cornerData[cornerIndex + 1].cp1.x, cornerData[cornerIndex + 1].cp1.y);
-          }
-        }
-        
-        // Line to final point
-        ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
-      } else {
-        // No corners to round, draw straight lines
-        for (let i = 1; i < points.length; i++) {
-          ctx.lineTo(points[i].x, points[i].y);
+          // Calculate unit vectors
+          const u1x = edge1x / len1;
+          const u1y = edge1y / len1;
+          const u2x = edge2x / len2;
+          const u2y = edge2y / len2;
+          
+          // Calculate corner points
+          const cornerStartX = current.x - u1x * safeRadius;
+          const cornerStartY = current.y - u1y * safeRadius;
+          const cornerEndX = current.x + u2x * safeRadius;
+          const cornerEndY = current.y + u2y * safeRadius;
+          
+          // Draw to corner start, then curve around corner
+          ctx.lineTo(cornerStartX, cornerStartY);
+          ctx.quadraticCurveTo(current.x, current.y, cornerEndX, cornerEndY);
+        } else {
+          // Degenerate edge, just draw to the point
+          ctx.lineTo(current.x, current.y);
         }
       }
+      
+      // Draw to final point
+      ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
     }
   }
 
@@ -487,7 +606,7 @@ export class GeometryRenderer {
       strokeColor, 
       lineWidth = 1, 
       closed = true,
-      cornerRadius = 0,
+      cornerRadius = 4, // Default rounded corners like rectangles
     } = options;
 
     if (points.length < 2) return;
