@@ -6,11 +6,8 @@ import { Shape } from '../entities/Shape';
 import { Layer } from '../entities/Layer';
 import { Screw, ScrewColor } from '@/types/game';
 import Matter from 'matter-js';
-import { BaseEvent, EventPriority, EventHandler, EventSubscriptionOptions } from '@/shared/events';
-// Removed precomputation imports - no longer using precomputation system
+import { BaseEvent, EventHandler } from '@/shared/events';
 
-// Re-export shared types for backward compatibility
-export { EventPriority, type EventHandler, type EventSubscriptionOptions };
 
 // Game lifecycle events
 export interface GameStartedEvent extends BaseEvent {

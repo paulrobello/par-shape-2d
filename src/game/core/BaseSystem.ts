@@ -3,7 +3,8 @@
  */
 
 import { eventBus } from '../events/EventBus';
-import { GameEvent, EventHandler, EventSubscriptionOptions } from '../events/EventTypes';
+import { GameEvent } from '../events/EventTypes';
+import { EventHandler, EventSubscriptionOptions } from '@/shared/events';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export abstract class BaseSystem {

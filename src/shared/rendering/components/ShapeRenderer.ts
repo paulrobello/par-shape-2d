@@ -214,12 +214,8 @@ export class ShapeRenderer {
    * Get Path2D for the shape (using origin-relative coordinates for transform compatibility)
    */
   private static getShapePath(shape: RenderableShape): Path2D | null {
-    // Debug logging to trace shape path creation
-    console.log(`🛤️ Creating path for shape type: ${shape.type}, vertices: ${shape.vertices?.length || 'none'}`);
-    
     // Use custom getPath2D if available
     if (shape.getPath2D) {
-      console.log(`📐 Using custom getPath2D for ${shape.type}`);
       return shape.getPath2D();
     }
 
@@ -258,7 +254,6 @@ export class ShapeRenderer {
             x: v.x - shape.position.x,
             y: v.y - shape.position.y
           }));
-          
           // Use rounded polygon path for a polished look
           const cornerRadius = 12; // Reasonable corner radius
           return GeometryRenderer.createRoundedPolygonPath2D(relativeVertices, cornerRadius, true);

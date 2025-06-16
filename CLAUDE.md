@@ -24,152 +24,72 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Always update any documentation affected by changes.
 - Always update documentation after lint and build passes and before commiting changes
 - Commit the changes to the current branch with an applicable commit message.
+- Use `uv run` to run python scripts directly.
 
 
 ## Architecture Overview
 
 This is a 2D physics puzzle game built with Next.js, TypeScript, and Matter.js. The game follows a **clean event-driven architecture** with complete decoupling between systems for optimal maintainability and testing.
 
-**Recent Major Improvements:**
-- **Complete Mobile Support**: Intelligent multi-touch selection, haptic feedback (50ms timing), container priority algorithm
-- **Physics Pause Fix**: Menu overlay now properly pauses physics simulation - no more background movement
-- **Legacy Code Removal**: ~200 lines of deprecated code removed for cleaner architecture
-- **Professional Polish**: Enhanced animations, shadows, rounded corners, modern UI throughout
+It has 2 parts: the game itself and a shape editor. Both share common infrastructure and use the same event-driven patterns.
 
-It has 2 parts, the game itself and a shape editor. The editor includes comprehensive dark mode support with automatic system preference detection, proper physics simulation reset functionality, aligned screw placement indicators, streamlined UI controls, and a complete shape creation system with drawing tools.
+**Key Systems:**
+- **Event-Driven Architecture**: 120+ game events, 40+ editor events with type safety
+- **Shared Utilities Framework**: Common rendering, animation, and utility functions
+- **Physics Integration**: Matter.js with poly-decomp-es for accurate simulation
+- **Mobile Support**: Multi-touch selection, haptic feedback, responsive UI
 
-The game features enhanced visual polish including configurable screw rotation animations (1-1.5 rotations per second), clean 4-point cross design, rounded polygon corners, and professional UI styling throughout.
+See `docs/game_architecture.md` for detailed system documentation.
 
 ## Shared Architecture
 
-The codebase features a **comprehensive shared utilities framework** that eliminates code duplication and provides a robust foundation for all functionality:
+The codebase features a **comprehensive shared utilities framework** (`src/shared/`) that eliminates code duplication:
 
-```
-src/shared/
-├── utils/
-│   ├── EasingFunctions.ts     # Comprehensive easing library with 24+ functions
-│   ├── AnimationUtils.ts      # Animation state management and utilities
-│   └── ...
-├── styles/
-│   ├── ButtonStyles.ts        # Polished button styling system
-│   └── ...
-└── rendering/
-    ├── core/
-    │   └── GeometryRenderer.ts # Enhanced with shadows and rounded corners
-    └── ...
-```
+- **Event System**: Unified event bus with priority handling and performance tracking
+- **Rendering**: GeometryRenderer with shadows, rounded corners, and visual effects
+- **Animation**: 24+ easing functions and animation utilities
+- **Styling**: Consistent button and UI component styling
+- **Utilities**: Math, constants, and common functionality
 
-### Shared Event System
+**Event Naming Convention**: All events follow `domain:action` format with colon separators.
 
-The **shared event system** (`src/shared/events/`) provides a unified, high-performance event infrastructure used by both game and editor:
+See `docs/game_architecture.md` for detailed shared system documentation.
 
-- **SharedEventBus**: Core event bus with priority handling, loop detection, and performance tracking
-- **BaseEventTypes**: Common event interfaces for physics, shapes, validation, and file operations
-- **EventUtils**: Utilities for debugging, performance monitoring, and event flow analysis
+## Visual Systems
 
-### Shared Utilities Framework
+The game features professional visual polish with:
 
-The shared utilities provide comprehensive functionality:
+- **Animation System**: 24+ easing functions, smooth transitions, screw rotation effects
+- **Rendering Pipeline**: Multi-layered shape rendering with shadows and rounded corners
+- **UI Styling**: Consistent button design system with accessibility support
+- **Canvas Effects**: Enhanced shadows, glows, and visual feedback
 
-- **EasingFunctions**: 24+ professional easing functions with type-safe enums and presets
-- **ScrewRenderer**: Enhanced screw visualization with configurable rotation speeds and clean design
-- **GeometryRenderer**: Advanced shape rendering with rounded polygon corners and visual effects
-- **Constants**: Centralized configuration including animation speeds and rendering parameters
+See `docs/game_architecture.md` for detailed rendering and animation system documentation.
 
-Both game and editor extend this shared foundation with their domain-specific events while reusing all common infrastructure. This eliminates duplicate event handling code and ensures consistent behavior across the application.
+## Core Game Systems
 
-**Event Naming Convention**: All events follow `domain:action` or `domain:subdomain:action` format with colon separators (e.g., `screw:clicked`, `physics:body:added`, `editor:shape:created`).
+- **Physics**: Matter.js with poly-decomp-es for accurate collision detection and simulation
+- **Shape System**: Multi-layered rendering pipeline supporting all polygon types with rounded corners
+- **Screw Management**: Robust ownership system preventing race conditions and ensuring data integrity
+- **Container System**: Intelligent hole placement and screw collection logic
 
-## Animation & Polish System
-
-The game features a **comprehensive animation and polish system** that provides smooth, professional-quality visual effects:
-
-### Easing Functions Library (`src/shared/utils/EasingFunctions.ts`)
-
-- **24+ easing functions** including cubic, back, elastic, bounce, and more
-- **Type-safe** with `EasingFunctionName` enum for compile-time checking
-- **Preset configurations** for common use cases (UI, game, physics animations)
-- **Composite easing** support for complex multi-stage animations
-- **Utility functions** for interpolation and custom easing creation
-
-### Enhanced Button Styling (`src/shared/styles/ButtonStyles.ts`)
-
-- **Modern visual effects**: shadows, highlights, gradients, hover states
-- **Consistent design system** across all UI components
-- **Multiple variants**: primary, secondary, success, danger, warning, info
-- **Size options**: small, medium, large with proper touch targets
-- **Accessibility-friendly** with proper focus indicators and contrast
-- **Both inline styles and Tailwind classes** for maximum flexibility
-
-### Canvas Rendering Polish (`src/shared/rendering/core/GeometryRenderer.ts`)
-
-- **Enhanced shadow effects** with customizable blur, color, and offset
-- **Glow effects** with multi-layer rendering for depth
-- **Advanced rounded polygon system** with sophisticated quadratic curve algorithms
-  - Full support for complex polygons (hexagons, octagons, stars, arrows, etc.)
-  - Smart edge length detection to prevent over-rounding
-  - Dual rendering paths: canvas drawing and Path2D generation
-  - Debug controls via `DEBUG_CONFIG.logPolygonRounding`
-- **Automatic corner radius** defaults: rectangles (4px), polygons (4px), previews (12px)
-- **Performance optimized** with proper context management and batched operations
-
-### Screw Animation System (`src/game/entities/Screw.ts`)
-
-- **Spinning rotation effects** during collection and transfer with constant velocity
-- **Smooth sine easing** for natural slow-fast-slow movement without overshoot
-- **Precise targeting** ensures screws stop exactly at their destination holes
-- **Visual feedback** with enhanced shadows and glows for active screws
-- **Rotation state tracking** for proper rendering and physics integration
-
-## Shape Rendering Architecture
-
-The game uses a **multi-layered shape rendering system** that ensures consistent visual quality across all shape types:
-
-### Rendering Pipeline
-1. **Shape Entity** (`src/game/entities/Shape.ts`) - Generates rounded Path2D objects via `getPath2D()`
-2. **Game ShapeRenderer** (`src/game/rendering/ShapeRenderer.ts`) - Converts game shapes to renderable format
-3. **Shared ShapeRenderer** (`src/shared/rendering/components/ShapeRenderer.ts`) - Applies transforms and rendering
-4. **GeometryRenderer** (`src/shared/rendering/core/GeometryRenderer.ts`) - Low-level shape drawing with polish
-
-### Shape Type Support
-- **Standard shapes**: circle, rectangle, polygon, capsule with automatic rounding
-- **Named polygons**: triangle, pentagon, hexagon, heptagon, octagon
-- **Custom shapes**: arrow, chevron, star, horseshoe with vertex-based rendering
-- **All shapes** support rounded corners with appropriate radius values (10-12px)
-
-### Key Features
-- **Consistent corner rounding** across all polygon types
-- **Physics-aware rendering** that matches Matter.js body vertices
-- **Transform-based positioning** for optimal performance
-- **Debug visualization** for development and troubleshooting
-
-## Physics
-
-**Physics** are provided by the Matter.js library with poly-decomp-es for accurate physics simulation.
-
-## Screw Ownership System
-
-The game implements a **robust ownership transfer system** for screws that ensures data integrity and prevents race conditions:
-
-- **Single Owner Principle**: Each screw has exactly one owner at any time (`shape`, `container`, or `holding_hole`)
-- **Immediate Ownership Transfer**: Ownership transfers when operations begin (not when animations complete)
-- **Deletion Protection**: Only the current owner can delete/destroy a screw
-- **Clean Architecture**: Eliminates complex cleanup logic through clear ownership rules
+See `docs/game_architecture.md` for detailed system documentation.
 
 ## Event Architecture
 
-The game uses **120+ game events** and **40+ editor events** with comprehensive type safety. Key event flows include:
+The game uses **120+ game events** and **40+ editor events** with comprehensive type safety for:
+- Screw removal flow and ownership transfers
+- Container management and level progression
+- Shape creation and file management
+- Physics integration and simulation control
 
-- **Game**: Screw removal flow, container management, level progression, physics integration, ownership transfers
-- **Editor**: Shape creation, file management, physics simulation, drawing tools
+See `docs/game_event_flows.md` and `docs/editor_event_flows.md` for detailed event flows.
 
-See `docs/game_event_flows.md` and `docs/editor_event_flows.md` for detailed event flows and architectural decisions.
+## Documentation References
 
-## Documentation and References
+- **Architecture**: `docs/game_architecture.md` - Detailed system documentation
+- **Event Flows**: `docs/game_event_flows.md` and `docs/editor_event_flows.md` - Event system diagrams
+- **Matter.js API**: `docs/MatterJs_docs/` - Physics engine reference
 
-**Matter.js Documentation:** Comprehensive Matter.js API documentation is available in `docs/MatterJs_docs/` covering all physics engine components including Bodies, Engine, World, Constraints, Collision detection, and more. Refer to these docs when implementing physics features.
-
-**Event Flow Documentation:** Complete event system documentation with mermaid diagrams in `docs/game_event_flows.md` and `docs/editor_event_flows.md`.
-
-**Important:** Always update the documentation when changes are made to architecture, events, or logic.
+**Important:** Always update documentation when changes are made to architecture, events, or logic.
 

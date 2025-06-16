@@ -1,6 +1,7 @@
 import { Body } from 'matter-js';
 import { Shape as IShape, ShapeType, Vector2, Screw } from '@/types/game';
 import { UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { GeometryRenderer } from '@/shared/rendering/core/GeometryRenderer';
 
 /**
  * Represents a shape entity in the physics puzzle game with integrated screw management.
@@ -220,26 +221,23 @@ export class Shape implements IShape {
   }
 
   private createPolygonPath(): Path2D {
-    const path = new Path2D();
     const radius = this.radius || 30;
     const sides = this.sides || 5; // Default to pentagon if sides not specified
-
+    
+    // Generate polygon vertices
+    const vertices: { x: number; y: number }[] = [];
     for (let i = 0; i < sides; i++) {
       // Match Matter.js Bodies.polygon() vertex orientation - rotation is handled by ShapeRenderer canvas transforms
       const angle = (i * Math.PI * 2) / sides + (Math.PI / sides); // Align with Matter.js polygon orientation
       // Use origin-relative coordinates (0,0) - transform will position it correctly
       const x = Math.cos(angle) * radius;
       const y = Math.sin(angle) * radius;
-
-      if (i === 0) {
-        path.moveTo(x, y);
-      } else {
-        path.lineTo(x, y);
-      }
+      vertices.push({ x, y });
     }
-
-    path.closePath();
-    return path;
+    
+    // Use GeometryRenderer to create rounded polygon path
+    const cornerRadius = 12; // Consistent with other rounded shapes
+    return GeometryRenderer.createRoundedPolygonPath2D(vertices, cornerRadius, true);
   }
 
   private createCapsulePath(): Path2D {
@@ -272,25 +270,13 @@ export class Shape implements IShape {
   }
 
   private createPathFromVertices(): Path2D {
-    const path = new Path2D();
-    
     // For path-based shapes, use stored vertices for accurate rendering
     // For other shapes, use physics body vertices
     if (this.vertices && this.vertices.length > 0) {
       // These vertices are in local space relative to shape center
-      // Use origin-relative coordinates (0,0) - transform will position it correctly
-      const x0 = this.vertices[0].x;
-      const y0 = this.vertices[0].y;
-      path.moveTo(x0, y0);
-      
-      // Draw remaining vertices
-      for (let i = 1; i < this.vertices.length; i++) {
-        const x = this.vertices[i].x;
-        const y = this.vertices[i].y;
-        path.lineTo(x, y);
-      }
-      
-      path.closePath();
+      // Use GeometryRenderer to create rounded polygon path for polished look
+      const cornerRadius = 10; // Slightly smaller for custom shapes
+      return GeometryRenderer.createRoundedPolygonPath2D(this.vertices, cornerRadius, true);
     } else if (this.body.vertices && this.body.vertices.length > 0) {
       // Fall back to physics body vertices (already in world coordinates)
       // Convert to origin-relative coordinates
@@ -298,16 +284,18 @@ export class Shape implements IShape {
       const centerX = this.position.x;
       const centerY = this.position.y;
       
-      path.moveTo(vertices[0].x - centerX, vertices[0].y - centerY);
+      // Convert vertices to relative coordinates
+      const relativeVertices = vertices.map(v => ({
+        x: v.x - centerX,
+        y: v.y - centerY
+      }));
       
-      for (let i = 1; i < vertices.length; i++) {
-        path.lineTo(vertices[i].x - centerX, vertices[i].y - centerY);
-      }
-      
-      path.closePath();
+      // Use rounded polygon path
+      const cornerRadius = 10; // Slightly smaller for custom shapes
+      return GeometryRenderer.createRoundedPolygonPath2D(relativeVertices, cornerRadius, true);
     }
     
-    return path;
+    return new Path2D();
   }
 
   public getPerimeterPoints(count: number = 16): Vector2[] {

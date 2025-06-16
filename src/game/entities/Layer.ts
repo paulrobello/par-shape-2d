@@ -193,14 +193,6 @@ export class Layer implements ILayer {
     return false;
   }
 
-  public updateVisibility(maxVisibleLayers: number, currentLayerIndex: number): void {
-    void maxVisibleLayers;
-    void currentLayerIndex;
-    // DEPRECATED: This method is no longer used - LayerManager controls visibility explicitly
-    // through showNextHiddenLayer() and updateLayerVisibility() to prevent conflicts
-    // with fade-in animations and proper physics enabling
-    console.warn(`[Layer ${this.id}] updateVisibility() called but is deprecated - LayerManager should control visibility`);
-  }
 
   public setGenerated(generated: boolean): void {
     this.isGenerated = generated;

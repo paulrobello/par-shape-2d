@@ -9,18 +9,7 @@
 - Only address one item at a time.
 - When the user says the item is complete, you can mark it as complete and commit the changes.
 - Items are in order of priority and should be addressed in the order they are presented.
-
-## Completed Items
-
-- ✅ **Add polish**
-    - ✅ Round corners, add shadows and highlights for HTML buttons and canvas elements
-    - ✅ Add spinning effect and easing to screws as they move to their destination
-    - ✅ Implemented comprehensive easing function library (24+ functions)
-    - ✅ Enhanced screw rotation visibility with appropriate design for scale
-    - ✅ Configurable rotation speeds (1-1.5 rotations per second)
-    - ✅ Clean 4-point cross design with subtle rim indicators
-    - ✅ Rounded polygon corners with intelligent radius calculation
-    - ✅ Professional button styling with accessibility features
+- This game is not yet released and backwards compatability is not required Do not create legacy compatability related logic, and remove any legacy compatability code that is no longer needed.
 
 ## Items
 

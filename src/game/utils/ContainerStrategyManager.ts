@@ -113,16 +113,6 @@ export class ContainerStrategyManager extends BaseSystem {
     this.holdingHoles = [...holdingHoles];
   }
 
-  /**
-   * Get optimal replacement container configuration
-   * NOTE: This is now deprecated as GameState handles the logic directly
-   * Kept for compatibility but returns null to indicate GameState should handle it
-   */
-  getOptimalReplacement(containerIndex: number): { color: ScrewColor, holes: number } | null {
-    void containerIndex; // Unused - GameState handles this directly
-    // GameState now handles this logic directly with real-time screw data
-    return null;
-  }
 
 
   /**
@@ -221,64 +211,4 @@ export class ContainerStrategyManager extends BaseSystem {
     this.screwsCollected = screwsCollected;
   }
 
-  // Removed legacy setPlan method - no longer using precomputation system
-
-  /**
-   * Legacy method - kept for compatibility but returns simplified stats
-   */
-  generatePerfectBalanceStats(): {
-    containers: { filled: number; empty: number; total: number };
-    holdingHoles: { occupied: number; empty: number; total: number };
-    screws: { collected: number; total: number; wasteCount: number };
-    performance: { planExecutedPerfectly: boolean; deviationsFromPlan: number; finalBalanceAchieved: boolean };
-  } {
-    const containers = this.activeContainers;
-    const holdingHoles = this.holdingHoles;
-
-    const filledContainers = containers.filter(c => {
-      const screwCount = c.holes.filter(hole => hole !== null).length;
-      return screwCount === c.maxHoles;
-    }).length;
-    const emptyContainers = containers.filter(c => {
-      const screwCount = c.holes.filter(hole => hole !== null).length;
-      return screwCount === 0;
-    }).length;
-    const occupiedHoldingHoles = holdingHoles.filter(h => h.screwId !== null).length;
-    const emptyHoldingHoles = holdingHoles.filter(h => h.screwId === null).length;
-
-    const totalScrewsInContainers = containers.reduce((sum, c) => {
-      const screwCount = c.holes.filter(hole => hole !== null).length;
-      return sum + screwCount;
-    }, 0);
-    const totalScrewsInHoldingHoles = occupiedHoldingHoles;
-    const totalCollected = totalScrewsInContainers + totalScrewsInHoldingHoles;
-
-    const finalBalanceAchieved = emptyHoldingHoles === this.HOLDING_HOLE_COUNT && 
-      totalScrewsInHoldingHoles === 0; // All screws in containers
-
-    return {
-      containers: {
-        filled: filledContainers,
-        empty: emptyContainers,
-        total: containers.length
-      },
-      holdingHoles: {
-        occupied: occupiedHoldingHoles,
-        empty: emptyHoldingHoles,
-        total: this.HOLDING_HOLE_COUNT
-      },
-      screws: {
-        collected: totalCollected,
-        total: this.totalScrewsInLevel,
-        wasteCount: totalScrewsInHoldingHoles
-      },
-      performance: {
-        planExecutedPerfectly: true, // No plan to follow
-        deviationsFromPlan: 0,
-        finalBalanceAchieved
-      }
-    };
-  }
-
-  // Removed legacy executeReplacementPlan method - no longer using precomputation system
 }

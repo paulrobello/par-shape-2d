@@ -39,51 +39,21 @@ export interface ShakeAnimationState extends AnimationState {
 export const ANIMATION_CONSTANTS = {
   collection: {
     duration: 800, // Collection animation duration in ms
-    easing: 'easeInOutCubic' as const
+    easing: 'easeInOutCubic' as EasingFunctionName
   },
   transfer: {
     duration: 600, // Transfer animation duration in ms
-    easing: 'easeInOutCubic' as const
+    easing: 'easeInOutCubic' as EasingFunctionName
   },
   shake: {
     duration: 300, // Shake animation duration in ms
     frequency: 8,  // Number of oscillations
     amplitude: 3,  // Maximum shake distance in pixels
-    easing: 'linear' as const
+    easing: 'linear' as EasingFunctionName
   }
 } as const;
 
-import { getEasingFunction, EasingFunctionName, applyEasing } from './EasingFunctions';
-
-/**
- * Legacy function - use applyEasing from EasingFunctions instead
- * @deprecated Use applyEasing from EasingFunctions
- */
-export function easeInOutCubic(t: number): number {
-  return applyEasing(t, 'easeInOutCubic');
-}
-
-/**
- * Legacy function - use applyEasing from EasingFunctions instead
- * @deprecated Use applyEasing from EasingFunctions
- */
-export function linear(t: number): number {
-  return applyEasing(t, 'linear');
-}
-
-/**
- * Legacy function - use applyEasing from EasingFunctions instead
- * @deprecated Use applyEasing from EasingFunctions
- */
-export function easeInOutSine(t: number): number {
-  return applyEasing(t, 'easeInOutSine');
-}
-
-/**
- * Legacy function - use getEasingFunction from EasingFunctions instead
- * @deprecated Use getEasingFunction from EasingFunctions
- */
-export { getEasingFunction };
+import { EasingFunctionName, applyEasing } from './EasingFunctions';
 
 /**
  * Create a new position animation state
@@ -265,7 +235,7 @@ export class AnimationManager {
             isComplete = updatePositionAnimation(
               animation.state as PositionAnimationState,
               deltaTime,
-              'easeInOutSine'
+              ANIMATION_CONSTANTS.collection.easing
             );
           }
           break;
@@ -274,7 +244,7 @@ export class AnimationManager {
             isComplete = updatePositionAnimation(
               animation.state as PositionAnimationState,
               deltaTime,
-              'easeInOutSine'
+              ANIMATION_CONSTANTS.transfer.easing
             );
           }
           break;

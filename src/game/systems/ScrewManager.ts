@@ -192,6 +192,9 @@ export class ScrewManager extends BaseSystem {
                 destination: screw.targetType === 'container' ? 'container' : 'holding_hole',
                 points: 10
               });
+
+              // Trigger haptic feedback for successful screw removal
+              this.triggerHapticFeedback('success');
             } else {
               console.warn(`⚠️ Could not find shape for collected screw ${screwId}`);
             }
@@ -547,10 +550,8 @@ export class ScrewManager extends BaseSystem {
       // Trigger shake animation
       screw.startShake();
       
-      // Vibrate if available
-      if (typeof navigator !== 'undefined' && navigator.vibrate) {
-        navigator.vibrate(200);
-      }
+      // Vibrate if available (blocked screw feedback)
+      this.triggerHapticFeedback('blocked');
       
       this.emit({
         type: 'screw:blocked:clicked',
@@ -697,6 +698,9 @@ export class ScrewManager extends BaseSystem {
             color: container.color,
             screws: container.holes.filter(id => id !== null) as string[]
           });
+
+          // Trigger celebratory haptic feedback for container completion
+          this.triggerHapticFeedback('container_filled');
         }
         
         // Update container state
@@ -807,6 +811,31 @@ export class ScrewManager extends BaseSystem {
           hole.reservedBy = undefined;
         }
       }
+    }
+  }
+
+  /**
+   * Trigger haptic feedback for different game actions
+   * @param actionType The type of action that occurred
+   */
+  private triggerHapticFeedback(actionType: 'success' | 'blocked' | 'container_filled'): void {
+    if (typeof navigator === 'undefined' || !navigator.vibrate) {
+      return; // Haptic feedback not available
+    }
+
+    switch (actionType) {
+      case 'success':
+        // Light feedback for successful screw removal (50ms as per README spec)
+        navigator.vibrate(50);
+        break;
+      case 'blocked':
+        // Medium feedback for blocked actions (fixed from 200ms to 50ms per README spec)
+        navigator.vibrate(50);
+        break;
+      case 'container_filled':
+        // Celebration pattern for container completion
+        navigator.vibrate([100, 50, 100]);
+        break;
     }
   }
 

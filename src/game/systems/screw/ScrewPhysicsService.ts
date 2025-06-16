@@ -359,6 +359,21 @@ export class ScrewPhysicsService implements IScrewPhysicsService {
     );
   }
 
+  /**
+   * Transitions a shape from static to dynamic physics state when all screws are removed.
+   * 
+   * Critical physics sequence:
+   * 1. Capture current velocities BEFORE changing static state (Matter.js resets them)
+   * 2. Calculate linear velocity from rotational motion around the last screw position
+   * 3. Apply captured velocities after state change to preserve momentum
+   * 4. Add small nudge to overcome perfect balance edge cases
+   * 
+   * Physics principle: When a shape rotates around a pivot, each point has linear velocity = ω × r
+   * where ω is angular velocity and r is the radius vector from pivot to center of mass
+   * 
+   * @param shape The shape to make dynamic
+   * @param lastScrew The last screw that was removed (used as rotation pivot)
+   */
   private makeShapeDynamic(shape: Shape, lastScrew: Screw): void {
     // IMPORTANT: Capture velocities BEFORE changing static state
     const capturedVelocity = { ...shape.body.velocity };

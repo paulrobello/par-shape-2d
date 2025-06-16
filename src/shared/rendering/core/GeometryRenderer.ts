@@ -4,6 +4,7 @@
  */
 
 import { withContext, setFillAndStroke } from './CanvasUtils';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export interface CircleOptions {
   x: number;
@@ -321,7 +322,25 @@ export class GeometryRenderer {
   }
 
   /**
-   * Create a rounded polygon Path2D object
+   * Creates a rounded polygon using Path2D with quadratic curves for smooth corners.
+   * 
+   * Algorithm:
+   * 1. For each vertex, calculate the angle between incoming and outgoing edges
+   * 2. Determine a safe radius that won't exceed half of either adjacent edge
+   * 3. Calculate tangent points on both edges at the safe radius distance
+   * 4. Draw straight lines between tangent points
+   * 5. Use quadratic curves through the original vertex to create smooth corners
+   * 
+   * Mathematical approach:
+   * - Edge vectors: v1 = current - previous, v2 = next - current
+   * - Unit vectors: u1 = v1/|v1|, u2 = v2/|v2|
+   * - Tangent points: current - u1*radius, current + u2*radius
+   * - Quadratic curve: control point at original vertex for natural curve
+   * 
+   * @param points Array of vertices defining the polygon
+   * @param cornerRadius Desired radius for corners (will be clamped to safe values)
+   * @param closed Whether to close the path (default: true)
+   * @returns Path2D object with rounded corners
    */
   static createRoundedPolygonPath2D(
     points: { x: number; y: number }[],
@@ -332,11 +351,11 @@ export class GeometryRenderer {
     
     if (points.length < 2) return path;
     
-    // Ensure we have a meaningful radius
+    // Ensure we have a meaningful radius (minimum 3px to avoid invisible corners)
     const radius = Math.max(3, cornerRadius);
     
     // Debug logging to check if method is being called
-    if (radius > 0) {
+    if (DEBUG_CONFIG.logPolygonRounding && radius > 0) {
       console.log(`🔷 Creating rounded polygon Path2D: ${points.length} points, radius: ${radius}`);
     }
     
@@ -472,10 +491,7 @@ export class GeometryRenderer {
     // Ensure we have a meaningful radius
     const radius = Math.max(3, cornerRadius);
     
-    // Debug logging to check if method is being called
-    if (radius > 0) {
-      console.log(`🔷 Creating rounded polygon: ${points.length} points, radius: ${radius}`);
-    }
+    // Create rounded corners for polished appearance
     
     if (radius <= 0 || points.length < 3) {
       // No rounding or insufficient points, draw regular polygon

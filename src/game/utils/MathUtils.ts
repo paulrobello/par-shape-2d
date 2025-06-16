@@ -73,9 +73,6 @@ export function createRegularPolygonVertices(center: Vector2, radius: number, si
   return vertices;
 }
 
-export function easeInOutCubic(t: number): number {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-}
 
 export function easeInBack(t: number): number {
   const c1 = 1.70158;

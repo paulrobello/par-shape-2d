@@ -469,29 +469,63 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     return { x: gameX, y: gameY };
   };
 
-  // Find screws at a given position
-  const findScrewAtPosition = (gameX: number, gameY: number) => {
-    if (!coordinatorRef.current) return null;
+
+  // Find multiple screws within touch area and prioritize by container availability
+  const findScrewsInTouchArea = (gameX: number, gameY: number, isMobile: boolean = false) => {
+    if (!coordinatorRef.current) return [];
     
     const screwManager = coordinatorRef.current.getScrewManager();
-    if (!screwManager) return null;
+    const gameState = coordinatorRef.current.getGameState();
+    if (!screwManager || !gameState) return [];
     
     const allScrews = screwManager.getAllScrews();
-    const screwRadius = 8; // Standard screw radius for hit detection
+    // Larger touch radius for mobile devices
+    const touchRadius = isMobile ? 30 : 15;
     
-    // Find the closest screw within the hit radius
-    for (const screw of allScrews) {
+    // Find all screws within the touch area
+    const screwsInArea = allScrews.filter(screw => {
       const distance = Math.sqrt(
         Math.pow(screw.position.x - gameX, 2) + 
         Math.pow(screw.position.y - gameY, 2)
       );
+      return distance <= touchRadius;
+    });
+    
+    if (screwsInArea.length === 0) return [];
+    if (screwsInArea.length === 1) return screwsInArea;
+    
+    // Multiple screws found - prioritize by container availability
+    const screwsWithContainerPriority = screwsInArea.map(screw => {
+      const hasAvailableContainer = gameState.findAvailableContainer(screw.color) !== null;
+      return { screw, hasAvailableContainer };
+    });
+    
+    // First, filter to screws that have available containers
+    const screwsWithContainers = screwsWithContainerPriority.filter(item => item.hasAvailableContainer);
+    
+    if (screwsWithContainers.length > 0) {
+      // If we have screws with available containers, prioritize by container urgency
+      const availableHolesByColor = gameState.getAvailableHolesByColor();
       
-      if (distance <= screwRadius) {
-        return screw;
-      }
+      screwsWithContainers.sort((a, b) => {
+        const aHoles = availableHolesByColor.get(a.screw.color) || 0;
+        const bHoles = availableHolesByColor.get(b.screw.color) || 0;
+        
+        // Prioritize screws with fewer available container holes (more urgent)
+        return aHoles - bHoles;
+      });
+      
+      return [screwsWithContainers[0].screw];
     }
     
-    return null;
+    // If no screws have available containers, return the closest one
+    const sortedByDistance = screwsInArea.sort((a, b) => {
+      const distanceA = Math.sqrt(Math.pow(a.position.x - gameX, 2) + Math.pow(a.position.y - gameY, 2));
+      const distanceB = Math.sqrt(Math.pow(b.position.x - gameX, 2) + Math.pow(b.position.y - gameY, 2));
+      return distanceA - distanceB;
+    });
+    
+    return [sortedByDistance[0]];
   };
 
   // Handle canvas click events
@@ -509,9 +543,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     const gameCoords = getGameCoordinates(canvasX, canvasY);
     if (!gameCoords) return;
     
-    // Find screw at this position
-    const screw = findScrewAtPosition(gameCoords.x, gameCoords.y);
-    if (screw) {
+    // Find screws using multi-touch selection logic (even for mouse clicks)
+    const screwsFound = findScrewsInTouchArea(gameCoords.x, gameCoords.y, false);
+    if (screwsFound.length > 0) {
+      const screw = screwsFound[0];
       console.log(`🖱️ Clicked on screw ${screw.id} at game coordinates (${gameCoords.x.toFixed(1)}, ${gameCoords.y.toFixed(1)})`);
       
       // Emit screw clicked event
@@ -548,9 +583,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     const gameCoords = getGameCoordinates(canvasX, canvasY);
     if (!gameCoords) return;
     
-    // Find screw at this position
-    const screw = findScrewAtPosition(gameCoords.x, gameCoords.y);
-    if (screw) {
+    // Find screws using mobile-optimized multi-touch selection
+    const screwsFound = findScrewsInTouchArea(gameCoords.x, gameCoords.y, DeviceDetection.isMobileDevice());
+    if (screwsFound.length > 0) {
+      const screw = screwsFound[0];
       console.log(`👆 Touched screw ${screw.id} at game coordinates (${gameCoords.x.toFixed(1)}, ${gameCoords.y.toFixed(1)})`);
       
       // Emit screw clicked event

@@ -16,19 +16,28 @@ export interface ContainerPlan {
 
 export class ContainerPlanner {
   /**
-   * Calculate optimal container configuration from screw inventory
+   * Calculates optimal container configuration using a greedy algorithm.
+   * 
+   * Strategy:
+   * - Prioritizes colors with most screws (reduces total container count)
+   * - Limits to 3 holes per container for visual clarity and game balance
+   * - Ensures at least 1 hole for colors with any screws
+   * 
+   * Design rationale: Fewer containers with appropriate capacity
+   * provides better gameplay flow than many single-hole containers
+   * 
    * Pure function - no side effects, easy to test and reason about
    */
   static calculateOptimalContainers(screwInventory: Map<string, number>): ContainerPlan {
     // Filter colors that actually have screws
     const availableColors = Array.from(screwInventory.entries())
       .filter(([, count]) => count > 0)
-      .sort(([, countA], [, countB]) => countB - countA) // Most screws first
-      .slice(0, GAME_CONFIG.containers.count); // Max containers limit
+      .sort(([, countA], [, countB]) => countB - countA) // Most screws first (greedy approach)
+      .slice(0, GAME_CONFIG.containers.count); // Max 4 containers (UI layout constraint)
 
     const containers = availableColors.map(([color, count]) => ({
       color: color as ScrewColor,
-      holes: Math.min(3, Math.max(1, count)) // 1-3 holes based on screw count (max 3)
+      holes: Math.min(3, Math.max(1, count)) // 1-3 holes: min 1 for any color, max 3 for visual clarity
     }));
 
     return {

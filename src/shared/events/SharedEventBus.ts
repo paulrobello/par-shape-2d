@@ -162,6 +162,17 @@ export class SharedEventBus<TEvent extends BaseEvent = BaseEvent> {
       layer?: { id: string };
     };
     
+    /**
+     * Enhanced loop detection prevents infinite event cascades by tracking:
+     * - Event type + source + unique entity ID
+     * 
+     * This contextual approach allows the same event type to fire for different entities
+     * without triggering false loop detection, while catching actual loops where the
+     * same entity repeatedly triggers the same event.
+     * 
+     * Example: 'physics:body:added' can fire for multiple shapes, but if shape-123
+     * triggers it 50+ times, that's a loop.
+     */
     // Extract unique identifier from various event properties
     const eventId = eventWithIds.collisionId ||
                    eventWithIds.bodyId || 
