@@ -17,12 +17,20 @@ export class ScrewRenderer {
     const { position, color } = screw;
     const radius = UI_CONSTANTS.screws.radius * scale;
     const borderWidth = UI_CONSTANTS.screws.borderWidth * scale;
+    const rotation = screw.rotation || 0;
     
     // Apply shake offset to position
     const renderPosition = {
       x: position.x + screw.shakeOffset.x,
       y: position.y + screw.shakeOffset.y
     };
+    
+    // Apply rotation transform if needed
+    if (rotation !== 0) {
+      ctx.translate(renderPosition.x, renderPosition.y);
+      ctx.rotate(rotation);
+      ctx.translate(-renderPosition.x, -renderPosition.y);
+    }
     
     // Apply transparency for animations
     let alpha = 1;
@@ -37,6 +45,14 @@ export class ScrewRenderer {
       ctx.globalAlpha = alpha;
     }
 
+    // Enhanced shadow effects for spinning screws
+    if (screw.isSpinning) {
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 2;
+    }
+
     // Draw screw body
     const screwColor = SCREW_COLORS[color];
     ctx.fillStyle = screwColor;
@@ -48,7 +64,7 @@ export class ScrewRenderer {
     ctx.fill();
     ctx.stroke();
 
-    // Add inner highlight
+    // Add inner highlight that will rotate to show spinning
     ctx.fillStyle = hexToRgba('#FFFFFF', 0.3);
     ctx.beginPath();
     const highlightX = renderPosition.x - UI_CONSTANTS.screws.highlight.offsetX * scale;
@@ -57,7 +73,25 @@ export class ScrewRenderer {
     ctx.arc(highlightX, highlightY, highlightRadius, 0, Math.PI * 2);
     ctx.fill();
 
-    // Draw cross/plus symbol
+    // Add a prominent notch/groove on the screw rim to show rotation clearly
+    if (screw.isSpinning || rotation !== 0) {
+      const notchDistance = radius * 0.85;
+      const notchX = renderPosition.x + Math.cos(rotation) * notchDistance;
+      const notchY = renderPosition.y + Math.sin(rotation) * notchDistance;
+      
+      // Draw a distinctive rectangular notch
+      const notchWidth = radius * 0.12;
+      const notchHeight = radius * 0.3;
+      
+      ctx.save();
+      ctx.translate(notchX, notchY);
+      ctx.rotate(rotation);
+      ctx.fillStyle = '#1A252F'; // Darker than border
+      ctx.fillRect(-notchWidth / 2, -notchHeight / 2, notchWidth, notchHeight);
+      ctx.restore();
+    }
+
+    // Draw cross/plus symbol (this will also rotate with the screw)
     const crossSize = radius * UI_CONSTANTS.screws.cross.sizeRatio;
     this.drawCrossSymbol(ctx, renderPosition.x, renderPosition.y, crossSize, scale);
 
@@ -289,7 +323,10 @@ export class ScrewRenderer {
       isBeingCollected: false,
       isBeingTransferred: false,
       collectionProgress: 0,
-      transferProgress: 0
+      transferProgress: 0,
+      // Keep rotation for collected screws to show final rotation state
+      rotation: screw.rotation || 0,
+      isSpinning: false // But not spinning anymore
     };
     
     // Force render the screw at the destination with the specified scale

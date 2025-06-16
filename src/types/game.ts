@@ -78,6 +78,11 @@ export interface Screw {
   shakeProgress: number; // 0-1 for shake animation
   shakeOffset: Vector2; // Current shake offset
 
+  // Rotation animation properties (for spinning effects)
+  rotation: number; // Current rotation in radians
+  rotationVelocity: number; // Current rotation velocity in radians/second
+  isSpinning: boolean; // Whether the screw is currently spinning
+
   // Direct positioning properties
   localOffset?: Vector2; // Local offset from shape center for direct positioning
   anchorBody?: Body; // Physics anchor body for constraint
