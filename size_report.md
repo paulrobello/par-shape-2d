@@ -5,7 +5,7 @@ This report shows the size of all files in the `src` directory, sorted by size i
 | File | Size (bytes) | Size (tokens) |
 |------|--------------|---------------|
 | src/game/core/GameManager.ts.backup | 87,640 | 26,558 |
-| src/game/systems/LayerManager.ts | 62,412 | 18,913 |
+| src/game/systems/LayerManager.ts | 44,568 | 13,506 |
 | src/game/systems/ScrewManager.ts | 31,863 | 9,656 |
 | src/app/editor/components/PropertyPanel.tsx | 31,019 | 9,400 |
 | src/components/game/GameCanvas.tsx | 29,336 | 8,890 |
@@ -160,5 +160,5 @@ This report shows the size of all files in the `src` directory, sorted by size i
 ## Summary
 
 - **Total files:** 152
-- **Total size:** 1,368,970 bytes
-- **Total tokens:** 414,915
+- **Total size:** 1,351,126 bytes
+- **Total tokens:** 409,508

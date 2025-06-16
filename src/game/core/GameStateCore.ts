@@ -11,7 +11,6 @@ import {
   BoundsChangedEvent,
   LayerClearedEvent,
   AllLayersClearedEvent,
-  NextLevelRequestedEvent,
   LevelCompletedEvent,
   LayersUpdatedEvent,
   ShapeDestroyedEvent,
@@ -44,7 +43,7 @@ export class GameStateCore extends BaseSystem {
     // Level management events
     this.subscribe('layer:cleared', this.handleLayerCleared.bind(this));
     this.subscribe('all:layers:cleared', this.handleAllLayersCleared.bind(this));
-    this.subscribe('next:level:requested', this.handleNextLevelRequested.bind(this));
+    // NOTE: next:level:requested is handled by GameEventCoordinator to avoid duplicate level increments
     this.subscribe('level:completed', this.handleLevelCompletedByProgress.bind(this));
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     
@@ -166,15 +165,8 @@ export class GameStateCore extends BaseSystem {
     });
   }
 
-  private handleNextLevelRequested(event: NextLevelRequestedEvent): void {
-    void event;
-    this.executeIfActive(() => {
-      if (DEBUG_CONFIG.logEventFlow) {
-        console.log('GameStateCore: Next level requested - advancing to next level');
-      }
-      this.nextLevel();
-    });
-  }
+  // NOTE: handleNextLevelRequested was removed to prevent duplicate level increments
+  // The GameEventCoordinator handles next:level:requested events and calls GameState.nextLevel()
 
   private handleLevelCompletedByProgress(event: LevelCompletedEvent): void {
     this.executeIfActive(() => {

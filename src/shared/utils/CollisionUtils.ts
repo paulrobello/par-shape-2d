@@ -5,6 +5,7 @@
 
 import { Vector2 } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
+import { UI_CONSTANTS } from './Constants';
 // Import removed - using local implementation instead
 
 /**
@@ -347,8 +348,8 @@ export function isScrewAreaBlocked(
   precisCheck: boolean = false
 ): boolean {
   if (precisCheck) {
-    // Use actual screw radius plus a small margin for better blocking detection
-    return isCircleIntersectingShape(screwPosition, screwRadius + 1, shape);
+    // Use actual screw radius plus blocking margin for better blocking detection
+    return isCircleIntersectingShape(screwPosition, screwRadius + UI_CONSTANTS.screws.blockingMargin, shape);
   } else {
     return isPointInShapeBoundsWithMargin(screwPosition, shape);
   }

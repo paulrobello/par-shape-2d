@@ -203,6 +203,7 @@ export const UI_CONSTANTS = {
   screws: {
     radius: 12,
     borderWidth: 2,
+    blockingMargin: 0,
     highlight: {
       offsetX: 2,
       offsetY: 2,

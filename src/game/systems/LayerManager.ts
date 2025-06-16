@@ -10,7 +10,6 @@ import { ShapeFactory } from '@/game/systems/ShapeFactory';
 import { GAME_CONFIG, SHAPE_TINTS, LAYOUT_CONSTANTS, DEBUG_CONFIG, getTotalLayersForLevel } from '@/shared/utils/Constants';
 import { ScrewColor } from '@/types/game';
 import { randomIntBetween } from '@/game/utils/MathUtils';
-import Matter from 'matter-js';
 import {
   BoundsChangedEvent,
   LevelStartedEvent,
@@ -39,7 +38,6 @@ interface LayerManagerState {
   expectedShapesPerLayer: Map<string, number>; // layerId -> expected number of shapes
   virtualGameWidth?: number;
   virtualGameHeight?: number;
-  // Removed precomputation state - no longer using precomputation system
 }
 
 export class LayerManager extends BaseSystem {
@@ -63,7 +61,6 @@ export class LayerManager extends BaseSystem {
       layersWithScrewsReady: new Set(),
       allLayersScrewsReadyEmitted: false,
       expectedShapesPerLayer: new Map(),
-      // Removed precomputation initialization - no longer using precomputation system
     };
   }
 
@@ -84,8 +81,6 @@ export class LayerManager extends BaseSystem {
     // Save/restore events
     this.subscribe('save:requested', this.handleSaveRequested.bind(this));
     this.subscribe('restore:requested', this.handleRestoreRequested.bind(this));
-
-    // Removed precomputation event handlers - no longer using precomputation system
   }
 
   // Event Handlers
@@ -713,17 +708,8 @@ export class LayerManager extends BaseSystem {
 
 
   private updateLayerIndices(): void {
-    // Collect layer index updates for event emission
-    const layerUpdates: Array<{ layerId: string; newIndex: number }> = [];
-    
     this.state.layers.forEach((layer, layerIndex) => {
-      const oldIndex = layer.index;
       layer.updateIndex(layerIndex);
-      
-      // Track if index actually changed
-      if (oldIndex !== layerIndex) {
-        layerUpdates.push({ layerId: layer.id, newIndex: layerIndex });
-      }
     });
     
     // Always emit the event to ensure lookup is populated, even if indices didn't change
@@ -1019,38 +1005,6 @@ export class LayerManager extends BaseSystem {
     });
   }
 
-  public isLevelComplete(): boolean {
-    // Level is complete when all layers are cleared, regardless of how many were generated
-    // This ensures the level can complete even if fewer than totalLayersForLevel were needed
-    return this.state.layers.length === 0;
-  }
-
-  public getLayersGeneratedThisLevel(): number {
-    return this.state.layersGeneratedThisLevel;
-  }
-
-  public getTotalLayersForLevel(): number {
-    return this.state.totalLayersForLevel;
-  }
-
-  public getRemainingLayerCount(): number {
-    return this.state.layers.filter(layer => !layer.isCleared()).length;
-  }
-
-  // Removed precomputation event handlers - no longer using precomputation system
-
-  // Removed precomputation layer creation methods - no longer using precomputation system
-
-  // Removed precomputation shape creation methods - no longer using precomputation system
-
-  // Removed precomputation physics body creation methods - no longer using precomputation system
-
-  // Removed precomputation path body creation methods - no longer using precomputation system
-
-  // Removed precomputation capsule body creation methods - no longer using precomputation system
-
-  // Removed precomputation shape type mapping methods - no longer using precomputation system
-
   /**
    * Update layer visibility based on current state
    */
@@ -1076,9 +1030,6 @@ export class LayerManager extends BaseSystem {
     if (DEBUG_CONFIG.logLayerOperations) {
       console.log(`[LayerManager] updateLayerVisibility: ${this.state.layers.length} total layers, ${currentlyVisibleCount} currently visible, maxVisible=${maxVisible}`);
     }
-    
-    // Root cause fixed: removed automatic visibility override in Layer.updateIndex()
-    // No special final layer workaround needed - normal visibility flow should work
     
     // Process each layer's visibility
     this.state.layers.forEach((layer, index) => {
@@ -1202,54 +1153,6 @@ export class LayerManager extends BaseSystem {
   }
 
   /**
-   * Force cleanup of all out-of-bounds shapes (for debug purposes)
-   */
-  public forceCleanupOutOfBoundsShapes(): void {
-    if (DEBUG_CONFIG.logDebugUtilities) {
-      console.log('🧹 Force cleaning up out-of-bounds shapes...');
-    }
-    
-    let totalRemoved = 0;
-    
-    this.state.layers.forEach(layer => {
-      const shapesToRemove: string[] = [];
-      
-      // Check bounds for all layers (visible and invisible)
-      // Note: Invisible layers should only have shapes removed if they're truly out of bounds
-      layer.getAllShapes().forEach(shape => {
-        const pos = shape.position;
-        const shapeBounds = shape.getBounds();
-        
-        // Very generous cleanup - remove anything that's clearly not in the main game area
-        const isOutOfBounds = (
-          pos.x < -500 ||
-          pos.x > layer.bounds.x + layer.bounds.width + 500 ||
-          pos.y < -500 ||
-          pos.y > layer.bounds.y + layer.bounds.height + 800 ||
-          shapeBounds.y > layer.bounds.y + layer.bounds.height + 200 ||
-          pos.y < LAYOUT_CONSTANTS.shapeArea.startY - 100 // Check for shapes hiding in HUD area
-        );
-        
-        if (isOutOfBounds) {
-          const layerType = layer.isVisible ? 'visible' : 'invisible';
-          console.log(`Force removing out-of-bounds shape ${shape.id} from ${layerType} layer ${layer.id} at (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})`);
-          shapesToRemove.push(shape.id);
-          totalRemoved++;
-        }
-      });
-      
-      // Remove the shapes
-      shapesToRemove.forEach(shapeId => {
-        this.removeShape(shapeId);
-      });
-    });
-    
-    if (DEBUG_CONFIG.logDebugUtilities) {
-      console.log(`🧹 Force cleanup complete - removed ${totalRemoved} out-of-bounds shapes`);
-    }
-  }
-
-  /**
    * Debug method to log current layer visibility state
    */
   public debugLayerVisibility(): void {
@@ -1280,325 +1183,5 @@ export class LayerManager extends BaseSystem {
         });
       }
     });
-  }
-
-  /**
-   * Debug method to find shapes with screws that might be out of bounds
-   */
-  public debugOutOfBoundsShapes(): void {
-    if (!DEBUG_CONFIG.logDebugUtilities) return;
-    
-    console.log('🔍 Debugging out-of-bounds shapes...');
-    
-    let totalShapes = 0;
-    let outOfBoundsShapes = 0;
-    let totalScrews = 0;
-    let outOfBoundsScrews = 0;
-    let hudShapes = 0;
-    let hudScrews = 0;
-    let visibleShapes = 0;
-    let invisibleShapes = 0;
-    
-    this.state.layers.forEach(layer => {
-      const shapes = layer.getAllShapes();
-      totalShapes += shapes.length;
-      
-      shapes.forEach(shape => {
-        const screws = shape.getAllScrews();
-        totalScrews += screws.length;
-        
-        const shapeBounds = shape.getBounds();
-        const pos = shape.position;
-        
-        // Check if shape is in a visible layer (invisible layers are normal and will be revealed)
-        if (!layer.isVisible) {
-          invisibleShapes++;
-          if (DEBUG_CONFIG.logLayerDebug) {
-            console.log(`👻 Shape in invisible layer (normal): ${shape.id} in layer ${layer.id}
-              Position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})
-              Screws: ${screws.length} (Active: ${shape.getActiveScrews().length})`);
-          }
-        } else {
-          visibleShapes++;
-        }
-        
-        // Check if shape is within the visible game bounds
-        const visibleGameBounds = {
-          x: 0,
-          y: LAYOUT_CONSTANTS.shapeArea.startY,
-          width: this.state.virtualGameWidth || 768,
-          height: (this.state.virtualGameHeight || 960) - LAYOUT_CONSTANTS.shapeArea.startY
-        };
-        
-        const withinVisibleBounds = (
-          pos.x >= visibleGameBounds.x - 50 &&
-          pos.x <= visibleGameBounds.x + visibleGameBounds.width + 50 &&
-          pos.y >= visibleGameBounds.y - 50 &&
-          pos.y <= visibleGameBounds.y + visibleGameBounds.height + 50
-        );
-        
-        if (!withinVisibleBounds && screws.length > 0) {
-          console.warn(`🚫 Shape with screws outside visible bounds: ${shape.id}
-            Position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})
-            Visible bounds: (${visibleGameBounds.x}, ${visibleGameBounds.y}, ${visibleGameBounds.width}, ${visibleGameBounds.height})
-            Screws: ${screws.length} (Active: ${shape.getActiveScrews().length})
-            Layer: ${layer.id} (visible: ${layer.isVisible})`);
-        }
-        
-        // Check if shape is out of layer bounds
-        const withinLayerBounds = (
-          shapeBounds.x >= layer.bounds.x &&
-          shapeBounds.x + shapeBounds.width <= layer.bounds.x + layer.bounds.width &&
-          shapeBounds.y >= layer.bounds.y &&
-          shapeBounds.y + shapeBounds.height <= layer.bounds.y + layer.bounds.height
-        );
-        
-        // Check if shape should have been cleaned up (same logic as cleanupOffScreenShapes)
-        const margin = 200;
-        const fallDistance = 500;
-        const shouldBeRemoved = (
-          pos.x < -margin ||
-          pos.x > layer.bounds.x + layer.bounds.width + margin ||
-          pos.y < -margin ||
-          pos.y > layer.bounds.y + layer.bounds.height + fallDistance
-        );
-        
-        // Check if shape is in HUD area
-        const inHudArea = pos.y < LAYOUT_CONSTANTS.shapeArea.startY;
-        
-        if (!withinLayerBounds || shouldBeRemoved) {
-          outOfBoundsShapes++;
-          outOfBoundsScrews += screws.length;
-          
-          console.warn(`❌ Out-of-bounds shape found: ${shape.id} in layer ${layer.id}
-            Shape position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})
-            Shape bounds: (${shapeBounds.x.toFixed(1)}, ${shapeBounds.y.toFixed(1)}, ${shapeBounds.width.toFixed(1)}, ${shapeBounds.height.toFixed(1)})
-            Layer bounds: (${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width}, ${layer.bounds.height})
-            Within layer: ${withinLayerBounds}, Should be removed: ${shouldBeRemoved}
-            Screws: ${screws.length} (Active: ${shape.getActiveScrews().length})`);
-        }
-        
-        if (inHudArea) {
-          hudShapes++;
-          hudScrews += screws.length;
-          
-          console.warn(`🎭 Shape hiding in HUD area: ${shape.id} in layer ${layer.id}
-            Position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}) - Above game area (y < ${LAYOUT_CONSTANTS.shapeArea.startY})
-            Screws: ${screws.length} (Active: ${shape.getActiveScrews().length})`);
-        }
-      });
-    });
-    
-    console.log(`📊 Debug Summary:
-      Total shapes: ${totalShapes} (Visible: ${visibleShapes}, Invisible: ${invisibleShapes})
-      Out-of-bounds shapes: ${outOfBoundsShapes}
-      HUD area shapes: ${hudShapes}
-      Total screws: ${totalScrews}
-      Out-of-bounds screws: ${outOfBoundsScrews}
-      HUD area screws: ${hudScrews}
-      Layers: ${this.state.layers.length} (Visible: ${this.state.layers.filter(l => l.isVisible).length})`);
-  }
-
-  /**
-   * Debug method to force reposition shapes to visible area
-   */
-  public forceRepositionShapesToVisibleArea(): void {
-    if (!DEBUG_CONFIG.logDebugUtilities) return;
-    
-    console.log('🔧 Force repositioning shapes to visible area...');
-    
-    if (!this.state.currentBounds) {
-      console.warn('No current bounds set, cannot reposition shapes');
-      return;
-    }
-    
-    const visibleBounds = this.state.currentBounds;
-    let repositionedCount = 0;
-    
-    this.state.layers.forEach(layer => {
-      if (!layer.isVisible) return; // Skip invisible layers
-      
-      layer.getAllShapes().forEach(shape => {
-        const shapeBounds = shape.getBounds();
-        const pos = shape.position;
-        
-        // More aggressive bounds checking - check both position and bounds
-        const isOutOfBounds = (
-          // Position checks
-          pos.y < visibleBounds.y ||
-          pos.y > visibleBounds.y + visibleBounds.height ||
-          pos.x < visibleBounds.x ||
-          pos.x > visibleBounds.x + visibleBounds.width ||
-          // Bounds checks
-          shapeBounds.y < visibleBounds.y ||
-          shapeBounds.y + shapeBounds.height > visibleBounds.y + visibleBounds.height ||
-          shapeBounds.x < visibleBounds.x ||
-          shapeBounds.x + shapeBounds.width > visibleBounds.x + visibleBounds.width ||
-          // Extra check for shapes near edges that might be partially off-screen
-          shapeBounds.y + shapeBounds.height > this.state.virtualGameHeight! - 50 ||
-          shapeBounds.x + shapeBounds.width > this.state.virtualGameWidth! - 50
-        );
-        
-        console.log(`🔍 Shape ${shape.id} bounds check:
-          Position: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)})
-          Bounds: (${shapeBounds.x.toFixed(1)}, ${shapeBounds.y.toFixed(1)}, ${shapeBounds.width.toFixed(1)}, ${shapeBounds.height.toFixed(1)})
-          Visible bounds: (${visibleBounds.x}, ${visibleBounds.y}, ${visibleBounds.width}, ${visibleBounds.height})
-          Out of bounds: ${isOutOfBounds}`);
-        
-        if (isOutOfBounds) {
-          // Calculate new position within visible bounds with proper margins
-          const margin = 50;
-          const safeWidth = Math.max(100, visibleBounds.width - 2 * margin);
-          const safeHeight = Math.max(100, visibleBounds.height - 2 * margin);
-          
-          // Calculate new center position (shapes are positioned by their center)
-          const newX = visibleBounds.x + margin + Math.random() * safeWidth;
-          const newY = visibleBounds.y + margin + Math.random() * safeHeight;
-          
-          console.log(`🔧 Repositioning shape ${shape.id}:`);
-          console.log(`  From: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})`);
-          console.log(`  To: (${newX.toFixed(1)}, ${newY.toFixed(1)})`);
-          
-          // Update shape position (center point)
-          shape.position.x = newX;
-          shape.position.y = newY;
-          
-          // CRITICAL: Update physics body position using Matter.js Body.setPosition
-          if (shape.body) {
-            console.log(`  Updating physics body from (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)}) to (${newX.toFixed(1)}, ${newY.toFixed(1)})`);
-            
-            // Use Matter.js Body.setPosition to properly update physics body
-            // This will also update all constraints and composite parts
-            Matter.Body.setPosition(shape.body, { x: newX, y: newY });
-            
-            // Also update velocity to prevent physics drift
-            Matter.Body.setVelocity(shape.body, { x: 0, y: 0 });
-            Matter.Body.setAngularVelocity(shape.body, 0);
-            
-            console.log(`  Physics body updated to: (${shape.body.position.x.toFixed(1)}, ${shape.body.position.y.toFixed(1)})`);
-          }
-          
-          // Update screw positions relative to new shape position
-          shape.getAllScrews().forEach(screw => {
-            // Screws should maintain their relative position to the shape
-            // This will be handled automatically by the physics system
-            console.log(`  Screw ${screw.id} will be updated by physics system`);
-          });
-          
-          repositionedCount++;
-        }
-      });
-    });
-    
-    console.log(`🔧 Repositioned ${repositionedCount} shapes to visible area`);
-  }
-
-  /**
-   * Debug method to check for discrepancies between total screws and visible screws
-   */
-  public debugScrewDiscrepancy(): void {
-    console.log('🔍 Debugging screw discrepancy...');
-    
-    // Count total screws across ALL layers (visible and hidden)
-    let totalScrewsAllLayers = 0;
-    let totalShapesAllLayers = 0;
-    let totalScrewsVisibleLayers = 0;
-    let totalShapesVisibleLayers = 0;
-    let totalScrewsHiddenLayers = 0;
-    let totalShapesHiddenLayers = 0;
-    
-    // Detailed breakdown by layer
-    const layerBreakdown: Array<{
-      layerId: string;
-      index: number;
-      visible: boolean;
-      shapeCount: number;
-      screwCount: number;
-      activeScrewCount: number;
-    }> = [];
-    
-    this.state.layers.forEach(layer => {
-      const shapes = layer.getAllShapes();
-      const shapeCount = shapes.length;
-      let screwCount = 0;
-      let activeScrewCount = 0;
-      
-      shapes.forEach(shape => {
-        const screws = shape.getAllScrews();
-        const activeScrews = shape.getActiveScrews();
-        screwCount += screws.length;
-        activeScrewCount += activeScrews.length;
-      });
-      
-      layerBreakdown.push({
-        layerId: layer.id,
-        index: layer.index,
-        visible: layer.isVisible,
-        shapeCount,
-        screwCount,
-        activeScrewCount
-      });
-      
-      totalShapesAllLayers += shapeCount;
-      totalScrewsAllLayers += screwCount;
-      
-      if (layer.isVisible) {
-        totalShapesVisibleLayers += shapeCount;
-        totalScrewsVisibleLayers += screwCount;
-      } else {
-        totalShapesHiddenLayers += shapeCount;
-        totalScrewsHiddenLayers += screwCount;
-      }
-    });
-    
-    // Get screw count from the progress tracker's perspective
-    // Note: LayerManager doesn't have direct access to SystemCoordinator
-    // We'll emit an event to get this information
-    const progressTrackerScrewCount = 0;
-    const progressTrackerContainerCount = 0;
-    
-    // For now, we'll just log what we can see from LayerManager's perspective
-    // The full comparison will need to be done from GameManager which has access to all systems
-    
-    console.log(`📊 Screw Discrepancy Analysis:`);
-    console.log(`\n🎮 Progress Tracker View:`);
-    console.log(`  - Total screws tracked: ${progressTrackerScrewCount}`);
-    console.log(`  - Screws in containers: ${progressTrackerContainerCount}`);
-    console.log(`  - Progress percentage: ${progressTrackerContainerCount > 0 ? Math.floor((progressTrackerContainerCount / progressTrackerScrewCount) * 100) : 0}%`);
-    
-    console.log(`\n🎯 Layer Manager View:`);
-    console.log(`  - Total layers: ${this.state.layers.length} (Visible: ${this.getVisibleLayers().length}, Hidden: ${this.state.layers.length - this.getVisibleLayers().length})`);
-    console.log(`  - Total shapes: ${totalShapesAllLayers} (Visible: ${totalShapesVisibleLayers}, Hidden: ${totalShapesHiddenLayers})`);
-    console.log(`  - Total screws: ${totalScrewsAllLayers} (Visible: ${totalScrewsVisibleLayers}, Hidden: ${totalScrewsHiddenLayers})`);
-    
-    console.log(`\n⚠️ Discrepancy:`);
-    console.log(`  - ProgressTracker shows ${progressTrackerScrewCount} total screws`);
-    console.log(`  - LayerManager has ${totalScrewsAllLayers} total screws across all layers`);
-    console.log(`  - Visible layers only have ${totalScrewsVisibleLayers} screws`);
-    console.log(`  - Missing from visible rendering: ${progressTrackerScrewCount - totalScrewsVisibleLayers} screws`);
-    
-    console.log(`\n📋 Layer Breakdown:`);
-    layerBreakdown.forEach(layer => {
-      const visibilityIcon = layer.visible ? '👁️' : '👻';
-      console.log(`  ${visibilityIcon} Layer ${layer.index} (${layer.layerId}):`);
-      console.log(`     - Shapes: ${layer.shapeCount}`);
-      console.log(`     - Total screws: ${layer.screwCount}`);
-      console.log(`     - Active screws: ${layer.activeScrewCount}`);
-    });
-    
-    // Check if the issue is that screws are being counted from hidden layers
-    if (totalScrewsHiddenLayers > 0) {
-      console.log(`\n💡 Hidden layers contain ${totalScrewsHiddenLayers} screws that may be incorrectly included in progress tracking!`);
-    }
-    
-    // Check if screws might be orphaned (not attached to any shape)
-    if (progressTrackerScrewCount > totalScrewsAllLayers) {
-      console.log(`\n⚠️ ProgressTracker is tracking ${progressTrackerScrewCount - totalScrewsAllLayers} MORE screws than exist in all layers!`);
-      console.log(`   This suggests orphaned screws or double-counting.`);
-    }
-  }
-
-  protected onDestroy(): void {
-    this.clearAllLayers();
   }
 }
