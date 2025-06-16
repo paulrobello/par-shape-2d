@@ -205,7 +205,7 @@ export class ScrewRenderer {
         glowBlur: screw.isSpinning ? 4 : undefined,
       });
 
-      // Add inner highlight
+      // Add inner highlight that will rotate to show spinning
       const highlightX = position.x - UI_CONSTANTS.screws.highlight.offsetX * (options.scale || 1);
       const highlightY = position.y - UI_CONSTANTS.screws.highlight.offsetY * (options.scale || 1);
       const highlightRadius = radius * UI_CONSTANTS.screws.highlight.sizeRatio;
@@ -215,6 +215,64 @@ export class ScrewRenderer {
         y: highlightY,
         radius: highlightRadius,
         fillColor: hexToRgba(theme.screws.highlight, 0.4),
+      });
+
+      // Add a VERY prominent notch/groove on the screw rim to show rotation clearly
+      const notchDistance = radius * 0.9;
+      const notchX = position.x + Math.cos(rotation) * notchDistance;
+      const notchY = position.y + Math.sin(rotation) * notchDistance;
+
+      // Make the notch a distinctive rectangular shape instead of circular
+      const notchWidth = radius * 0.15;
+      const notchHeight = radius * 0.4;
+      const notchAngle = rotation;
+      
+      withContext(ctx, () => {
+        ctx.translate(notchX, notchY);
+        ctx.rotate(notchAngle);
+        ctx.fillStyle = hexToRgba(theme.screws.border, 1.0); // Full opacity
+        ctx.fillRect(-notchWidth / 2, -notchHeight / 2, notchWidth, notchHeight);
+      });
+
+      // Add highly visible thread indicators around the screw 
+      const threadCount = 12; // More threads for better rotation feedback
+      for (let i = 0; i < threadCount; i++) {
+        const threadAngle = (rotation + (i * Math.PI * 2) / threadCount) % (Math.PI * 2);
+        const threadDistance = radius * 0.65;
+        const threadX = position.x + Math.cos(threadAngle) * threadDistance;
+        const threadY = position.y + Math.sin(threadAngle) * threadDistance;
+        
+        // Make some threads larger/more prominent for rotation visibility
+        const isMarkerThread = i % 3 === 0; // Every 3rd thread is a marker
+        const threadRadius = isMarkerThread ? radius * 0.1 : radius * 0.06;
+        const threadOpacity = isMarkerThread ? 0.8 : 0.4;
+        
+        GeometryRenderer.renderCircle(ctx, {
+          x: threadX,
+          y: threadY,
+          radius: threadRadius,
+          fillColor: hexToRgba(theme.screws.border, threadOpacity),
+        });
+      }
+
+      // Add a distinctive arrow pointer on the rim for maximum rotation visibility
+      const arrowDistance = radius * 0.75;
+      const arrowX = position.x + Math.cos(rotation + Math.PI / 2) * arrowDistance;
+      const arrowY = position.y + Math.sin(rotation + Math.PI / 2) * arrowDistance;
+      const arrowSize = radius * 0.2;
+      
+      withContext(ctx, () => {
+        ctx.translate(arrowX, arrowY);
+        ctx.rotate(rotation + Math.PI / 2);
+        ctx.fillStyle = hexToRgba(theme.screws.cross, 1.0);
+        
+        // Draw triangle arrow
+        ctx.beginPath();
+        ctx.moveTo(0, -arrowSize);
+        ctx.lineTo(-arrowSize * 0.6, arrowSize * 0.5);
+        ctx.lineTo(arrowSize * 0.6, arrowSize * 0.5);
+        ctx.closePath();
+        ctx.fill();
       });
 
       // Draw cross symbol with rotation
@@ -244,25 +302,57 @@ export class ScrewRenderer {
     theme: ColorTheme,
     options: ScrewRenderOptions
   ): void {
+    const { ctx } = context;
     const radius = (UI_CONSTANTS.screws.radius * 0.6) * (options.scale || 1);
+    const rotation = screw.rotation || 0;
     const screwColor = SCREW_COLORS[screw.color as keyof typeof SCREW_COLORS] || screw.color;
 
-    GeometryRenderer.renderCircle(context.ctx, {
-      x: position.x,
-      y: position.y,
-      radius,
-      fillColor: screwColor,
-      strokeColor: theme.screws.border,
-      lineWidth: 1,
-    });
+    withContext(ctx, () => {
+      if (rotation !== 0) {
+        ctx.translate(position.x, position.y);
+        ctx.rotate(rotation);
+        ctx.translate(-position.x, -position.y);
+      }
 
-    // Simple cross
-    const crossSize = radius * 0.6;
-    this.drawCrossSymbol(context.ctx, position.x, position.y, crossSize, options.scale || 1, theme);
+      GeometryRenderer.renderCircle(ctx, {
+        x: position.x,
+        y: position.y,
+        radius,
+        fillColor: screwColor,
+        strokeColor: theme.screws.border,
+        lineWidth: 1,
+      });
+
+      // Add a prominent rotation indicator for editor with proper rotation
+      const notchDistance = radius * 0.8;
+      const notchX = position.x + Math.cos(rotation) * notchDistance;
+      const notchY = position.y + Math.sin(rotation) * notchDistance;
+      GeometryRenderer.renderCircle(ctx, {
+        x: notchX,
+        y: notchY,
+        radius: radius * 0.25, // Larger for visibility
+        fillColor: theme.screws.border,
+      });
+
+      // Add a directional marker to make rotation even more visible
+      const markerDistance = radius * 0.6;
+      const markerX = position.x + Math.cos(rotation + Math.PI / 4) * markerDistance;
+      const markerY = position.y + Math.sin(rotation + Math.PI / 4) * markerDistance;
+      GeometryRenderer.renderCircle(ctx, {
+        x: markerX,
+        y: markerY,
+        radius: radius * 0.12,
+        fillColor: hexToRgba(theme.screws.cross, 0.8),
+      });
+
+      // Simple cross with rotation
+      const crossSize = radius * 0.6;
+      this.drawCrossSymbol(ctx, position.x, position.y, crossSize, options.scale || 1, theme);
+    });
   }
 
   /**
-   * Render screw preview (for placement)
+   * Render screw preview (for placement) with rotation support
    */
   private static renderScrewPreview(
     screw: RenderableScrew,
@@ -271,38 +361,61 @@ export class ScrewRenderer {
     theme: ColorTheme,
     options: ScrewRenderOptions
   ): void {
+    const { ctx } = context;
     const radius = UI_CONSTANTS.screws.radius * (options.scale || 1);
+    const rotation = screw.rotation || 0;
     const screwColor = SCREW_COLORS[screw.color as keyof typeof SCREW_COLORS] || screw.color;
 
-    // Semi-transparent preview
-    GeometryRenderer.renderCircle(context.ctx, {
-      x: position.x,
-      y: position.y,
-      radius,
-      fillColor: hexToRgba(screwColor, 0.7),
-      strokeColor: hexToRgba(theme.screws.border, 0.8),
-      lineWidth: UI_CONSTANTS.screws.borderWidth * (options.scale || 1),
+    withContext(ctx, () => {
+      if (rotation !== 0) {
+        ctx.translate(position.x, position.y);
+        ctx.rotate(rotation);
+        ctx.translate(-position.x, -position.y);
+      }
+
+      // Semi-transparent preview
+      GeometryRenderer.renderCircle(ctx, {
+        x: position.x,
+        y: position.y,
+        radius,
+        fillColor: hexToRgba(screwColor, 0.7),
+        strokeColor: hexToRgba(theme.screws.border, 0.8),
+        lineWidth: UI_CONSTANTS.screws.borderWidth * (options.scale || 1),
+      });
+
+      // Preview highlight with rotation
+      const highlightX = position.x - UI_CONSTANTS.screws.highlight.offsetX * (options.scale || 1);
+      const highlightY = position.y - UI_CONSTANTS.screws.highlight.offsetY * (options.scale || 1);
+      const highlightRadius = radius * UI_CONSTANTS.screws.highlight.sizeRatio;
+
+      GeometryRenderer.renderCircle(ctx, {
+        x: highlightX,
+        y: highlightY,
+        radius: highlightRadius,
+        fillColor: hexToRgba(theme.screws.highlight, 0.2),
+      });
+
+      // Add rotation indicator for preview mode
+      if (rotation !== 0) {
+        const indicatorDistance = radius * 0.7;
+        const indicatorX = position.x + Math.cos(rotation) * indicatorDistance;
+        const indicatorY = position.y + Math.sin(rotation) * indicatorDistance;
+        GeometryRenderer.renderCircle(ctx, {
+          x: indicatorX,
+          y: indicatorY,
+          radius: radius * 0.15,
+          fillColor: hexToRgba(theme.screws.border, 0.6),
+        });
+      }
+
+      // Preview cross with enhanced visibility
+      const crossSize = radius * UI_CONSTANTS.screws.cross.sizeRatio;
+      this.drawCrossSymbol(ctx, position.x, position.y, crossSize, options.scale || 1, theme);
     });
-
-    // Preview highlight
-    const highlightX = position.x - UI_CONSTANTS.screws.highlight.offsetX * (options.scale || 1);
-    const highlightY = position.y - UI_CONSTANTS.screws.highlight.offsetY * (options.scale || 1);
-    const highlightRadius = radius * UI_CONSTANTS.screws.highlight.sizeRatio;
-
-    GeometryRenderer.renderCircle(context.ctx, {
-      x: highlightX,
-      y: highlightY,
-      radius: highlightRadius,
-      fillColor: hexToRgba(theme.screws.highlight, 0.2),
-    });
-
-    // Preview cross
-    const crossSize = radius * UI_CONSTANTS.screws.cross.sizeRatio;
-    this.drawCrossSymbol(context.ctx, position.x, position.y, crossSize, options.scale || 1, theme);
   }
 
   /**
-   * Draw cross symbol on screw
+   * Draw enhanced cross symbol with prominent asymmetric elements to make rotation clearly visible
    */
   private static drawCrossSymbol(
     ctx: CanvasRenderingContext2D,
@@ -314,13 +427,14 @@ export class ScrewRenderer {
   ): void {
     const lineWidth = UI_CONSTANTS.screws.cross.lineWidth * scale;
     const halfSize = size / 2;
+    const quarterSize = size / 4;
 
     withContext(ctx, () => {
       ctx.strokeStyle = theme.screws.cross;
       ctx.lineWidth = lineWidth;
       ctx.lineCap = 'round';
 
-      // Horizontal line
+      // Main horizontal line
       GeometryRenderer.renderLine(ctx, {
         x1: centerX - halfSize,
         y1: centerY,
@@ -330,7 +444,7 @@ export class ScrewRenderer {
         lineWidth,
       });
 
-      // Vertical line
+      // Main vertical line
       GeometryRenderer.renderLine(ctx, {
         x1: centerX,
         y1: centerY - halfSize,
@@ -338,6 +452,63 @@ export class ScrewRenderer {
         y2: centerY + halfSize,
         strokeColor: theme.screws.cross,
         lineWidth,
+      });
+
+      // Enhanced asymmetric elements for MUCH more visible rotation
+      
+      // 1. Prominent diagonal slash in top-right quadrant (bigger and thicker)
+      const diagOffset = quarterSize * 0.8;
+      GeometryRenderer.renderLine(ctx, {
+        x1: centerX + diagOffset - quarterSize * 0.5,
+        y1: centerY - diagOffset + quarterSize * 0.5,
+        x2: centerX + diagOffset + quarterSize * 0.5,
+        y2: centerY - diagOffset - quarterSize * 0.5,
+        strokeColor: theme.screws.cross,
+        lineWidth: lineWidth * 1.2, // Thicker for visibility
+      });
+
+      // 2. Large distinctive dot in bottom-left quadrant 
+      ctx.fillStyle = theme.screws.cross;
+      ctx.beginPath();
+      ctx.arc(centerX - quarterSize * 0.8, centerY + quarterSize * 0.8, lineWidth * 2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 3. Extended arrow-like tick on right side
+      GeometryRenderer.renderLine(ctx, {
+        x1: centerX + halfSize * 0.5,
+        y1: centerY - quarterSize * 0.6,
+        x2: centerX + halfSize * 0.9,
+        y2: centerY - quarterSize * 0.2,
+        strokeColor: theme.screws.cross,
+        lineWidth: lineWidth * 1.0,
+      });
+
+      // 4. L-shaped notch on bottom for distinctive rotation marker
+      GeometryRenderer.renderLine(ctx, {
+        x1: centerX - quarterSize * 0.4,
+        y1: centerY + halfSize * 0.8,
+        x2: centerX + quarterSize * 0.4,
+        y2: centerY + halfSize * 0.8,
+        strokeColor: theme.screws.cross,
+        lineWidth: lineWidth * 1.0,
+      });
+      GeometryRenderer.renderLine(ctx, {
+        x1: centerX + quarterSize * 0.4,
+        y1: centerY + halfSize * 0.8,
+        x2: centerX + quarterSize * 0.4,
+        y2: centerY + halfSize * 0.5,
+        strokeColor: theme.screws.cross,
+        lineWidth: lineWidth * 1.0,
+      });
+
+      // 5. Add a distinctive marker line on the left side for extra rotation visibility
+      GeometryRenderer.renderLine(ctx, {
+        x1: centerX - halfSize * 0.8,
+        y1: centerY + quarterSize * 0.3,
+        x2: centerX - halfSize * 0.5,
+        y2: centerY + quarterSize * 0.6,
+        strokeColor: theme.screws.cross,
+        lineWidth: lineWidth * 0.8,
       });
     });
   }
