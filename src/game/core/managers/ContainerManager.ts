@@ -107,13 +107,27 @@ export class ContainerManager extends BaseSystem {
     this.emit({
       type: 'remaining:screws:requested',
       timestamp: Date.now(),
-      callback: (screwInventory: Map<string, number>) => {
+      callback: (screwInventory: Map<string, number>, visibleColors: Set<string>) => {
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log('🔢 Current screw inventory:', Array.from(screwInventory.entries()));
+          console.log('👁️ Visible colors for container selection:', Array.from(visibleColors));
         }
         
-        // Calculate optimal container plan
-        const newPlan = ContainerPlanner.calculateOptimalContainers(screwInventory);
+        // Filter screw inventory to only include visible colors for container creation
+        // but use ALL screw counts for hole sizing
+        const visibleScrewInventory = new Map<string, number>();
+        for (const [color, count] of screwInventory.entries()) {
+          if (visibleColors.has(color)) {
+            visibleScrewInventory.set(color, count);
+          }
+        }
+        
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log('🎯 Filtered inventory for container creation:', Array.from(visibleScrewInventory.entries()));
+        }
+        
+        // Calculate optimal container plan using visible colors only
+        const newPlan = ContainerPlanner.calculateOptimalContainers(visibleScrewInventory);
         
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log('📋 Calculated container plan:', newPlan);
@@ -297,14 +311,24 @@ export class ContainerManager extends BaseSystem {
           this.emit({
             type: 'remaining:screws:requested',
             timestamp: Date.now(),
-            callback: (screwInventory: Map<string, number>) => {
+            callback: (screwInventory: Map<string, number>, visibleColors: Set<string>) => {
               const totalRemainingScrews = Array.from(screwInventory.values()).reduce((sum, count) => sum + count, 0);
               
-              if (totalRemainingScrews > 0) {
-                if (DEBUG_CONFIG.logScrewDebug) {
-                  console.log(`🔄 Container removed, ${totalRemainingScrews} screws remaining - creating replacement containers with fade-in...`);
+              // Filter for visible colors only
+              const visibleScrewInventory = new Map<string, number>();
+              for (const [color, count] of screwInventory.entries()) {
+                if (visibleColors.has(color)) {
+                  visibleScrewInventory.set(color, count);
                 }
-                this.createReplacementContainersWithFadeIn(screwInventory);
+              }
+              
+              const totalVisibleScrews = Array.from(visibleScrewInventory.values()).reduce((sum, count) => sum + count, 0);
+              
+              if (totalVisibleScrews > 0) {
+                if (DEBUG_CONFIG.logScrewDebug) {
+                  console.log(`🔄 Container removed, ${totalRemainingScrews} total screws remaining (${totalVisibleScrews} visible) - creating replacement containers with fade-in...`);
+                }
+                this.createReplacementContainersWithFadeIn(visibleScrewInventory);
               } else {
                 if (DEBUG_CONFIG.logScrewDebug) {
                   console.log(`✅ Container removed, no remaining screws - no replacement needed`);
