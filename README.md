@@ -32,11 +32,11 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * Under the row of holding holes is shape area
 * The shape area is a stack of layers that contain shapes.
 * Each level has 10 or more layers but only 4 are visible at a time.
-* The number of layers is computed as 10 + floor(level number / 3).
+* The number of layers is computed as 10 + floor((level - 1) / 3).
 * 6 shapes are loaded into each layer.
 * 1 to 10 screws are loaded into each shape depending on shape and size.
 * Shapes physics only interact with the layer they are in.
-* The screws in the shape should not overlap with each other or the edge of the shape itself. Use a margin of 5 pixels from the edge of the shape or other screws.
+* The screws in the shape should not overlap with each other or the edge of the shape itself. Use appropriate margins from the edge of the shape or other screws for optimal placement.
 * When all screws are removed from a shape, it is allowed to fall from the screen and is removed from the layer once off-screen.
 * All shapes in a layer should have the same tint to indicate they are part of the same layer.
 * Shapes should have a solid border with a translucent inner area to allow the player to see the shapes behind them.

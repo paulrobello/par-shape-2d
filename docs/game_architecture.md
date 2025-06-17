@@ -21,7 +21,7 @@ Players remove screws from layered shapes to collect them in color-matched conta
 - **Strategic Screw Removal**: Screws hold shapes in place and must be removed strategically
 - **Color-Matching Mechanics**: Screws must be placed in matching colored containers
 - **Progressive Difficulty**: Increasing complexity through additional layers and shapes
-- **Touch/Mouse Support**: Full cross-platform input handling
+- **Touch/Mouse Support**: Full cross-platform input handling with adaptive touch radius (30px mobile, 15px desktop)
 
 ## Architectural Principles
 
@@ -56,6 +56,7 @@ Comprehensive utilities prevent code duplication and ensure consistency:
   - **AnimationUtils**: State management with transition support for evolving animation APIs
   - **EasingPresets**: Curated configurations for UI, game, and physics animations
   - **Screw Rotation**: Configurable rotation speeds for collection (1 rps) and transfer (1.5 rps) animations
+  - **Blocked Screw Feedback**: 300ms shake animation with alternating horizontal/vertical oscillations
 - **Advanced Rendering Utilities**:
   - **GeometryRenderer**: Sophisticated shape rendering with rounded corners and effects
   - **ButtonStyles**: Professional UI styling system with accessibility features
@@ -73,6 +74,117 @@ Deep integration with Matter.js physics engine:
 - **Collision Detection**: Advanced two-phase collision handling (broad + narrow phase) with layer isolation and configurable blocking margins
 
 ## System Architecture
+
+### System Relationships Overview
+
+The following diagram illustrates the relationships and dependencies between all game systems:
+
+```mermaid
+graph TB
+    %% Core Management Layer
+    GameManager[GameManager<br/>Game Lifecycle & Coordination]
+    GameStateCore[GameStateCore<br/>State Management & Scoring]
+    
+    %% Event System (Central Hub)
+    EventBus((SharedEventBus<br/>Event Coordination))
+    
+    %% Core Game Systems
+    ScrewManager[ScrewManager<br/>Screw Lifecycle & Physics]
+    ContainerManager[ContainerManager<br/>Container & Collection Logic]
+    LayerManager[LayerManager<br/>Shape & Layer Organization]
+    PhysicsWorld[PhysicsWorld<br/>Matter.js Integration]
+    
+    %% Supporting Systems
+    HoldingHoleManager[HoldingHoleManager<br/>Overflow Storage]
+    ProgressTracker[ProgressTracker<br/>Progress & Win Conditions]
+    SaveLoadManager[SaveLoadManager<br/>State Persistence]
+    GameRenderManager[GameRenderManager<br/>Visual Presentation]
+    
+    %% Screw Subsystems
+    ScrewEventHandler[ScrewEventHandler<br/>Event Processing]
+    ScrewAnimationService[ScrewAnimationService<br/>Animation Management]
+    ScrewTransferService[ScrewTransferService<br/>Transfer Logic]
+    ScrewPhysicsService[ScrewPhysicsService<br/>Physics Integration]
+    ScrewPlacementService[ScrewPlacementService<br/>Strategic Placement]
+    
+    %% Shared Utilities
+    SharedUtils[Shared Utilities<br/>EventEmissionUtils<br/>StateValidationUtils<br/>DebugLogger<br/>GeometryRenderer<br/>AnimationUtils]
+    
+    %% Relationships - Core Management
+    GameManager -.-> EventBus
+    GameStateCore -.-> EventBus
+    
+    %% Relationships - Core Systems to Event Bus
+    ScrewManager -.-> EventBus
+    ContainerManager -.-> EventBus
+    LayerManager -.-> EventBus
+    PhysicsWorld -.-> EventBus
+    
+    %% Relationships - Supporting Systems to Event Bus
+    HoldingHoleManager -.-> EventBus
+    ProgressTracker -.-> EventBus
+    SaveLoadManager -.-> EventBus
+    GameRenderManager -.-> EventBus
+    
+    %% Screw System Internal Structure
+    ScrewManager --> ScrewEventHandler
+    ScrewManager --> ScrewAnimationService
+    ScrewManager --> ScrewTransferService
+    ScrewManager --> ScrewPhysicsService
+    ScrewManager --> ScrewPlacementService
+    
+    %% Screw Subsystems to Event Bus
+    ScrewEventHandler -.-> EventBus
+    ScrewAnimationService -.-> EventBus
+    ScrewTransferService -.-> EventBus
+    ScrewPhysicsService -.-> EventBus
+    
+    %% Physics Integration
+    ScrewPhysicsService --> PhysicsWorld
+    LayerManager --> PhysicsWorld
+    
+    %% Shared Utilities Usage (all systems use these)
+    GameManager --> SharedUtils
+    GameStateCore --> SharedUtils
+    ScrewManager --> SharedUtils
+    ContainerManager --> SharedUtils
+    LayerManager --> SharedUtils
+    PhysicsWorld --> SharedUtils
+    HoldingHoleManager --> SharedUtils
+    ProgressTracker --> SharedUtils
+    SaveLoadManager --> SharedUtils
+    GameRenderManager --> SharedUtils
+    
+    %% Key Data Flows
+    EventBus -.->|screw:clicked| ScrewManager
+    EventBus -.->|screw:collected| ContainerManager
+    EventBus -.->|screw:collected| ProgressTracker
+    EventBus -.->|container:filled| GameStateCore
+    EventBus -.->|level:completed| GameManager
+    EventBus -.->|remaining:screws:requested| ScrewEventHandler
+    
+    %% Styling
+    classDef coreSystem fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef supportSystem fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef screwSubsystem fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef eventSystem fill:#e8f5e8,stroke:#1b5e20,stroke-width:3px
+    classDef sharedSystem fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+    
+    class GameManager,GameStateCore,ScrewManager,ContainerManager,LayerManager,PhysicsWorld coreSystem
+    class HoldingHoleManager,ProgressTracker,SaveLoadManager,GameRenderManager supportSystem
+    class ScrewEventHandler,ScrewAnimationService,ScrewTransferService,ScrewPhysicsService,ScrewPlacementService screwSubsystem
+    class EventBus eventSystem
+    class SharedUtils sharedSystem
+```
+
+**Legend:**
+- **Blue (Core Systems)**: Primary game logic systems
+- **Purple (Supporting Systems)**: Specialized functionality systems  
+- **Orange (Screw Subsystems)**: Components within ScrewManager
+- **Green (Event System)**: Central communication hub
+- **Pink (Shared Utilities)**: Common functionality used by all systems
+- **Solid Lines**: Direct dependencies/composition
+- **Dotted Lines**: Event-based communication
 
 ### Core Systems
 
@@ -166,7 +278,7 @@ Deep integration with Matter.js physics engine:
 
 #### **LayerManager** (`src/game/systems/LayerManager.ts`)
 **Responsibility**: Multi-layer shape organization and visual management
-- Layer instantiation and management (10+ layers per level)
+- Layer instantiation and management (10+ layers per level, with only 4 visible at a time)
 - Shape placement within layers using **ShapeFactory** for robust shape generation
 - Layer visibility and depth management
 - Physics group isolation between layers
@@ -180,6 +292,8 @@ Deep integration with Matter.js physics engine:
 - 6 shapes per layer with strategic placement including capsule shapes
 - Depth-based collision detection for screw accessibility
 - **ShapeFactory Integration**: Uses advanced shape generation with fallback mechanisms for reliable shape placement
+- **Screw Colors**: Screws are randomly colored using one of 9 colors: pink, red, green, blue, light blue, yellow, purple, orange, or brown
+- **Shape Types**: Supports 12 shape types: circle, capsule, arrow, chevron, star, triangle, square, rectangle, pentagon, hexagon, heptagon, octagon, horseshoe (currently disabled)
 
 #### **PhysicsWorld** (`src/game/physics/PhysicsWorld.ts`)
 **Responsibility**: Physics engine integration and management
