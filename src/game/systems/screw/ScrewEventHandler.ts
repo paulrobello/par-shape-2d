@@ -266,29 +266,45 @@ export class ScrewEventHandler implements IScrewEventHandler {
   }
 
   public handleScrewClicked(event: ScrewClickedEvent): void {
-    console.log(`🎯 ScrewEventHandler.handleScrewClicked received event for screw ${event.screw.id}`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🎯 ScrewEventHandler.handleScrewClicked received event for screw ${event.screw.id}`);
+      console.log(`🔍 ScrewManager has ${this.state.screws.size} screws in state`);
+    }
 
     const screw = this.state.screws.get(event.screw.id);
-    console.log(`🔍 Looking for screw ${event.screw.id} in ScrewManager state. Found: ${!!screw}`);
-    console.log(`🔍 Available screws in state:`, Array.from(this.state.screws.keys()));
     if (!screw) {
-      console.warn(`❌ Screw ${event.screw.id} not found in ScrewManager state. Available screws:`, Array.from(this.state.screws.keys()));
+      console.warn(`❌ SCREW NOT FOUND: ${event.screw.id} not in ScrewManager state`);
+      console.warn(`❌ Available screws:`, Array.from(this.state.screws.keys()));
+      console.warn(`❌ Event screw details:`, {
+        id: event.screw.id,
+        position: event.screw.position,
+        color: event.screw.color,
+        isRemovable: event.screw.isRemovable,
+        isCollected: event.screw.isCollected
+      });
+      console.warn(`❌ Render state might be out of sync with ScrewManager state!`);
       return;
     }
 
     // Validate screw state to prevent race conditions
     if (screw.isCollected || screw.isBeingCollected) {
-      console.log(`⚠️ Ignoring click on screw ${screw.id} - already processed (collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`⚠️ Ignoring click on screw ${screw.id} - already processed (collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
+      }
       return;
     }
 
-    console.log(`👆 Screw clicked: ${screw.id} (removable: ${screw.isRemovable}, collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
-    console.log(`🎯 Calling onScrewClicked callback...`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`👆 Screw clicked: ${screw.id} (removable: ${screw.isRemovable}, collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
+      console.log(`🎯 Calling onScrewClicked callback...`);
+    }
 
     const forceRemoval = event.forceRemoval === true;
     this.callbacks.onScrewClicked?.(screw, forceRemoval);
     
-    console.log(`✅ onScrewClicked callback completed for screw ${screw.id}`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`✅ onScrewClicked callback completed for screw ${screw.id}`);
+    }
   }
 
   public handleContainerColorsUpdated(event: ContainerColorsUpdatedEvent): void {

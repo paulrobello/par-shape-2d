@@ -297,8 +297,12 @@ export class GameManager extends BaseSystem {
     const maxDistance = inputType === 'touch' ? 30 : 15;
     const renderState = this.renderManager.getRenderState();
     
+    if (DEBUG_CONFIG.logCollisionDetection) {
+      console.log(`🎯 findScrewAtPoint: Searching ${renderState.allScrews.length} screws for point (${point.x.toFixed(1)}, ${point.y.toFixed(1)}), maxDistance: ${maxDistance}`);
+    }
+    
     // Find closest screw within maxDistance
-    let closestScrew = null;
+    let closestScrew: Screw | null = null;
     let closestDistance = maxDistance;
 
     renderState.allScrews.forEach(screw => {
@@ -307,11 +311,23 @@ export class GameManager extends BaseSystem {
         Math.pow(screw.position.y - point.y, 2)
       );
       
+      if (DEBUG_CONFIG.logCollisionDetection) {
+        console.log(`🎯 Screw ${screw.id} at (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), distance: ${distance.toFixed(1)}`);
+      }
+      
       if (distance <= closestDistance) {
         closestDistance = distance;
         closestScrew = screw;
       }
     });
+
+    if (DEBUG_CONFIG.logCollisionDetection) {
+      if (closestScrew) {
+        console.log(`🎯 Found screw: ${(closestScrew as Screw).id} at distance ${closestDistance.toFixed(1)}`);
+      } else {
+        console.log(`🎯 Found screw: none`);
+      }
+    }
 
     return closestScrew;
   }

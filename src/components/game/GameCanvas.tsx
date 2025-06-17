@@ -8,7 +8,6 @@ import { GameEvent } from '@/game/events/EventTypes';
 import { GAME_CONFIG, getTotalLayersForLevel, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { DeviceDetection } from '@/game/utils/DeviceDetection';
 import { initializePolyDecomp } from '@/game/utils/PhysicsInit';
-import { eventBus } from '@/game/events/EventBus';
 import { DebugUtils } from '@/shared/utils/DebugUtils';
 import { getInlineButtonStyle } from '@/shared/styles/ButtonStyles';
 
@@ -24,7 +23,7 @@ function getActualViewportDimensions(): { width: number; height: number } {
   }
 
   // On mobile, try to use the Visual Viewport API for more accurate dimensions
-  if (hasVisualViewport(window) && DeviceDetection.isMobileDevice()) {
+  if (hasVisualViewport(window)) {
     return { 
       width: window.visualViewport.width, 
       height: window.visualViewport.height 
@@ -439,167 +438,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     }
   };
 
-  // Convert canvas click coordinates to game coordinates
-  const getGameCoordinates = (canvasX: number, canvasY: number) => {
-    if (!coordinatorRef.current || !canvasRef.current) return null;
-    
-    // Get canvas dimensions
-    const canvas = canvasRef.current;
-    const canvasWidth = canvas.width;
-    const canvasHeight = canvas.height;
-    
-    // Calculate scale to fit virtual game dimensions within canvas (matching GameRenderManager logic)
-    const virtualGameWidth = GAME_CONFIG.canvas.width;
-    const virtualGameHeight = GAME_CONFIG.canvas.height;
-    
-    const scaleX = canvasWidth / virtualGameWidth;
-    const scaleY = canvasHeight / virtualGameHeight;
-    const canvasScale = Math.min(scaleX, scaleY);
-    
-    // Calculate offset to center the game (matching GameRenderManager logic)
-    const canvasOffset = {
-      x: (canvasWidth - virtualGameWidth * canvasScale) / 2,
-      y: (canvasHeight - virtualGameHeight * canvasScale) / 2
-    };
-    
-    // Account for canvas scaling and offset
-    const gameX = (canvasX - canvasOffset.x) / canvasScale;
-    const gameY = (canvasY - canvasOffset.y) / canvasScale;
-    
-    return { x: gameX, y: gameY };
-  };
 
-
-  // Find multiple screws within touch area and prioritize by container availability
-  const findScrewsInTouchArea = (gameX: number, gameY: number, isMobile: boolean = false) => {
-    if (!coordinatorRef.current) return [];
-    
-    const screwManager = coordinatorRef.current.getScrewManager();
-    const gameState = coordinatorRef.current.getGameState();
-    if (!screwManager || !gameState) return [];
-    
-    const allScrews = screwManager.getAllScrews();
-    // Larger touch radius for mobile devices
-    const touchRadius = isMobile ? 30 : 15;
-    
-    // Find all screws within the touch area
-    const screwsInArea = allScrews.filter(screw => {
-      const distance = Math.sqrt(
-        Math.pow(screw.position.x - gameX, 2) + 
-        Math.pow(screw.position.y - gameY, 2)
-      );
-      return distance <= touchRadius;
-    });
-    
-    if (screwsInArea.length === 0) return [];
-    if (screwsInArea.length === 1) return screwsInArea;
-    
-    // Multiple screws found - prioritize by container availability
-    const screwsWithContainerPriority = screwsInArea.map(screw => {
-      const hasAvailableContainer = gameState.findAvailableContainer(screw.color) !== null;
-      return { screw, hasAvailableContainer };
-    });
-    
-    // First, filter to screws that have available containers
-    const screwsWithContainers = screwsWithContainerPriority.filter(item => item.hasAvailableContainer);
-    
-    if (screwsWithContainers.length > 0) {
-      // If we have screws with available containers, prioritize by container urgency
-      const availableHolesByColor = gameState.getAvailableHolesByColor();
-      
-      screwsWithContainers.sort((a, b) => {
-        const aHoles = availableHolesByColor.get(a.screw.color) || 0;
-        const bHoles = availableHolesByColor.get(b.screw.color) || 0;
-        
-        // Prioritize screws with fewer available container holes (more urgent)
-        return aHoles - bHoles;
-      });
-      
-      return [screwsWithContainers[0].screw];
-    }
-    
-    // If no screws have available containers, return the closest one
-    const sortedByDistance = screwsInArea.sort((a, b) => {
-      const distanceA = Math.sqrt(Math.pow(a.position.x - gameX, 2) + Math.pow(a.position.y - gameY, 2));
-      const distanceB = Math.sqrt(Math.pow(b.position.x - gameX, 2) + Math.pow(b.position.y - gameY, 2));
-      return distanceA - distanceB;
-    });
-    
-    return [sortedByDistance[0]];
-  };
-
-  // Handle canvas click events
-  const handleCanvasClick = (event: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!coordinatorRef.current || !canvasRef.current) return;
-    
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    
-    // Get click position relative to canvas
-    const canvasX = event.clientX - rect.left;
-    const canvasY = event.clientY - rect.top;
-    
-    // Convert to game coordinates
-    const gameCoords = getGameCoordinates(canvasX, canvasY);
-    if (!gameCoords) return;
-    
-    // Find screws using multi-touch selection logic (even for mouse clicks)
-    const screwsFound = findScrewsInTouchArea(gameCoords.x, gameCoords.y, false);
-    if (screwsFound.length > 0) {
-      const screw = screwsFound[0];
-      console.log(`🖱️ Clicked on screw ${screw.id} at game coordinates (${gameCoords.x.toFixed(1)}, ${gameCoords.y.toFixed(1)})`);
-      
-      // Emit screw clicked event
-      console.log(`📡 GameCanvas: Emitting screw:clicked event for screw ${screw.id}`);
-      eventBus.emit({
-        type: 'screw:clicked',
-        timestamp: Date.now(),
-        source: 'GameCanvas',
-        screw,
-        position: { x: gameCoords.x, y: gameCoords.y },
-        forceRemoval: event.shiftKey // Allow force removal with Shift+click
-      });
-      console.log(`📡 GameCanvas: screw:clicked event emitted successfully`);
-    }
-  };
-
-  // Handle touch events
-  const handleCanvasTouch = (event: React.TouchEvent<HTMLCanvasElement>) => {
-    if (!coordinatorRef.current || !canvasRef.current) return;
-    
-    event.preventDefault(); // Prevent default touch behaviors
-    
-    if (event.changedTouches.length === 0) return;
-    
-    const canvas = canvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const touch = event.changedTouches[0];
-    
-    // Get touch position relative to canvas
-    const canvasX = touch.clientX - rect.left;
-    const canvasY = touch.clientY - rect.top;
-    
-    // Convert to game coordinates
-    const gameCoords = getGameCoordinates(canvasX, canvasY);
-    if (!gameCoords) return;
-    
-    // Find screws using mobile-optimized multi-touch selection
-    const screwsFound = findScrewsInTouchArea(gameCoords.x, gameCoords.y, DeviceDetection.isMobileDevice());
-    if (screwsFound.length > 0) {
-      const screw = screwsFound[0];
-      console.log(`👆 Touched screw ${screw.id} at game coordinates (${gameCoords.x.toFixed(1)}, ${gameCoords.y.toFixed(1)})`);
-      
-      // Emit screw clicked event
-      eventBus.emit({
-        type: 'screw:clicked',
-        timestamp: Date.now(),
-        source: 'GameCanvas',
-        screw,
-        position: { x: gameCoords.x, y: gameCoords.y },
-        forceRemoval: false // No force removal for touch
-      });
-    }
-  };
 
   return (
     <div className={`game-canvas-container ${className} ${debugMode ? 'debug-mode' : ''}`} style={{
@@ -630,8 +469,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
             // Don't set width/height here as we handle it in JavaScript
             // to ensure canvas internal size matches CSS size for accurate touch coordinates
           }}
-          onClick={handleCanvasClick}
-          onTouchEnd={handleCanvasTouch}
         />
         
       </div>

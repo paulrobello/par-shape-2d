@@ -60,7 +60,7 @@ Comprehensive utilities prevent code duplication and ensure consistency:
 - **Advanced Rendering Utilities**:
   - **GeometryRenderer**: Sophisticated shape rendering with rounded corners and effects
   - **ButtonStyles**: Professional UI styling system with accessibility features
-  - **ScrewRenderer**: Enhanced screw visualization with visible rotation, clean 4-point cross, and rim notch indicators
+  - **ScrewRenderer**: Enhanced screw visualization with visible rotation, clean 4-point cross
 - **GeometryUtils**: Mathematical calculations and collision detection
 - **CollisionUtils**: Advanced two-phase collision detection with configurable screw blocking margins (0px default)
 - **Constants**: Centralized configuration values and game constants shared across all systems
