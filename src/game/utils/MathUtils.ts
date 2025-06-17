@@ -6,17 +6,6 @@ export function distance(a: Vector2, b: Vector2): number {
   return Math.sqrt(dx * dx + dy * dy);
 }
 
-export function lerp(start: number, end: number, t: number): number {
-  return start + (end - start) * t;
-}
-
-export function lerpVector(start: Vector2, end: Vector2, t: number): Vector2 {
-  return {
-    x: lerp(start.x, end.x, t),
-    y: lerp(start.y, end.y, t),
-  };
-}
-
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
@@ -57,7 +46,6 @@ export function getRandomPointInCircle(center: Vector2, radius: number): Vector2
   };
 }
 
-
 export function createRegularPolygonVertices(center: Vector2, radius: number, sides: number): Vector2[] {
   const vertices: Vector2[] = [];
   const angleStep = (Math.PI * 2) / sides;
@@ -71,15 +59,4 @@ export function createRegularPolygonVertices(center: Vector2, radius: number, si
   }
   
   return vertices;
-}
-
-
-export function easeInBack(t: number): number {
-  const c1 = 1.70158;
-  const c3 = c1 + 1;
-  return c3 * t * t * t - c1 * t * t;
-}
-
-export function easeOutQuart(t: number): number {
-  return 1 - Math.pow(1 - t, 4);
 }

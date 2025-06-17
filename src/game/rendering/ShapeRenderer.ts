@@ -1,6 +1,7 @@
 import { Shape } from '@/game/entities/Shape';
 import { RenderContext } from '@/types/game';
 import { ShapeRegistry } from '@/game/systems/ShapeRegistry';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { 
   ShapeRenderer as SharedShapeRenderer, 
   RenderableShape, 
@@ -65,7 +66,9 @@ export class ShapeRenderer {
     const sharedContext = this.toSharedContext(context);
     
     // Debug logging to trace shape rendering
-    console.log(`🎨 Game rendering shape: ${shape.type} (id: ${shape.id})`);
+    if (DEBUG_CONFIG.logShapeDebug) {
+      console.log(`🎨 Game rendering shape: ${shape.type} (id: ${shape.id})`);
+    }
     
     const options: Partial<ShapeRenderOptions> = {
       mode: 'physics',

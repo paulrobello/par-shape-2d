@@ -17,6 +17,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Always try to use proper types or type unions
 - Try not to duplicate code, if multiple areas could benefit for some functionality reason about how it could best be shared.
 - **Important:** Before creating any new functionality for the game or editor check that it does not already exist as shared functionality. If the functionality would be beneficial to both game and editor then create it as a shared resource.
+- Always add debug logging behind a DEBUG_CONFIG gate to it can be easily toggled on and off
 
 ## Workflow
 
@@ -90,6 +91,6 @@ See `docs/game_event_flows.md` and `docs/editor_event_flows.md` for detailed eve
 - **Architecture**: `docs/game_architecture.md` - Detailed system documentation
 - **Event Flows**: `docs/game_event_flows.md` and `docs/editor_event_flows.md` - Event system diagrams
 - **Matter.js API**: `docs/MatterJs_docs/` - Physics engine reference
+- **Refactoring Log**: `refactor.md` - Documentation of significant refactoring changes and improvements
 
 **Important:** Always update documentation when changes are made to architecture, events, or logic.
-

@@ -61,6 +61,7 @@ Comprehensive utilities eliminate code duplication and ensure consistency:
   - **ButtonStyles**: Professional UI styling system with accessibility features
   - **ScrewRenderer**: Enhanced screw visualization with visible rotation, clean 4-point cross, and rim notch indicators
 - **GeometryUtils**: Mathematical calculations and collision detection
+- **CollisionUtils**: Advanced two-phase collision detection with configurable screw blocking margins (0px default)
 
 ### 4. Physics Integration
 
@@ -69,7 +70,7 @@ Deep integration with Matter.js physics engine:
 - **Shared Physics World**: Centralized physics simulation
 - **Body Management**: Automatic physics body lifecycle management
 - **Constraint System**: Dynamic constraint creation and removal
-- **Collision Detection**: Advanced collision handling with layer isolation
+- **Collision Detection**: Advanced two-phase collision handling (broad + narrow phase) with layer isolation and configurable blocking margins
 
 ## System Architecture
 
@@ -166,7 +167,7 @@ Deep integration with Matter.js physics engine:
 #### **LayerManager** (`src/game/systems/LayerManager.ts`)
 **Responsibility**: Multi-layer shape organization and visual management
 - Layer creation and management (10+ layers per level)
-- Shape placement within layers
+- Shape placement within layers using **ShapeFactory** for robust shape generation
 - Layer visibility and depth management
 - Physics group isolation between layers
 - Progressive layer revelation
@@ -176,22 +177,24 @@ Deep integration with Matter.js physics engine:
 **Layer Properties**:
 - Each layer has unique visual tinting
 - Physics bodies only interact within their layer
-- 6 shapes per layer with strategic placement
+- 6 shapes per layer with strategic placement including capsule shapes
 - Depth-based collision detection for screw accessibility
+- **ShapeFactory Integration**: Uses advanced shape creation with fallback mechanisms for reliable shape placement
 
 #### **PhysicsWorld** (`src/game/physics/PhysicsWorld.ts`)
 **Responsibility**: Physics engine integration and management
-- Matter.js world management
-- Body and constraint lifecycle
+- Matter.js world management with composite body support
+- Body and constraint lifecycle including complex multi-part shapes
 - Collision event processing
 - Physics debugging and visualization
 - Performance optimization
 
 **Integration Points**:
-- Shape body creation and management
+- Shape body creation and management including composite shapes (capsules)
 - Screw constraint handling
 - Layer-based collision groups
 - Real-time physics stepping
+- **Composite Body Support**: Proper handling of multi-part physics bodies with accurate bounds calculation
 
 **Physics State Management**:
 - Proper handling of screw states: `isBeingCollected`, `isInContainer`, `isCollected`
@@ -487,7 +490,7 @@ The game uses distributed state management with eventual consistency:
 
 ### Scalability Considerations
 
-#### **Layer Scaling**: 10 + floor(level / 3) layers per level
+#### **Layer Scaling**: 10 + floor((level - 1) / 3) layers per level
 #### **Shape Capacity**: 6 shapes per layer, 1-10 screws per shape
 #### **Event Throughput**: Designed to handle 100+ events per second
 #### **Memory Usage**: Bounded by automatic cleanup mechanisms
@@ -515,11 +518,12 @@ The game uses distributed state management with eventual consistency:
 ## Development and Debugging
 
 ### Debug Capabilities
-- Comprehensive debug logging with conditional output
+- Comprehensive debug logging with conditional output (all debug flags disabled in production)
 - Real-time event flow visualization
 - Physics debugging with visual overlays
 - Performance metrics and profiling
 - State inspection utilities
+- **Debug Configuration**: Centralized DEBUG_CONFIG with granular control over logging components
 
 ### Testing Strategy
 - Event-driven architecture enables isolated unit testing

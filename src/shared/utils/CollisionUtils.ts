@@ -22,20 +22,33 @@ export function isPointInShapeBoundsWithMargin(point: Vector2, shape: Shape): bo
 }
 
 /**
- * Check if a circle intersects with any shape type
+ * BROAD PHASE: Check if a circle can possibly intersect with a shape's bounding box
+ * This is a fast early elimination test before doing expensive geometric calculations
+ */
+export function isCircleIntersectingBounds(center: Vector2, radius: number, shape: Shape): boolean {
+  const bounds = shape.getBounds();
+  
+  // Find the closest point on the bounding box to the circle center
+  const closestX = Math.max(bounds.x, Math.min(center.x, bounds.x + bounds.width));
+  const closestY = Math.max(bounds.y, Math.min(center.y, bounds.y + bounds.height));
+  
+  // Calculate distance from circle center to closest point on bounding box
+  const distanceSquared = Math.pow(center.x - closestX, 2) + Math.pow(center.y - closestY, 2);
+  
+  // Circle intersects bounding box if distance to closest point <= radius
+  return distanceSquared <= (radius * radius);
+}
+
+/**
+ * Check if a circle intersects with any shape type using two-phase collision detection
  */
 export function isCircleIntersectingShape(center: Vector2, radius: number, shape: Shape): boolean {
-  // First check bounding box intersection for performance
-  if (!isPointInShapeBoundsWithMargin(center, shape)) {
-    const bounds = shape.getBounds();
-    const closestX = Math.max(bounds.x, Math.min(center.x, bounds.x + bounds.width));
-    const closestY = Math.max(bounds.y, Math.min(center.y, bounds.y + bounds.height));
-    const distance = Math.sqrt(
-      Math.pow(center.x - closestX, 2) + Math.pow(center.y - closestY, 2)
-    );
-    if (distance > radius) return false;
+  // BROAD PHASE: Quick bounding box check for early elimination
+  if (!isCircleIntersectingBounds(center, radius, shape)) {
+    return false; // No intersection with bounding box, definitely no collision
   }
   
+  // NARROW PHASE: Precise geometric collision detection
   switch (shape.type) {
     case 'circle':
       return isCircleIntersectingCircle(center, radius, shape);
@@ -214,41 +227,61 @@ export function isCircleIntersectingCapsule(center: Vector2, radius: number, sha
 
 /**
  * Check if a circle intersects with a vertex-based shape (rotation-aware)
+ * For concave shapes like stars, use original vertices instead of decomposed physics body vertices
  */
 export function isCircleIntersectingVertexShape(center: Vector2, radius: number, shape: Shape): boolean {
-  // For shapes defined by vertices (arrow, chevron, star, horseshoe)
+  // For shapes defined by vertices (arrow, chevron, star, horseshoe, path shapes)
+  
+  // IMPORTANT: For path-based shapes (stars, arrows, etc), use original vertices if available
+  // This avoids collision detection against the convex hull or decomposed parts
+  if (shape.vertices && shape.vertices.length > 0) {
+    // Original vertices are in local space, need to transform to world space
+    const cos = Math.cos(shape.body.angle);
+    const sin = Math.sin(shape.body.angle);
+    
+    // Transform vertices to world coordinates
+    const worldVertices: Vector2[] = shape.vertices.map(v => ({
+      x: v.x * cos - v.y * sin + shape.body.position.x,
+      y: v.x * sin + v.y * cos + shape.body.position.y
+    }));
+    
+    // Check if circle center is inside the polygon
+    if (isPointInPolygon(center, worldVertices)) {
+      return true;
+    }
+    
+    // Check if circle intersects any edge of the polygon
+    for (let i = 0; i < worldVertices.length; i++) {
+      const v1 = worldVertices[i];
+      const v2 = worldVertices[(i + 1) % worldVertices.length];
+      
+      if (isCircleIntersectingLineSegment(center, radius, v1, v2)) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+  
+  // Fallback to physics body vertices if no original vertices available
   if (!shape.body.vertices || shape.body.vertices.length === 0) {
     return false;
   }
   
-  const vertices = shape.body.vertices;
-  
-  // Transform circle center to local coordinates
-  const cos = Math.cos(-shape.body.angle);
-  const sin = Math.sin(-shape.body.angle);
-  const dx = center.x - shape.body.position.x;
-  const dy = center.y - shape.body.position.y;
-  const localX = dx * cos - dy * sin;
-  const localY = dx * sin + dy * cos;
-  const localCenter = { x: localX, y: localY };
-  
-  // Transform vertices to local coordinates relative to shape position
-  const localVertices: Vector2[] = vertices.map(v => ({
-    x: (v.x - shape.body.position.x) * cos - (v.y - shape.body.position.y) * sin,
-    y: (v.x - shape.body.position.x) * sin + (v.y - shape.body.position.y) * cos
-  }));
+  // Matter.js vertices are already transformed to world coordinates
+  const worldVertices = shape.body.vertices;
   
   // Check if circle center is inside the polygon
-  if (isPointInPolygon(localCenter, localVertices)) {
+  if (isPointInPolygon(center, worldVertices)) {
     return true;
   }
   
   // Check if circle intersects any edge of the polygon
-  for (let i = 0; i < localVertices.length; i++) {
-    const v1 = localVertices[i];
-    const v2 = localVertices[(i + 1) % localVertices.length];
+  for (let i = 0; i < worldVertices.length; i++) {
+    const v1 = worldVertices[i];
+    const v2 = worldVertices[(i + 1) % worldVertices.length];
     
-    if (isCircleIntersectingLineSegment(localCenter, radius, v1, v2)) {
+    if (isCircleIntersectingLineSegment(center, radius, v1, v2)) {
       return true;
     }
   }
@@ -340,6 +373,13 @@ export function getDistanceToNearestEdge(point: Vector2, vertices: Vector2[]): n
 
 /**
  * Check if a screw area is blocked by a shape
+ * 
+ * @param screwPosition - Position of the screw center
+ * @param screwRadius - Radius of the screw
+ * @param shape - Shape to check collision against
+ * @param precisCheck - If true, uses two-phase collision detection (broad + narrow phase)
+ *                      If false, uses simple bounding box check for gameplay blocking
+ * @returns true if the screw area is blocked by the shape
  */
 export function isScrewAreaBlocked(
   screwPosition: Vector2, 
@@ -348,9 +388,13 @@ export function isScrewAreaBlocked(
   precisCheck: boolean = false
 ): boolean {
   if (precisCheck) {
-    // Use actual screw radius plus blocking margin for better blocking detection
+    // PRECISE MODE: Two-phase collision detection
+    // 1. Broad phase: Quick bounding box check
+    // 2. Narrow phase: Exact geometric collision detection with rotation
     return isCircleIntersectingShape(screwPosition, screwRadius + UI_CONSTANTS.screws.blockingMargin, shape);
   } else {
+    // GAMEPLAY MODE: Simple bounding box check for broader blocking detection
+    // Used for shake animations and general gameplay feedback
     return isPointInShapeBoundsWithMargin(screwPosition, shape);
   }
 }

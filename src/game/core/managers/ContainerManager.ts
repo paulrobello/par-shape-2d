@@ -82,8 +82,28 @@ export class ContainerManager extends BaseSystem {
   /**
    * Main method: Get screw inventory and update containers to match optimal configuration
    */
+  /**
+   * Updates container configuration based on current screw inventory.
+   * 
+   * This method implements the proactive container management system that ensures
+   * containers are available BEFORE players need them. The process:
+   * 
+   * 1. **Real-time Inventory**: Requests current screw counts from ScrewManager
+   * 2. **Optimal Planning**: Uses ContainerPlanner to calculate ideal container layout
+   * 3. **Change Detection**: Only updates if the plan actually changed (efficiency)
+   * 4. **Conservative Updates**: Preserves existing containers with screws
+   * 
+   * **Callback Pattern**: Uses event-driven request-response to get screw counts
+   * across system boundaries without tight coupling. The callback ensures we get
+   * the most current data even if the request takes multiple frames.
+   * 
+   * **Performance**: Throttled updates prevent excessive recalculation during
+   * rapid game state changes.
+   * 
+   * @param clearExisting - Whether to clear all existing containers (level start)
+   */
   private updateContainersFromInventory(clearExisting = false): void {
-    // Get complete screw inventory from ScrewManager
+    // Get complete screw inventory from ScrewManager via event-driven request
     this.emit({
       type: 'remaining:screws:requested',
       timestamp: Date.now(),

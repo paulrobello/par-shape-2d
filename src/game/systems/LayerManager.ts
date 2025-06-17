@@ -418,11 +418,13 @@ export class LayerManager extends BaseSystem {
           // Check if the final position is still within acceptable bounds
           const shapeBounds = shape.getBounds();
           
+          // Add tolerance for composite shapes (like capsules) that may shift slightly during physics body creation
+          const tolerance = shape.isComposite ? 60 : 10; // Much more tolerance for composite shapes
           const withinBounds = (
-            shapeBounds.x >= layer.bounds.x &&
-            shapeBounds.x + shapeBounds.width <= layer.bounds.x + layer.bounds.width &&
-            shapeBounds.y >= layer.bounds.y &&
-            shapeBounds.y + shapeBounds.height <= layer.bounds.y + layer.bounds.height
+            shapeBounds.x >= layer.bounds.x - tolerance &&
+            shapeBounds.x + shapeBounds.width <= layer.bounds.x + layer.bounds.width + tolerance &&
+            shapeBounds.y >= layer.bounds.y - tolerance &&
+            shapeBounds.y + shapeBounds.height <= layer.bounds.y + layer.bounds.height + tolerance
           );
           
           if (withinBounds) {
@@ -464,11 +466,14 @@ export class LayerManager extends BaseSystem {
             // Shape was created but is out of bounds - need to clean it up properly
             const shapeBounds = shape.getBounds();
             const screwCount = shape.getAllScrews().length;
-            console.warn(`⚠️ Shape ${shape.id} created with ${screwCount} screws but failed bounds check:
-              Shape bounds: (${shapeBounds.x.toFixed(1)}, ${shapeBounds.y.toFixed(1)}, ${shapeBounds.width.toFixed(1)}, ${shapeBounds.height.toFixed(1)})
-              Layer bounds: (${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width}, ${layer.bounds.height})
-              Position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})
-              Attempt ${attempt + 1}/20`);
+            if (DEBUG_CONFIG.logShapeCreation) {
+              console.warn(`⚠️ Shape ${shape.id} created with ${screwCount} screws but failed bounds check:
+                Shape bounds: (${shapeBounds.x.toFixed(1)}, ${shapeBounds.y.toFixed(1)}, ${shapeBounds.width.toFixed(1)}, ${shapeBounds.height.toFixed(1)})
+                Layer bounds: (${layer.bounds.x}, ${layer.bounds.y}, ${layer.bounds.width}, ${layer.bounds.height})
+                Position: (${shape.position.x.toFixed(1)}, ${shape.position.y.toFixed(1)})
+                Tolerance applied: ${tolerance}px (isComposite: ${shape.isComposite})
+                Attempt ${attempt + 1}/20`);
+            }
             
             // Dispose of the shape to clean up any resources (including screws)
             shape.dispose();

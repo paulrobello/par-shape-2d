@@ -30,7 +30,8 @@ export class ShapeFactory {
       throw new Error('No shapes enabled in configuration');
     }
     
-    const maxRetries = 5;
+    const maxRetries = 8; // Increased from 5 to help larger shapes like capsules
+    const failedShapes: ShapeDefinition[] = [];
     
     for (let retry = 0; retry < maxRetries; retry++) {
       // Select a random shape definition
@@ -38,6 +39,11 @@ export class ShapeFactory {
       
       if (DEBUG_CONFIG.logShapeCreation) {
         console.log(`🎯 Attempt ${retry + 1}: Selected shape "${definition.id}" (${definition.category})`);
+      }
+      
+      // Special logging for capsules
+      if (definition.id === 'capsule' && DEBUG_CONFIG.logCapsuleGeneration) {
+        console.log(`🔵 CAPSULE GENERATION ATTEMPT ${retry + 1}: Starting capsule creation process`);
       }
       
       const shape = this.createShapeWithPlacement(
@@ -59,11 +65,15 @@ export class ShapeFactory {
         return shape;
       }
       
-      console.log(`Retry ${retry + 1}/${maxRetries}: Failed to place ${definition.id} shape, trying different shape/size`);
+      failedShapes.push(definition);
+      if (DEBUG_CONFIG.logShapeCreation) {
+        console.log(`❌ Retry ${retry + 1}/${maxRetries}: Failed to place ${definition.id} shape, trying different shape/size`);
+      }
     }
     
     // If all retries failed, create a very small circle as absolute fallback
-    console.warn(`All shape placement retries failed, creating minimal circle`);
+    console.warn(`🔥 All shape placement retries failed, creating minimal circle. Failed shapes:`, 
+      failedShapes.map(s => `${s.id}(${s.category})`).join(', '));
     return this.createMinimalShape(position, layerId, layerIndex, physicsLayerGroup, colorIndex, layerBounds);
   }
 
@@ -81,11 +91,15 @@ export class ShapeFactory {
     const id = `shape-${++this.shapeCounter}`;
     
     // Get dimensions based on definition and retry count
-    const sizeReduction = retryCount * (definition.dimensions.reductionFactor || 0.15);
+    // Reduce size reduction penalty for capsules to help them place better
+    const reductionFactor = definition.id === 'capsule' ? 0.05 : (definition.dimensions.reductionFactor || 0.15);
+    const sizeReduction = retryCount * reductionFactor;
     const dimensions = this.generateDimensions(definition, sizeReduction);
     
     if (!dimensions) {
-      console.error(`Failed to generate dimensions for shape ${definition.id}`);
+      if (DEBUG_CONFIG.logShapeCreation) {
+        console.error(`❌ Failed to generate dimensions for shape ${definition.id}`);
+      }
       return null;
     }
     
@@ -95,18 +109,22 @@ export class ShapeFactory {
       position,
       testRadius,
       existingShapes,
-      layerBounds
+      layerBounds,
+      definition.category === 'composite'
     );
     
     if (!validPosition) {
+      if (DEBUG_CONFIG.logShapeCreation) {
+        console.log(`❌ No valid position found for ${definition.id} (testRadius: ${testRadius}, sizeReduction: ${sizeReduction.toFixed(2)}, dimensions:`, dimensions);
+      }
       return null;
     }
     
     // Create physics body
     const bodyResult = this.createPhysicsBody(definition, validPosition, dimensions);
     if (!bodyResult) {
-      if (DEBUG_CONFIG.logPhysicsDebug) {
-        console.error(`Failed to create physics body for shape ${definition.id}`);
+      if (DEBUG_CONFIG.logShapeCreation) {
+        console.error(`❌ Failed to create physics body for shape ${definition.id}`);
       }
       return null;
     }
@@ -304,15 +322,25 @@ export class ShapeFactory {
       case 'composite':
         if (definition.id === 'capsule') {
           // Random number of screws determines width
-          const screwCount = Math.floor(Math.random() * 6) + 3; // 3-8 screws
+          const screwCount = Math.floor(Math.random() * 4) + 2; // 2-5 screws
           const screwRadius = UI_CONSTANTS.screws.radius;
           const spacing = 5;
           const width = screwCount * (screwRadius * 2) + (screwCount - 1) * spacing;
           
-          return {
-            width: Math.round(width * reduction),
-            height: Math.round((dims.height as number) * reduction),
+          const calculatedWidth = Math.round(width * reduction);
+          const calculatedHeight = Math.round((dims.height as number) * reduction);
+          
+          // Ensure capsule width is always >= height for proper capsule geometry
+          const finalDimensions = {
+            width: Math.max(calculatedWidth, calculatedHeight),
+            height: calculatedHeight,
           };
+          
+          if (DEBUG_CONFIG.logCapsuleGeneration) {
+            console.log(`🔵 CAPSULE DIMENSIONS: screwCount=${screwCount}, width=${width}*${reduction}=${finalDimensions.width}, height=${dims.height}*${reduction}=${finalDimensions.height}`);
+          }
+          
+          return finalDimensions;
         }
         break;
     }
@@ -481,13 +509,25 @@ export class ShapeFactory {
     position: Vector2,
     dimensions: ShapeDimensions
   ): { body: Body; parts: Body[] } {
-    const radius = dimensions.height! / 2;
-    const rectWidth = dimensions.width! - dimensions.height!;
+    if (DEBUG_CONFIG.logCapsuleGeneration) {
+      console.log(`🔵 CAPSULE BODY CREATION: width=${dimensions.width}, height=${dimensions.height}, position=(${position.x}, ${position.y})`);
+    }
     
-    // Create the parts
+    const radius = dimensions.height! / 2;
+    // Ensure rectWidth is never negative (capsule width must be >= height)
+    const rectWidth = Math.max(0, dimensions.width! - dimensions.height!);
+    
+    if (DEBUG_CONFIG.logCapsuleGeneration) {
+      console.log(`🔵 CAPSULE CALCULATIONS: radius=${radius}, rectWidth=${rectWidth} (width=${dimensions.width} - height=${dimensions.height})`);
+      if (dimensions.width! < dimensions.height!) {
+        console.warn(`🔴 CAPSULE WARNING: Width (${dimensions.width}) < Height (${dimensions.height}) - this creates a degenerate capsule!`);
+      }
+    }
+    
+    // Create the parts at origin, then position the composite
     const rectangle = Bodies.rectangle(
-      position.x,
-      position.y,
+      0,
+      0,
       rectWidth,
       dimensions.height!,
       {
@@ -497,8 +537,8 @@ export class ShapeFactory {
     );
     
     const leftCircle = Bodies.circle(
-      position.x - rectWidth / 2,
-      position.y,
+      -rectWidth / 2,
+      0,
       radius,
       {
         ...PHYSICS_CONSTANTS.shape,
@@ -507,8 +547,8 @@ export class ShapeFactory {
     );
     
     const rightCircle = Bodies.circle(
-      position.x + rectWidth / 2,
-      position.y,
+      rectWidth / 2,
+      0,
       radius,
       {
         ...PHYSICS_CONSTANTS.shape,
@@ -516,16 +556,30 @@ export class ShapeFactory {
       }
     );
     
-    // Create composite body - CRITICAL: First part must be self-reference according to Matter.js docs
+    // Create composite body using Matter.js Body.create with parts array
+    // This is the correct way to create composite bodies according to Matter.js docs
+    const parts = [rectangle, leftCircle, rightCircle];
+    
+    if (DEBUG_CONFIG.logCapsuleGeneration) {
+      console.log(`🔵 CAPSULE PARTS BOUNDS before composite:`);
+      parts.forEach((part, i) => {
+        const partBounds = part.bounds;
+        console.log(`  Part ${i}: (${partBounds.min.x.toFixed(1)}, ${partBounds.min.y.toFixed(1)}) to (${partBounds.max.x.toFixed(1)}, ${partBounds.max.y.toFixed(1)})`);
+      });
+    }
+    
     const capsuleComposite = Body.create({
+      parts: parts,
       ...PHYSICS_CONSTANTS.shape,
       render: { visible: false },
     });
     
-    // Set parts with self-reference as first element (Matter.js requirement)
-    Body.setParts(capsuleComposite, [capsuleComposite, rectangle, leftCircle, rightCircle]);
-    
     Body.setPosition(capsuleComposite, position);
+    
+    if (DEBUG_CONFIG.logCapsuleGeneration) {
+      const finalBounds = capsuleComposite.bounds;
+      console.log(`🔵 CAPSULE BODY FINAL BOUNDS: (${finalBounds.min.x.toFixed(1)}, ${finalBounds.min.y.toFixed(1)}) to (${finalBounds.max.x.toFixed(1)}, ${finalBounds.max.y.toFixed(1)}) - size: ${(finalBounds.max.x - finalBounds.min.x).toFixed(1)} x ${(finalBounds.max.y - finalBounds.min.y).toFixed(1)}`);
+    }
     
     return {
       body: capsuleComposite,
@@ -591,14 +645,17 @@ export class ShapeFactory {
     preferredPosition: Vector2,
     testRadius: number,
     existingShapes: Shape[],
-    layerBounds: { x: number; y: number; width: number; height: number }
+    layerBounds: { x: number; y: number; width: number; height: number },
+    isComposite: boolean = false
   ): Vector2 | null {
     // Implementation remains the same as before
     const minSeparation = 30;
-    const playAreaX = layerBounds.x + 20;
-    const playAreaY = layerBounds.y + 20;
-    const playAreaWidth = layerBounds.width - 40;
-    const playAreaHeight = layerBounds.height - 40;
+    // Add extra margin for composite shapes (like capsules) that extend beyond their center
+    const margin = isComposite ? 60 : 20;
+    const playAreaX = layerBounds.x + margin;
+    const playAreaY = layerBounds.y + margin;
+    const playAreaWidth = layerBounds.width - (margin * 2);
+    const playAreaHeight = layerBounds.height - (margin * 2);
     
     const clampPosition = (pos: Vector2): Vector2 => {
       return {

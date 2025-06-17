@@ -317,49 +317,62 @@ export const SHAPE_VALIDATION_CONSTANTS = {
 // DEBUG CONFIGURATION
 // =============================================================================
 
+/**
+ * Centralized debug configuration for conditional logging across all systems.
+ * 
+ * **Important**: All flags are disabled by default for production performance.
+ * Enable specific flags only when debugging particular issues.
+ * 
+ * **Performance Impact**: Debug logging can significantly impact performance,
+ * especially high-frequency flags like logScrewPositionUpdates.
+ * 
+ * **Usage Pattern**: Enable specific flags for debugging, disable after fixing.
+ * Use throttling settings to control log frequency for spammy operations.
+ */
 export const DEBUG_CONFIG = {
   // Global debug settings
-  enableVerboseLogging: true,
+  enableVerboseLogging: false,          // Master switch for all verbose debug output
   
   // Component-specific debug flags
-  logContainerRendering: true,
-  logScrewPlacement: true,
-  logPhysicsStateChanges: true,  // Keep state changes for when screws are removed
-  logShapeDestruction: false,
-  logPhysicsUpdates: false,
-  logShapeCreation: false,
-  logShapeDebug: false,
-  logScrewDebug: true,
-  logEventFlow: true,
-  logPhysicsDebug: false,  // Disable physics debug spam
-  logLayerDebug: false,
+  logContainerRendering: false,         // Container visual updates and rendering pipeline
+  logScrewPlacement: false,             // Screw positioning algorithms and collision checks
+  logPhysicsStateChanges: false,        // Physics body/constraint state transitions
+  logShapeDestruction: false,           // Shape cleanup and disposal operations
+  logPhysicsUpdates: false,             // Physics world step updates (high frequency)
+  logShapeCreation: false,              // Shape factory and generation processes
+  logCapsuleGeneration: false,          // Complex capsule shape generation specifically
+  logShapeDebug: false,                 // General shape system operations
+  logScrewDebug: false,                 // Screw system operations and state changes
+  logEventFlow: false,                  // Event bus emission and handling
+  logPhysicsDebug: false,               // Physics engine integration details
+  logLayerDebug: false,                 // Layer visibility and management
   
   // Specific screw system debug flags
-  logScrewRemovabilityUpdates: false,  // Controls "updateScrewRemovability called" messages
-  logScrewLayerVisibility: false,      // Controls "Layer visibility check" messages
-  logProgressTracking: true,          // Controls progress system debug messages
-  logPolygonRounding: false,          // Controls polygon corner rounding debug messages
+  logScrewRemovabilityUpdates: false,   // Screw accessibility calculations (medium frequency)
+  logScrewLayerVisibility: false,       // Layer-based screw visibility checks
+  logProgressTracking: false,           // Progress bar and completion tracking
+  logPolygonRounding: false,            // Geometric corner rounding algorithms
   
   // Shape rendering debug flags
-  logShapePathCreation: false,         // Controls "Creating path for shape type" messages
+  logShapePathCreation: false,          // Path2D creation and optimization
   
   // System operation debug flags
-  logLayerOperations: false,           // Controls layer creation/visibility messages
-  logScrewPositionUpdates: false,      // Controls screw position update messages (VERY SPAMMY - use with caution)
-  logBoundsOperations: false,          // Controls bounds change and shape positioning
-  logShapePositioning: false,          // Controls shape placement and positioning
-  logSystemLifecycle: false,           // Controls system initialization/cleanup
-  logCollisionDetection: false,        // Controls collision/bounds checking
-  logDebugUtilities: false,            // Controls debug utility output (position dumps, etc.)
+  logLayerOperations: false,            // Layer creation, clearing, and transitions
+  logScrewPositionUpdates: false,       // ⚠️ VERY SPAMMY: Real-time position updates (use with caution)
+  logBoundsOperations: false,           // Bounds calculations and canvas resizing
+  logShapePositioning: false,           // Strategic shape placement algorithms
+  logSystemLifecycle: false,            // System initialization and cleanup
+  logCollisionDetection: false,         // Hit testing and collision algorithms
+  logDebugUtilities: false,             // Debug helpers and state dumps
   
-  // Debug throttling settings (milliseconds)
-  debugThrottleMs: 2000,               // Minimum time between debug logs for the same item (2 seconds)
-  layerVisibilityThrottleMs: 5000,     // Minimum time between layer visibility debug logs (5 seconds)
-  screwPositionThrottleMs: 1000,       // Minimum time between screw position update logs (1 second)
+  // Debug throttling settings (milliseconds) - prevents log spam
+  debugThrottleMs: 2000,                // General debug log throttling (2 seconds)
+  layerVisibilityThrottleMs: 5000,      // Layer visibility debug throttling (5 seconds)
+  screwPositionThrottleMs: 1000,        // Screw position update throttling (1 second)
   
   // Editor-specific debug settings
   editor: {
-    showPerformance: true,
+    showPerformance: false,
     logEvents: false,
     maxHistorySize: 1000,
   },
@@ -454,14 +467,9 @@ export const EDITOR_EVENTS = {
  * And so on... (+1 layer every 3 levels)
  */
 export function getTotalLayersForLevel(level: number): number {
-  // DEBUG: Return only 2 layer for easier debugging
-  console.log(`DEBUG: getTotalLayersForLevel(${level}) -> returning 1 for debugging`);
-  return 2;
-
-  // Original logic (commented out for debugging):
-  // const baseLayers = 10;
-  // const additionalLayers = Math.floor((level - 1) / 3);
-  // return baseLayers + additionalLayers;
+  const baseLayers = 10;
+  const additionalLayers = Math.floor((level - 1) / 3);
+  return baseLayers + additionalLayers;
 }
 
 // =============================================================================

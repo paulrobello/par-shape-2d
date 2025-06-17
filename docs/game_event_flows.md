@@ -54,7 +54,7 @@ This standardization provides consistent, predictable event names and easier und
 
 ### Game Lifecycle Events
 - **Game State**: `game:started`, `game:paused`, `game:resumed`, `game:over`
-- **Level Management**: `level:started`, `level:complete`, `level:progress:updated`
+- **Level Management**: `level:started`, `level:complete`, `level:progress:updated`, `next:level:requested`
 - **System Coordination**: `system:ready`, `all:layers:cleared`
 
 ### Screw System Events (Core Gameplay)
@@ -235,7 +235,9 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
+    participant User
     participant GM as GameManager
+    participant GEC as GameEventCoordinator
     participant PT as ProgressTracker
     participant CM as ContainerManager
     participant SEH as ScrewEventHandler
@@ -259,10 +261,18 @@ sequenceDiagram
             GM->>LM: Clear all layers
             LM->>EB: emit('all:layers:cleared')
             GM->>EB: emit('level:complete')
+            
+            Note over GM: Show level complete screen after 3s delay
+            Note over GM: Display "Click to Continue" message
         end
     end
     
-    EB->>GM: 'next_level:requested'
+    User->>GM: Click on level complete screen
+    GM->>EB: emit('next:level:requested')
+    EB->>GEC: Route to GameEventCoordinator
+    GEC->>GEC: Clear level complete timers
+    GEC->>GM: Hide level complete screen
+    GEC->>GM: Call GameState.nextLevel()
     GM->>GM: Initialize next level
     GM->>EB: emit('level:started')
 ```
@@ -415,6 +425,29 @@ All events follow a consistent `domain:action` or `domain:subdomain:action` form
 ## System Reliability Improvements
 
 ### Critical Race Condition Fixes (✅ Completed)
+
+#### **Level Progression Event Handler Duplication**
+**Issue**: When progressing to the next level, the level was incrementing by 2 instead of 1 due to duplicate event handlers for `next:level:requested`.
+
+**Root Cause**: Both `GameEventCoordinator` and `GameStateCore` were subscribed to the `next:level:requested` event, each calling their respective `nextLevel()` methods, causing double increment.
+
+**Solution**: Removed the duplicate event handler from `GameStateCore.ts`, leaving only the proper coordination handler in `GameEventCoordinator.ts`.
+
+**Files Modified**:
+- `src/game/core/GameStateCore.ts` - Removed duplicate `next:level:requested` subscription and handler
+- Event coordination now properly flows through `GameEventCoordinator` only
+
+#### **Level Complete Screen Click Handler**
+**Issue**: Level complete screen displayed "Click to Continue" but clicks were not being processed, preventing level progression.
+
+**Root Cause**: `GameManager.handleGameInput()` had early return when `!gameStarted || gameOver`, which ignored clicks during `levelComplete` state.
+
+**Solution**: Added specific handling for `levelComplete` state that emits `next:level:requested` event when screen is clicked.
+
+**Files Modified**:
+- `src/game/core/GameManager.ts` - Added level complete click detection
+- `src/game/core/managers/GameEventCoordinator.ts` - Added `handleNextLevelRequested()` method
+- `src/game/core/managers/GameStateManager.ts` - Added `hideLevelComplete()` method
 
 #### **Container Replacement Race Condition**
 **Issue**: Container replacement used `setTimeout()` which created race conditions where containers could be removed or indices could change during the 500ms delay.

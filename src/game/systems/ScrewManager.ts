@@ -144,22 +144,39 @@ export class ScrewManager extends BaseSystem {
     }
   }
 
+  /**
+   * Main update loop for screw system management.
+   * 
+   * This method handles critical frame-by-frame operations including:
+   * - Periodic cleanup to prevent memory leaks and stale states
+   * - Animation updates with completion handling
+   * - Physics constraint management
+   * - State synchronization between systems
+   * 
+   * Update order is carefully designed to maintain data integrity:
+   * 1. Cleanup operations (least frequent, every 3-30 seconds)
+   * 2. Animation updates (every frame)
+   * 3. Completion handling with immediate state updates
+   * 4. Physics updates after state changes
+   * 
+   * @param deltaTime - Frame time delta in milliseconds for smooth animations
+   */
   public update(deltaTime: number): void {
     this.executeIfActive(() => {
       
-      // Cleanup counter for periodic tasks
+      // Cleanup counter for periodic tasks (prevents memory leaks and stale state)
       this.cleanupCounter++;
       if (this.cleanupCounter >= 1800) { // ~30 seconds at 60 FPS
         this.cleanupThrottlingStates();
         this.cleanupCounter = 0;
       }
 
-      // Validate and cleanup reservations periodically
+      // Validate and cleanup reservations periodically (prevents race conditions)
       if (this.cleanupCounter % 180 === 0) { // ~3 seconds at 60 FPS
         this.validateAndCleanupReservations();
       }
 
-      // Check for stuck shapes that should be falling periodically
+      // Check for stuck shapes that should be falling periodically (physics recovery)
       if (this.cleanupCounter % 300 === 0) { // ~5 seconds at 60 FPS
         this.checkForStuckShapes();
       }
@@ -239,6 +256,25 @@ export class ScrewManager extends BaseSystem {
   }
 
   // Core Screw Management Methods
+  
+  /**
+   * Generates and places screws within a shape using strategic placement algorithms.
+   * 
+   * This method orchestrates the complete screw generation pipeline:
+   * 1. Delegates to ScrewPlacementService for strategic positioning
+   * 2. Adds screws to the global state management system
+   * 3. Creates physics constraints to attach screws to the shape
+   * 4. Emits events for system coordination
+   * 
+   * The generation process ensures:
+   * - Screws don't overlap with each other (5px minimum margin)
+   * - Screws don't overlap with shape edges (5px minimum margin)
+   * - Colors are distributed appropriately for gameplay balance
+   * - Physics constraints are properly established
+   * 
+   * @param shape - The shape entity to add screws to
+   * @param preferredColors - Optional color preferences for strategic screw distribution
+   */
   public generateScrewsForShape(shape: Shape, preferredColors?: ScrewColor[]): void {
     this.executeIfActive(() => {
       if (DEBUG_CONFIG.logScrewDebug) {
@@ -362,16 +398,31 @@ export class ScrewManager extends BaseSystem {
   }
 
   /**
-   * Initiates the collection process for a screw, handling physics removal and animation setup.
+   * Initiates atomic screw collection process with physics constraint removal.
    * 
-   * This method atomically starts the screw collection by setting the screw state,
-   * removing physics constraints, and initiating the collection animation toward
-   * the target destination (container or holding hole).
+   * This is a critical operation that must be performed atomically to prevent race conditions.
+   * The method ensures data integrity through the following sequence:
+   * 
+   * 1. **Atomic State Change**: Sets screw.isBeingCollected flag first to prevent duplicate clicks
+   * 2. **Physics Constraint Removal**: Immediately removes physics constraint to allow shape physics updates
+   * 3. **Shape Reference Cleanup**: Removes screw from shape's screw list to stop rendering on shape
+   * 4. **Ownership Transfer**: Transfers ownership to destination (container/holding hole) immediately
+   * 
+   * **Atomicity Guarantees**:
+   * - No window where screw can be clicked twice
+   * - Physics state immediately reflects screw removal
+   * - Shape behavior updates instantly (becomes dynamic if needed)
+   * - Animation starts only after successful state changes
+   * 
+   * **Race Condition Prevention**:
+   * - State changes happen before any async operations
+   * - Physics constraints removed synchronously
+   * - Ownership transferred immediately, not on animation completion
    * 
    * @param screwId - The unique identifier of the screw to collect
    * @param targetPosition - The world position where the screw should animate to
    * @param destinationInfo - Optional destination details (container/holding hole)
-   * @param forceRemoval - Whether to force removal even if screw appears blocked
+   * @param forceRemoval - Whether to force removal even if screw appears blocked (debug/testing)
    * @returns True if collection started successfully, false if screw is invalid/busy
    */
   public startScrewCollection(screwId: string, targetPosition: Vector2, destinationInfo?: { type: 'container' | 'holding_hole'; id: string; holeIndex?: number }, forceRemoval = false): boolean {
