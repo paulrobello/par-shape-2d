@@ -284,10 +284,6 @@ export class GameManager extends BaseSystem {
         position: point,
         forceRemoval: this.debugManager.isDebugBypassEnabled()
       });
-    } else {
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log('No removable screw found at input point');
-      }
     }
   }
 

@@ -8,7 +8,7 @@ import { GeometryRenderer } from '../core/GeometryRenderer';
 import { TextRenderer } from './TextRenderer';
 import { withContext, withAlpha } from '../core/CanvasUtils';
 import { ColorTheme, getThemeForEnvironment, hexToRgba } from '../styles/ColorTheme';
-import { UI_CONSTANTS, SCREW_COLORS, DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { UI_CONSTANTS, SCREW_COLORS } from '@/shared/utils/Constants';
 
 export interface ScrewRenderOptions {
   /** Rendering mode */
@@ -100,10 +100,6 @@ export class ScrewRenderer {
       y: screw.position.y + shakeOffset.y,
     };
 
-    // Debug logging for shake rendering (only when there's shake offset)
-    if (DEBUG_CONFIG.logScrewDebug && (shakeOffset.x !== 0 || shakeOffset.y !== 0)) {
-      console.log(`🎨 Rendering screw ${screw.id} with shake offset: (${shakeOffset.x.toFixed(1)}, ${shakeOffset.y.toFixed(1)}), position: (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}) -> (${renderPosition.x.toFixed(1)}, ${renderPosition.y.toFixed(1)})`);
-    }
 
     // Calculate alpha based on animation state
     let alpha = finalOptions.alpha!;

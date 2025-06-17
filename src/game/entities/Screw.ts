@@ -347,10 +347,6 @@ export class Screw implements IScrew {
         this.shakeOffset.y = shakeValue;
       }
       
-      // Debug logging for shake offset (throttled)
-      if (DEBUG_CONFIG.logScrewDebug && Math.random() < 0.1) {
-        console.log(`📳 Screw ${this.id} shake offset: x=${this.shakeOffset.x.toFixed(1)}, y=${this.shakeOffset.y.toFixed(1)}, progress=${(this.shakeProgress * 100).toFixed(1)}%`);
-      }
       
       return false; // Animation not complete
     } else {
