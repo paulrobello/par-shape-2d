@@ -32,7 +32,7 @@ export interface ScrewRenderOptions {
   
   /** Debug information */
   showDebug?: boolean;
-  constraint?: { bodyA?: { position: { x: number; y: number } } };
+  constraint?: unknown; // Support any constraint type for compatibility
   targetPosition?: { x: number; y: number };
   
   /** Force rendering even if collected */
@@ -58,7 +58,7 @@ export interface RenderableScrew {
   isSpinning?: boolean;
   
   // Debug properties
-  constraint?: { bodyA?: { position: { x: number; y: number } } };
+  constraint?: unknown; // Support any constraint type for compatibility
   targetPosition?: { x: number; y: number };
 }
 
@@ -535,17 +535,23 @@ export class ScrewRenderer {
     );
 
     // Draw constraint line if exists
-    if (screw.constraint && screw.constraint.bodyA) {
-      const shape = screw.constraint.bodyA;
-      GeometryRenderer.renderLine(context.ctx, {
-        x1: screw.position.x,
-        y1: screw.position.y,
-        x2: shape.position.x,
-        y2: shape.position.y,
-        strokeColor: theme.debug.warning,
-        lineWidth: 1,
-        lineDash: [2, 2],
-      });
+    if (screw.constraint && 
+        typeof screw.constraint === 'object' && 
+        screw.constraint !== null &&
+        'bodyA' in screw.constraint) {
+      const constraint = screw.constraint as { bodyA?: { position: { x: number; y: number } } };
+      const shape = constraint.bodyA;
+      if (shape && shape.position) {
+        GeometryRenderer.renderLine(context.ctx, {
+          x1: screw.position.x,
+          y1: screw.position.y,
+          x2: shape.position.x,
+          y2: shape.position.y,
+          strokeColor: theme.debug.warning,
+          lineWidth: 1,
+          lineDash: [2, 2],
+        });
+      }
     }
 
     // Draw collection target if animating
@@ -625,6 +631,40 @@ export class ScrewRenderer {
     this.renderScrew(dummyScrew, context, {
       mode: 'preview',
       ...options,
+    });
+  }
+
+  /**
+   * Render a collected screw at a specific location with proper scaling
+   * This method is specifically for rendering screws in containers and holding holes
+   */
+  static renderCollectedScrew(
+    screw: RenderableScrew,
+    position: { x: number; y: number },
+    context: RenderContext,
+    scale: number = 0.6
+  ): void {
+    // Create a temporary screw object with the destination position
+    const collectedScrew: RenderableScrew = {
+      ...screw,
+      position,
+      shakeOffset: { x: 0, y: 0 }, // No shake for collected screws
+      isCollected: true,
+      // Ensure these animation properties are reset
+      isBeingCollected: false,
+      isBeingTransferred: false,
+      collectionProgress: 0,
+      transferProgress: 0,
+      // Keep rotation for collected screws to show final rotation state
+      rotation: screw.rotation || 0,
+      isSpinning: false // But not spinning anymore
+    };
+    
+    // Force render the screw at the destination with the specified scale
+    this.renderScrew(collectedScrew, context, {
+      mode: 'full',
+      scale,
+      forceRender: true
     });
   }
 }

@@ -5,7 +5,7 @@
 import { IGameRenderManager, RenderState, IGameStateManager, IGameUIManager, IGameDebugManager } from './GameManagerTypes';
 import { GAME_CONFIG, UI_CONSTANTS, SCREW_COLORS, DEBUG_CONFIG, LAYOUT_CONSTANTS } from '@/shared/utils/Constants';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
-import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
+import { ScrewRenderer } from '@/shared/rendering/components/ScrewRenderer';
 import { createRenderContext } from '@/shared/rendering/core/RenderContext';
 import { GeometryRenderer } from '@/shared/rendering/core/GeometryRenderer';
 import { ProgressBar } from '@/shared/rendering/components/ProgressBar';
@@ -335,12 +335,10 @@ export class GameRenderManager implements IGameRenderManager {
           const screw = this.state.allScrews.find(s => s.id === screwId);
           if (screw) {
             // Create a render context for this screw
-            const screwRenderContext = {
-              canvas: this.state.canvas!,
-              ctx: this.state.ctx!,
+            const screwRenderContext = createRenderContext(this.state.canvas!, 'game', { 
               debugMode: false,
               scale: this.state.canvasScale
-            };
+            });
             
             // Render collected screw at smaller scale (about 60% of normal size to fit in container hole)
             ScrewRenderer.renderCollectedScrew(screw, { x: holeX, y: holeY }, screwRenderContext, 0.6);
@@ -377,12 +375,10 @@ export class GameRenderManager implements IGameRenderManager {
         const screw = this.state.allScrews.find(s => s.id === hole.screwId);
         if (screw) {
           // Create a render context for this screw
-          const screwRenderContext = {
-            canvas: this.state.canvas!,
-            ctx: this.state.ctx!,
+          const screwRenderContext = createRenderContext(this.state.canvas!, 'game', {
             debugMode: false,
             scale: this.state.canvasScale
-          };
+          });
           
           // Render collected screw at smaller scale (about 75% of normal size to fit in holding hole)
           ScrewRenderer.renderCollectedScrew(screw, hole.position, screwRenderContext, 0.75);

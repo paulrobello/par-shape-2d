@@ -5,7 +5,7 @@
 
 import { eventBus } from '../events/EventBus';
 import { GameEvent } from '../events/EventTypes';
-import { DEBUG_CONFIG } from '../utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export class EventFlowValidator {
   private eventLog: GameEvent[] = [];

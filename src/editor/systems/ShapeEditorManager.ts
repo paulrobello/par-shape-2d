@@ -4,7 +4,8 @@ import { Bodies, Body, Vertices, Bounds } from 'matter-js';
 import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
-import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
+import { ScrewRenderer } from '@/shared/rendering/components/ScrewRenderer';
+import { createRenderContext } from '@/shared/rendering/core/RenderContext';
 import { EditorEventPriority } from '../core/EditorEventBus';
 import { 
   EditorShapeCreatedEvent, 
@@ -529,11 +530,7 @@ export class ShapeEditorManager extends BaseEditorSystem {
     context.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
     
     // Render the shape
-    const renderContext = {
-      ctx: context,
-      canvas: context.canvas,
-      debugMode: this.debugMode
-    };
+    const renderContext = createRenderContext(context.canvas, 'editor', { debugMode: this.debugMode });
     ShapeRenderer.renderShape(shape, renderContext);
     
     // Render screws

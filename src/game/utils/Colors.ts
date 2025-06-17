@@ -1,5 +1,5 @@
 import { ScrewColor } from '@/types/game';
-import { SCREW_COLORS } from './Constants';
+import { SCREW_COLORS } from '@/shared/utils/Constants';
 
 export function getAllScrewColors(): ScrewColor[] {
   return Object.keys(SCREW_COLORS) as ScrewColor[];

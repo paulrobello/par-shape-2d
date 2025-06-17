@@ -5,7 +5,8 @@ import { ConstraintUtils } from '@/shared/physics/ConstraintUtils';
 import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
 import { ShapeRenderer } from '@/game/rendering/ShapeRenderer';
-import { ScrewRenderer } from '@/game/rendering/ScrewRenderer';
+import { ScrewRenderer } from '@/shared/rendering/components/ScrewRenderer';
+import { createRenderContext } from '@/shared/rendering/core/RenderContext';
 import { EditorEventPriority } from '../core/EditorEventBus';
 import { Vector2 } from '@/types/game';
 import { 
@@ -55,11 +56,7 @@ export class PhysicsSimulator extends BaseEditorSystem {
     if (!this.isSimulating) return;
 
     // Render simulated shapes with their updated physics positions
-    const renderContext = {
-      ctx: context,
-      canvas: context.canvas,
-      debugMode: false,
-    };
+    const renderContext = createRenderContext(context.canvas, 'editor', { debugMode: false });
 
     for (const { shape, screws } of this.simulatedShapes.values()) {
       // Update shape position and rotation from physics body

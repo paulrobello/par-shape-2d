@@ -6,7 +6,7 @@
 import { eventBus } from './EventBus';
 import { EventLogger } from './EventLogger';
 import { EventPriority } from '@/shared/events';
-import { DEBUG_CONFIG } from '../utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { 
   EventDebugger as SharedEventDebugger, 
   EventDebugInfo as SharedEventDebugInfo,

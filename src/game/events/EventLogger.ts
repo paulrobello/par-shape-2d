@@ -6,7 +6,7 @@
 import { EventLogger as SharedEventLogger, EventLogEntry, LogLevel } from '@/shared/events/EventLogger';
 import { eventBus } from './EventBus';
 import { GameEvent } from './EventTypes';
-import { DEBUG_CONFIG } from '../utils/Constants';
+import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export type { EventLogEntry };
 
