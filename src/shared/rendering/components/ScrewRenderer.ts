@@ -217,18 +217,6 @@ export class ScrewRenderer {
         fillColor: hexToRgba(theme.screws.highlight, 0.4),
       });
 
-      // Add a simple notch on the screw rim to show rotation
-      const notchDistance = radius * 0.85;
-      const notchX = position.x + Math.cos(rotation) * notchDistance;
-      const notchY = position.y + Math.sin(rotation) * notchDistance;
-
-      GeometryRenderer.renderCircle(ctx, {
-        x: notchX,
-        y: notchY,
-        radius: radius * 0.1,
-        fillColor: hexToRgba(theme.screws.border, 1.0),
-      });
-
       // Draw cross symbol with rotation
       const crossSize = radius * UI_CONSTANTS.screws.cross.sizeRatio;
       this.drawCrossSymbol(ctx, position.x, position.y, crossSize, options.scale || 1, theme);
