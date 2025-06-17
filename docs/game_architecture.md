@@ -4,7 +4,7 @@
 
 **Note**: This document is a companion to the `game_event_flows.md` document, which details the event-driven architecture of the game. This document focuses on the overall game architecture, system organization, and logic flows.
 
-**Maintenance**: This document describes the current state of the game architecture. New functionality is documented directly in relevant sections rather than as separate updates.
+**Important**: This document describes the current state of the game architecture. New functionality is documented directly in relevant sections rather than as separate updates. This document should NOT be treated as a changelog.
 
 ## Overview
 
@@ -659,16 +659,7 @@ The game uses distributed state management with eventual consistency:
 
 ### Planned Improvements
 1. **Performance Monitoring**: Automatic threshold alerts for slow operations
-2. **Event Replay**: Debugging capability to replay event sequences
-3. **Advanced Analytics**: Player behavior tracking and optimization
-4. **Networking Support**: Multiplayer gameplay foundation
-5. **Procedural Generation**: Algorithm-based level creation
-
-### Recent Architectural Improvements
-1. **Consolidated Rendering Pipeline**: Unified ScrewRenderer implementation in shared utilities
-2. **Centralized Constants Management**: All configuration values now in single shared location
-3. **Reduced Code Duplication**: Eliminated ~300 lines of duplicate rendering code
-4. **Enhanced Type Safety**: Improved constraint type compatibility across systems
+2. **Procedural Generation**: Algorithm-based level creation
 
 ### Architectural Readiness
 The current architecture supports these enhancements through:
