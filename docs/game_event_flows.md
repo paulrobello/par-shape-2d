@@ -65,7 +65,7 @@ This standardization provides consistent, predictable event names and easier und
 - **Transfers**: `screw:transfer:started`, `screw:transfer:completed`, `screw:transfer:failed`
 - **Ownership**: Immediate ownership transfer when operations begin (not when animations complete) - prevents race conditions during shape destruction
 - **Generation**: `screws:generated`, `shape:screws:ready`
-- **Counting**: `remaining:screws:requested` - Counts ALL screws in shapes (regardless of removability) AND holding holes for container planning
+- **Counting**: `remaining:screws:requested` - Counts screws in visible shapes and holding holes for container planning, with hole sizing based on ALL screws of selected colors
 - **Physics Integration**: Enhanced physics constraint management with proper `isInContainer` state handling
 
 ### Shape System Events
@@ -85,7 +85,7 @@ This standardization provides consistent, predictable event names and easier und
 - **Lifecycle**: `container:initialize`, `container:removing:screws`
 - **Transfers**: `screw:transfer:completed`, `screw:transfer:failed`, `screw:transfer:color_check`
 - **Positioning**: Fixed 4-slot system prevents container shifting on removal
-- **Hole Planning**: Container holes sized for ALL remaining screws of each color (1-3 holes max), not just currently removable screws
+- **Hole Planning**: Container holes sized based on ALL remaining screws of visible colors (1-3 holes max), ensuring proper capacity for future collection
 - **Proactive Management**: Containers created before needed via `layers:updated` and `layer:indices:updated` triggers
 - **Replacement Timing**: Fixed race conditions by moving replacement logic to animation completion cycle
 
@@ -189,9 +189,10 @@ sequenceDiagram
         CM->>CM: Check throttle (1 second)
         CM->>EB: emit('remaining:screws:requested')
         EB->>SEH: Process remaining screw count request
-        SEH->>SEH: Count screws in shapes + holding holes
-        SEH->>CM: Return screws by color (callback)
-        CM->>CP: calculateOptimalContainers(screwInventory)
+        SEH->>SEH: Count screws in visible shapes + holding holes
+        SEH->>SEH: Identify visible colors for container selection
+        SEH->>CM: Return screws by color + visible colors (callback)
+        CM->>CP: calculateOptimalContainers(visibleScrewInventory)
         CP->>CM: Return ContainerPlan
         
         alt Plan requires containers or containers missing
@@ -226,7 +227,8 @@ sequenceDiagram
         Note over CM: IMMEDIATELY check for replacement (after removal)
         CM->>EB: emit('remaining:screws:requested')
         EB->>SEH: Process remaining screw count request
-        SEH->>CM: Return screws by color (callback)
+        SEH->>CM: Return screws by color + visible colors (callback)
+        CM->>CM: Filter to visible colors for replacement decisions
         
         alt More screws need containers
             CM->>CM: Find first vacant slot
@@ -260,8 +262,8 @@ sequenceDiagram
         EB->>PT: 'container:all_removed'
         PT->>EB: emit('remaining:screws:requested')
         EB->>SEH: Process remaining screw count request
-        SEH->>SEH: Count screws in shapes + holding holes
-        SEH->>PT: Return total remaining screws (callback)
+        SEH->>SEH: Count screws in visible shapes + holding holes
+        SEH->>PT: Return total remaining screws + visible colors (callback)
         
         alt No screws remaining
             PT->>EB: emit('level:completed')
@@ -323,7 +325,7 @@ sequenceDiagram
 
 ### 5. Remaining Screw Counting Flow
 
-The `remaining:screws:requested` event is critical for container replacement logic and win condition checking. It ensures accurate screw counting across all game states.
+The `remaining:screws:requested` event is critical for container replacement logic and win condition checking. It provides both screw counts and visible color information for accurate container planning.
 
 ```mermaid
 sequenceDiagram
@@ -343,30 +345,32 @@ sequenceDiagram
     
     EB->>SEH: Route to ScrewEventHandler
     
-    SEH->>SEH: Count screws in shapes
-    Note over SEH: Filter: !isCollected && !isBeingCollected
+    SEH->>SEH: Count screws in visible shapes
+    Note over SEH: Filter: !isCollected && !isBeingCollected && inVisibleLayer
     
     SEH->>SEH: Count screws in holding holes
     Note over SEH: Check: hole.screwId && hole.screwColor
     
-    SEH->>SEH: Combine counts by color
+    SEH->>SEH: Identify visible colors from shapes + holes
+    SEH->>SEH: Combine counts by color (ALL screws for hole sizing)
     
     alt Container replacement
-        SEH->>CM: Return Map<color, count> via callback
-        CM->>CM: Determine if replacement needed
+        SEH->>CM: Return Map<color, count> + visibleColors via callback
+        CM->>CM: Filter to visible colors for replacement decisions
     else Win condition
-        SEH->>PT: Return Map<color, count> via callback
-        PT->>PT: Check if total remaining = 0
+        SEH->>PT: Return Map<color, count> + visibleColors via callback
+        PT->>PT: Check if total remaining visible screws = 0
     end
 ```
 
 **Key Implementation Details:**
 - **ScrewEventHandler.handleRemainingScrewCountsRequested()** processes the request
-- **Counts screws in shapes**: Iterates through `state.screws` filtering for active screws
+- **Counts screws in visible shapes**: Iterates through `state.screws` filtering for active screws in visible layers
 - **Counts screws in holding holes**: Iterates through `state.holdingHoles` checking for occupied holes
-- **Returns color-mapped counts**: Uses callback pattern with `Map<string, number>`
-- **Used by ContainerManager**: For intelligent container replacement decisions  
-- **Used by ProgressTracker**: For accurate win condition detection
+- **Identifies visible colors**: Tracks colors present in visible shapes and holding holes for container selection
+- **Returns dual data**: Uses callback pattern with `Map<string, number>` + `Set<string>` for counts and visible colors
+- **Used by ContainerManager**: For intelligent container replacement decisions using visible colors only
+- **Used by ProgressTracker**: For accurate win condition detection based on visible layer progress
 
 ### 6. Ownership Transfer and Disposal Safety Flow
 

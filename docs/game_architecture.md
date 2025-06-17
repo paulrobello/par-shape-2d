@@ -243,7 +243,7 @@ graph TB
 #### **ContainerManager** (`src/game/core/managers/ContainerManager.ts`)
 **Responsibility**: Container lifecycle and screw assignment with fixed-slot positioning
 - Container instantiation with appropriate colors and hole counts (1-3 holes per container)
-- **Hole Planning**: Sizes containers based on ALL remaining screws of each color (visible or not), but only creates containers for colors present in visible shapes or holding holes
+- **Hole Planning**: Creates containers for colors present in visible shapes or holding holes, with hole counts sized based on ALL remaining screws of that color (across all layers) for proper capacity planning
 - Screw placement and hole management
 - Container completion detection
 - Intelligent container substitution with fade animations
@@ -270,9 +270,10 @@ graph TB
 4. Replacement containers become fully visible
 
 **Proactive Container Management**:
-- **ContainerPlanner** utility for optimal container calculation
+- **ContainerPlanner** utility for optimal container calculation using visible layer data
 - **Color Selection**: Only creates containers for colors present in visible shapes or holding holes
-- **Hole Sizing**: Counts ALL remaining screws (regardless of visibility) for proper hole count planning
+- **Hole Sizing**: Counts ALL remaining screws of selected colors (across all layers) for proper capacity planning
+- **Visibility-Aware**: Tracks visible layers and adapts container selection accordingly
 - Event-driven updates on layer changes
 - Throttled updates (1-second) to prevent excessive recalculation
 - Conservative updates that only add missing containers
@@ -483,8 +484,9 @@ sequenceDiagram
         CM->>EB: emit('container:removed') with visualIndex
         
         CM->>EB: emit('remaining:screws:requested')
-        EB->>SEH: Count screws by color
-        SEH->>CM: Return screw counts
+        EB->>SEH: Count screws by color + identify visible colors
+        SEH->>CM: Return screw counts + visible colors
+        CM->>CM: Filter to visible colors only for container selection
         
         alt Replacement needed
             CM->>Slots: Find first vacant slot
