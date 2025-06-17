@@ -19,5 +19,5 @@
 - Look for redundant or duplicate code that can be refactored, removed or moved to the shared library.
 - Update or add comments and documentation to improve code clarity and maintainability.
 - Update the documentation in the `docs` folder to ensure it is accurate and up-to-date.
-- run `node scripts/size_report.js` from the root of the project to generate a size report.
-- Commit the changes with a clear and concise commit message that describes the changes made.
+- run `node scripts/size_report.js` from the root of the project to generate a size report. **Important:** Only run this after all code changes are complete and documentation has been updated.
+- Commit the changes with a clear and concise commit message that describes the changes made. **Important:** Only commit after the documentation has been updated and size report has been run.

@@ -63,6 +63,7 @@ Comprehensive utilities prevent code duplication and ensure consistency:
   - **ScrewRenderer**: Enhanced screw visualization with visible rotation, clean 4-point cross, and rim notch indicators
 - **GeometryUtils**: Mathematical calculations and collision detection
 - **CollisionUtils**: Advanced two-phase collision detection with configurable screw blocking margins (0px default)
+- **Constants**: Centralized configuration values and game constants shared across all systems
 
 ### 4. Physics Integration
 
@@ -108,7 +109,7 @@ graph TB
     ScrewPlacementService[ScrewPlacementService<br/>Strategic Placement]
     
     %% Shared Utilities
-    SharedUtils[Shared Utilities<br/>EventEmissionUtils<br/>StateValidationUtils<br/>DebugLogger<br/>GeometryRenderer<br/>AnimationUtils]
+    SharedUtils[Shared Utilities<br/>EventEmissionUtils<br/>StateValidationUtils<br/>DebugLogger<br/>GeometryRenderer<br/>ScrewRenderer<br/>AnimationUtils<br/>Constants]
     
     %% Relationships - Core Management
     GameManager -.-> EventBus
@@ -663,9 +664,16 @@ The game uses distributed state management with eventual consistency:
 4. **Networking Support**: Multiplayer gameplay foundation
 5. **Procedural Generation**: Algorithm-based level creation
 
+### Recent Architectural Improvements
+1. **Consolidated Rendering Pipeline**: Unified ScrewRenderer implementation in shared utilities
+2. **Centralized Constants Management**: All configuration values now in single shared location
+3. **Reduced Code Duplication**: Eliminated ~300 lines of duplicate rendering code
+4. **Enhanced Type Safety**: Improved constraint type compatibility across systems
+
 ### Architectural Readiness
 The current architecture supports these enhancements through:
 - Event-driven design enables easy feature addition
 - Modular systems allow independent enhancement
 - Shared utilities provide consistent foundation
 - Comprehensive validation prevents system corruption
+- Consolidated rendering components reduce maintenance overhead
