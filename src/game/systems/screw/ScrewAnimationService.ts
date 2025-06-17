@@ -107,9 +107,12 @@ export class ScrewAnimationService implements IScrewAnimationService {
    */
   public updateShakeAnimations(deltaTime: number): void {
     let shakingCount = 0;
+    let hasActiveShaking = false;
+    
     for (const screw of this.screws.values()) {
       if (screw.isShaking) {
         shakingCount++;
+        hasActiveShaking = true;
         const wasComplete = screw.updateShakeAnimation(deltaTime);
         if (wasComplete) {
           if (DEBUG_CONFIG.logScrewDebug) {
@@ -118,6 +121,18 @@ export class ScrewAnimationService implements IScrewAnimationService {
         }
       }
     }
+    
+    // Emit event to update render data when there are active shake animations
+    // This ensures the renderer gets the updated shakeOffset values
+    if (hasActiveShaking) {
+      this.eventBus.emit({
+        type: 'screw:shake:updated',
+        timestamp: Date.now(),
+        source: this.source,
+        shakingCount
+      });
+    }
+    
     // Only log when there are shaking screws to avoid spam
     if (shakingCount > 0 && Date.now() % 1000 < 50) {
       if (DEBUG_CONFIG.logScrewDebug) {

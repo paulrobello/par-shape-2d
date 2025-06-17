@@ -107,6 +107,11 @@ export interface ScrewAnimationCompletedEvent extends BaseEvent {
   screw: Screw;
 }
 
+export interface ScrewShakeUpdatedEvent extends BaseEvent {
+  type: 'screw:shake:updated';
+  shakingCount: number;
+}
+
 export interface ScrewBlockedEvent extends BaseEvent {
   type: 'screw:blocked';
   screw: Screw;
@@ -626,6 +631,7 @@ export type GameEvent =
   | ScrewCollectedEvent
   | ScrewAnimationStartedEvent
   | ScrewAnimationCompletedEvent
+  | ScrewShakeUpdatedEvent
   | ScrewBlockedEvent
   | ScrewUnblockedEvent
   | ScrewBlockedClickEvent

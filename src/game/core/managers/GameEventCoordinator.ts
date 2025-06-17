@@ -64,6 +64,7 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
     this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
     this.subscribe('screw:animation:started', this.handleScrewAnimationStarted.bind(this));
+    this.subscribe('screw:shake:updated', this.handleScrewShakeUpdated.bind(this));
     this.subscribe('screw:transfer:started', this.handleScrewTransferStarted.bind(this));
     this.subscribe('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this));
     this.subscribe('score:updated', this.handleScoreUpdated.bind(this));
@@ -293,6 +294,26 @@ export class GameEventCoordinator implements IGameEventCoordinator {
       if (DEBUG_CONFIG.logScrewDebug) {
         const animatingScrews = allScrews.filter(s => s.isBeingCollected);
         console.log(`🎬 [GameEventCoordinator] Animation started - updated render data with ${allScrews.length} screws (${animatingScrews.length} animating)`);
+      }
+    }
+  }
+
+  private handleScrewShakeUpdated(event: unknown): void {
+    void event; // ScrewShakeUpdatedEvent type - unused but required for signature
+    if (!this.managers || !this.systemCoordinator) return;
+    
+    // When screws are shaking, update the allScrews array for rendering to get updated shakeOffset values
+    const screwManager = this.systemCoordinator.getScrewManager();
+    
+    if (screwManager) {
+      const allScrews = screwManager.getAllScrews();
+      this.managers.renderManager.updateRenderData({
+        allScrews: allScrews
+      });
+      
+      if (DEBUG_CONFIG.logScrewDebug) {
+        const shakingScrews = allScrews.filter(s => s.isShaking);
+        console.log(`📳 [GameEventCoordinator] Shake updated - updated render data with ${allScrews.length} screws (${shakingScrews.length} shaking)`);
       }
     }
   }

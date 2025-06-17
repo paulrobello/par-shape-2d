@@ -325,15 +325,15 @@ export class Screw implements IScrew {
     if (!this.isShaking) return false;
 
     // Animation duration in milliseconds
-    const animationDuration = 300; // Quick shake animation
+    const animationDuration = 600; // Longer shake animation for better visibility
     const progressIncrement = deltaTime / animationDuration;
     
     this.shakeProgress = Math.min(1, this.shakeProgress + progressIncrement);
 
     // Calculate shake offset using sine wave for smooth oscillation
     if (this.shakeProgress < 1) {
-      const frequency = 8; // How many shakes during the duration
-      const amplitude = 3; // Maximum shake distance in pixels
+      const frequency = 6; // Reduced frequency for more visible shakes
+      const amplitude = 8; // Increased amplitude for better visibility
       const fadeOut = 1 - this.shakeProgress; // Fade out the shake over time
       
       const shakeValue = Math.sin(this.shakeProgress * frequency * Math.PI * 2) * amplitude * fadeOut;
@@ -345,6 +345,11 @@ export class Screw implements IScrew {
       } else {
         this.shakeOffset.x = 0;
         this.shakeOffset.y = shakeValue;
+      }
+      
+      // Debug logging for shake offset (throttled)
+      if (DEBUG_CONFIG.logScrewDebug && Math.random() < 0.1) {
+        console.log(`📳 Screw ${this.id} shake offset: x=${this.shakeOffset.x.toFixed(1)}, y=${this.shakeOffset.y.toFixed(1)}, progress=${(this.shakeProgress * 100).toFixed(1)}%`);
       }
       
       return false; // Animation not complete
