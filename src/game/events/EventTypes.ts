@@ -28,8 +28,8 @@ export interface GameOverEvent extends BaseEvent {
   finalScore: number;
 }
 
-export interface LevelCompleteEvent extends BaseEvent {
-  type: 'level:complete';
+export interface LevelTransitionCompletedEvent extends BaseEvent {
+  type: 'level:transition:completed';
   level: number;
   score: number;
 }
@@ -448,7 +448,7 @@ export interface ScoreUpdatedEvent extends BaseEvent {
   type: 'score:updated';
   points: number;
   total: number;
-  reason: 'screw_collected' | 'level_complete' | 'bonus' | 'container_removed';
+  reason: 'screw_collected' | 'level_transition_completed' | 'bonus' | 'container_removed';
 }
 
 export interface LevelScoreUpdatedEvent extends BaseEvent {
@@ -539,8 +539,8 @@ export interface ProgressUpdatedEvent extends BaseEvent {
   progress: number; // 0-100 percentage
 }
 
-export interface LevelCompletedEvent extends BaseEvent {
-  type: 'level:completed';
+export interface LevelWinConditionMetEvent extends BaseEvent {
+  type: 'level:win:condition:met';
   totalScrews: number;
   finalProgress: number;
 }
@@ -616,7 +616,7 @@ export type GameEvent =
   | GamePausedEvent
   | GameResumedEvent
   | GameOverEvent
-  | LevelCompleteEvent
+  | LevelTransitionCompletedEvent
   | LevelStartedEvent
   | LevelProgressUpdatedEvent
   | NextLevelRequestedEvent
@@ -692,7 +692,7 @@ export type GameEvent =
   | SystemReadyEvent
   | ScrewProgressUpdatedEvent
   | ProgressUpdatedEvent
-  | LevelCompletedEvent
+  | LevelWinConditionMetEvent
   | TotalScrewCountSetEvent
   | TotalScrewCountAddEvent
   | RemainingScrewCountsRequestedEvent

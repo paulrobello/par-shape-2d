@@ -465,10 +465,10 @@ sequenceDiagram
         Note over PT: Count remaining screws in shapes + holes
         
         alt No screws remaining (AUTHORITATIVE)
-            PT->>EB: emit('level:completed')
-            EB->>GSC: Process completion & add score
+            PT->>EB: emit('level:win:condition:met')
+            EB->>GSC: Process win condition & add score
             Note over GSC: Add level score to total score
-            GSC->>EB: emit('level:complete')
+            GSC->>EB: emit('level:transition:completed')
             EB->>GM: Handle level transition
             GM->>LM: Clear current layers (visual only)
             GM->>LM: Generate next level

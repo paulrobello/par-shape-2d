@@ -55,7 +55,7 @@ This standardization provides consistent, predictable event names and easier und
 
 ### Game Lifecycle Events
 - **Game State**: `game:started`, `game:paused`, `game:resumed`, `game:over`
-- **Level Management**: `level:started`, `level:complete`, `level:progress:updated`, `next:level:requested`
+- **Level Management**: `level:started`, `level:win:condition:met`, `level:transition:completed`, `level:progress:updated`, `next:level:requested`
 - **System Coordination**: `system:ready`, `all:layers:cleared`
 
 ### Screw System Events (Core Gameplay)
@@ -105,11 +105,12 @@ This standardization provides consistent, predictable event names and easier und
 
 | System | Primary Events Emitted |
 |--------|------------------------|
-| **GameManager** | `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `level:complete`, `screw:clicked` (single-source input) |
+| **GameManager** | `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `screw:clicked` (single-source input) |
 | **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed`, `container:removing:screws` |
 | **HoldingHoleManager** | `holding_hole:filled`, `holding_hole:state:updated`, `holding_holes:full`, `holding_holes:available` |
 | **ScrewManager** | `screw:collected`, `screw:removed`, `screw:animation:*`, `screw:transfer:*` |
-| **GameStateCore** | Game state transitions, progress tracking events |
+| **GameStateCore** | `level:transition:completed`, game state transitions, progress tracking events |
+| **ProgressTracker** | `level:win:condition:met`, `progress:updated`, progress tracking events |
 | **SaveLoadManager** | `save:completed`, `restore:completed`, error events |
 | **PhysicsWorld** | `physics:body:*`, `physics:constraint:*`, `physics:collision:detected` |
 
@@ -314,14 +315,16 @@ sequenceDiagram
         SEH->>PT: Return total remaining screws + visible colors (callback)
         
         alt No screws remaining
-            PT->>EB: emit('level:completed')
-            EB->>GM: Process level completion
-            GM->>LM: Clear all layers
+            PT->>EB: emit('level:win:condition:met')
+            EB->>GEC: Process win condition (score addition)
+            Note over GEC: GameStateCore adds level score to total
+            GEC->>EB: emit('level:transition:completed')
+            EB->>GEC: Handle level transition
+            GEC->>LM: Clear all layers
             LM->>EB: emit('all:layers:cleared')
-            GM->>EB: emit('level:complete')
             
-            Note over GM: Show level complete screen after 3s delay
-            Note over GM: Display "Click to Continue" message
+            Note over GEC: Show level complete screen after 3s delay
+            Note over GEC: Display "Click to Continue" message
         end
     end
     

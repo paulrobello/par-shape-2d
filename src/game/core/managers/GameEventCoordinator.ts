@@ -10,8 +10,8 @@ import { eventBus } from '@/game/events/EventBus';
 import {
   GameStartedEvent,
   GameOverEvent,
-  LevelCompleteEvent,
-  LevelCompletedEvent,
+  LevelTransitionCompletedEvent,
+  LevelWinConditionMetEvent,
   NextLevelRequestedEvent,
   DebugModeToggledEvent,
   DebugInfoRequestedEvent,
@@ -51,8 +51,8 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     // Game state events
     this.subscribe('game:started', this.handleGameStarted.bind(this));
     this.subscribe('game:over', this.handleGameOver.bind(this));
-    this.subscribe('level:complete', this.handleLevelComplete.bind(this));
-    this.subscribe('level:completed', this.handleLevelCompletedByProgress.bind(this));
+    this.subscribe('level:transition:completed', this.handleLevelTransitionCompleted.bind(this));
+    this.subscribe('level:win:condition:met', this.handleLevelWinConditionMet.bind(this));
     this.subscribe('next:level:requested', this.handleNextLevelRequested.bind(this));
     
     // Debug events
@@ -139,14 +139,14 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     }
   }
 
-  private handleLevelComplete(event: unknown): void {
-    const levelCompleteEvent = event as LevelCompleteEvent;
+  private handleLevelTransitionCompleted(event: unknown): void {
+    const levelTransitionCompletedEvent = event as LevelTransitionCompletedEvent;
     if (!this.managers) return;
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log(`🎯 Level ${levelCompleteEvent.level} won! Starting 3-second delay before showing completion screen`);
+      console.log(`🎯 Level ${levelTransitionCompletedEvent.level} won! Starting 3-second delay before showing completion screen`);
     }
-    this.managers.stateManager.completeLevel(levelCompleteEvent.level, levelCompleteEvent.score);
+    this.managers.stateManager.completeLevel(levelTransitionCompletedEvent.level, levelTransitionCompletedEvent.score);
     
     // Start 3-second delay before showing level complete screen
     this.managers.timerManager.startLevelCompleteTimer(() => {
@@ -157,12 +157,12 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     });
   }
 
-  private handleLevelCompletedByProgress(event: unknown): void {
-    const levelCompletedEvent = event as LevelCompletedEvent;
+  private handleLevelWinConditionMet(event: unknown): void {
+    const levelWinConditionMetEvent = event as LevelWinConditionMetEvent;
     if (!this.managers) return;
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log(`🎯 Level completed by progress! Total screws: ${levelCompletedEvent.totalScrews}, Final progress: ${levelCompletedEvent.finalProgress}% - Starting 3-second delay`);
+      console.log(`🎯 Level win condition met! Total screws: ${levelWinConditionMetEvent.totalScrews}, Final progress: ${levelWinConditionMetEvent.finalProgress}% - Starting 3-second delay`);
     }
     this.managers.stateManager.updateGameState({ levelWon: true });
     

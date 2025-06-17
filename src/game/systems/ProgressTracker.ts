@@ -9,7 +9,7 @@ import {
   TotalScrewCountSetEvent,
   TotalScrewCountAddEvent,
   ProgressUpdatedEvent,
-  LevelCompletedEvent,
+  LevelWinConditionMetEvent,
   LevelStartedEvent,
   GameOverEvent,
   ScrewCollectedEvent,
@@ -185,8 +185,8 @@ export class ProgressTracker extends BaseSystem {
           
           if (totalRemaining === 0) {
             // All screws collected and last container removed - level complete!
-            const completionEvent: LevelCompletedEvent = {
-              type: 'level:completed',
+            const completionEvent: LevelWinConditionMetEvent = {
+              type: 'level:win:condition:met',
               totalScrews: this.state.totalScrews,
               finalProgress: 100,
               timestamp: Date.now(),
@@ -262,8 +262,8 @@ export class ProgressTracker extends BaseSystem {
 
       // Check for level completion
       if (this.state.progress >= 100) {
-        const completionEvent: LevelCompletedEvent = {
-          type: 'level:completed',
+        const completionEvent: LevelWinConditionMetEvent = {
+          type: 'level:win:condition:met',
           totalScrews: this.state.totalScrews,
           finalProgress: this.state.progress,
           timestamp: Date.now(),

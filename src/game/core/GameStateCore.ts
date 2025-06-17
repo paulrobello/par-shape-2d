@@ -11,7 +11,7 @@ import {
   BoundsChangedEvent,
   LayerClearedEvent,
   AllLayersClearedEvent,
-  LevelCompletedEvent,
+  LevelWinConditionMetEvent,
   LayersUpdatedEvent,
   ShapeDestroyedEvent,
   GameStateRequestEvent,
@@ -44,7 +44,7 @@ export class GameStateCore extends BaseSystem {
     this.subscribe('layer:cleared', this.handleLayerCleared.bind(this));
     this.subscribe('all:layers:cleared', this.handleAllLayersCleared.bind(this));
     // NOTE: next:level:requested is handled by GameEventCoordinator to avoid duplicate level increments
-    this.subscribe('level:completed', this.handleLevelCompletedByProgress.bind(this));
+    this.subscribe('level:win:condition:met', this.handleLevelWinConditionMet.bind(this));
     this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
     
     // Shape events
@@ -168,7 +168,7 @@ export class GameStateCore extends BaseSystem {
   // NOTE: handleNextLevelRequested was removed to prevent duplicate level increments
   // The GameEventCoordinator handles next:level:requested events and calls GameState.nextLevel()
 
-  private handleLevelCompletedByProgress(event: LevelCompletedEvent): void {
+  private handleLevelWinConditionMet(event: LevelWinConditionMetEvent): void {
     this.executeIfActive(() => {
       if (DEBUG_CONFIG.logProgressTracking) {
         console.log(`[GameStateCore] ProgressTracker reported level completion`);
@@ -184,7 +184,7 @@ export class GameStateCore extends BaseSystem {
       }
       
       this.emit({
-        type: 'level:complete',
+        type: 'level:transition:completed',
         timestamp: Date.now(),
         level: this.state.currentLevel,
         score: this.state.levelScore
