@@ -6,7 +6,7 @@
 
 **Note**: This document is a companion to the `game_architecture.md` document, which details the overall game architecture and logic flows. This document focuses specifically on the event-driven architecture and event flows within the game.
 
-**Updates**: Changes should be integrated directly into existing sections rather than added to a separate "updates" section. Only add new sections when entirely new systems are introduced.
+**Maintenance**: This document describes the current state of the event architecture. New functionality is documented directly in relevant sections rather than as separate updates.
 
 ## Overview
 
@@ -14,12 +14,12 @@ The game event system provides a comprehensive, type-safe event-driven architect
 
 ### Event Naming Convention Standardization
 
-All events follow a consistent `domain:action` or `domain:subdomain:action` format with colon separators for predictable hierarchy and industry alignment. Key migration examples:
-- `level_score:updated` → `level:score:updated`
-- `game_state:request` → `game:state:request`
-- `container_state:request` → `container:state:request`
+All events follow a consistent `domain:action` or `domain:subdomain:action` format with colon separators for predictable hierarchy and industry alignment. Standard event naming patterns include:
+- `level:score:updated` for level score updates
+- `game:state:request` for game state requests
+- `container:state:request` for container state requests
 
-This standardization provides consistent, predictable event names and easier understanding of event hierarchy.
+This standardization provides consistent, predictable event names and easier understanding of event hierarchy. **Note**: Some events may still use underscores in legacy systems during the transition to the colon format.
 
 ## Architecture
 
@@ -49,6 +49,7 @@ This standardization provides consistent, predictable event names and easier und
 4. **Game EventTypes** (`src/game/events/EventTypes.ts`)
    - 120+ game-specific event definitions
    - Comprehensive type safety with union types
+   - **Race condition protection**: Single event handlers prevent duplicate processing (e.g., `next:level:requested` is handled exclusively by `GameEventCoordinator`)
 
 ## Event Categories
 
@@ -58,13 +59,14 @@ This standardization provides consistent, predictable event names and easier und
 - **System Coordination**: `system:ready`, `all:layers:cleared`
 
 ### Screw System Events (Core Gameplay)
-- **User Interactions**: `screw:clicked`, `screw:blocked:clicked`
+- **User Interactions**: `screw:clicked`, `screw:blocked:clicked` (with race condition protection)
 - **State Changes**: `screw:removed`, `screw:collected`, `screw:blocked`, `screw:unblocked`
 - **Animations**: `screw:animation:started`, `screw:animation:completed`
 - **Transfers**: `screw:transfer:started`, `screw:transfer:completed`, `screw:transfer:failed`
-- **Ownership**: Immediate ownership transfer when operations begin (not when animations complete)
+- **Ownership**: Immediate ownership transfer when operations begin (not when animations complete) - prevents race conditions during shape destruction
 - **Generation**: `screws:generated`, `shape:screws:ready`
 - **Counting**: `remaining:screws:requested` - Counts ALL screws in shapes (regardless of removability) AND holding holes for container planning
+- **Physics Integration**: Enhanced physics constraint management with proper `isInContainer` state handling
 
 ### Shape System Events
 - **Lifecycle**: `shape:created`, `shape:destroyed`, `shape:fell_off_screen`
@@ -84,6 +86,8 @@ This standardization provides consistent, predictable event names and easier und
 - **Transfers**: `screw:transfer:completed`, `screw:transfer:failed`, `screw:transfer:color_check`
 - **Positioning**: Fixed 4-slot system prevents container shifting on removal
 - **Hole Planning**: Container holes sized for ALL remaining screws of each color (1-3 holes max), not just currently removable screws
+- **Proactive Management**: Containers created before needed via `layers:updated` and `layer:indices:updated` triggers
+- **Replacement Timing**: Fixed race conditions by moving replacement logic to animation completion cycle
 
 ### Physics Events
 - **Bodies**: `physics:body:added`, `physics:body:removed`, `physics:body:removed:immediate`
@@ -166,6 +170,8 @@ sequenceDiagram
 
 ### 2. Container Management Flow (Proactive + Reactive)
 
+**Features proactive management with race condition protection:**
+
 ```mermaid
 sequenceDiagram
     participant LM as LayerManager
@@ -188,7 +194,7 @@ sequenceDiagram
         CM->>CP: calculateOptimalContainers(screwInventory)
         CP->>CM: Return ContainerPlan
         
-        alt Plan changed or missing containers
+        alt Plan requires containers or containers missing
             CM->>CM: applyContainerPlan() - Add missing containers only
             CM->>EB: emit('container:state:updated')
             Note over CM: Containers ready BEFORE user needs them
@@ -233,6 +239,8 @@ sequenceDiagram
 
 ### 3. Level Progression Flow
 
+**Properly coordinated through GameEventCoordinator to prevent duplicate processing:**
+
 ```mermaid
 sequenceDiagram
     participant User
@@ -269,15 +277,19 @@ sequenceDiagram
     
     User->>GM: Click on level complete screen
     GM->>EB: emit('next:level:requested')
-    EB->>GEC: Route to GameEventCoordinator
+    EB->>GEC: Route to GameEventCoordinator (ONLY handler)
     GEC->>GEC: Clear level complete timers
     GEC->>GM: Hide level complete screen
     GEC->>GM: Call GameState.nextLevel()
     GM->>GM: Initialize next level
     GM->>EB: emit('level:started')
+    
+    Note over GEC: Single handler prevents duplicate level progression
 ```
 
 ### 4. Physics Integration Flow
+
+**Features atomic screw state management and constraint handling:**
 
 ```mermaid
 sequenceDiagram
@@ -287,9 +299,12 @@ sequenceDiagram
     participant EB as EventBus
 
     EB->>SM: 'screw:clicked'
+    SM->>SM: Atomic state update (isBeingCollected + physics)
     SM->>PM: Remove constraint
     PM->>EB: emit('physics:constraint:removed')
     PM->>EB: emit('physics:body:removed:immediate')
+    
+    Note over SM: Physics constraint removal is atomic with state changes
     
     Note over PM: Physics simulation step
     PM->>EB: emit('physics:step:completed')
@@ -400,9 +415,10 @@ sequenceDiagram
 
 **Ownership Benefits:**
 - **Race Condition Prevention**: Clear ownership eliminates complex cleanup checks
-- **Data Integrity**: Screws cannot be deleted by unauthorized systems
+- **Data Integrity**: Screws cannot be deleted by unauthorized systems (via `canBeDeletedBy()` validation)
 - **Simplified Logic**: No need to check containers/holding holes during disposal
 - **Debug Visibility**: Complete ownership tracking with logging
+- **State Integrity**: Proper handling of `isInContainer`, `isBeingCollected`, and `isCollected` states
 
 ## Event Naming Conventions
 
@@ -422,207 +438,6 @@ sequenceDiagram
 
 All events follow a consistent `domain:action` or `domain:subdomain:action` format with colon separators for predictable hierarchy and industry alignment. This standardization provides consistent, predictable event names and easier understanding of event hierarchy.
 
-## System Reliability Improvements
-
-### Critical Race Condition Fixes (✅ Completed)
-
-#### **Level Progression Event Handler Duplication**
-**Issue**: When progressing to the next level, the level was incrementing by 2 instead of 1 due to duplicate event handlers for `next:level:requested`.
-
-**Root Cause**: Both `GameEventCoordinator` and `GameStateCore` were subscribed to the `next:level:requested` event, each calling their respective `nextLevel()` methods, causing double increment.
-
-**Solution**: Removed the duplicate event handler from `GameStateCore.ts`, leaving only the proper coordination handler in `GameEventCoordinator.ts`.
-
-**Files Modified**:
-- `src/game/core/GameStateCore.ts` - Removed duplicate `next:level:requested` subscription and handler
-- Event coordination now properly flows through `GameEventCoordinator` only
-
-#### **Level Complete Screen Click Handler**
-**Issue**: Level complete screen displayed "Click to Continue" but clicks were not being processed, preventing level progression.
-
-**Root Cause**: `GameManager.handleGameInput()` had early return when `!gameStarted || gameOver`, which ignored clicks during `levelComplete` state.
-
-**Solution**: Added specific handling for `levelComplete` state that emits `next:level:requested` event when screen is clicked.
-
-**Files Modified**:
-- `src/game/core/GameManager.ts` - Added level complete click detection
-- `src/game/core/managers/GameEventCoordinator.ts` - Added `handleNextLevelRequested()` method
-- `src/game/core/managers/GameStateManager.ts` - Added `hideLevelComplete()` method
-
-#### **Container Replacement Race Condition**
-**Issue**: Container replacement used `setTimeout()` which created race conditions where containers could be removed or indices could change during the 500ms delay.
-
-**Solution**: Moved replacement logic to the animation update cycle in `ContainerManager.updateContainerAnimations()`. Replacement now triggers when fade-out animation completes, eliminating timing-based race conditions.
-
-**Files Modified**:
-- `src/game/core/managers/ContainerManager.ts` - Added `containersBeingProcessed` Set for duplicate prevention
-- Replaced `setTimeout()` with event-driven animation completion handling
-
-#### **Physics Constraint Race Condition**
-**Issue**: Physics constraints were removed immediately when screw collection started, but screw state (`isBeingCollected`) wasn't set until later, creating a window for duplicate clicks.
-
-**Solution**: Made screw collection atomic by moving physics constraint removal inside the state-setting operation.
-
-**Files Modified**:
-- `src/game/systems/ScrewManager.ts` - Modified `startScrewCollection()` to handle physics atomically
-- `src/game/systems/screw/ScrewEventHandler.ts` - Added validation to prevent duplicate clicks
-
-#### **State Validation Improvements**
-**Issue**: Missing validation allowed operations on invalid states (e.g., placing screws in occupied holes).
-
-**Solution**: Added comprehensive validation throughout the codebase:
-- Container state validation before operations
-- Screw state validation to prevent race conditions
-- Hole availability validation before placement
-
-#### **Screw Physics State Management Race Condition**
-**Issue**: Physics service was not properly accounting for screws in containers (`isInContainer` state) when determining if shapes should become dynamic. This caused shapes to remain static even when they logically had only 1 active screw left.
-
-**Root Cause**: Screws have multiple states:
-- `isBeingCollected` (during animation)
-- `isInContainer` (placed in container but not truly collected) 
-- `isCollected` (when container is removed)
-
-The physics service was only filtering out `isCollected` and `isBeingCollected` screws, missing `isInContainer` screws.
-
-**Solution**: Updated all screw filtering logic to exclude `isInContainer` screws:
-- `removeConstraintOnly()`: Fixed screw counting for physics state decisions
-- `updateShapeConstraints()`: Fixed single-screw constraint recreation  
-- `checkForStuckShapes()`: Fixed stuck shape detection
-- `handleScrewClicked()`: Fixed duplicate click prevention
-
-**Files Modified**:
-- `src/game/systems/screw/ScrewPhysicsService.ts` - Updated constraint logic and stiffness for single-screw scenarios
-- `src/game/systems/ScrewManager.ts` - Updated screw state filtering
-- `src/shared/physics/PhysicsBodyFactory.ts` - Improved constraint creation for dynamic shapes
-
-#### **Physics Constraint Stiffness Optimization**
-**Issue**: When shapes had only 1 screw left, constraint recreation was using very high stiffness (0.95) for composite bodies which prevented natural movement around the pivot point.
-
-**Solution**: 
-- Use lower stiffness (0.7 for composite, 0.8 for regular) in single-screw constraints
-- Allow custom stiffness options to override default composite body logic  
-- Enhanced physics nudges for partially dynamic shapes with both angular and linear components
-- More effective nudging for composite bodies vs regular shapes
-
-This allows shapes with 1 screw to move naturally around their pivot point while still being properly constrained.
-
-### Shared Utilities Framework (✅ Completed)
-
-Created comprehensive shared utilities to eliminate code duplication and ensure consistency:
-
-#### **EventEmissionUtils** (`src/shared/utils/EventEmissionUtils.ts`)
-- Standardized event creation with automatic timestamps
-- Consistent completion event patterns
-- Eliminates duplicate event emission code
-
-#### **StateValidationUtils** (`src/shared/utils/StateValidationUtils.ts`)
-- Unified validation patterns for systems, game state, screws, and containers
-- Atomic validation operations with clear error reporting
-- Prevents invalid state transitions
-
-#### **DebugLogger** (`src/shared/utils/DebugLogger.ts`)
-- Consistent debug logging across all systems
-- Conditional logging based on debug flags
-- Standardized log formatting with emojis for easy identification
-
-### Proactive Container Management System (✅ Completed)
-
-#### **Container Planning System**
-**Problem**: Containers were only created reactively after filled containers were removed, causing delays where users had removable screws of multiple colors but insufficient containers.
-
-**Solution**: Implemented proactive container management using `ContainerPlanner` utility and event-driven updates.
-
-**Key Components**:
-
-#### **ContainerPlanner** (`src/game/utils/ContainerPlanner.ts`)
-- Pure function utility for optimal container calculation
-- `calculateOptimalContainers()`: Takes screw inventory, returns optimal container plan
-- **Hole Sizing**: Counts ALL screws (regardless of removability) - containers planned for future needs
-- `plansEqual()`: Efficiently compares container plans to prevent unnecessary updates
-- Conservative approach: Only adds missing containers, never replaces existing ones with screws
-
-#### **Proactive Event Triggers**
-The container system now listens to events that indicate screw availability changes:
-- `layers:updated` - When layer visibility changes (affects screw removability)
-- `layer:indices:updated` - When layer ordering changes (affects screw accessibility)  
-- `screw:collected` - When screws are placed in containers (changes inventory needs)
-
-#### **Throttled Updates**
-- 1-second throttle prevents excessive recalculations during rapid state changes
-- `proactivelyUpdateContainers()` method handles throttling logic
-- Debug logging shows throttling decisions for troubleshooting
-
-#### **Conservative Container Updates**
-- `applyContainerPlan()` with `clearExisting=false` only adds missing containers
-- Never removes containers that have screws in them
-- Maintains existing container positions and states
-- Only creates containers for colors that don't have containers yet
-
-**Files Modified**:
-- `src/game/core/managers/ContainerManager.ts` - Added proactive event handlers and throttling
-- `src/game/utils/ContainerPlanner.ts` - New pure function utility for container planning
-
-#### **Container Replacement Timing Fix**
-**Problem**: Container replacement calculations were happening after the 500ms fade animation completed, creating a race condition where screws could be placed in holding holes during the fade delay, causing replacement containers to not be created.
-
-**Solution**: Create replacement containers with fade-in animation immediately after the previous container's fade-out completes.
-
-**Timing Flow**:
-1. Container filled → Mark for removal → Start fade-out animation (500ms)
-2. After fade-out completes → Remove container physically
-3. **IMMEDIATELY** create replacement containers with fade-in animation (500ms)
-4. Replacement containers become fully visible
-
-**Benefits**:
-- Containers are ready BEFORE users need them, not after
-- Eliminates reactive delays in container creation
-- Maintains performance through intelligent throttling
-- Conservative approach prevents unwanted container changes
-- **Prevents race conditions during fade animations**
-
-#### **Fixed-Slot Container System**
-**Problem**: When containers were removed, all containers to the right would shift left, causing jarring visual effects. Replacement containers always appeared at the end.
-
-**Solution**: Implement a fixed 4-slot positioning system where containers maintain their visual positions.
-
-**Key Features**:
-- **4 Fixed Slots**: Containers have predetermined positions regardless of how many are active
-- **Slot Preservation**: When a container is removed, its slot remains empty until needed
-- **Vacant Slot Usage**: New containers appear in the first available vacant slot
-- **No Shifting**: Existing containers never change position when others are removed
-
-**Implementation Details**:
-- `containerSlots[]` array tracks which slots are occupied
-- `getContainers()` returns only non-null containers in slot order
-- Positioning calculated for all 4 slots, not just filled ones
-- Container lookup by color instead of index for reliability
-
-**Benefits**:
-- **Stable Visual Layout**: No unexpected position changes
-- **Intuitive Replacement**: Containers appear exactly where previous ones were
-- **Smoother Animations**: Only fade in/out, no sliding movements
-- **Better UX**: Players can predict where containers will appear
-
-#### **Container Identification Fix**
-**Problem**: Near the end of levels, containers would stop being removed when full due to index mismatches between events and the slot system.
-
-**Solution**: Find containers by color and status instead of relying on potentially invalid indices.
-
-**Root Cause**: 
-- `containerIndex` in events referred to original array positions
-- With slot system, containers might not be in sequential positions
-- `orderedContainers[event.containerIndex]` could return `undefined`
-
-**Fix**:
-- Find containers using `containers.find(c => c.color === event.color && c.isFull)`
-- Calculate proper `visualIndex` from slot position for events
-- Ensures containers are always found and removed regardless of their slot position
-
-**Benefits**:
-- **Reliable Removal**: Containers always removed when full, even near level end
-- **Index Consistency**: Events use calculated visual indices
-- **Robust Logic**: Works with any container arrangement in slots
 
 ## Performance Considerations
 
@@ -677,7 +492,8 @@ The container system now listens to events that indicate screw availability chan
 
 ## Future Improvements
 
-1. **Naming Standardization**: Fix underscore vs colon inconsistencies
+1. **Naming Standardization**: Complete transition of remaining underscore events to colon format
 2. **Event Batching**: Implement batching for high-frequency events
 3. **Performance Monitoring**: Add automatic performance threshold alerts
 4. **Event Replay**: Add event replay capabilities for debugging
+5. **Additional Race Condition Prevention**: Continue monitoring for edge cases in event handling

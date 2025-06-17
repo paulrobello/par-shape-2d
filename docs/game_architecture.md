@@ -4,11 +4,11 @@
 
 **Note**: This document is a companion to the `game_event_flows.md` document, which details the event-driven architecture of the game. This document focuses on the overall game architecture, system organization, and logic flows.
 
-**Updates**: Changes should be integrated directly into existing sections rather than added to a separate "updates" section. Only add new sections when entirely new systems are introduced.
+**Maintenance**: This document describes the current state of the game architecture. New functionality is documented directly in relevant sections rather than as separate updates.
 
 ## Overview
 
-PAR Shape 2D is a physics-based puzzle game built with Next.js, TypeScript, and Matter.js. The game features a sophisticated event-driven architecture with complete system decoupling, comprehensive shared utilities, and robust physics integration.
+PAR Shape 2D is a physics-based puzzle game using Next.js, TypeScript, and Matter.js. The game features a sophisticated event-driven architecture with complete system decoupling, comprehensive shared utilities, and robust physics integration.
 
 ### Core Game Concept
 
@@ -42,18 +42,18 @@ All game systems extend `BaseSystem` and operate independently:
 - **Autonomous Operation**: Each system manages its own state and responsibilities
 - **Event-Only Communication**: No direct system-to-system dependencies
 - **Graceful Degradation**: Systems can fail without affecting others
-- **Hot-Swappable**: Systems can be replaced or upgraded independently
+- **Hot-Swappable**: Systems can be replaced or modified independently
 
 ### 3. Shared Utilities Framework
 
-Comprehensive utilities eliminate code duplication and ensure consistency:
+Comprehensive utilities prevent code duplication and ensure consistency:
 
-- **EventEmissionUtils**: Standardized event creation with automatic timestamps and completion patterns
+- **EventEmissionUtils**: Standard event creation with automatic timestamps and completion patterns
 - **StateValidationUtils**: Unified validation with system, game state, and screw validation helpers  
 - **DebugLogger**: Consistent debug logging with conditional output, standardized formatting, and emojis
 - **Enhanced Animation System**:
   - **EasingFunctions**: 24+ professional easing functions (cubic, elastic, bounce, etc.)
-  - **AnimationUtils**: State management with deprecation notices for legacy functions
+  - **AnimationUtils**: State management with transition support for evolving animation APIs
   - **EasingPresets**: Curated configurations for UI, game, and physics animations
   - **Screw Rotation**: Configurable rotation speeds for collection (1 rps) and transfer (1.5 rps) animations
 - **Advanced Rendering Utilities**:
@@ -69,7 +69,7 @@ Deep integration with Matter.js physics engine:
 
 - **Shared Physics World**: Centralized physics simulation
 - **Body Management**: Automatic physics body lifecycle management
-- **Constraint System**: Dynamic constraint creation and removal
+- **Constraint System**: Dynamic constraint management and lifecycle control
 - **Collision Detection**: Advanced two-phase collision handling (broad + narrow phase) with layer isolation and configurable blocking margins
 
 ## System Architecture
@@ -103,7 +103,7 @@ Deep integration with Matter.js physics engine:
 
 #### **ScrewManager** (`src/game/systems/ScrewManager.ts`)
 **Responsibility**: Complete screw lifecycle management with ownership tracking
-- Screw creation and placement within shapes
+- Screw instantiation and placement within shapes
 - Click/touch event handling for screw selection
 - Collection animation management
 - Physics constraint management
@@ -130,11 +130,11 @@ Deep integration with Matter.js physics engine:
 
 #### **ContainerManager** (`src/game/core/managers/ContainerManager.ts`)
 **Responsibility**: Container lifecycle and screw assignment with fixed-slot positioning
-- Container creation with appropriate colors and hole counts (1-3 holes per container)
+- Container instantiation with appropriate colors and hole counts (1-3 holes per container)
 - **Hole Planning**: Sizes containers for ALL remaining screws of each color, not just removable ones
 - Screw placement and hole management
 - Container completion detection
-- Intelligent container replacement with fade animations
+- Intelligent container substitution with fade animations
 - Fixed 4-slot positioning system
 
 **Key Features**:
@@ -142,7 +142,7 @@ Deep integration with Matter.js physics engine:
 - **Smart Replacement**: Uses real-time screw data for optimal container selection
 - **Vacant Slot Usage**: New containers appear in first available slot
 - **Color-Based Identification**: Finds containers by color instead of index for reliability
-- **Race Condition Prevention**: Event-driven replacement with immediate fade-in
+- **Race Condition Prevention**: Event-driven substitution with immediate fade-in
 - **Reservation System**: Prevents duplicate screw assignments
 
 **Slot Architecture**:
@@ -154,7 +154,7 @@ Deep integration with Matter.js physics engine:
 **Container Replacement Timing**:
 1. Container filled → Mark for removal → Start fade-out animation (500ms)
 2. After fade-out completes → Remove container physically  
-3. **IMMEDIATELY** create replacement containers with fade-in animation (500ms)
+3. **IMMEDIATELY** spawn replacement containers with fade-in animation (500ms)
 4. Replacement containers become fully visible
 
 **Proactive Container Management**:
@@ -166,7 +166,7 @@ Deep integration with Matter.js physics engine:
 
 #### **LayerManager** (`src/game/systems/LayerManager.ts`)
 **Responsibility**: Multi-layer shape organization and visual management
-- Layer creation and management (10+ layers per level)
+- Layer instantiation and management (10+ layers per level)
 - Shape placement within layers using **ShapeFactory** for robust shape generation
 - Layer visibility and depth management
 - Physics group isolation between layers
@@ -179,7 +179,7 @@ Deep integration with Matter.js physics engine:
 - Physics bodies only interact within their layer
 - 6 shapes per layer with strategic placement including capsule shapes
 - Depth-based collision detection for screw accessibility
-- **ShapeFactory Integration**: Uses advanced shape creation with fallback mechanisms for reliable shape placement
+- **ShapeFactory Integration**: Uses advanced shape generation with fallback mechanisms for reliable shape placement
 
 #### **PhysicsWorld** (`src/game/physics/PhysicsWorld.ts`)
 **Responsibility**: Physics engine integration and management
@@ -190,7 +190,7 @@ Deep integration with Matter.js physics engine:
 - Performance optimization
 
 **Integration Points**:
-- Shape body creation and management including composite shapes (capsules)
+- Shape body instantiation and management including composite shapes (capsules)
 - Screw constraint handling
 - Layer-based collision groups
 - Real-time physics stepping
@@ -255,7 +255,7 @@ The game follows a **strict single responsibility pattern** for level completion
 - **Win Condition Logic**: Evaluates when level objectives are fully met
 
 #### **LayerManager: Visual Management Only**
-- Handles layer creation, visibility, and physics organization
+- Handles layer instantiation, visibility, and physics organization
 - Emits `all:layers:cleared` for UI state updates
 - **Does NOT determine level completion** - purely layer management
 - Layer clearing is independent of actual game progress
@@ -377,7 +377,7 @@ sequenceDiagram
             CM->>Slots: Assign container to vacant slot
             CM->>EB: emit('container:state:updated')
             Note over CM: New container fades in at exact position (500ms)
-        else No replacement needed
+        else No substitution needed
             Note over Slots: Slot remains vacant until needed
             CM->>EB: emit('container:all_removed')
         end
@@ -391,7 +391,7 @@ sequenceDiagram
 The game implements a comprehensive ownership transfer system that ensures data integrity and prevents race conditions:
 
 #### **Ownership States**:
-1. **Shape Ownership**: Initial state when screw is created (`owner = shapeId`, `ownerType = 'shape'`)
+1. **Shape Ownership**: Initial state when screw is instantiated (`owner = shapeId`, `ownerType = 'shape'`)
 2. **Holding Hole Ownership**: Temporary storage (`owner = holeId`, `ownerType = 'holding_hole'`)
 3. **Container Ownership**: Final destination (`owner = containerId`, `ownerType = 'container'`)
 
@@ -402,7 +402,7 @@ The game implements a comprehensive ownership transfer system that ensures data 
 - **Deletion Authority**: Only current owner can delete/destroy screws
 
 #### **Benefits**:
-- **Race Condition Prevention**: Clear ownership eliminates complex cleanup logic
+- **Race Condition Prevention**: Clear ownership prevents complex cleanup logic
 - **Data Integrity**: Screws cannot be lost or duplicated
 - **Simplified Logic**: No need to check containers/holding holes for disposal decisions
 - **Debug Visibility**: Complete ownership tracking for troubleshooting
@@ -426,7 +426,7 @@ The game uses distributed state management with eventual consistency:
 #### **Persistence Strategy**:
 - Complete state snapshots saved to localStorage
 - Cross-system state collection via events
-- Incremental updates during gameplay
+- Incremental state changes during gameplay
 - Automatic save triggers (level completion, game over)
 
 ### Event Flow Patterns
@@ -453,11 +453,11 @@ The game uses distributed state management with eventual consistency:
 - Loop detection prevents infinite chains (threshold: 50 with contextual keys)
 - Priority-based processing for critical events
 - Throttled high-frequency events (removability updates)
-- Performance monitoring and metrics built-in
+- Performance monitoring and metrics included
 
 #### **Physics Integration**:
 - Layer-based collision groups reduce computation
-- Constraint removal optimized for immediate shape falling
+- Constraint removal designed for immediate shape falling behavior
 - Dormant body management for inactive shapes
 - Spatial partitioning for collision detection
 - Adjusted constraint stiffness for natural movement
@@ -467,7 +467,7 @@ The game uses distributed state management with eventual consistency:
 - Physics body removal for off-screen shapes
 - Event subscription cleanup on system destruction
 - Bounded memory usage with automatic limits
-- Container replacement moved from setTimeout to animation cycle
+- Container substitution integrated with animation cycle for timing precision
 
 #### **Rendering Optimization**:
 - **Canvas scaling** with proper aspect ratio maintenance and high-DPI support
