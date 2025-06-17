@@ -4,23 +4,22 @@ This report shows the size of all files in the `src` directory, sorted by size i
 
 | File | Size (bytes) | Size (tokens) |
 |------|--------------|---------------|
-| src/game/core/GameManager.ts.backup | 87,640 | 26,558 |
-| src/game/systems/LayerManager.ts | 44,568 | 13,506 |
-| src/game/systems/ScrewManager.ts | 31,863 | 9,656 |
+| src/game/systems/LayerManager.ts | 44,993 | 13,635 |
+| src/game/systems/ScrewManager.ts | 34,359 | 10,412 |
 | src/app/editor/components/PropertyPanel.tsx | 31,019 | 9,400 |
 | src/components/game/GameCanvas.tsx | 29,336 | 8,890 |
+| src/game/systems/ShapeFactory.ts | 29,045 | 8,802 |
 | src/game/systems/screw/ScrewEventHandler.ts | 26,065 | 7,899 |
 | src/app/favicon.ico | 25,931 | 7,858 |
 | src/shared/rendering/core/GeometryRenderer.ts | 25,874 | 7,841 |
-| src/game/systems/ShapeFactory.ts | 25,857 | 7,836 |
-| src/game/core/managers/ContainerManager.ts | 24,565 | 7,444 |
+| src/game/core/managers/ContainerManager.ts | 25,612 | 7,762 |
 | src/editor/systems/ShapeEditorManager.ts | 24,221 | 7,340 |
 | src/game/core/managers/GameRenderManager.ts | 24,008 | 7,276 |
 | src/game/systems/screw/ScrewPhysicsService.ts | 22,572 | 6,840 |
 | src/game/utils/ScrewPositionUtils.ts | 21,308 | 6,457 |
+| src/game/core/managers/GameEventCoordinator.ts | 20,017 | 6,066 |
 | src/game/entities/Screw.ts | 19,806 | 6,002 |
 | src/game/core/managers/HoldingHoleManager.ts | 19,111 | 5,792 |
-| src/game/core/managers/GameEventCoordinator.ts | 18,908 | 5,730 |
 | src/game/events/EventTypes.ts | 18,849 | 5,712 |
 | src/shared/rendering/components/ScrewRenderer.ts | 18,829 | 5,706 |
 | src/shared/physics/PhysicsWorld.ts | 17,530 | 5,313 |
@@ -31,16 +30,16 @@ This report shows the size of all files in the `src` directory, sorted by size i
 | src/game/entities/Shape.ts | 16,753 | 5,077 |
 | src/editor/drawing/tools/CapsuleTool.ts | 15,633 | 4,738 |
 | src/shared/events/EventDebugger.ts | 14,469 | 4,385 |
-| src/game/core/GameManager.ts | 14,055 | 4,260 |
+| src/game/core/GameManager.ts | 14,385 | 4,360 |
+| src/shared/utils/Constants.ts | 14,357 | 4,351 |
+| src/shared/utils/CollisionUtils.ts | 14,273 | 4,326 |
 | src/game/systems/screw/ScrewTransferService.ts | 13,719 | 4,158 |
-| src/shared/utils/Constants.ts | 13,421 | 4,067 |
-| src/game/core/GameStateCore.ts | 13,346 | 4,045 |
 | src/shared/rendering/components/DebugRenderer.ts | 13,305 | 4,032 |
+| src/game/core/GameStateCore.ts | 13,229 | 4,009 |
 | src/shared/physics/PhysicsBodyFactory.ts | 13,009 | 3,943 |
 | src/shared/strategies/CornerStrategy.ts | 12,855 | 3,896 |
 | src/shared/events/SharedEventBus.ts | 12,588 | 3,815 |
 | src/game/core/GameState.ts | 12,511 | 3,792 |
-| src/shared/utils/CollisionUtils.ts | 12,178 | 3,691 |
 | src/editor/systems/PhysicsSimulator.ts | 12,034 | 3,647 |
 | src/game/systems/ProgressTracker.ts | 11,901 | 3,607 |
 | src/editor/drawing/tools/PathTool.ts | 11,858 | 3,594 |
@@ -69,7 +68,7 @@ This report shows the size of all files in the `src` directory, sorted by size i
 | src/editor/drawing/tools/RectangleTool.ts | 7,673 | 2,326 |
 | src/shared/rendering/styles/ColorTheme.ts | 7,348 | 2,227 |
 | src/app/editor/components/FileControls.tsx | 7,331 | 2,222 |
-| src/game/rendering/ShapeRenderer.ts | 6,993 | 2,120 |
+| src/game/rendering/ShapeRenderer.ts | 7,096 | 2,151 |
 | src/editor/drawing/tools/CircleTool.ts | 6,938 | 2,103 |
 | src/shared/validation/JsonUtils.ts | 6,857 | 2,078 |
 | src/editor/systems/GridManager.ts | 6,731 | 2,040 |
@@ -102,11 +101,11 @@ This report shows the size of all files in the `src` directory, sorted by size i
 | src/game/systems/screw/ScrewAnimationService.ts | 4,342 | 1,316 |
 | src/editor/drawing/tools/SelectTool.ts | 4,319 | 1,309 |
 | src/shared/strategies/ScrewPlacementStrategy.ts | 4,281 | 1,298 |
+| src/game/core/managers/GameStateManager.ts | 4,257 | 1,290 |
 | src/editor/components/GridControls.tsx | 4,223 | 1,280 |
-| src/game/core/managers/GameStateManager.ts | 4,137 | 1,254 |
 | src/shared/strategies/index.ts | 3,980 | 1,207 |
 | src/game/core/managers/GameDebugManager.ts | 3,905 | 1,184 |
-| src/game/core/managers/GameManagerTypes.ts | 3,866 | 1,172 |
+| src/game/core/managers/GameManagerTypes.ts | 3,895 | 1,181 |
 | src/editor/components/DrawingOverlay.tsx | 3,688 | 1,118 |
 | src/game/core/managers/GameTimerManager.ts | 3,104 | 941 |
 | src/editor/utils/theme.ts | 2,943 | 892 |
@@ -118,9 +117,9 @@ This report shows the size of all files in the `src` directory, sorted by size i
 | src/shared/rendering/core/RenderContext.ts | 2,704 | 820 |
 | src/editor/core/BaseEditorSystem.ts | 2,431 | 737 |
 | src/game/systems/ShapeRegistry.ts | 2,376 | 720 |
-| src/game/utils/MathUtils.ts | 2,317 | 703 |
 | src/game/utils/ContainerPlanner.ts | 2,242 | 680 |
 | src/game/core/GameLoop.ts | 1,878 | 570 |
+| src/game/utils/MathUtils.ts | 1,826 | 554 |
 | src/app/editor/EditorLayoutClient.tsx | 1,805 | 547 |
 | src/shared/utils/EventEmissionUtils.ts | 1,791 | 543 |
 | src/editor/core/EditorEventBus.ts | 1,786 | 542 |
@@ -159,6 +158,6 @@ This report shows the size of all files in the `src` directory, sorted by size i
 
 ## Summary
 
-- **Total files:** 152
-- **Total size:** 1,351,126 bytes
-- **Total tokens:** 409,508
+- **Total files:** 151
+- **Total size:** 1,274,756 bytes
+- **Total tokens:** 386,365
