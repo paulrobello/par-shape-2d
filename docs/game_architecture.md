@@ -194,12 +194,20 @@ graph TB
 - Game state transitions (start, pause, resume, stop)
 - Level progression management
 - System initialization and cleanup
-- Input event routing (mouse/touch)
+- **Exclusive input event handling** (mouse/touch clicks on canvas)
 - Save/restore game state
+
+**Input Event Processing**:
+- **Single-source responsibility**: Only GameManager handles canvas click/touch events
+- **Hit detection**: Finds screws at click coordinates using render state
+- **Event emission**: Converts raw input to `screw:clicked` events
+- **Debug support**: Shift+click for force removal, debug bypass controls
+- **Cross-platform**: Handles both mouse (15px radius) and touch (30px radius) input
 
 **Key Events Emitted**:
 - `game:started`, `game:paused`, `game:resumed`, `game:over`
 - `level:started`, `level:complete`
+- `screw:clicked` - Primary screw interaction event
 
 #### **GameStateCore** (`src/game/core/GameStateCore.ts`)
 **Responsibility**: Central game state management
@@ -385,42 +393,53 @@ The game follows a **strict single responsibility pattern** for level completion
 
 ## Game Logic Flows
 
-### 1. Screw Removal Flow
+### 1. Screw Removal Flow (Single-Source Input Handling)
 
 ```mermaid
 sequenceDiagram
     participant User
     participant GM as GameManager
+    participant SEH as ScrewEventHandler
     participant SM as ScrewManager
     participant CM as ContainerManager
     participant PM as PhysicsWorld
     participant EB as EventBus
 
-    User->>GM: Click/Touch on screw
-    GM->>EB: emit('screw:clicked')
-    EB->>SM: Route click event
+    User->>GM: Click/Touch on canvas
+    GM->>GM: Hit detection using render state
+    GM->>GM: Find screw at coordinates (15px mouse/30px touch)
     
-    alt Screw is removable
-        SM->>SM: Validate screw state
-        SM->>SM: Start collection (atomic)
-        SM->>PM: Remove physics constraint
-        SM->>EB: emit('screw:animation:started')
+    alt Screw found
+        GM->>EB: emit('screw:clicked') [SINGLE SOURCE]
+        EB->>SEH: Route to ScrewEventHandler
+        SEH->>SEH: Validate screw exists in ScrewManager state
+        SEH->>SM: Forward to ScrewManager.handleScrewClicked()
         
-        Note over SM: Animation to destination
-        
-        SM->>EB: emit('screw:animation:completed')
-        SM->>EB: emit('screw:collected')
-        SM->>CM: Place in container/holding hole
-        
-        alt Container becomes full
-            CM->>EB: emit('container:filled')
-            CM->>CM: Start fade-out animation
-            Note over CM: Wait for animation completion
-            CM->>CM: Replace container if needed
+        alt Screw is removable
+            SM->>SM: Validate screw state (not collected/being collected)
+            SM->>SM: Start collection (atomic state change)
+            SM->>PM: Remove physics constraint
+            SM->>EB: emit('screw:animation:started')
+            
+            Note over SM: Collection animation to destination
+            
+            SM->>EB: emit('screw:animation:completed')
+            SM->>EB: emit('screw:collected')
+            SM->>CM: Place in container/holding hole
+            
+            alt Container becomes full
+                CM->>EB: emit('container:filled')
+                CM->>CM: Start fade-out animation
+                Note over CM: Wait for animation completion
+                CM->>CM: Replace container if needed
+            end
+        else Screw is blocked
+            SM->>EB: emit('screw:blocked:clicked')
+            SM->>SM: Start shake animation (300ms duration)
+            Note over SM: Horizontal/vertical oscillation animation
         end
-    else Screw is blocked
-        SM->>EB: emit('screw:blocked:clicked')
-        Note over GM: Show shake animation
+    else No screw found
+        Note over GM: No action taken
     end
 ```
 
@@ -561,6 +580,49 @@ The game uses distributed state management with eventual consistency:
 
 #### **Notification Events**: Information broadcasts
 - `progress:updated`, `bounds:changed`, `physics:step:completed`
+
+## Input Handling Architecture
+
+### Single-Source Input Responsibility
+
+The game implements a **single-source input handling pattern** to prevent event duplication and ensure reliable screw interactions:
+
+#### **Design Principle**: One System, One Responsibility
+- **GameManager**: Exclusively handles all canvas click/touch events
+- **GameCanvas**: React component provides canvas element but does not handle input events
+- **No Duplication**: Prevents duplicate event emission that can interfere with animations
+
+#### **Input Processing Pipeline**
+1. **Event Capture**: GameManager adds native `addEventListener` to canvas element
+2. **Coordinate Conversion**: Converts canvas coordinates to game world coordinates
+3. **Hit Detection**: Uses render state to find screws within interaction radius
+4. **Event Emission**: Emits single `screw:clicked` event per interaction
+5. **State Validation**: ScrewEventHandler validates screw exists in ScrewManager state
+
+#### **Cross-Platform Support**
+- **Mouse Input**: 15px interaction radius for precise desktop interaction
+- **Touch Input**: 30px interaction radius for comfortable mobile interaction
+- **Debug Features**: Shift+click for force removal in debug mode
+- **Prevent Defaults**: Touch events prevent default behaviors (zoom, scroll)
+
+#### **Historical Issue Resolution**
+
+**Problem**: Originally both GameManager and GameCanvas handled the same click events, causing:
+- Duplicate `screw:clicked` events for every interaction
+- Interference with shake animations for blocked screws
+- Inconsistent behavior and difficult debugging
+
+**Solution Applied**: 
+- Removed click/touch handlers from GameCanvas React component
+- GameManager maintains exclusive responsibility for input processing
+- Cleaned up duplicate event handling infrastructure
+- Added comprehensive debug logging for troubleshooting
+
+**Benefits**:
+- ✅ Reliable shake animations for blocked screws
+- ✅ Consistent collection animations for removable screws  
+- ✅ Single event emission per interaction
+- ✅ Predictable debugging and troubleshooting
 
 ## Performance Characteristics
 

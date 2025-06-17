@@ -59,7 +59,7 @@ This standardization provides consistent, predictable event names and easier und
 - **System Coordination**: `system:ready`, `all:layers:cleared`
 
 ### Screw System Events (Core Gameplay)
-- **User Interactions**: `screw:clicked`, `screw:blocked:clicked` (with race condition protection)
+- **User Interactions**: `screw:clicked` (single-source emission from GameManager only), `screw:blocked:clicked` (with race condition protection)
 - **State Changes**: `screw:removed`, `screw:collected`, `screw:blocked`, `screw:unblocked`
 - **Animations**: `screw:animation:started`, `screw:animation:completed`
 - **Transfers**: `screw:transfer:started`, `screw:transfer:completed`, `screw:transfer:failed`
@@ -105,6 +105,7 @@ This standardization provides consistent, predictable event names and easier und
 
 | System | Primary Events Emitted |
 |--------|------------------------|
+| **GameManager** | `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `level:complete`, `screw:clicked` (single-source input) |
 | **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed`, `container:removing:screws` |
 | **HoldingHoleManager** | `holding_hole:filled`, `holding_hole:state:updated`, `holding_holes:full`, `holding_holes:available` |
 | **ScrewManager** | `screw:collected`, `screw:removed`, `screw:animation:*`, `screw:transfer:*` |
@@ -122,49 +123,96 @@ This standardization provides consistent, predictable event names and easier und
 | **GameDebugManager** | `debug:mode:toggled`, `debug:info:requested` |
 | **SaveLoadManager** | `save:requested`, `restore:requested` |
 
+## Input Handling Event Architecture
+
+### Single-Source Input Pattern
+
+The game implements a **single-source input handling pattern** to ensure reliable event emission and prevent animation conflicts:
+
+#### **Event Source Hierarchy**
+- **Primary Source**: GameManager exclusively handles all canvas input events
+- **Event Emission**: Only GameManager emits `screw:clicked` events
+- **No Duplication**: React component (GameCanvas) does not handle click events
+
+#### **Input Processing Flow**
+1. **Native Event Capture**: GameManager adds `addEventListener` to canvas for click/touch
+2. **Hit Detection**: Uses GameRenderManager.getRenderState().allScrews for coordinate testing
+3. **State Validation**: ScrewEventHandler validates screw exists in ScrewManager.state.screws
+4. **Single Emission**: One `screw:clicked` event per user interaction
+
+#### **Historical Issue Resolution**
+
+**Previous Architecture Problem**:
+- Both GameManager and GameCanvas handled the same canvas events
+- Resulted in duplicate `screw:clicked` events for every interaction
+- Caused interference with shake animations and collection behaviors
+
+**Current Solution**:
+- GameManager: Exclusive input event handler using native addEventListener
+- GameCanvas: React component provides canvas but no event handling
+- Result: Single event emission, reliable animations, predictable behavior
+
+#### **Cross-Platform Input Support**
+- **Mouse Events**: 15px interaction radius for precise desktop targeting
+- **Touch Events**: 30px interaction radius for comfortable mobile interaction
+- **Debug Features**: Shift+click for force removal, bypass mechanisms
+- **Event Prevention**: Touch events prevent default zoom/scroll behaviors
+
 ## Critical Event Flows
 
-### 1. Screw Removal Flow (with Ownership Transfer)
+### 1. Screw Removal Flow (Single-Source Input Handling)
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant UI as Canvas/UI
+    participant GM as GameManager
+    participant SEH as ScrewEventHandler
     participant SM as ScrewManager
     participant PM as PhysicsWorld
     participant CM as ContainerManager
     participant HM as HoldingHoleManager
     participant EB as EventBus
 
-    User->>UI: Click on screw
-    UI->>EB: emit('screw:clicked')
-    EB->>SM: Process screw click
+    User->>GM: Click/Touch on canvas
+    GM->>GM: Hit detection using render state
+    GM->>GM: Find screw at coordinates (15px mouse/30px touch)
     
-    alt Screw is not blocked
-        SM->>PM: Remove physics constraint
-        PM->>EB: emit('physics:constraint:removed')
-        SM->>EB: emit('screw:removed')
-        SM->>EB: emit('screw:animation:started')
+    alt Screw found
+        GM->>EB: emit('screw:clicked') [SINGLE SOURCE - No duplication]
+        EB->>SEH: Route to ScrewEventHandler
+        SEH->>SEH: Validate screw exists in ScrewManager state
+        SEH->>SM: Forward to ScrewManager.handleScrewClicked()
         
-        alt Container available
-            Note over SM: Transfer ownership to container immediately
-            SM->>SM: screw.transferOwnership(containerId, 'container')
-            SM->>CM: Animate to container
-            SM->>EB: emit('screw:animation:completed')
-            SM->>EB: emit('screw:collected', destination: 'container')
-            CM->>EB: emit('container:filled') [if container full]
-        else Container full, use holding hole
-            Note over SM: Transfer ownership to holding hole immediately
-            SM->>SM: screw.transferOwnership(holeId, 'holding_hole')
-            SM->>HM: Animate to holding hole
-            SM->>EB: emit('screw:animation:completed')
-            SM->>EB: emit('screw:collected', destination: 'holding_hole')
-            HM->>EB: emit('holding_hole:filled')
-            HM->>EB: emit('holding_holes:full') [if all holes full]
+        alt Screw is not blocked
+            SM->>SM: Validate screw state (not collected/being collected)
+            SM->>PM: Remove physics constraint
+            PM->>EB: emit('physics:constraint:removed')
+            SM->>EB: emit('screw:removed')
+            SM->>EB: emit('screw:animation:started')
+            
+            alt Container available
+                Note over SM: Transfer ownership to container immediately
+                SM->>SM: screw.transferOwnership(containerId, 'container')
+                SM->>CM: Animate to container
+                SM->>EB: emit('screw:animation:completed')
+                SM->>EB: emit('screw:collected', destination: 'container')
+                CM->>EB: emit('container:filled') [if container full]
+            else Container full, use holding hole
+                Note over SM: Transfer ownership to holding hole immediately
+                SM->>SM: screw.transferOwnership(holeId, 'holding_hole')
+                SM->>HM: Animate to holding hole
+                SM->>EB: emit('screw:animation:completed')
+                SM->>EB: emit('screw:collected', destination: 'holding_hole')
+                HM->>EB: emit('holding_hole:filled')
+                HM->>EB: emit('holding_holes:full') [if all holes full]
+            end
+        else Screw is blocked
+            SM->>EB: emit('screw:blocked:clicked')
+            SM->>SM: Start shake animation (300ms duration)
+            Note over SM: Horizontal/vertical oscillation animation
         end
-    else Screw is blocked
-        SM->>EB: emit('screw:blocked:clicked')
-        Note over UI: Show blocked feedback
+    else No screw found
+        Note over GM: No action taken
     end
 ```
 
