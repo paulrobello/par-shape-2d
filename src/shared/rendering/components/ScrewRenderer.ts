@@ -74,11 +74,6 @@ export class ScrewRenderer {
     context: RenderContext,
     options: Partial<ScrewRenderOptions> = {}
   ): void {
-    // Debug: Log when we render specific screws
-    if (screw.id === 'screw-7') {
-      console.log(`🎨 renderScrew called for ${screw.id}, shakeOffset=${screw.shakeOffset ? `(${screw.shakeOffset.x}, ${screw.shakeOffset.y})` : 'undefined'}`);
-    }
-    
     const theme = getThemeForEnvironment(context.environment, context.debugMode);
     const finalOptions: ScrewRenderOptions = {
       mode: 'full',
@@ -98,17 +93,14 @@ export class ScrewRenderer {
     }
 
     // Calculate render position with shake offset
-    // Use screw's shakeOffset if available, otherwise options shakeOffset, with fallback to zero
-    const shakeOffset = screw.shakeOffset || finalOptions.shakeOffset || { x: 0, y: 0 };
+    // Check if screw has a non-zero shake offset, otherwise use options or fallback
+    const screwHasShake = screw.shakeOffset && (screw.shakeOffset.x !== 0 || screw.shakeOffset.y !== 0);
+    const shakeOffset = screwHasShake ? screw.shakeOffset! : (finalOptions.shakeOffset || { x: 0, y: 0 });
     const renderPosition = {
       x: screw.position.x + shakeOffset.x,
       y: screw.position.y + shakeOffset.y,
     };
     
-    // Debug: Log shake rendering for any screw with non-zero offset
-    if (shakeOffset.x !== 0 || shakeOffset.y !== 0) {
-      console.log(`🎨 Rendering ${screw.id} with shake: offset=(${shakeOffset.x.toFixed(1)}, ${shakeOffset.y.toFixed(1)}), shakeOffset prop=${screw.shakeOffset ? `(${screw.shakeOffset.x}, ${screw.shakeOffset.y})` : 'undefined'}`);
-    }
 
 
     // Calculate alpha based on animation state
