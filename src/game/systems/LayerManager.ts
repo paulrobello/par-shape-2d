@@ -296,9 +296,11 @@ export class LayerManager extends BaseSystem {
       const index = this.state.layers.length;
       const physicsLayerGroup = ++this.state.physicsGroupCounter;
       
-      // Create layer with simple index-based ordering (no complex depth system!)
-      // index = 0 → back layer, index = 1 → in front of layer 0, etc.
-      const layer = new Layer(id, index, index, physicsLayerGroup, 0, fadeIn, isRestored);
+      // Create layer with proper depth ordering
+      // Initial visible layers (0-3) have depthIndex 0-3 (render on top)
+      // Hidden layers (4+) have depthIndex 4+ (render behind when revealed)
+      const depthIndex = index; // Higher index = higher depth = renders behind
+      const layer = new Layer(id, index, depthIndex, physicsLayerGroup, 0, fadeIn, isRestored);
       
       // Update bounds immediately if available, or use shape area default
       if (this.state.currentBounds) {

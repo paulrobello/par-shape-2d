@@ -396,8 +396,12 @@ export class GameRenderManager implements IGameRenderManager {
       scale: this.state.canvasScale
     });
 
+    // Sort layers by depthIndex in descending order (higher depth = render first = behind)
+    // This ensures new layers that fade in appear behind existing layers
+    const sortedLayers = [...this.state.visibleLayers].sort((a, b) => b.depthIndex - a.depthIndex);
+    
     // Render shapes and their screws together in proper layer order (back to front)
-    this.state.visibleLayers.forEach(layer => {
+    sortedLayers.forEach(layer => {
       // Save canvas state before applying layer opacity
       ctx.save();
       
@@ -407,7 +411,7 @@ export class GameRenderManager implements IGameRenderManager {
       
       // Debug logging for fade-in verification
       if (DEBUG_CONFIG.logLayerDebug && fadeOpacity < 1.0) {
-        console.log(`🎨 Rendering layer ${layer.id} with fade opacity: ${fadeOpacity.toFixed(3)}`);
+        console.log(`🎨 Rendering layer ${layer.id} (depth: ${layer.depthIndex}) with fade opacity: ${fadeOpacity.toFixed(3)}`);
       }
       
       const shapes = layer.getAllShapes();
