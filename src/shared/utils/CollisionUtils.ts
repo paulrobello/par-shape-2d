@@ -461,16 +461,27 @@ export function isScrewAreaBlocked(
   shape: Shape, 
   precisCheck: boolean = false
 ): boolean {
-  if (precisCheck) {
-    // PRECISE MODE: Two-phase collision detection
-    // 1. Broad phase: Quick bounding box check
-    // 2. Narrow phase: Exact geometric collision detection with rotation
-    return isCircleIntersectingShape(screwPosition, screwRadius + UI_CONSTANTS.screws.blockingMargin, shape);
-  } else {
-    // GAMEPLAY MODE: Simple bounding box check for broader blocking detection
-    // Used for shake animations and general gameplay feedback
-    return isPointInShapeBoundsWithMargin(screwPosition, shape);
+  const result = precisCheck ? 
+    isCircleIntersectingShape(screwPosition, screwRadius + UI_CONSTANTS.screws.blockingMargin, shape) :
+    isPointInShapeBoundsWithMargin(screwPosition, shape);
+    
+  // Debug logging for investigating incorrect blocking
+  if (DEBUG_CONFIG.logScrewDebug && result) {
+    console.log(`🚨 SCREW BLOCKING DETECTED:`, {
+      screwPos: screwPosition,
+      screwRadius,
+      shapeId: shape.id,
+      shapeType: shape.type,
+      precisCheck,
+      shapeBounds: shape.getBounds(),
+      hasBodyVertices: !!(shape.body.vertices && shape.body.vertices.length > 0),
+      bodyVerticesCount: shape.body.vertices?.length || 0,
+      isComposite: shape.isComposite,
+      shapeVertices: shape.vertices?.length || 0
+    });
   }
+  
+  return result;
 }
 
 /**
