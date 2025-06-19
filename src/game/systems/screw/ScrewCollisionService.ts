@@ -126,9 +126,9 @@ export class ScrewCollisionService implements IScrewCollisionService {
       }
       
       // Skip if shape is not in front of the screw
-      // Higher index = front (later layers), lower index = back (earlier layers)  
-      // Shape blocks screw only if shape is in front (shape index > screw index)
-      if (shapeLayerIndex < screwLayerIndex) {
+      // UPDATED: Lower index = front (initial layers), higher index = back (newer layers)  
+      // Shape blocks screw only if shape is in front (shape index < screw index)
+      if (shapeLayerIndex > screwLayerIndex) {
         continue; // Skip shapes behind the screw
       }
 
@@ -176,9 +176,9 @@ export class ScrewCollisionService implements IScrewCollisionService {
       }
       
       // Skip if shape is not in front of the screw
-      // Higher index = front (later layers), lower index = back (earlier layers)  
-      // Shape blocks screw only if shape is in front (shape index > screw index)
-      if (shapeLayerIndex < screwLayerIndex) {
+      // UPDATED: Lower index = front (initial layers), higher index = back (newer layers)  
+      // Shape blocks screw only if shape is in front (shape index < screw index)
+      if (shapeLayerIndex > screwLayerIndex) {
         continue; // Skip shapes behind the screw
       }
 
