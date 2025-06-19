@@ -209,8 +209,9 @@ sequenceDiagram
             end
         else Screw is blocked
             SM->>EB: emit('screw:blocked:clicked')
-            SM->>SM: Start shake animation (300ms duration)
-            Note over SM: Horizontal/vertical oscillation animation
+            SM->>SM: Start shake animation (400ms duration, 3px amplitude, 8 oscillations)
+            SM->>EB: emit('screw:shake:updated') events during animation
+            Note over SM: Horizontal/vertical oscillation with render data updates
         end
     else No screw found
         Note over GM: No action taken

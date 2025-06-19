@@ -56,7 +56,7 @@ Comprehensive utilities prevent code duplication and ensure consistency:
   - **AnimationUtils**: State management with transition support for evolving animation APIs
   - **EasingPresets**: Curated configurations for UI, game, and physics animations
   - **Screw Rotation**: Configurable rotation speeds for collection (1 rps) and transfer (1.5 rps) animations
-  - **Blocked Screw Feedback**: 300ms shake animation with alternating horizontal/vertical oscillations
+  - **Blocked Screw Feedback**: 400ms shake animation with 3px amplitude, 8 oscillations, alternating horizontal/vertical movement
 - **Advanced Rendering Utilities**:
   - **GeometryRenderer**: Sophisticated shape rendering with rounded corners and effects
   - **ButtonStyles**: Professional UI styling system with accessibility features
@@ -435,8 +435,9 @@ sequenceDiagram
             end
         else Screw is blocked
             SM->>EB: emit('screw:blocked:clicked')
-            SM->>SM: Start shake animation (300ms duration)
-            Note over SM: Horizontal/vertical oscillation animation
+            SM->>SM: Start shake animation (400ms duration, 3px amplitude, 8 oscillations)
+            SM->>EB: emit('screw:shake:updated') events during animation
+            Note over SM: Horizontal/vertical oscillation with render data updates
         end
     else No screw found
         Note over GM: No action taken

@@ -390,6 +390,7 @@ export class GameRenderManager implements IGameRenderManager {
   private renderShapesAndScrews(): void {
     if (!this.state.ctx || !this.state.canvas || !this.debugManager) return;
 
+    const ctx = this.state.ctx; // Store reference for TypeScript
     const renderContext = createRenderContext(this.state.canvas, 'game', {
       debugMode: this.debugManager.isDebugMode(),
       scale: this.state.canvasScale
@@ -397,6 +398,18 @@ export class GameRenderManager implements IGameRenderManager {
 
     // Render shapes and their screws together in proper layer order (back to front)
     this.state.visibleLayers.forEach(layer => {
+      // Save canvas state before applying layer opacity
+      ctx.save();
+      
+      // Apply layer fade opacity for smooth fade-in effect
+      const fadeOpacity = layer.getFadeOpacity();
+      ctx.globalAlpha = fadeOpacity;
+      
+      // Debug logging for fade-in verification
+      if (DEBUG_CONFIG.logLayerDebug && fadeOpacity < 1.0) {
+        console.log(`🎨 Rendering layer ${layer.id} with fade opacity: ${fadeOpacity.toFixed(3)}`);
+      }
+      
       const shapes = layer.getAllShapes();
       shapes.forEach(shape => {
         // First render the shape
@@ -408,6 +421,9 @@ export class GameRenderManager implements IGameRenderManager {
           ScrewRenderer.renderScrew(screw, renderContext);
         });
       });
+      
+      // Restore canvas state after rendering this layer
+      ctx.restore();
     });
 
     // Render animating screws (screws that are being collected but removed from shapes)
