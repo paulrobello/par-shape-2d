@@ -5,7 +5,7 @@
 
 import { Vector2 } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
-import { UI_CONSTANTS } from './Constants';
+import { UI_CONSTANTS, DEBUG_CONFIG } from './Constants';
 // Import removed - using local implementation instead
 
 /**
@@ -41,6 +41,7 @@ export function isCircleIntersectingBounds(center: Vector2, radius: number, shap
 
 /**
  * Check if a circle intersects with any shape type using two-phase collision detection
+ * ENHANCED: Prioritizes physics body vertices for maximum accuracy
  */
 export function isCircleIntersectingShape(center: Vector2, radius: number, shape: Shape): boolean {
   // BROAD PHASE: Quick bounding box check for early elimination
@@ -48,7 +49,31 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
     return false; // No intersection with bounding box, definitely no collision
   }
   
-  // NARROW PHASE: Precise geometric collision detection
+  // ENHANCED NARROW PHASE: Always prioritize physics body vertices when available
+  // This ensures we use the actual collision geometry from Matter.js physics engine
+  
+  // Check for composite shapes with multiple parts first
+  if (shape.isComposite && shape.parts && shape.parts.length > 0) {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔧 Using composite shape collision detection for shape ${shape.id}`);
+    }
+    return isCircleIntersectingCompositeShape(center, radius, shape);
+  }
+  
+  // Check for physics body vertices (most accurate)
+  if (shape.body.vertices && shape.body.vertices.length >= 3) {
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔧 Using physics body vertices collision detection for shape ${shape.id} (${shape.body.vertices.length} vertices)`);
+    }
+    // Matter.js vertices are already in world coordinates and include rotation
+    return isCircleIntersectingPhysicsBodyVertices(center, radius, shape.body.vertices);
+  }
+  
+  // Fallback to shape-type specific collision detection
+  if (DEBUG_CONFIG.logScrewDebug) {
+    console.log(`🔧 Using shape-type specific collision detection for shape ${shape.id} (type: ${shape.type})`);
+  }
+  
   switch (shape.type) {
     case 'circle':
       return isCircleIntersectingCircle(center, radius, shape);
@@ -61,11 +86,60 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
     default:
       // For unknown types or vertex-based shapes, try vertex-based collision
       if (shape.vertices && shape.vertices.length > 0) {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔧 Using vertex-based collision detection for shape ${shape.id}`);
+        }
         return isCircleIntersectingVertexShape(center, radius, shape);
       }
-      // Fallback to rectangle collision for basic shapes
+      // Final fallback to rectangle collision for basic shapes
+      if (DEBUG_CONFIG.logScrewDebug) {
+        console.log(`🔧 Using fallback rectangle collision detection for shape ${shape.id}`);
+      }
       return isCircleIntersectingRectangle(center, radius, shape);
   }
+}
+
+/**
+ * Check if a circle intersects with physics body vertices (most accurate method)
+ * Uses the actual Matter.js collision geometry
+ */
+export function isCircleIntersectingPhysicsBodyVertices(center: Vector2, radius: number, vertices: Vector2[]): boolean {
+  // Check if circle center is inside the polygon
+  if (isPointInPolygon(center, vertices)) {
+    return true;
+  }
+  
+  // Check if circle intersects any edge of the physics body
+  for (let i = 0; i < vertices.length; i++) {
+    const v1 = vertices[i];
+    const v2 = vertices[(i + 1) % vertices.length];
+    
+    if (isCircleIntersectingLineSegment(center, radius, v1, v2)) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
+/**
+ * Check if a circle intersects with a composite shape (multiple physics bodies)
+ */
+export function isCircleIntersectingCompositeShape(center: Vector2, radius: number, shape: Shape): boolean {
+  if (!shape.parts || shape.parts.length === 0) {
+    return false;
+  }
+  
+  // Check collision against each part of the composite shape
+  for (const part of shape.parts) {
+    if (part.vertices && part.vertices.length >= 3) {
+      if (isCircleIntersectingPhysicsBodyVertices(center, radius, part.vertices)) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
 }
 
 /**
