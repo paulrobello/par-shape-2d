@@ -275,6 +275,11 @@ export class GameManager extends BaseSystem {
     }
 
     if (uiState.showMenuOverlay) {
+      // Allow click/touch on overlay to resume game (mobile-friendly)
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log('🎛️ Menu overlay clicked, resuming game');
+      }
+      this.hideMenuOverlayWithResume();
       return;
     }
 

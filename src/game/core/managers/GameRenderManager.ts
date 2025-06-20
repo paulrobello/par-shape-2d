@@ -647,7 +647,7 @@ export class GameRenderManager implements IGameRenderManager {
     this.state.ctx.fillText('Game Paused', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 - 100);
 
     this.state.ctx.font = '24px Arial';
-    this.state.ctx.fillText('Press SPACE to Resume', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 - 50);
+    this.state.ctx.fillText('Click/Tap anywhere or press SPACE to Resume', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 - 50);
     this.state.ctx.fillText('Press R to Restart', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2);
     this.state.ctx.fillText('Press ESC to Close Menu', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 + 50);
   }
