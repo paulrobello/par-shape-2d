@@ -1,6 +1,6 @@
 # Overview:
 
-Use the following shorthand  to reconcile the findings from readme and architecture documentation.
+Use the following shorthand to reconcile the findings from readme and architecture documentation.
 
 # Shorthand:
 - F1 = Finding 1, F2 = Finding 2 etc.

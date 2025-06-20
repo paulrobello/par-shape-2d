@@ -62,7 +62,7 @@ Comprehensive utilities prevent code duplication and ensure consistency:
   - **ButtonStyles**: Professional UI styling system with accessibility features
   - **ScrewRenderer**: Enhanced screw visualization with visible rotation, clean 4-point cross
 - **GeometryUtils**: Mathematical calculations and collision detection
-- **CollisionUtils**: Advanced two-phase collision detection with configurable screw blocking margins (0px default)
+- **CollisionUtils**: Advanced two-phase collision detection with precise geometric accuracy
 - **Constants**: Centralized configuration values and game constants shared across all systems
 
 ### 4. Physics Integration
@@ -72,7 +72,38 @@ Deep integration with Matter.js physics engine:
 - **Shared Physics World**: Centralized physics simulation
 - **Body Management**: Automatic physics body lifecycle management
 - **Constraint System**: Dynamic constraint management and lifecycle control
-- **Collision Detection**: Advanced two-phase collision handling (broad + narrow phase) with layer isolation and configurable blocking margins
+- **Collision Detection**: Advanced two-phase collision handling (broad + narrow phase) with layer isolation and precise geometric accuracy
+
+### 5. Advanced Collision Detection System
+
+The game features a sophisticated collision detection system that ensures accurate screw blocking based on actual shape geometry rather than simplified bounding boxes:
+
+#### **Two-Phase Collision Detection**
+- **Broad Phase**: Fast bounding box intersection test for early elimination
+- **Narrow Phase**: Precise circle-vs-shape geometric collision detection
+
+#### **Shape-Specific Collision Handling**
+- **Concave Shapes** (stars, arrows, chevrons, horseshoes): Uses original shape vertices to preserve concave geometry
+- **Convex Shapes** (rectangles, circles, polygons, capsules): Uses physics body vertices for optimal performance
+- **Composite Shapes**: Handles multi-part physics bodies with individual collision testing
+
+#### **Priority-Based Collision Selection**
+1. **Priority 1**: Original vertices for concave shapes (prevents convex hull false positives)
+2. **Priority 2**: Physics body vertices for convex shapes (maintains physics accuracy)
+3. **Priority 3**: Shape-type specific algorithms for special cases
+4. **Fallback**: Vertex-based collision for unknown types
+
+#### **Geometric Accuracy Benefits**
+- **Visual Consistency**: Collision detection matches what players see visually
+- **Eliminates False Positives**: Screws no longer blocked by invisible bounding box extensions
+- **Maintains Performance**: Efficient algorithms with minimal computational overhead
+- **Shape Integrity**: Preserves the unique characteristics of each shape type
+
+#### **Technical Implementation**
+- **Circle-vs-Polygon**: Point-in-polygon testing with edge intersection detection
+- **Rotation Awareness**: Handles shape rotation with proper coordinate transformation
+- **Radius Consideration**: Includes screw radius in collision calculations
+- **Edge Case Handling**: Robust algorithms for degenerate cases and corner interactions
 
 ## System Architecture
 

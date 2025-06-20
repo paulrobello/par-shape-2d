@@ -42,7 +42,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * Shapes should have a solid border with a translucent inner area to allow the player to see the shapes behind them.
 * Shapes can be any of the following: circle, capsule, arrow, chevron, star, triangle, square, rectangle, pentagon, hexagon, heptagon, octagon, horseshoe (currently disabled).
 * Shapes when placed in the layer should not overlap.
-* A screw can not be removed if it is even partially blocked by a shape in a layer that is visually in front of its layer.
+* A screw can not be removed if it is blocked by a shape in a layer that is visually in front of its layer, using precise geometric collision detection.
 * Screws from any visible layer can be removed as long as they are not blocked.
 * Screws should be randomly colored but must be one of the following colors: pink, red, green, blue, light blue, yellow, purple, orange, or brown.
 * If a blocked screw is clicked, it should shake to indicate it cannot be removed.
@@ -97,7 +97,7 @@ This project features a **clean event-driven architecture** with comprehensive s
 ### Core Systems
 - **Event-Driven Design**: 120+ game events, 40+ editor events with complete type safety
 - **Modular Architecture**: Clean separation between GameManager modules for maintainability
-- **Physics Integration**: Matter.js with proper pause/resume, boundaries, and collision detection
+- **Physics Integration**: Matter.js with proper pause/resume, boundaries, and precise geometric collision detection
 - **Shared Framework**: Eliminates code duplication across game and editor systems
 
 ### Key Features

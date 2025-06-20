@@ -70,6 +70,7 @@ See `docs/game_architecture.md` for detailed rendering and animation system docu
 ## Core Game Systems
 
 - **Physics**: Matter.js with poly-decomp-es for accurate collision detection and simulation
+- **Collision Detection**: Advanced two-phase system with precise geometric accuracy for all shape types
 - **Shape System**: Multi-layered rendering pipeline supporting all polygon types with rounded corners
 - **Screw Management**: Robust ownership system preventing race conditions and ensuring data integrity
 - **Container System**: Intelligent hole placement and screw collection logic

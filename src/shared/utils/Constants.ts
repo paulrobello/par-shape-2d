@@ -342,7 +342,7 @@ export const DEBUG_CONFIG = {
   logShapeCreation: false,              // Shape factory and generation processes
   logCapsuleGeneration: false,          // Complex capsule shape generation specifically
   logShapeDebug: false,                 // General shape system operations
-  logScrewDebug: true,                  // Screw system operations and state changes
+  logScrewDebug: false,                 // Screw system operations and state changes
   logEventFlow: false,                  // Event bus emission and handling
   logPhysicsDebug: false,               // Physics engine integration details
   logLayerDebug: false,                 // Layer visibility and management
