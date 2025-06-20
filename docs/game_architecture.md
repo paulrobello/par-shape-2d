@@ -60,7 +60,7 @@ Comprehensive utilities prevent code duplication and ensure consistency:
 - **Advanced Rendering Utilities**:
   - **GeometryRenderer**: Sophisticated shape rendering with rounded corners and effects
   - **ButtonStyles**: Professional UI styling system with accessibility features
-  - **ScrewRenderer**: Enhanced screw visualization with visible rotation, clean 4-point cross
+  - **ScrewRenderer**: Enhanced screw visualization with visible rotation, clean 4-point cross, and alpha inheritance for container fade animations
 - **GeometryUtils**: Mathematical calculations and collision detection
 - **CollisionUtils**: Advanced two-phase collision detection with precise geometric accuracy
 - **Constants**: Centralized configuration values and game constants shared across all systems
@@ -286,8 +286,9 @@ graph TB
 - **Hole Planning**: Creates containers for colors present in visible shapes or holding holes, with hole counts sized based on ALL remaining screws of that color (across all layers) for proper capacity planning
 - Screw placement and hole management
 - Container completion detection
-- Intelligent container substitution with fade animations
+- Intelligent container substitution with synchronized fade animations
 - Fixed 4-slot positioning system
+- **Container Fade Animation**: 500ms fade-out/fade-in transitions with synchronized screw fading
 
 **Key Features**:
 - **Fixed-Slot System**: 4 predetermined positions prevent container shifting
@@ -305,7 +306,9 @@ graph TB
 
 **Container Replacement Timing**:
 1. Container filled → Mark for removal → Start fade-out animation (500ms)
-2. After fade-out completes → Remove container physically  
+   - Container and contained screws fade out together using synchronized alpha values
+   - Screws inherit container's fadeOpacity for seamless visual transition
+2. After fade-out completes → Remove container and screws physically  
 3. **IMMEDIATELY** spawn replacement containers with fade-in animation (500ms)
 4. Replacement containers become fully visible
 
@@ -393,9 +396,10 @@ graph TB
 **Responsibility**: Visual presentation and UI
 - Canvas rendering and scaling
 - HUD display (progress, score, level)
-- Container and holding hole visualization
-- Animation coordination
+- Container and holding hole visualization with synchronized fade animations
+- Animation coordination including screw fade-out with containers
 - Mobile responsiveness
+- **Screw-Container Fade Synchronization**: Passes container fadeOpacity to ScrewRenderer for unified transitions
 
 ## Level Completion Architecture
 
@@ -694,6 +698,7 @@ The game implements a **single-source input handling pattern** to prevent event 
   - Professional button styling with hover states and accessibility
   - Comprehensive easing library (24+ functions) for natural motion
   - Clean screw design with simple 4-point cross and subtle rim indicators
+  - **Synchronized container-screw fade animations**: Screws inherit container alpha for cohesive visual transitions
 - **Performance optimizations**:
   - Batched rendering operations with proper context management
   - Animation interpolation for 60fps smooth movement

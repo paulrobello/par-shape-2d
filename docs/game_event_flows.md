@@ -270,6 +270,7 @@ sequenceDiagram
         CM->>EB: emit('container:removing:screws') with calculated visualIndex
         
         Note over CM: Wait 500ms for fade-out animation
+        Note over CM: Container and screws fade out together (synchronized alpha)
         CM->>CM: Clear slot but preserve position
         CM->>CM: Remove from containers array
         CM->>EB: emit('container:removed') with visualIndex
@@ -285,6 +286,7 @@ sequenceDiagram
             CM->>CM: createReplacementContainersWithFadeIn(slot)
             CM->>EB: emit('container:state:updated')
             Note over CM: Replacement appears in vacant slot with fade-in (500ms)
+            Note over CM: New container fades in empty (ready for screws)
         end
     end
 ```
