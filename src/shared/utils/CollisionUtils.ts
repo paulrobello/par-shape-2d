@@ -12,8 +12,8 @@ import { UI_CONSTANTS, DEBUG_CONFIG } from './Constants';
  * Throttle state for debug logging to prevent spam
  */
 let lastClickTime = 0;
-let lastBlockingLogTime = 0;
-const CLICK_THROTTLE_MS = 100; // Only log blocking during clicks, with small throttle
+let hasLoggedForCurrentClick = false;
+const CLICK_WINDOW_MS = 200; // Very short window for logging after click
 
 /**
  * Call this function when a user click/touch occurs to enable debug logging
@@ -21,21 +21,22 @@ const CLICK_THROTTLE_MS = 100; // Only log blocking during clicks, with small th
  */
 export function notifyUserClick(): void {
   lastClickTime = Date.now();
+  hasLoggedForCurrentClick = false; // Reset logging flag for new click
 }
 
 /**
  * Check if we should log blocking debug messages based on recent user interaction
+ * Only logs once per click to prevent animation spam
  */
 function shouldLogBlocking(): boolean {
   const now = Date.now();
   const timeSinceClick = now - lastClickTime;
-  const timeSinceLastLog = now - lastBlockingLogTime;
   
   // Only log if:
-  // 1. There was a recent click (within 500ms)
-  // 2. We haven't logged recently (throttle)
-  if (timeSinceClick <= 500 && timeSinceLastLog >= CLICK_THROTTLE_MS) {
-    lastBlockingLogTime = now;
+  // 1. There was a very recent click (within 200ms)
+  // 2. We haven't already logged for this click
+  if (timeSinceClick <= CLICK_WINDOW_MS && !hasLoggedForCurrentClick) {
+    hasLoggedForCurrentClick = true; // Mark as logged for this click
     return true;
   }
   
