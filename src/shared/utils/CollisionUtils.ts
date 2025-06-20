@@ -498,33 +498,33 @@ export function getDistanceToNearestEdge(point: Vector2, vertices: Vector2[]): n
 }
 
 /**
- * Check if a screw area is blocked by a shape
+ * Check if a screw area is blocked by a shape using precise circle-vs-shape collision detection
  * 
  * @param screwPosition - Position of the screw center
  * @param screwRadius - Radius of the screw
  * @param shape - Shape to check collision against
- * @param precisCheck - If true, uses two-phase collision detection (broad + narrow phase)
- *                      If false, uses simple bounding box check for gameplay blocking
+ * @param precisCheck - Legacy parameter (no longer used - always uses precise detection)
  * @returns true if the screw area is blocked by the shape
  */
 export function isScrewAreaBlocked(
   screwPosition: Vector2, 
   screwRadius: number, 
   shape: Shape, 
-  precisCheck: boolean = false
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _precisCheck: boolean = false
 ): boolean {
-  const result = precisCheck ? 
-    isCircleIntersectingShape(screwPosition, screwRadius + UI_CONSTANTS.screws.blockingMargin, shape) :
-    isPointInShapeBoundsWithMargin(screwPosition, shape);
+  // Always use precise circle-vs-shape collision detection for accurate blocking
+  // The old bounding box check was causing false positives where screws were 
+  // blocked by shape bounding boxes instead of actual geometry
+  const result = isCircleIntersectingShape(screwPosition, screwRadius + UI_CONSTANTS.screws.blockingMargin, shape);
     
-  // Debug logging for investigating incorrect blocking - only during user clicks
+  // Debug logging for investigating blocking detection - only during user clicks
   if (DEBUG_CONFIG.logScrewDebug && result && shouldLogBlocking()) {
-    console.log(`🚨 SCREW BLOCKING DETECTED:`, {
+    console.log(`🚨 SCREW BLOCKING DETECTED (precise):`, {
       screwPos: screwPosition,
       screwRadius,
       shapeId: shape.id,
       shapeType: shape.type,
-      precisCheck,
       shapeBounds: shape.getBounds(),
       hasBodyVertices: !!(shape.body.vertices && shape.body.vertices.length > 0),
       bodyVerticesCount: shape.body.vertices?.length || 0,
