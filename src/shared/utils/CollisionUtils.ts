@@ -95,7 +95,22 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
     return isCircleIntersectingCompositeShape(center, radius, shape);
   }
   
-  // Check for physics body vertices (most accurate)
+  // PRIORITY 1: For concave shapes (stars, arrows, etc), use original vertices if available
+  // This ensures accurate collision detection for shapes where physics body uses convex hull
+  if (shape.vertices && shape.vertices.length > 0 && (shape.type === 'star' || shape.type === 'arrow' || shape.type === 'chevron' || shape.type === 'horseshoe')) {
+    if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
+      console.log(`🔧 Using original vertices for concave shape ${shape.id} (${shape.vertices.length} vertices)`);
+      console.log(`🔧 Original vertices:`, shape.vertices.map(v => `(${v.x.toFixed(1)}, ${v.y.toFixed(1)})`));
+      console.log(`🔧 Circle center: (${center.x.toFixed(1)}, ${center.y.toFixed(1)}), radius: ${radius}`);
+    }
+    const result = isCircleIntersectingVertexShape(center, radius, shape);
+    if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
+      console.log(`🔧 Original vertices collision result: ${result}`);
+    }
+    return result;
+  }
+  
+  // PRIORITY 2: For convex shapes, use physics body vertices (most accurate for simple shapes)
   if (shape.body.vertices && shape.body.vertices.length >= 3) {
     if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
       console.log(`🔧 Using physics body vertices collision detection for shape ${shape.id} (${shape.body.vertices.length} vertices)`);
