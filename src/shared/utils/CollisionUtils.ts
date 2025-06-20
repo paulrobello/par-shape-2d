@@ -88,7 +88,7 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
   
   // Check for composite shapes with multiple parts first
   if (shape.isComposite && shape.parts && shape.parts.length > 0) {
-    if (DEBUG_CONFIG.logScrewDebug) {
+    if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
       console.log(`🔧 Using composite shape collision detection for shape ${shape.id}`);
     }
     return isCircleIntersectingCompositeShape(center, radius, shape);
@@ -96,21 +96,21 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
   
   // Check for physics body vertices (most accurate)
   if (shape.body.vertices && shape.body.vertices.length >= 3) {
-    if (DEBUG_CONFIG.logScrewDebug) {
+    if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
       console.log(`🔧 Using physics body vertices collision detection for shape ${shape.id} (${shape.body.vertices.length} vertices)`);
       console.log(`🔧 Physics body vertices:`, shape.body.vertices.map(v => `(${v.x.toFixed(1)}, ${v.y.toFixed(1)})`));
       console.log(`🔧 Circle center: (${center.x.toFixed(1)}, ${center.y.toFixed(1)}), radius: ${radius}`);
     }
     // Matter.js vertices are already in world coordinates and include rotation
     const result = isCircleIntersectingPhysicsBodyVertices(center, radius, shape.body.vertices);
-    if (DEBUG_CONFIG.logScrewDebug) {
+    if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
       console.log(`🔧 Physics body collision result: ${result}`);
     }
     return result;
   }
   
   // Fallback to shape-type specific collision detection
-  if (DEBUG_CONFIG.logScrewDebug) {
+  if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
     console.log(`🔧 Using shape-type specific collision detection for shape ${shape.id} (type: ${shape.type})`);
   }
   
@@ -126,13 +126,13 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
     default:
       // For unknown types or vertex-based shapes, try vertex-based collision
       if (shape.vertices && shape.vertices.length > 0) {
-        if (DEBUG_CONFIG.logScrewDebug) {
+        if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
           console.log(`🔧 Using vertex-based collision detection for shape ${shape.id}`);
         }
         return isCircleIntersectingVertexShape(center, radius, shape);
       }
       // Final fallback to rectangle collision for basic shapes
-      if (DEBUG_CONFIG.logScrewDebug) {
+      if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
         console.log(`🔧 Using fallback rectangle collision detection for shape ${shape.id}`);
       }
       return isCircleIntersectingRectangle(center, radius, shape);
@@ -146,7 +146,7 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
 export function isCircleIntersectingPhysicsBodyVertices(center: Vector2, radius: number, vertices: Vector2[]): boolean {
   // Check if circle center is inside the polygon
   const isInside = isPointInPolygon(center, vertices);
-  if (DEBUG_CONFIG.logScrewDebug) {
+  if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
     console.log(`🔧 Point-in-polygon check: ${isInside}`);
   }
   if (isInside) {
@@ -159,7 +159,7 @@ export function isCircleIntersectingPhysicsBodyVertices(center: Vector2, radius:
     const v2 = vertices[(i + 1) % vertices.length];
     
     const edgeIntersects = isCircleIntersectingLineSegment(center, radius, v1, v2);
-    if (DEBUG_CONFIG.logScrewDebug && edgeIntersects) {
+    if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking() && edgeIntersects) {
       console.log(`🔧 Circle intersects edge ${i}: (${v1.x.toFixed(1)}, ${v1.y.toFixed(1)}) to (${v2.x.toFixed(1)}, ${v2.y.toFixed(1)})`);
     }
     if (edgeIntersects) {
@@ -167,7 +167,7 @@ export function isCircleIntersectingPhysicsBodyVertices(center: Vector2, radius:
     }
   }
   
-  if (DEBUG_CONFIG.logScrewDebug) {
+  if (DEBUG_CONFIG.logScrewDebug && shouldLogBlocking()) {
     console.log(`🔧 No intersection found with any edge`);
   }
   return false;
