@@ -87,6 +87,8 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
   - 50ms vibration for blocked screw attempts  
   - [100, 50, 100] pattern for container filling celebration
 * **Mobile Menu System**: Canvas-rendered menu accessible via HUD menu button
+  - Tap anywhere on the paused overlay to resume gameplay
+  - Clear visual instructions for mobile users
 * **Responsive Design**: Scales perfectly across all screen sizes and orientations
 * **One-Handed Play**: Optimized for single-handed mobile gameplay
 

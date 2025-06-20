@@ -22,6 +22,7 @@ Players remove screws from layered shapes to collect them in color-matched conta
 - **Color-Matching Mechanics**: Screws must be placed in matching colored containers
 - **Progressive Difficulty**: Increasing complexity through additional layers and shapes
 - **Touch/Mouse Support**: Full cross-platform input handling with adaptive touch radius (30px mobile, 15px desktop)
+- **Mobile-Friendly UI**: Menu overlay supports tap-to-resume for seamless mobile gameplay
 
 ## Architectural Principles
 
@@ -227,6 +228,7 @@ graph TB
 - System initialization and cleanup
 - **Exclusive input event handling** (mouse/touch clicks on canvas)
 - Save/restore game state
+- Menu overlay interaction handling
 
 **Input Event Processing**:
 - **Single-source responsibility**: Only GameManager handles canvas click/touch events
@@ -234,6 +236,7 @@ graph TB
 - **Event emission**: Converts raw input to `screw:clicked` events
 - **Debug support**: Shift+click for force removal, debug bypass controls
 - **Cross-platform**: Handles both mouse (15px radius) and touch (30px radius) input
+- **Menu Overlay**: Click/tap anywhere on paused overlay to resume game (mobile-friendly)
 
 **Key Events Emitted**:
 - `game:started`, `game:paused`, `game:resumed`, `game:over`
@@ -400,6 +403,7 @@ graph TB
 - Animation coordination including screw fade-out with containers
 - Mobile responsiveness
 - **Screw-Container Fade Synchronization**: Passes container fadeOpacity to ScrewRenderer for unified transitions
+- **Menu Overlay Rendering**: Displays pause menu with mobile-friendly "Click/Tap anywhere to resume" instruction
 
 ## Level Completion Architecture
 
