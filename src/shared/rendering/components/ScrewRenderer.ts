@@ -633,7 +633,8 @@ export class ScrewRenderer {
     screw: RenderableScrew,
     position: { x: number; y: number },
     context: RenderContext,
-    scale: number = 0.6
+    scale: number = 0.6,
+    alpha: number = 1
   ): void {
     // Create a temporary screw object with the destination position
     const collectedScrew: RenderableScrew = {
@@ -651,10 +652,11 @@ export class ScrewRenderer {
       isSpinning: false // But not spinning anymore
     };
     
-    // Force render the screw at the destination with the specified scale
+    // Force render the screw at the destination with the specified scale and alpha
     this.renderScrew(collectedScrew, context, {
       mode: 'full',
       scale,
+      alpha,
       forceRender: true
     });
   }

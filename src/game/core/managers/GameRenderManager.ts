@@ -291,7 +291,7 @@ export class GameRenderManager implements IGameRenderManager {
       const holeRadius = UI_CONSTANTS.containers.hole.radius;
       const holeCount = container.maxHoles;
       
-      // Apply fade opacity for container animations
+      // Apply fade opacity for container animations (but not screws - they handle their own alpha)
       this.state.ctx!.save();
       this.state.ctx!.globalAlpha = container.fadeOpacity;
       
@@ -341,7 +341,8 @@ export class GameRenderManager implements IGameRenderManager {
             });
             
             // Render collected screw at smaller scale (about 60% of normal size to fit in container hole)
-            ScrewRenderer.renderCollectedScrew(screw, { x: holeX, y: holeY }, screwRenderContext, 0.6);
+            // Pass container's fade opacity to make screw fade with container
+            ScrewRenderer.renderCollectedScrew(screw, { x: holeX, y: holeY }, screwRenderContext, 0.6, container.fadeOpacity);
           }
         }
       }
@@ -381,7 +382,8 @@ export class GameRenderManager implements IGameRenderManager {
           });
           
           // Render collected screw at smaller scale (about 75% of normal size to fit in holding hole)
-          ScrewRenderer.renderCollectedScrew(screw, hole.position, screwRenderContext, 0.75);
+          // Holding holes don't fade, so use full opacity
+          ScrewRenderer.renderCollectedScrew(screw, hole.position, screwRenderContext, 0.75, 1);
         }
       }
     });
