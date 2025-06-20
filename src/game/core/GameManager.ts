@@ -8,6 +8,7 @@ import { GameLoop } from './GameLoop';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { Vector2, Screw } from '@/types/game';
 import { pointInRectangle } from '@/game/utils/MathUtils';
+import { notifyUserClick } from '@/shared/utils/CollisionUtils';
 
 // Import all manager modules
 import {
@@ -241,6 +242,9 @@ export class GameManager extends BaseSystem {
   }
 
   private handleGameInput(point: Vector2, inputType: 'mouse' | 'touch'): void {
+    // Notify collision system of user interaction for debug logging
+    notifyUserClick();
+    
     const gameState = this.stateManager.getGameState();
     const uiState = this.uiManager.getUIState();
 

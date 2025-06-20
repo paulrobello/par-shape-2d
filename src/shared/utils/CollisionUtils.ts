@@ -9,6 +9,40 @@ import { UI_CONSTANTS, DEBUG_CONFIG } from './Constants';
 // Import removed - using local implementation instead
 
 /**
+ * Throttle state for debug logging to prevent spam
+ */
+let lastClickTime = 0;
+let lastBlockingLogTime = 0;
+const CLICK_THROTTLE_MS = 100; // Only log blocking during clicks, with small throttle
+
+/**
+ * Call this function when a user click/touch occurs to enable debug logging
+ * for a short period after the click
+ */
+export function notifyUserClick(): void {
+  lastClickTime = Date.now();
+}
+
+/**
+ * Check if we should log blocking debug messages based on recent user interaction
+ */
+function shouldLogBlocking(): boolean {
+  const now = Date.now();
+  const timeSinceClick = now - lastClickTime;
+  const timeSinceLastLog = now - lastBlockingLogTime;
+  
+  // Only log if:
+  // 1. There was a recent click (within 500ms)
+  // 2. We haven't logged recently (throttle)
+  if (timeSinceClick <= 500 && timeSinceLastLog >= CLICK_THROTTLE_MS) {
+    lastBlockingLogTime = now;
+    return true;
+  }
+  
+  return false;
+}
+
+/**
  * Check if a point is within shape bounds with margin
  */
 export function isPointInShapeBoundsWithMargin(point: Vector2, shape: Shape): boolean {
@@ -64,9 +98,15 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
   if (shape.body.vertices && shape.body.vertices.length >= 3) {
     if (DEBUG_CONFIG.logScrewDebug) {
       console.log(`🔧 Using physics body vertices collision detection for shape ${shape.id} (${shape.body.vertices.length} vertices)`);
+      console.log(`🔧 Physics body vertices:`, shape.body.vertices.map(v => `(${v.x.toFixed(1)}, ${v.y.toFixed(1)})`));
+      console.log(`🔧 Circle center: (${center.x.toFixed(1)}, ${center.y.toFixed(1)}), radius: ${radius}`);
     }
     // Matter.js vertices are already in world coordinates and include rotation
-    return isCircleIntersectingPhysicsBodyVertices(center, radius, shape.body.vertices);
+    const result = isCircleIntersectingPhysicsBodyVertices(center, radius, shape.body.vertices);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔧 Physics body collision result: ${result}`);
+    }
+    return result;
   }
   
   // Fallback to shape-type specific collision detection
@@ -105,7 +145,11 @@ export function isCircleIntersectingShape(center: Vector2, radius: number, shape
  */
 export function isCircleIntersectingPhysicsBodyVertices(center: Vector2, radius: number, vertices: Vector2[]): boolean {
   // Check if circle center is inside the polygon
-  if (isPointInPolygon(center, vertices)) {
+  const isInside = isPointInPolygon(center, vertices);
+  if (DEBUG_CONFIG.logScrewDebug) {
+    console.log(`🔧 Point-in-polygon check: ${isInside}`);
+  }
+  if (isInside) {
     return true;
   }
   
@@ -114,11 +158,18 @@ export function isCircleIntersectingPhysicsBodyVertices(center: Vector2, radius:
     const v1 = vertices[i];
     const v2 = vertices[(i + 1) % vertices.length];
     
-    if (isCircleIntersectingLineSegment(center, radius, v1, v2)) {
+    const edgeIntersects = isCircleIntersectingLineSegment(center, radius, v1, v2);
+    if (DEBUG_CONFIG.logScrewDebug && edgeIntersects) {
+      console.log(`🔧 Circle intersects edge ${i}: (${v1.x.toFixed(1)}, ${v1.y.toFixed(1)}) to (${v2.x.toFixed(1)}, ${v2.y.toFixed(1)})`);
+    }
+    if (edgeIntersects) {
       return true;
     }
   }
   
+  if (DEBUG_CONFIG.logScrewDebug) {
+    console.log(`🔧 No intersection found with any edge`);
+  }
   return false;
 }
 
@@ -465,8 +516,8 @@ export function isScrewAreaBlocked(
     isCircleIntersectingShape(screwPosition, screwRadius + UI_CONSTANTS.screws.blockingMargin, shape) :
     isPointInShapeBoundsWithMargin(screwPosition, shape);
     
-  // Debug logging for investigating incorrect blocking
-  if (DEBUG_CONFIG.logScrewDebug && result) {
+  // Debug logging for investigating incorrect blocking - only during user clicks
+  if (DEBUG_CONFIG.logScrewDebug && result && shouldLogBlocking()) {
     console.log(`🚨 SCREW BLOCKING DETECTED:`, {
       screwPos: screwPosition,
       screwRadius,
