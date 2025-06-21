@@ -47,7 +47,7 @@ This standardization provides consistent, predictable event names and easier und
    - Max history: 1000 events, Loop detection threshold: 50
 
 4. **Game EventTypes** (`src/game/events/EventTypes.ts`)
-   - 120+ game-specific event definitions
+   - 96 game-specific event definitions
    - Comprehensive type safety with union types
    - **Race condition protection**: Single event handlers prevent duplicate processing (e.g., `next:level:requested` is handled exclusively by `GameEventCoordinator`)
 

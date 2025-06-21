@@ -31,7 +31,7 @@ Players remove screws from layered shapes to collect them in color-matched conta
 The entire game operates on a comprehensive event system that ensures complete decoupling between systems:
 
 - **Centralized Event Bus**: `SharedEventBus` handles all inter-system communication
-- **Type-Safe Events**: 120+ game-specific event types with full TypeScript support
+- **Type-Safe Events**: 96 game-specific event types with full TypeScript support
 - **Priority-Based Processing**: Events can be prioritized for critical operations
 - **Loop Detection**: Sophisticated protection against infinite event loops
 - **Performance Monitoring**: Built-in event processing metrics and debugging

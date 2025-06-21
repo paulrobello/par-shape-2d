@@ -303,9 +303,26 @@ export class GameManager extends BaseSystem {
     }
   }
 
+  /**
+   * Finds the closest screw within interaction radius using proximity-based collision detection.
+   * 
+   * Algorithm:
+   * 1. Retrieves all screws from current render state
+   * 2. Calculates Euclidean distance from point to each screw center
+   * 3. Returns closest screw within adaptive radius (touch vs mouse)
+   * 4. Handles edge cases (no screws, all outside range)
+   * 
+   * Performance: O(n) where n = total screws in visible layers
+   * 
+   * Touch vs Mouse Interaction:
+   * - Touch: 30px radius for comfortable finger interaction
+   * - Mouse: 15px radius for precise cursor targeting
+   * 
+   * @param point - Interaction point in game coordinates (not screen coordinates)
+   * @param inputType - Input method determines interaction radius
+   * @returns Closest screw within range or null if none found
+   */
   private findScrewAtPoint(point: Vector2, inputType: 'mouse' | 'touch'): Screw | null {
-    // This method would need to access the screw data from render state
-    // For now, return null - this logic would need to be adapted
     const maxDistance = inputType === 'touch' ? 30 : 15;
     const renderState = this.renderManager.getRenderState();
     
@@ -370,6 +387,20 @@ export class GameManager extends BaseSystem {
     return isClicked;
   }
 
+  /**
+   * Converts mouse event screen coordinates to normalized game world coordinates.
+   * 
+   * Coordinate Transformation Pipeline:
+   * 1. Extract screen coordinates from mouse event (clientX, clientY)
+   * 2. Subtract canvas bounding rect offset (handles viewport positioning)
+   * 3. Subtract canvas rendering offset (handles canvas centering)
+   * 4. Divide by canvas scale factor (handles responsive scaling/zoom)
+   * 
+   * Result: Normalized game coordinates independent of screen size and canvas scaling
+   * 
+   * @param event - Mouse event containing screen coordinates
+   * @returns Normalized game coordinates for collision detection and interaction
+   */
   private getPointFromMouseEvent(event: MouseEvent): Vector2 {
     const renderState = this.renderManager.getRenderState();
     const rect = renderState.canvas?.getBoundingClientRect();
@@ -383,6 +414,23 @@ export class GameManager extends BaseSystem {
     return { x, y };
   }
 
+  /**
+   * Converts touch event screen coordinates to normalized game world coordinates.
+   * 
+   * Touch-Specific Handling:
+   * 1. Uses changedTouches[0] to get primary touch point
+   * 2. Applies same coordinate transformation as mouse events
+   * 3. Handles multi-touch by using first touch point only
+   * 4. Guards against touch events with no touch data
+   * 
+   * Mobile Considerations:
+   * - Touch coordinates include viewport scaling effects
+   * - Handles device pixel ratio and zoom levels automatically
+   * - Compatible with preventDefault() touch behavior prevention
+   * 
+   * @param event - Touch event containing screen coordinates
+   * @returns Normalized game coordinates for mobile interaction
+   */
   private getPointFromTouchEvent(event: TouchEvent): Vector2 {
     const renderState = this.renderManager.getRenderState();
     const rect = renderState.canvas?.getBoundingClientRect();

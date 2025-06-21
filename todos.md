@@ -15,5 +15,3 @@
 - Read `game_architecture.md` to understand the game architecture.
 
 ## Items
-
-Level complete eye candy. when the last container box is removed before the level complete overlay is shown. Add a short burst and sparkle effect It should last at most 3 seconds. You may need to adjust the timer that shows the level complete overlay to allow for the animation.

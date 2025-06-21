@@ -25,7 +25,7 @@ The editor event system provides a comprehensive, type-safe event-driven archite
    - Additional convenience methods for editor usage patterns
 
 3. **EditorEventTypes** (`src/editor/events/EditorEventTypes.ts`)
-   - 40+ editor-specific event definitions
+   - 44 editor-specific event definitions
    - Comprehensive type safety with payload-based structure
    - All events use `editor:domain:action` naming convention
 

@@ -6,7 +6,21 @@ import { Vector2 } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
 
 /**
- * Check if a point is inside a polygon using ray casting algorithm
+ * Check if a point is inside a polygon using ray casting algorithm.
+ * 
+ * Algorithm: Casts a horizontal ray from the point towards positive infinity
+ * and counts intersections with polygon edges. Odd number = inside, even = outside.
+ * 
+ * Performance: O(n) where n = number of vertices
+ * 
+ * Edge Cases:
+ * - Points on edges are considered inside (floating point precision dependent)
+ * - Degenerate polygons (< 3 vertices) return false
+ * - Self-intersecting polygons use even-odd fill rule
+ * 
+ * @param point - Test point coordinates
+ * @param vertices - Polygon vertices in sequential order (clockwise or counter-clockwise)
+ * @returns true if point is inside polygon, false otherwise
  */
 export function isPointInPolygon(point: Vector2, vertices: Vector2[]): boolean {
   if (vertices.length < 3) return false;
@@ -30,7 +44,19 @@ export function isPointInPolygon(point: Vector2, vertices: Vector2[]): boolean {
 }
 
 /**
- * Calculate distance from a point to a line segment
+ * Calculate minimum distance from a point to a line segment.
+ * 
+ * Algorithm: Projects point onto line segment and handles three cases:
+ * 1. Projection before segment start → distance to start point
+ * 2. Projection after segment end → distance to end point  
+ * 3. Projection within segment → perpendicular distance to line
+ * 
+ * Performance: O(1) - constant time calculation
+ * 
+ * @param point - Point to measure distance from
+ * @param lineStart - Start vertex of line segment
+ * @param lineEnd - End vertex of line segment
+ * @returns Minimum distance from point to any position on line segment
  */
 export function distanceFromPointToLineSegment(point: Vector2, lineStart: Vector2, lineEnd: Vector2): number {
   const A = point.x - lineStart.x;
@@ -262,7 +288,20 @@ export function isCircleIntersectingPolygon(center: Vector2, radius: number, ver
 }
 
 /**
- * Generate evenly spaced points along a polygon perimeter
+ * Generate evenly distributed points along polygon perimeter using arc-length parameterization.
+ * 
+ * Algorithm:
+ * 1. Calculate cumulative edge lengths for proper distribution weight
+ * 2. Map desired point count to arc-length positions with equal spacing
+ * 3. Interpolate exact positions using linear interpolation per edge
+ * 4. Handle degenerate cases (zero-length edges, insufficient vertices)
+ * 
+ * Performance: O(n + m) where n = vertex count, m = desired points
+ * 
+ * Use Cases:
+ * - Screw placement along shape perimeters
+ * - Decoration element positioning
+ * - Collision point sampling
  */
 export function generatePerimeterPoints(vertices: Vector2[], count: number, margin: number = 0): Vector2[] {
   if (vertices.length < 3 || count <= 0) return [];
@@ -352,7 +391,25 @@ export function calculateShapeArea(shape: Shape): number {
 }
 
 /**
- * Select non-overlapping positions from a list of candidate positions
+ * Select non-overlapping positions from candidate positions using spatial optimization.
+ * 
+ * Algorithm:
+ * 1. Shuffle positions for random selection order (prevents bias)
+ * 2. Greedily select positions that maintain minimum separation distance
+ * 3. For single point: returns center position (last in array)
+ * 4. Early termination when enough positions found
+ * 
+ * Performance: O(n²) worst case, O(n·k) average where n = candidates, k = selected
+ * 
+ * Optimization Strategy:
+ * - Random shuffling prevents positional bias
+ * - Greedy selection for fast convergence
+ * - Distance validation before acceptance
+ * 
+ * Use Cases:
+ * - Screw placement with anti-overlap constraints
+ * - UI element positioning
+ * - Spatial distribution algorithms
  */
 export function selectNonOverlappingPositions(
   positions: Vector2[], 
