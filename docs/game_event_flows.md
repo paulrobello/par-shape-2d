@@ -488,9 +488,9 @@ sequenceDiagram
     
     alt Last container removed (remainingContainers.length === 0)
         CM->>LCE: new LevelCompletionBurstEffect()
-        CM->>LCE: start(containerPosition)
+        CM->>LCE: start(centerPosition)
         
-        Note over LCE: Initialize particle systems:<br/>- 10 burst particles (radial)<br/>- 18 sparkle particles (random)<br/>- "COMPLETE" wave text letters
+        Note over LCE: Initialize particle systems:<br/>- 20 burst particles (radial)<br/>- 50 sparkle particles (random)<br/>- "COMPLETE" wave text letters
         
         CM->>EB: emit('level:completion:burst:started')
         CM->>EB: emit('container:all_removed')

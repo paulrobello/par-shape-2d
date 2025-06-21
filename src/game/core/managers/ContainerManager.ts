@@ -315,7 +315,7 @@ export class ContainerManager extends BaseSystem {
           }
           
           // Check if this was the last container and trigger burst effect
-          this.checkForLastContainerRemoval(container.position);
+          this.checkForLastContainerRemoval();
           
           // NOW check for replacement containers and create them with fade-in animation
           this.emit({
@@ -663,7 +663,7 @@ export class ContainerManager extends BaseSystem {
   /**
    * Check if this was the last container removal and trigger burst effect if needed
    */
-  private checkForLastContainerRemoval(containerPosition: { x: number; y: number }): void {
+  private checkForLastContainerRemoval(): void {
     // Check if there are any remaining containers
     const remainingContainers = this.containers.filter(c => !c.isMarkedForRemoval);
     
@@ -672,15 +672,24 @@ export class ContainerManager extends BaseSystem {
         console.log('🎆 Last container removed - triggering burst effect!');
       }
       
-      // Create and start the burst effect
-      this.burstEffect = new LevelCompletionBurstEffect();
-      this.burstEffect.start(containerPosition);
+      // Create and start the burst effect at center of canvas
+      const centerPosition = {
+        x: this.virtualGameWidth / 2,
+        y: this.virtualGameHeight / 2
+      };
+      this.burstEffect = new LevelCompletionBurstEffect({
+        burstRadius: 150, // Bigger burst radius
+        sparkleRadius: 120, // Bigger sparkle radius
+        burstParticleCount: 20, // Double the burst particles (default: 10)
+        sparkleParticleCount: 50 // Double the sparkle particles (from 25)
+      });
+      this.burstEffect.start(centerPosition);
       
       // Emit burst started event
       this.emit({
         type: 'level:completion:burst:started',
         timestamp: Date.now(),
-        position: containerPosition,
+        position: centerPosition,
         duration: 2500 // Default duration from the effect
       } as LevelCompletionBurstStartedEvent);
       
