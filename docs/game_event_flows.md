@@ -57,6 +57,7 @@ This standardization provides consistent, predictable event names and easier und
 - **Game State**: `game:started`, `game:paused`, `game:resumed`, `game:over`
 - **Level Management**: `level:started`, `level:win:condition:met`, `level:transition:completed`, `level:progress:updated`, `next:level:requested`
 - **Level Completion Effects**: `level:completion:burst:started`, `level:completion:burst:completed` - Visual celebration system for level completion
+- **Game Over Restart**: Click/tap during game over screen triggers restart while preserving current level and total score
 - **System Coordination**: `system:ready`, `all:layers:cleared`
 
 ### Screw System Events (Core Gameplay)

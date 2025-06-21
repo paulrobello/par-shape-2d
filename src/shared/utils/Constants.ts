@@ -80,7 +80,7 @@ export const EDITOR_CONFIG = {
     previewTint: '#4a90e2',
     highlightColor: '#007bff',
     selectionRadius: 15,
-    borderWidth: 3,
+    borderWidth: 5,
     alpha: 0.7,
   },
   screw: {
@@ -219,7 +219,7 @@ export const UI_CONSTANTS = {
     },
   },
   shapes: {
-    borderWidth: 3,
+    borderWidth: 5,
     alpha: 0.7,
   },
   grid: {

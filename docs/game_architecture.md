@@ -238,6 +238,12 @@ graph TB
 - **Cross-platform**: Handles both mouse (15px radius) and touch (30px radius) input
 - **Menu Overlay**: Click/tap anywhere on paused overlay to resume game (mobile-friendly)
 
+**Game Over and Restart Handling**:
+- **Game Over Input**: Click/tap anywhere during game over screen to restart
+- **State Preservation**: Restart maintains current level and total score
+- **Level Regeneration**: New random shape positioning while preserving level structure
+- **Score Reset**: Clears level score but preserves total score across restarts
+
 **Key Events Emitted**:
 - `game:started`, `game:paused`, `game:resumed`, `game:over`
 - `level:started`, `level:complete`

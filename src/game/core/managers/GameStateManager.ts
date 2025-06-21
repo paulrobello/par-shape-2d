@@ -42,10 +42,21 @@ export class GameStateManager implements IGameStateManager {
     }
   }
 
-  resetGameState(): void {
-    this.state = this.createInitialState();
-    if (DEBUG_CONFIG.logEventFlow) {
-      console.log('[GameStateManager] State reset to initial values');
+  resetGameState(preserveLevelAndScore = false): void {
+    if (preserveLevelAndScore) {
+      const currentLevel = this.state.currentLevel;
+      const totalScore = this.state.totalScore;
+      this.state = this.createInitialState();
+      this.state.currentLevel = currentLevel;
+      this.state.totalScore = totalScore;
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log(`[GameStateManager] State reset preserving level ${currentLevel} and total score ${totalScore}`);
+      }
+    } else {
+      this.state = this.createInitialState();
+      if (DEBUG_CONFIG.logEventFlow) {
+        console.log('[GameStateManager] State reset to initial values');
+      }
     }
   }
 

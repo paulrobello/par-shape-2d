@@ -277,7 +277,16 @@ export class GameManager extends BaseSystem {
       return;
     }
 
-    if (!gameState.gameStarted || gameState.gameOver) {
+    // Handle game over restart click
+    if (gameState.gameOver) {
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log('🔄 Game over restart clicked');
+      }
+      this.handleRestartGame();
+      return;
+    }
+
+    if (!gameState.gameStarted) {
       return;
     }
 
@@ -452,7 +461,7 @@ export class GameManager extends BaseSystem {
     console.log('🔄 Restart requested');
     this.timerManager.clearAllTimers();
     this.uiManager.resetUIState();
-    this.stateManager.resetGameState();
+    this.stateManager.resetGameState(true); // Preserve level and total score
 
     // Reset all game systems by emitting game started event
     if (this.state.systemCoordinator) {
