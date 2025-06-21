@@ -87,7 +87,7 @@ This standardization provides consistent, predictable event names and easier und
 - **Lifecycle**: `container:initialize`, `container:removing:screws`
 - **Transfers**: `screw:transfer:completed`, `screw:transfer:failed`, `screw:transfer:color_check`
 - **Positioning**: Fixed 4-slot system prevents container shifting on removal
-- **Hole Planning**: Container holes sized based on ALL remaining screws of visible colors (1-3 holes max), ensuring proper capacity for future collection
+- **Hole Planning**: Container holes sized based on VISIBLE screws only (1-3 holes max), ensuring accurate prioritization of container colors
 - **Proactive Management**: Containers created before needed via `layers:updated` and `layer:indices:updated` triggers
 - **Replacement Timing**: Fixed race conditions by moving replacement logic to animation completion cycle
 

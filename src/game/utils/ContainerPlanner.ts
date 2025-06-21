@@ -4,7 +4,7 @@
  */
 
 import { ScrewColor } from '@/types/game';
-import { GAME_CONFIG } from '@/shared/utils/Constants';
+import { GAME_CONFIG, DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export interface ContainerPlan {
   containers: Array<{
@@ -34,6 +34,14 @@ export class ContainerPlanner {
       .filter(([, count]) => count > 0)
       .sort(([, countA], [, countB]) => countB - countA) // Most screws first (greedy approach)
       .slice(0, GAME_CONFIG.containers.count); // Max 4 containers (UI layout constraint)
+
+    if (DEBUG_CONFIG.logScrewDebug && availableColors.length > 0) {
+      console.log('📦 Container planning - Visible screw colors after greedy sorting:');
+      availableColors.forEach(([color, count], index) => {
+        console.log(`  ${index + 1}. ${color}: ${count} screws`);
+      });
+      console.log(`📦 Total colors considered: ${availableColors.length} (max ${GAME_CONFIG.containers.count})`);
+    }
 
     const containers = availableColors.map(([color, count]) => ({
       color: color as ScrewColor,

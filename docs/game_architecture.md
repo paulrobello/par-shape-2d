@@ -292,7 +292,7 @@ graph TB
 #### **ContainerManager** (`src/game/core/managers/ContainerManager.ts`)
 **Responsibility**: Container lifecycle and screw assignment with fixed-slot positioning
 - Container instantiation with appropriate colors and hole counts (1-3 holes per container)
-- **Hole Planning**: Creates containers for colors present in visible shapes or holding holes, with hole counts sized based on ALL remaining screws of that color (across all layers) for proper capacity planning
+- **Hole Planning**: Creates containers for colors present in visible layers or holding holes, with hole counts based on VISIBLE screws only for accurate container prioritization
 - Screw placement and hole management
 - Container completion detection
 - Intelligent container substitution with synchronized fade animations

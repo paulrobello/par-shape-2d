@@ -516,6 +516,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     
     // Count screws by color that need container space (shapes + holding holes, excluding same-color containers)
     const screwsByColor = new Map<string, number>();
+    const visibleScrewsByColor = new Map<string, number>();
     const visibleColors = new Set<string>();
     
     // Create map of screws already in containers by color (only exclude screws in same-color containers)
@@ -552,6 +553,9 @@ export class ScrewEventHandler implements IScrewEventHandler {
         const isInVisibleLayer = screwShape && this.state.visibleLayers.has(screwShape.layerId);
         if (isInVisibleLayer) {
           visibleColors.add(screw.color);
+          // Count visible screws separately for accurate container planning
+          const visibleCount = visibleScrewsByColor.get(screw.color) || 0;
+          visibleScrewsByColor.set(screw.color, visibleCount + 1);
         }
         
         // Track details for debugging
@@ -592,6 +596,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     // Count screws in holding holes - these need container space eventually
     // But exclude ones already in same-color containers
     // Also track colors in holding holes as visible colors for container selection
+    const holdingHoleScrews = new Map<string, number>();
     for (const hole of this.state.holdingHoles) {
       if (hole.screwId) {
         const screw = this.state.screws.get(hole.screwId);
@@ -601,11 +606,23 @@ export class ScrewEventHandler implements IScrewEventHandler {
           if (!sameColorContainerScrews.has(hole.screwId)) {
             const count = screwsByColor.get(screw.color) || 0;
             screwsByColor.set(screw.color, count + 1);
+            // Track holding hole screws separately for debugging
+            const holdingCount = holdingHoleScrews.get(screw.color) || 0;
+            holdingHoleScrews.set(screw.color, holdingCount + 1);
             // Screws in holding holes are considered "visible" for container color selection
             visibleColors.add(screw.color);
+            // Count holding hole screws as visible for container planning
+            const visibleCount = visibleScrewsByColor.get(screw.color) || 0;
+            visibleScrewsByColor.set(screw.color, visibleCount + 1);
           }
         }
       }
+    }
+
+    if (DEBUG_CONFIG.logScrewDebug && holdingHoleScrews.size > 0) {
+      console.log('🕳️ Screws in holding holes by color:', Array.from(holdingHoleScrews.entries()));
+      console.log('🕳️ Total holding holes:', this.state.holdingHoles.length);
+      console.log('🕳️ Occupied holding holes:', this.state.holdingHoles.filter(h => h.screwId).length);
     }
 
     if (DEBUG_CONFIG.logScrewDebug) {
@@ -625,13 +642,14 @@ export class ScrewEventHandler implements IScrewEventHandler {
       console.log('  - Screws not on shapes (in containers/holes, excluded):', screwsNotOnShapes);
       console.log('  - Screws already in containers by color:', Array.from(screwsInContainersByColor.entries()).map(([color, set]) => `${color}: ${set.size}`));
       console.log('  - Total screws in containers:', totalInContainers);
-      console.log('  - Screws needing container space by color:', Array.from(screwsByColor.entries()));
+      console.log('  - ALL screws needing container space by color:', Array.from(screwsByColor.entries()));
+      console.log('  - VISIBLE screws for container planning by color:', Array.from(visibleScrewsByColor.entries()));
       console.log('  - Colors eligible for containers (visible layers + holding holes):', Array.from(visibleColors));
     }
 
-    // Use the callback with both screw counts (for hole sizing) and visible colors (for container selection)
+    // Use the callback with visible screw counts (for accurate container planning) and visible colors
     if (event.callback) {
-      event.callback(screwsByColor, visibleColors);
+      event.callback(visibleScrewsByColor, visibleColors);
     }
   }
 
