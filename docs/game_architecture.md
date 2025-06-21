@@ -432,32 +432,189 @@ The game follows a **strict single responsibility pattern** for level completion
 
 ### Level Completion Visual Effects
 
-The game features a sophisticated visual celebration system when the level is completed:
+The game features a sophisticated visual celebration system that provides spectacular "eye candy" when the level is completed. This system demonstrates the game's professional polish and creates satisfying player feedback.
+
+#### **System Overview**
+
+The level completion effects system creates a multi-layered animated celebration that triggers automatically when the last container box is removed from the game. The system is designed to:
+
+- **Provide Immediate Visual Feedback**: Players instantly see that they've accomplished the level objective
+- **Create Emotional Satisfaction**: The burst and sparkle effects create a sense of achievement
+- **Maintain Performance**: Self-contained animation with proper cleanup and optimization
+- **Support Debugging**: Comprehensive debug tools for development and testing
 
 #### **LevelCompletionBurstEffect Class**
-- **Particle System**: Burst particles (10) shoot outward radially from the last container position
-- **Sparkle Effects**: Twinkling particles (18) randomly positioned around the burst center  
-- **Wave Text Animation**: Large green "COMPLETE" text with wave motion across each letter
-- **Animation Timeline**: 2.5-second duration with staggered effects:
-  - 0-0.5s: Burst particles expand rapidly with easeOutCubic
-  - 0.2-2.0s: Sparkle particles twinkle with random phase offsets
-  - 0.3-2.2s: Wave text animates with sine wave motion and fade in/out
-  - 2.0-2.5s: Final fade out of all effects
-- **Visual Polish**: Uses GeometryRenderer with glow and shadow effects, plus professional text rendering with stroke and glow
+
+Located at `src/shared/rendering/components/LevelCompletionBurstEffect.ts`, this class is a fully self-contained animation system:
+
+##### **Particle Systems**
+1. **Burst Particles (10 particles)**
+   - Shoot outward radially from the last container position
+   - Use `easeOutCubic` easing for natural deceleration
+   - Varying distances (0.8-1.2x radius) for organic spread
+   - Size: 4px base with ±20% variation for natural look
+   - Colors: Gold (#FFD700), Orange-red (#FF6B35), Orange (#F7931E), Yellow (#FFFF00), Deep pink (#FF1493)
+   - Glow and shadow effects for premium visual quality
+
+2. **Sparkle Particles (18 particles)**
+   - Randomly positioned within sparkle radius around burst center
+   - Twinkling animation with individual phase offsets
+   - Scale animation between 0.5x and 2x for dynamic sparkle effect
+   - Size: 2.5px base with ±40% variation
+   - Colors: White (#FFFFFF), Light blue (#E6F3FF), Cornsilk (#FFF8DC), Alice blue (#F0F8FF), Lemon chiffon (#FFFACD)
+   - 6 full twinkle cycles over effect duration
+
+3. **Wave Text Animation**
+   - Large "COMPLETE" text in professional green (#2ECC71)
+   - 64px bold Arial font with stroke and glow effects
+   - Individual letter wave motion with sine wave calculation
+   - 15px wave amplitude, 2Hz frequency for smooth motion
+   - Per-letter phase offsets create flowing wave across the word
+   - Fade in/out transitions for professional appearance
+
+##### **Animation Timeline (2.5 seconds total)**
+```
+0.0-0.5s: Burst Phase
+├── Burst particles expand rapidly (easeOutCubic)
+├── Particles fade to 30% opacity
+└── High-energy explosive motion
+
+0.2-2.0s: Sparkle Phase (overlaps with burst)
+├── Sparkle particles begin twinkling
+├── 6 full twinkle cycles
+├── Random phase offsets prevent uniform motion
+└── Gradual fade out over time
+
+0.3-2.2s: Wave Text Phase (overlaps with sparkles)
+├── Text fades in over first 20% of phase
+├── Continuous wave motion across letters
+├── Full opacity in middle 60% of phase
+└── Fade out over final 20% of phase
+
+2.0-2.5s: Final Fade
+├── All effects fade to completion
+├── Automatic cleanup and resource release
+└── Event emission for effect completion
+```
 
 #### **Integration Architecture**
-- **Trigger Location**: ContainerManager detects last container removal and starts effect
-- **Event Flow**: Emits `level:completion:burst:started` and `level:completion:burst:completed` events
-- **Render Pipeline**: GameRenderManager calls burst effect rendering after game elements but before UI
-- **Performance**: Self-contained class with proper cleanup and debug logging via `DEBUG_CONFIG.logLevelCompletionEffects`
 
-#### **Configuration Options**
-- Duration: 2500ms (under 3-second requirement)
-- Burst particles: 10 radial particles with varying distance (0.8-1.2x radius)
-- Sparkle particles: 18 twinkling particles with random positioning
-- Wave text: 64px bold font with 15px wave amplitude and 2Hz frequency
-- Color palette: Gold, orange, yellow for burst; white, light blue for sparkles; professional green (#2ECC71) for text
-- Particle sizes: 4px burst particles, 2.5px sparkle particles with scale variation
+##### **Trigger System**
+- **Detection**: `ContainerManager.checkForLastContainerRemoval()` monitors container count
+- **Condition**: Triggers when `remainingContainers.length === 0`
+- **Position**: Uses the last removed container's position as burst center
+- **Timing**: Starts immediately when condition is met, before level complete overlay
+
+##### **Event Flow**
+```typescript
+// Events emitted by the level completion system
+'level:completion:burst:started' {
+  position: { x: number; y: number },
+  duration: number
+}
+
+'level:completion:burst:completed' {
+  position: { x: number; y: number }
+}
+```
+
+##### **Render Pipeline Integration**
+1. **Location**: `GameRenderManager.renderBurstEffect()` calls effect rendering
+2. **Order**: Rendered after game elements but before UI overlay
+3. **Context**: Uses main game canvas context with proper transforms
+4. **Performance**: Only renders when effect is active, automatic cleanup
+
+#### **Configuration and Customization**
+
+The `BurstEffectConfig` interface allows full customization:
+
+```typescript
+interface BurstEffectConfig {
+  duration?: number;              // Default: 2500ms (under 3s requirement)
+  burstParticleCount?: number;    // Default: 10
+  sparkleParticleCount?: number;  // Default: 18
+  burstRadius?: number;           // Default: 120px
+  sparkleRadius?: number;         // Default: 80px
+  burstParticleSize?: number;     // Default: 4px
+  sparkleParticleSize?: number;   // Default: 2.5px
+  textFontSize?: number;          // Default: 64px
+  textWaveAmplitude?: number;     // Default: 15px
+  textWaveFrequency?: number;     // Default: 2Hz
+}
+```
+
+#### **Debug and Development Support**
+
+##### **Debug Key Integration**
+- **Key**: Press 'C' while in debug mode to manually trigger effect
+- **Method**: `ContainerManager.triggerDebugBurstEffect()`
+- **Position**: Uses screen center for debug triggering
+- **Events**: Emits same events as normal completion for full testing
+
+##### **Debug Logging**
+- **Flag**: `DEBUG_CONFIG.logLevelCompletionEffects` controls all effect logging
+- **Coverage**: Effect creation, animation updates, rendering calls, completion
+- **Performance**: Throttled logging to prevent spam in render loop
+- **Debugging**: Helps track effect lifecycle and troubleshoot issues
+
+##### **Menu Integration**
+- **Display**: Debug keys shown in pause menu when debug mode is active
+- **Instructions**: Clear labeling for 'C' key functionality
+- **Visibility**: Gold color (#FFD700) distinguishes debug instructions
+
+#### **Performance Optimization**
+
+##### **Efficient Rendering**
+- **Conditional Rendering**: Only renders when `isActive()` returns true
+- **Opacity Culling**: Particles below 0.01 opacity are skipped
+- **Automatic Cleanup**: Effect nullifies itself on completion
+- **Memory Management**: Temporary canvas for text measurement is local
+
+##### **Animation Efficiency**
+- **Delta Time Based**: Smooth animation regardless of frame rate
+- **Progress Tracking**: Single progress value drives all animations
+- **Easing Functions**: Leverages shared `EasingFunctions` utility
+- **State Management**: Minimal state updates per frame
+
+#### **Technical Implementation Details**
+
+##### **Class Structure**
+```typescript
+export class LevelCompletionBurstEffect {
+  private animationState: EffectAnimationState | null;
+  private config: Required<BurstEffectConfig>;
+  
+  // Public API
+  start(centerPosition: Vector2): void
+  update(deltaTime: number): boolean
+  render(ctx: CanvasRenderingContext2D): void
+  isActive(): boolean
+  stop(): void
+  
+  // Private implementation
+  private createWaveTextLetters(): WaveTextLetter[]
+  private renderWaveText(): void
+  private getRandomBurstColor(): string
+  private getRandomSparkleColor(): string
+}
+```
+
+##### **State Management**
+- **Single State Object**: `EffectAnimationState` contains all animation data
+- **Null When Inactive**: Clear active/inactive distinction
+- **Immutable Config**: Configuration frozen at creation time
+- **Progress-Driven**: All animations derived from single progress value (0-1)
+
+#### **Future Enhancement Opportunities**
+
+While the current implementation is complete and polished, potential enhancements include:
+
+- **Sound Integration**: Audio effects synchronized with visual animation
+- **Haptic Feedback**: Mobile device vibration on effect trigger
+- **Particle Physics**: Physics-based particle movement for more realism
+- **Color Theming**: Dynamic colors based on level or achievement type
+- **Scale Adaptation**: Responsive sizing based on screen dimensions
+- **Multiple Effects**: Different celebration styles for different achievements
 
 ## Game Logic Flows
 

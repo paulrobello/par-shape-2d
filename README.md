@@ -66,6 +66,12 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * **Haptic Integration**: 50ms vibration for blocked screws, celebration patterns for successes
 * **Progress Bar**: Smooth animated transitions with configurable easing functions
 * **Container Transitions**: Professional fade in/out animations (500ms) for container management
+* **Level Completion Effects**: Spectacular burst and sparkle animation system:
+  - **Burst Particles**: 10 radial particles with easeOutCubic motion and glow effects
+  - **Sparkle Effects**: 18 twinkling particles with random positioning and phase offsets
+  - **Wave Text Animation**: Large green "COMPLETE" text with per-letter wave motion
+  - **Duration**: 2.5-second celebration before level complete overlay
+  - **Trigger**: Automatically starts when last container box is removed
 * **Visual Polish**: Enhanced shadows, glows, and rounded corners throughout UI
 
 ## Graphics

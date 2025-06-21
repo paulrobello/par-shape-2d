@@ -56,6 +56,7 @@ This standardization provides consistent, predictable event names and easier und
 ### Game Lifecycle Events
 - **Game State**: `game:started`, `game:paused`, `game:resumed`, `game:over`
 - **Level Management**: `level:started`, `level:win:condition:met`, `level:transition:completed`, `level:progress:updated`, `next:level:requested`
+- **Level Completion Effects**: `level:completion:burst:started`, `level:completion:burst:completed` - Visual celebration system for level completion
 - **System Coordination**: `system:ready`, `all:layers:cleared`
 
 ### Screw System Events (Core Gameplay)
@@ -106,7 +107,7 @@ This standardization provides consistent, predictable event names and easier und
 | System | Primary Events Emitted |
 |--------|------------------------|
 | **GameManager** | `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `screw:clicked` (single-source input) |
-| **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed`, `container:removing:screws` |
+| **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed`, `container:removing:screws`, `level:completion:burst:started`, `level:completion:burst:completed` |
 | **HoldingHoleManager** | `holding_hole:filled`, `holding_hole:state:updated`, `holding_holes:full`, `holding_holes:available` |
 | **ScrewManager** | `screw:collected`, `screw:removed`, `screw:animation:*`, `screw:transfer:*` |
 | **GameStateCore** | `level:transition:completed`, game state transitions, progress tracking events |
@@ -426,7 +427,75 @@ sequenceDiagram
 - **Used by ContainerManager**: For intelligent container replacement decisions using visible colors only
 - **Used by ProgressTracker**: For accurate win condition detection based on visible layer progress
 
-### 6. Ownership Transfer and Disposal Safety Flow
+### 6. Level Completion Burst Effect Flow
+
+The level completion visual effects system provides spectacular animation when the last container is removed:
+
+```mermaid
+sequenceDiagram
+    participant CM as ContainerManager
+    participant LCE as LevelCompletionBurstEffect
+    participant GRM as GameRenderManager
+    participant EB as EventBus
+    participant GM as GameManager (Debug)
+
+    Note over CM: Container filled and fade animation starts
+    
+    CM->>CM: handleContainerFilled() - fade animation (500ms)
+    
+    Note over CM: After fade animation completes
+    
+    CM->>CM: checkForLastContainerRemoval(containerPosition)
+    
+    alt Last container removed (remainingContainers.length === 0)
+        CM->>LCE: new LevelCompletionBurstEffect()
+        CM->>LCE: start(containerPosition)
+        
+        Note over LCE: Initialize particle systems:<br/>- 10 burst particles (radial)<br/>- 18 sparkle particles (random)<br/>- "COMPLETE" wave text letters
+        
+        CM->>EB: emit('level:completion:burst:started')
+        CM->>EB: emit('container:all_removed')
+        
+        Note over CM,LCE: Update loop (2.5 seconds)
+        
+        loop Animation Update (60fps)
+            CM->>LCE: update(deltaTime)
+            
+            Note over LCE: Update all effects:<br/>- Burst particles (0-0.5s)<br/>- Sparkle particles (0.2-2.0s)<br/>- Wave text (0.3-2.2s)
+            
+            GRM->>CM: renderBurstEffect(ctx)
+            CM->>LCE: render(ctx) [if active]
+            
+            Note over LCE: Render with proper layering:<br/>- Burst particles with glow<br/>- Sparkle particles with twinkle<br/>- Wave text with sine motion
+        end
+        
+        alt Animation Complete (progress >= 1.0)
+            LCE->>CM: update() returns true
+            CM->>EB: emit('level:completion:burst:completed')
+            CM->>CM: burstEffect = null (cleanup)
+        end
+    end
+    
+    Note over GM: Debug Mode Alternative
+    
+    alt Debug Key Pressed ('C' in debug mode)
+        GM->>CM: triggerDebugBurstEffect()
+        CM->>LCE: new LevelCompletionBurstEffect()
+        CM->>LCE: start(centerPosition) [screen center]
+        CM->>EB: emit('level:completion:burst:started')
+        
+        Note over GM,CM: Same animation loop as above
+    end
+```
+
+**Key Features:**
+- **Automatic Triggering**: Starts when last container box is removed from game
+- **Multi-Layer Animation**: Three synchronized particle systems with staggered timing
+- **Performance Optimized**: Delta-time based animation, opacity culling, automatic cleanup
+- **Debug Support**: Manual triggering via 'C' key in debug mode for testing
+- **Event Integration**: Proper event emission for system coordination
+
+### 7. Ownership Transfer and Disposal Safety Flow
 
 The ownership system ensures data integrity during shape destruction and layer clearing:
 
