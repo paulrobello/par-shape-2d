@@ -430,6 +430,35 @@ The game follows a **strict single responsibility pattern** for level completion
 - **No Race Conditions**: Single authoritative source prevents competing completion logic
 - **Maintainable**: Easy to reason about and debug completion flow
 
+### Level Completion Visual Effects
+
+The game features a sophisticated visual celebration system when the level is completed:
+
+#### **LevelCompletionBurstEffect Class**
+- **Particle System**: Burst particles (10) shoot outward radially from the last container position
+- **Sparkle Effects**: Twinkling particles (18) randomly positioned around the burst center  
+- **Wave Text Animation**: Large green "COMPLETE" text with wave motion across each letter
+- **Animation Timeline**: 2.5-second duration with staggered effects:
+  - 0-0.5s: Burst particles expand rapidly with easeOutCubic
+  - 0.2-2.0s: Sparkle particles twinkle with random phase offsets
+  - 0.3-2.2s: Wave text animates with sine wave motion and fade in/out
+  - 2.0-2.5s: Final fade out of all effects
+- **Visual Polish**: Uses GeometryRenderer with glow and shadow effects, plus professional text rendering with stroke and glow
+
+#### **Integration Architecture**
+- **Trigger Location**: ContainerManager detects last container removal and starts effect
+- **Event Flow**: Emits `level:completion:burst:started` and `level:completion:burst:completed` events
+- **Render Pipeline**: GameRenderManager calls burst effect rendering after game elements but before UI
+- **Performance**: Self-contained class with proper cleanup and debug logging via `DEBUG_CONFIG.logLevelCompletionEffects`
+
+#### **Configuration Options**
+- Duration: 2500ms (under 3-second requirement)
+- Burst particles: 10 radial particles with varying distance (0.8-1.2x radius)
+- Sparkle particles: 18 twinkling particles with random positioning
+- Wave text: 64px bold font with 15px wave amplitude and 2Hz frequency
+- Color palette: Gold, orange, yellow for burst; white, light blue for sparkles; professional green (#2ECC71) for text
+- Particle sizes: 4px burst particles, 2.5px sparkle particles with scale variation
+
 ## Game Logic Flows
 
 ### 1. Screw Removal Flow (Single-Source Input Handling)

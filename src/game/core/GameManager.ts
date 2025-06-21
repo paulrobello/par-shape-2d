@@ -89,6 +89,7 @@ export class GameManager extends BaseSystem {
   public setSystemCoordinator(coordinator: import('./SystemCoordinator').SystemCoordinator): void {
     this.state.systemCoordinator = coordinator;
     this.eventCoordinator.setSystemCoordinator(coordinator);
+    this.renderManager.setSystemCoordinator(coordinator);
   }
 
   public initializeCanvas(canvas: HTMLCanvasElement): void {
@@ -221,6 +222,12 @@ export class GameManager extends BaseSystem {
           break;
         case 'g':
           this.handleGameOver();
+          break;
+        case 'c':
+          // Debug: trigger level complete sequence (only in debug mode)
+          if (this.debugManager.isDebugMode()) {
+            this.handleDebugLevelComplete();
+          }
           break;
         case ' ':
           this.handleSpaceKey();
@@ -464,6 +471,32 @@ export class GameManager extends BaseSystem {
     if (DEBUG_CONFIG.logSystemLifecycle) {
       console.log('▶️ Game resumed: Menu overlay hidden');
     }
+  }
+
+  private handleDebugLevelComplete(): void {
+    if (DEBUG_CONFIG.logLevelCompletionEffects) {
+      console.log('🎆 Debug: Triggering level complete sequence');
+    }
+
+    // Get the GameState system and trigger the burst effect manually
+    if (this.state.systemCoordinator) {
+      const gameState = this.state.systemCoordinator.getSystem<import('./GameState').GameState>('GameState');
+      if (gameState) {
+        const containerManager = gameState.getContainerManager();
+        if (containerManager) {
+          containerManager.triggerDebugBurstEffect();
+        }
+      }
+    }
+
+    // Emit level win condition met event to trigger level completion
+    this.emit({
+      type: 'level:win:condition:met',
+      totalScrews: 100, // Dummy values for debug
+      finalProgress: 100,
+      timestamp: Date.now(),
+      source: 'GameManager-Debug'
+    });
   }
 
   // Backward compatibility methods

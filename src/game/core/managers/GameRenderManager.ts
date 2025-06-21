@@ -17,9 +17,13 @@ export class GameRenderManager implements IGameRenderManager {
   private gameStateManager: IGameStateManager | null = null;
   private uiManager: IGameUIManager | null = null;
   private debugManager: IGameDebugManager | null = null;
+  private systemCoordinator: import('../SystemCoordinator').SystemCoordinator | null = null;
   
   // UI Components
   private progressBar: ProgressBar;
+  
+  // Debug tracking
+  private hasBurstEffectLogged = false;
 
   constructor() {
     this.state = this.createInitialState();
@@ -60,6 +64,10 @@ export class GameRenderManager implements IGameRenderManager {
     this.gameStateManager = gameStateManager;
     this.uiManager = uiManager;
     this.debugManager = debugManager;
+  }
+
+  setSystemCoordinator(coordinator: import('../SystemCoordinator').SystemCoordinator): void {
+    this.systemCoordinator = coordinator;
   }
 
   getRenderState(): RenderState {
@@ -246,6 +254,9 @@ export class GameRenderManager implements IGameRenderManager {
     this.renderHoldingHoles();
     this.renderShapesAndScrews(); // Combined rendering with proper layering
     
+    // Render burst effect on top of game elements but below UI
+    this.renderBurstEffect();
+    
     // Render UI elements on top
     this.renderHUD();
     this.renderMenuButton();
@@ -387,6 +398,27 @@ export class GameRenderManager implements IGameRenderManager {
         }
       }
     });
+  }
+
+  private renderBurstEffect(): void {
+    if (!this.state.ctx || !this.systemCoordinator) return;
+
+    // Get the GameState system and then the ContainerManager
+    const gameState = this.systemCoordinator.getSystem<import('../GameState').GameState>('GameState');
+    if (gameState) {
+      const containerManager = gameState.getContainerManager();
+      if (containerManager) {
+        // Only log once to avoid spam
+        if (DEBUG_CONFIG.logLevelCompletionEffects && !this.hasBurstEffectLogged) {
+          // Check if burst effect is active using public method
+          if (containerManager.isBurstEffectActive()) {
+            console.log('🎆 Rendering burst effect in GameRenderManager');
+            this.hasBurstEffectLogged = true;
+          }
+        }
+        containerManager.renderBurstEffect(this.state.ctx);
+      }
+    }
   }
 
   private renderShapesAndScrews(): void {
@@ -650,6 +682,14 @@ export class GameRenderManager implements IGameRenderManager {
     this.state.ctx.fillText('Click/Tap anywhere or press SPACE to Resume', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 - 50);
     this.state.ctx.fillText('Press R to Restart', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2);
     this.state.ctx.fillText('Press ESC to Close Menu', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 + 50);
+    
+    // Show debug keys if in debug mode
+    if (this.debugManager?.isDebugMode()) {
+      this.state.ctx.font = '18px Arial';
+      this.state.ctx.fillStyle = '#FFD700'; // Gold color for debug instructions
+      this.state.ctx.fillText('Debug Mode: Press C to Complete Level', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 + 100);
+      this.state.ctx.fillText('Press D to Toggle Debug, G for Game Over', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2 + 125);
+    }
   }
 
   cleanup(): void {

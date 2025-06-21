@@ -364,6 +364,7 @@ export const DEBUG_CONFIG = {
   logSystemLifecycle: false,            // System initialization and cleanup
   logCollisionDetection: false,         // Hit testing and collision algorithms
   logDebugUtilities: false,             // Debug helpers and state dumps
+  logLevelCompletionEffects: true,      // Level completion burst and sparkle effects (enabled for debugging)
   
   // Debug throttling settings (milliseconds) - prevents log spam
   debugThrottleMs: 2000,                // General debug log throttling (2 seconds)

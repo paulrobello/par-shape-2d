@@ -342,6 +342,13 @@ export class GameState extends BaseSystem {
     return this.containerManager.getAvailableHolesByColor();
   }
 
+  /**
+   * Get the ContainerManager instance for accessing advanced features like burst effects
+   */
+  public getContainerManager(): ContainerManager {
+    return this.containerManager;
+  }
+
   protected onDestroy(): void {
     // Clean up sub-managers
     this.gameStateCore.destroy();

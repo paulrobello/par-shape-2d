@@ -555,6 +555,17 @@ export interface LevelWinConditionMetEvent extends BaseEvent {
   finalProgress: number;
 }
 
+export interface LevelCompletionBurstStartedEvent extends BaseEvent {
+  type: 'level:completion:burst:started';
+  position: { x: number; y: number };
+  duration: number;
+}
+
+export interface LevelCompletionBurstCompletedEvent extends BaseEvent {
+  type: 'level:completion:burst:completed';
+  position: { x: number; y: number };
+}
+
 export interface TotalScrewCountSetEvent extends BaseEvent {
   type: 'total:screw:count:set';
   totalScrews: number;
@@ -704,6 +715,8 @@ export type GameEvent =
   | ScrewProgressUpdatedEvent
   | ProgressUpdatedEvent
   | LevelWinConditionMetEvent
+  | LevelCompletionBurstStartedEvent
+  | LevelCompletionBurstCompletedEvent
   | TotalScrewCountSetEvent
   | TotalScrewCountAddEvent
   | RemainingScrewCountsRequestedEvent

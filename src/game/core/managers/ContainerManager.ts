@@ -11,8 +11,11 @@ import {
   ContainerFilledEvent,
   ScrewTransferCompletedEvent,
   ScrewTransferFailedEvent,
-  ScrewTransferColorCheckEvent
+  ScrewTransferColorCheckEvent,
+  ContainerAllRemovedEvent,
+  LevelCompletionBurstStartedEvent
 } from '../../events/EventTypes';
+import { LevelCompletionBurstEffect } from '@/shared/rendering/components/LevelCompletionBurstEffect';
 
 export class ContainerManager extends BaseSystem {
   private containers: Container[] = [];
@@ -28,6 +31,9 @@ export class ContainerManager extends BaseSystem {
   // Throttling for proactive container updates
   private lastProactiveUpdate = 0;
   private static readonly PROACTIVE_UPDATE_THROTTLE_MS = 1000; // 1 second throttle
+  
+  // Level completion burst effect
+  private burstEffect: LevelCompletionBurstEffect | null = null;
 
   constructor() {
     super('ContainerManager');
@@ -38,10 +44,11 @@ export class ContainerManager extends BaseSystem {
   }
 
   public update(deltaTime: number): void {
-    void deltaTime; // Not used
-    
-    // Only handle container animations - no periodic corrections needed
+    // Update container animations
     this.updateContainerAnimations();
+    
+    // Update burst effect if active
+    this.updateBurstEffect(deltaTime);
   }
 
   private setupEventHandlers(): void {
@@ -306,6 +313,9 @@ export class ContainerManager extends BaseSystem {
           if (DEBUG_CONFIG.logScrewDebug) {
             console.log(`🗑️ Container ${container.id} physically removed after fade animation`);
           }
+          
+          // Check if this was the last container and trigger burst effect
+          this.checkForLastContainerRemoval(container.position);
           
           // NOW check for replacement containers and create them with fade-in animation
           this.emit({
@@ -646,6 +656,111 @@ export class ContainerManager extends BaseSystem {
         }
       }
     });
+  }
+
+  // ========== BURST EFFECT METHODS ==========
+
+  /**
+   * Check if this was the last container removal and trigger burst effect if needed
+   */
+  private checkForLastContainerRemoval(containerPosition: { x: number; y: number }): void {
+    // Check if there are any remaining containers
+    const remainingContainers = this.containers.filter(c => !c.isMarkedForRemoval);
+    
+    if (remainingContainers.length === 0) {
+      if (DEBUG_CONFIG.logLevelCompletionEffects) {
+        console.log('🎆 Last container removed - triggering burst effect!');
+      }
+      
+      // Create and start the burst effect
+      this.burstEffect = new LevelCompletionBurstEffect();
+      this.burstEffect.start(containerPosition);
+      
+      // Emit burst started event
+      this.emit({
+        type: 'level:completion:burst:started',
+        timestamp: Date.now(),
+        position: containerPosition,
+        duration: 2500 // Default duration from the effect
+      } as LevelCompletionBurstStartedEvent);
+      
+      // Emit container all removed event
+      this.emit({
+        type: 'container:all_removed',
+        timestamp: Date.now()
+      } as ContainerAllRemovedEvent);
+    }
+  }
+
+  /**
+   * Update the burst effect animation
+   */
+  private updateBurstEffect(deltaTime: number): void {
+    if (this.burstEffect && this.burstEffect.isActive()) {
+      const isComplete = this.burstEffect.update(deltaTime);
+      
+      if (isComplete) {
+        if (DEBUG_CONFIG.logLevelCompletionEffects) {
+          console.log('🎆 Burst effect completed');
+        }
+        
+        // Emit burst completed event
+        this.emit({
+          type: 'level:completion:burst:completed',
+          timestamp: Date.now(),
+          position: { x: 0, y: 0 } // Position not needed for completion event
+        });
+        
+        // Clean up the effect
+        this.burstEffect = null;
+      }
+    }
+  }
+
+  /**
+   * Render the burst effect if active
+   * This method should be called by the render system
+   */
+  public renderBurstEffect(ctx: CanvasRenderingContext2D): void {
+    if (this.burstEffect && this.burstEffect.isActive()) {
+      this.burstEffect.render(ctx);
+    }
+  }
+
+  /**
+   * Manually trigger the burst effect for debug purposes
+   * Used when triggering level completion via debug key
+   */
+  public triggerDebugBurstEffect(): void {
+    if (DEBUG_CONFIG.logLevelCompletionEffects) {
+      console.log('🎆 Debug: Manually triggering burst effect');
+    }
+    
+    // Get center position for the effect (center of screen)
+    const centerPosition = {
+      x: this.virtualGameWidth / 2,
+      y: this.virtualGameHeight / 2
+    };
+    
+    // Create and start the burst effect
+    this.burstEffect = new LevelCompletionBurstEffect();
+    this.burstEffect.start(centerPosition);
+    
+    // Emit burst started event
+    this.emit({
+      type: 'level:completion:burst:started',
+      timestamp: Date.now(),
+      position: centerPosition,
+      duration: 2500
+    } as LevelCompletionBurstStartedEvent);
+  }
+
+  /**
+   * Check if burst effect is currently active
+   * Used for debug logging
+   */
+  public isBurstEffectActive(): boolean {
+    return this.burstEffect !== null && this.burstEffect.isActive();
   }
 
   // ========== PUBLIC INTERFACE METHODS ==========

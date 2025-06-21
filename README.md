@@ -115,6 +115,27 @@ This project features a **clean event-driven architecture** with comprehensive s
 
 The architecture ensures scalability, maintainability, and professional polish throughout.
 
+## Debug Mode
+
+Debug mode provides developers with testing tools and visual feedback:
+
+### Enabling Debug Mode
+- Press **D** to toggle debug mode on/off
+- Debug mode shows additional information in the debug panel
+- Debug instructions appear in the pause menu when enabled
+
+### Debug Keys (only work when debug mode is enabled)
+- **C** - Complete Level: Triggers the level completion sequence immediately  
+- **G** - Game Over: Triggers the game over sequence
+- **R** - Restart: Restarts the current level
+- **Shift + Click** - Force Screw Removal: Bypasses collision detection to remove any screw
+
+### Debug Features
+- Visual debug panel showing game state information
+- Collision detection bypass for testing
+- Event flow logging (when enabled in DEBUG_CONFIG)
+- Performance monitoring and metrics
+
 ## Development
 
 ```bash

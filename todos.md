@@ -16,6 +16,4 @@
 
 ## Items
 
-- Item 1: new layers should fade in behind existing visible layers, current they are just appearing in front of existing layers.
-- Item 3: screw blocking overlap seems to only be using bounding boxes for shapes which is not accurate enough, bounding box can be used as a first pass optimization but it should be using the physics body shapes to determine if the screw is blocked or not.
-- Item 2: when the last of the container boxes are removed and no new ones are needed, they are leaving the screws on the screen even after the container box is gone.
+Level complete eye candy. when the last container box is removed before the level complete overlay is shown. Add a short burst and sparkle effect It should last at most 3 seconds. You may need to adjust the timer that shows the level complete overlay to allow for the animation.
