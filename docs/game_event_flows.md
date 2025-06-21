@@ -107,7 +107,7 @@ This standardization provides consistent, predictable event names and easier und
 
 | System | Primary Events Emitted |
 |--------|------------------------|
-| **GameManager** | `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `screw:clicked` (single-source input) |
+| **GameManager** | `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `screw:clicked` (single-source input)<br/>**Note**: `game:started` is reused for restart functionality |
 | **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed`, `container:removing:screws`, `level:completion:burst:started`, `level:completion:burst:completed` |
 | **HoldingHoleManager** | `holding_hole:filled`, `holding_hole:state:updated`, `holding_holes:full`, `holding_holes:available` |
 | **ScrewManager** | `screw:collected`, `screw:removed`, `screw:animation:*`, `screw:transfer:*` |
@@ -160,6 +160,12 @@ The game implements a **single-source input handling pattern** to ensure reliabl
 - **Touch Events**: 30px interaction radius for comfortable mobile interaction
 - **Debug Features**: Shift+click for force removal, bypass mechanisms
 - **Event Prevention**: Touch events prevent default zoom/scroll behaviors
+
+#### **Game State Input Handling**
+- **Active Gameplay**: Standard screw hit detection and click processing
+- **Game Over State**: Any click/tap triggers restart via `handleRestartGame()`
+- **Menu Overlay**: Click/tap anywhere resumes game (mobile-friendly)
+- **State Priority**: Game over and menu overlay inputs bypass normal screw detection
 
 ## Critical Event Flows
 
@@ -345,7 +351,39 @@ sequenceDiagram
     Note over GEC: Single handler prevents duplicate level progression
 ```
 
-### 4. Physics Integration Flow
+### 4. Game Over Restart Flow
+
+**Features state preservation and level regeneration:**
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant GM as GameManager
+    participant GSM as GameStateManager
+    participant TM as TimerManager
+    participant UM as UIManager
+    participant EB as EventBus
+    participant LM as LayerManager
+
+    Note over GM: Game Over State Active
+    U->>GM: Click/Tap anywhere on screen
+    GM->>GM: Check gameState.gameOver === true
+    GM->>GSM: Preserve currentLevel & totalScore
+    GM->>TM: clearAllTimers()
+    GM->>UM: resetUIState()
+    GM->>GSM: resetGameState(preserveLevelAndScore=true)
+    
+    Note over GSM: Level & total score preserved<br/>Level score cleared to 0
+    
+    GM->>EB: emit('game:started')
+    EB->>LM: Initialize current level
+    LM->>LM: Generate new random positioning
+    LM->>EB: emit('level:started')
+    
+    Note over GM: Game returns to active state<br/>Same level, fresh layout
+```
+
+### 5. Physics Integration Flow
 
 **Features atomic screw state management and constraint handling:**
 
