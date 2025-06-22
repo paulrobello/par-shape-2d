@@ -39,6 +39,15 @@ export class GameManager extends BaseSystem {
   private debugManager: GameDebugManager;
   private eventCoordinator: GameEventCoordinator;
 
+  // Store bound event handlers for proper cleanup
+  private readonly boundEventHandlers: {
+    readonly handleClick: (event: MouseEvent) => void;
+    readonly handleTouchStart: (event: TouchEvent) => void;
+    readonly handleTouchEnd: (event: TouchEvent) => void;
+    readonly handleKeyDown: (event: KeyboardEvent) => void;
+    readonly handleKeyUp: (event: KeyboardEvent) => void;
+  };
+
   constructor() {
     super('GameManager');
     
@@ -49,6 +58,15 @@ export class GameManager extends BaseSystem {
     this.timerManager = new GameTimerManager();
     this.debugManager = new GameDebugManager();
     this.eventCoordinator = new GameEventCoordinator();
+
+    // Bind event handlers once for proper cleanup
+    this.boundEventHandlers = {
+      handleClick: this.handleClick.bind(this),
+      handleTouchStart: this.handleTouchStart.bind(this),
+      handleTouchEnd: this.handleTouchEnd.bind(this),
+      handleKeyDown: this.handleKeyDown.bind(this),
+      handleKeyUp: this.handleKeyUp.bind(this)
+    };
 
     // Set up dependencies
     this.setupManagerDependencies();
@@ -169,15 +187,15 @@ export class GameManager extends BaseSystem {
 
   private setupInputEventListeners(canvas: HTMLCanvasElement): void {
     // Mouse events (desktop)
-    canvas.addEventListener('click', this.handleClick.bind(this));
+    canvas.addEventListener('click', this.boundEventHandlers.handleClick);
 
     // Touch events (mobile)
-    canvas.addEventListener('touchstart', this.handleTouchStart.bind(this), { passive: false });
-    canvas.addEventListener('touchend', this.handleTouchEnd.bind(this), { passive: false });
+    canvas.addEventListener('touchstart', this.boundEventHandlers.handleTouchStart, { passive: false });
+    canvas.addEventListener('touchend', this.boundEventHandlers.handleTouchEnd, { passive: false });
 
     // Keyboard events for debug
-    window.addEventListener('keydown', this.handleKeyDown.bind(this));
-    window.addEventListener('keyup', this.handleKeyUp.bind(this));
+    window.addEventListener('keydown', this.boundEventHandlers.handleKeyDown);
+    window.addEventListener('keyup', this.boundEventHandlers.handleKeyUp);
   }
 
   private handleClick(event: MouseEvent): void {
@@ -601,21 +619,22 @@ export class GameManager extends BaseSystem {
   // Cleanup
 
   protected onDestroy(): void {
+    // Stop the game loop first to prevent further updates
+    this.state.gameLoop.stop();
+    
     this.timerManager.clearAllTimers();
     this.eventCoordinator.cleanup();
     this.renderManager.cleanup();
     
-    // Remove event listeners
+    // Remove event listeners using the same bound functions that were added
     const renderState = this.renderManager.getRenderState();
     if (renderState.canvas) {
-      renderState.canvas.removeEventListener('click', this.handleClick.bind(this));
-      renderState.canvas.removeEventListener('touchstart', this.handleTouchStart.bind(this));
-      renderState.canvas.removeEventListener('touchend', this.handleTouchEnd.bind(this));
+      renderState.canvas.removeEventListener('click', this.boundEventHandlers.handleClick);
+      renderState.canvas.removeEventListener('touchstart', this.boundEventHandlers.handleTouchStart);
+      renderState.canvas.removeEventListener('touchend', this.boundEventHandlers.handleTouchEnd);
     }
     
-    window.removeEventListener('keydown', this.handleKeyDown.bind(this));
-    window.removeEventListener('keyup', this.handleKeyUp.bind(this));
-    
-    this.state.gameLoop.stop();
+    window.removeEventListener('keydown', this.boundEventHandlers.handleKeyDown);
+    window.removeEventListener('keyup', this.boundEventHandlers.handleKeyUp);
   }
 }
