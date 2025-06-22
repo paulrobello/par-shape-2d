@@ -46,8 +46,8 @@ const DEFAULT_CONFIG: Required<BurstEffectConfig> = {
   sparkleRadius: 80,
   burstParticleSize: 4,
   sparkleParticleSize: 2.5,
-  textFontSize: 64,
-  textWaveAmplitude: 15,
+  textFontSize: 48, // Slightly smaller for better fit
+  textWaveAmplitude: 20, // Increased wave amplitude for more visibility
   textWaveFrequency: 2,
 };
 
@@ -198,6 +198,10 @@ export class LevelCompletionBurstEffect {
 
     // Create wave text letters for "COMPLETE"
     const waveTextLetters = this.createWaveTextLetters(centerPosition);
+    
+    if (DEBUG_CONFIG.logLevelCompletionEffects) {
+      console.log(`🎆 Created ${waveTextLetters.length} wave text letters for "COMPLETE"`);
+    }
 
     // Initialize animation state
     this.animationState = {
@@ -211,7 +215,7 @@ export class LevelCompletionBurstEffect {
       centerPosition: { ...centerPosition },
       textCenterPosition: { 
         x: centerPosition.x, 
-        y: centerPosition.y - 50 // Position text above the burst center
+        y: centerPosition.y - 20 // Position text closer to the burst center
       },
     };
   }
@@ -272,26 +276,36 @@ export class LevelCompletionBurstEffect {
       }
     }
 
-    // Update wave text (0.3-2.2s: wave animation)
-    const textStartTime = 0.3; // Start after burst begins
-    const textEndTime = 0.88; // End before total completion
+    // Update wave text (0.2-2.4s: wave animation) - Extended for better visibility
+    const textStartTime = 0.2; // Start earlier for better visibility
+    const textEndTime = 0.96; // End later, closer to total completion
     
     if (progress >= textStartTime) {
       const textProgress = Math.min(1, (progress - textStartTime) / (textEndTime - textStartTime));
+      
+      // Debug text timing occasionally
+      if (DEBUG_CONFIG.logLevelCompletionEffects && Math.random() < 0.05) { // 5% chance
+        console.log(`🎆 Text update: progress=${progress.toFixed(3)}, textProgress=${textProgress.toFixed(3)}, startTime=${textStartTime}, endTime=${textEndTime}`);
+      }
       
       for (const letter of this.animationState.waveTextLetters) {
         // Wave animation with sine wave and phase offset
         const wavePhase = progress * this.config.textWaveFrequency * Math.PI * 2 + letter.phaseOffset;
         letter.waveOffset = Math.sin(wavePhase) * this.config.textWaveAmplitude;
         
-        // Fade in text smoothly
-        if (textProgress < 0.2) {
-          letter.opacity = textProgress / 0.2; // Fade in over first 20% of text duration
-        } else if (textProgress > 0.8) {
-          letter.opacity = 1 - ((textProgress - 0.8) / 0.2); // Fade out over last 20%
+        // Fade in text smoothly with longer full visibility period
+        if (textProgress < 0.15) {
+          letter.opacity = textProgress / 0.15; // Fade in over first 15% of text duration
+        } else if (textProgress > 0.85) {
+          letter.opacity = 1 - ((textProgress - 0.85) / 0.15); // Fade out over last 15%
         } else {
-          letter.opacity = 1; // Full opacity in the middle
+          letter.opacity = 1; // Full opacity for 70% of the text duration
         }
+      }
+    } else {
+      // Before text start time - ensure letters are invisible
+      for (const letter of this.animationState.waveTextLetters) {
+        letter.opacity = 0;
       }
     }
 
@@ -442,7 +456,7 @@ export class LevelCompletionBurstEffect {
     
     // Calculate starting X position to center the text
     let currentX = centerPosition.x - totalWidth / 2;
-    const baseY = centerPosition.y - 50; // Position text above burst center
+    const baseY = centerPosition.y - 20; // Position text closer to burst center for better visibility
     
     for (let i = 0; i < text.length; i++) {
       const character = text[i];
@@ -470,7 +484,16 @@ export class LevelCompletionBurstEffect {
    */
   private renderWaveText(ctx: CanvasRenderingContext2D): void {
     if (!this.animationState || this.animationState.waveTextLetters.length === 0) {
+      if (DEBUG_CONFIG.logLevelCompletionEffects) {
+        console.log('🎆 Wave text render skipped - no animation state or letters');
+      }
       return;
+    }
+
+    // Debug: Log wave text state periodically
+    if (DEBUG_CONFIG.logLevelCompletionEffects && Math.random() < 0.1) { // 10% chance to log
+      const maxOpacity = Math.max(...this.animationState.waveTextLetters.map(l => l.opacity));
+      console.log(`🎆 Wave text render: ${this.animationState.waveTextLetters.length} letters, max opacity: ${maxOpacity.toFixed(3)}, progress: ${this.animationState.progress.toFixed(3)}`);
     }
 
     // Set up text styling
@@ -483,22 +506,27 @@ export class LevelCompletionBurstEffect {
     for (const letter of this.animationState.waveTextLetters) {
       if (letter.opacity > 0.01) {
         const y = letter.baseY + letter.waveOffset;
-        const alpha = Math.round(letter.opacity * 255).toString(16).padStart(2, '0');
         
-        // Green color with calculated alpha
-        const fillColor = `#2ECC71${alpha}`; // Professional green
-        const strokeColor = `#27AE60${alpha}`; // Darker green for stroke
-        const glowColor = `#58D68D${alpha}`; // Lighter green for glow
+        // Debug log first letter occasionally
+        if (DEBUG_CONFIG.logLevelCompletionEffects && letter.character === 'C' && Math.random() < 0.05) {
+          console.log(`🎆 Rendering letter '${letter.character}' at (${letter.x.toFixed(1)}, ${y.toFixed(1)}) with opacity ${letter.opacity.toFixed(3)}`);
+        }
         
-        // Render text with glow effect
+        // Use CSS alpha format instead of hex for better compatibility
+        const opacity = Math.max(0.3, letter.opacity); // Ensure better visibility
+        const fillColor = `rgba(46, 204, 113, ${opacity})`; // Professional green
+        const strokeColor = `rgba(39, 174, 96, ${opacity})`; // Darker green for stroke
+        const glowColor = `rgba(88, 214, 141, ${opacity})`; // Lighter green for glow
+        
+        // Render text with stronger glow effect for better visibility
         ctx.shadowColor = glowColor;
-        ctx.shadowBlur = 8;
+        ctx.shadowBlur = 12;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         
-        // Stroke for definition
+        // Stroke for definition - wider stroke for better visibility
         ctx.strokeStyle = strokeColor;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.strokeText(letter.character, letter.x, y);
         
         // Fill
