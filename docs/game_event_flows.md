@@ -122,14 +122,16 @@ All game systems emit a `system:initialized` event upon successful initializatio
 
 | System | Primary Events Emitted |
 |--------|------------------------|
-| **GameManager** | `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `screw:clicked` (single-source input)<br/>**Note**: `game:started` is reused for restart functionality |
+| **GameManager** | `system:initialized`, `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `screw:clicked` (single-source input)<br/>**Note**: `game:started` is reused for restart functionality |
+| **GameState** | `system:initialized`, `container:initialize`, `screw:transfer:started`, `screw:transfer:failed` |
+| **LayerManager** | `system:initialized`, `layer:created`, `shape:created`, `physics:body:added`, `layer:shapes:ready`, `all:layers:screws:ready`, `total:screw:count:set` |
+| **ScrewManager** | `system:initialized`, `screw:collected`, `screw:removed`, `screw:animation:*`, `screw:transfer:*`, `shape:screws:ready`, `container:filled` |
+| **PhysicsWorld** | `system:initialized`, `physics:body:*`, `physics:constraint:*`, `physics:collision:detected`, `physics:step:completed`, `physics:error` |
 | **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed`, `container:removing:screws`, `level:completion:burst:started`, `level:completion:burst:completed` |
 | **HoldingHoleManager** | `holding_hole:filled`, `holding_hole:state:updated`, `holding_holes:full`, `holding_holes:available` |
-| **ScrewManager** | `screw:collected`, `screw:removed`, `screw:animation:*`, `screw:transfer:*` |
 | **GameStateCore** | `level:transition:completed`, game state transitions, progress tracking events |
 | **ProgressTracker** | `level:win:condition:met`, `progress:updated`, progress tracking events |
 | **SaveLoadManager** | `save:completed`, `restore:completed`, error events |
-| **PhysicsWorld** | `physics:body:*`, `physics:constraint:*`, `physics:collision:detected` |
 
 ### Major Event Subscribers
 
@@ -183,6 +185,75 @@ The game implements a **single-source input handling pattern** to ensure reliabl
 - **State Priority**: Game over and menu overlay inputs bypass normal screw detection
 
 ## Critical Event Flows
+
+### 0. System Initialization Flow
+
+The system initialization flow ensures all game systems are properly initialized and validated:
+
+```mermaid
+sequenceDiagram
+    participant GC as GameCanvas (React)
+    participant SC as SystemCoordinator  
+    participant GM as GameManager
+    participant GS as GameState
+    participant LM as LayerManager
+    participant SM as ScrewManager
+    participant PW as PhysicsWorld
+    participant EFV as EventFlowValidator
+    participant EB as EventBus
+
+    Note over GC: React component mounts
+    GC->>SC: new SystemCoordinator()
+    GC->>SC: initialize(canvas)
+    
+    Note over SC: Create systems in dependency order
+    SC->>PW: new PhysicsWorld()
+    SC->>GS: new GameState()
+    SC->>SM: new ScrewManager()
+    SC->>LM: new LayerManager()
+    SC->>GM: new GameManager()
+    
+    Note over SC: Initialize systems in dependency order
+    
+    SC->>PW: initialize()
+    PW->>PW: setupEventHandlers() + setupPhysicsWorldEvents()
+    PW->>EB: emit('system:initialized', { systemName: 'PhysicsWorld' })
+    
+    SC->>GS: initialize()
+    GS->>GS: Initialize sub-managers (GameStateCore, ContainerManager, etc.)
+    GS->>EB: emit('system:initialized', { systemName: 'GameState' })
+    
+    SC->>SM: initialize()
+    SM->>SM: setupEventHandlers() + initialize bounds
+    SM->>EB: emit('system:initialized', { systemName: 'ScrewManager' })
+    
+    SC->>LM: initialize()
+    LM->>LM: setupEventHandlers()
+    LM->>EB: emit('system:initialized', { systemName: 'LayerManager' })
+    
+    SC->>GM: initialize()
+    GM->>GM: setupEventHandlers()
+    GM->>EB: emit('system:initialized', { systemName: 'GameManager' })
+    
+    Note over SC: All systems initialized
+    SC->>EB: emit('system:ready')
+    
+    Note over EFV: Validation after 1 second
+    EFV->>EB: Check for 'system:initialized' events
+    EFV->>EFV: Validate all expected systems emitted init events
+    
+    alt All systems initialized
+        EFV->>GC: { isValid: true, issues: [], recommendations: [] }
+    else Missing initialization events
+        EFV->>GC: { isValid: false, issues: [...], recommendations: [...] }
+    end
+```
+
+**Key Features**:
+- **Dependency Order**: Systems initialize in correct dependency sequence
+- **Validation Ready**: EventFlowValidator can confirm all systems are active
+- **Early Detection**: Missing initialization events indicate system failures
+- **Type Safety**: All initialization events include system name for tracking
 
 ### 1. Screw Removal Flow (Single-Source Input Handling)
 
