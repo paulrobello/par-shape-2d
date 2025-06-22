@@ -428,7 +428,7 @@ export const ANIMATION_CONSTANTS = {
   },
   // Level completion effects
   levelCompletion: {
-    burstDuration: 2500, // Level completion burst effect duration in ms
+    burstDuration: 5500, // Level completion burst effect duration in ms - ensures particles fade out before 6s overlay
   },
 } as const;
 

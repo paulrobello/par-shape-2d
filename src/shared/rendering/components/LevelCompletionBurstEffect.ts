@@ -236,12 +236,12 @@ export class LevelCompletionBurstEffect {
 
     const progress = this.animationState.progress;
 
-    // Update burst particles (0-0.5s: rapid expansion)
-    const burstProgress = Math.min(1, progress * 2); // Double speed for burst phase
+    // Update burst particles (0-1.5s: rapid expansion, then fade out until 5.5s)
+    const burstExpandPhase = Math.min(1, progress * (5.5 / 1.5)); // Expand over first 1.5s of 5.5s total
     for (const particle of this.animationState.burstParticles) {
-      if (burstProgress < 1) {
+      if (progress < 0.27) { // First 27% (1.5s of 5.5s) for expansion
         // Burst particles expand outward with easeOutCubic
-        const easedProgress = applyEasing(burstProgress, 'easeOutCubic');
+        const easedProgress = applyEasing(burstExpandPhase, 'easeOutCubic');
         
         particle.currentPosition.x = particle.startPosition.x + 
           (particle.targetPosition.x - particle.startPosition.x) * easedProgress;
@@ -249,17 +249,17 @@ export class LevelCompletionBurstEffect {
           (particle.targetPosition.y - particle.startPosition.y) * easedProgress;
         
         // Fade out particles as they expand
-        particle.opacity = 1 - easedProgress * 0.7; // Keep some opacity longer
+        particle.opacity = 1 - easedProgress * 0.6; // Keep some opacity longer during expansion
       } else {
-        // Final fade out phase
-        const fadeProgress = (progress - 0.5) * 2; // 0.5-1.0 -> 0-1
-        particle.opacity = Math.max(0, 0.3 - fadeProgress * 0.3);
+        // Final fade out phase (1.5s to 5.5s)
+        const fadeProgress = (progress - 0.27) / (1 - 0.27); // 27% to 100% -> 0 to 1
+        particle.opacity = Math.max(0, 0.4 * (1 - fadeProgress)); // Fade to 0 by end
       }
     }
 
-    // Update sparkle particles (0.2-2.0s: twinkling)
-    const sparkleStartTime = 0.2; // Start after burst begins
-    const sparkleEndTime = 0.8; // End before total completion
+    // Update sparkle particles (0.2s-5.0s: twinkling, fade out before overlay)
+    const sparkleStartTime = 0.04; // Start after burst begins (0.2s of 5.5s)
+    const sparkleEndTime = 0.91; // End before total completion (5.0s of 5.5s)
     
     if (progress >= sparkleStartTime) {
       const sparkleProgress = Math.min(1, (progress - sparkleStartTime) / (sparkleEndTime - sparkleStartTime));
@@ -276,9 +276,9 @@ export class LevelCompletionBurstEffect {
       }
     }
 
-    // Update wave text (0.2-2.4s: wave animation) - Extended for better visibility
-    const textStartTime = 0.2; // Start earlier for better visibility
-    const textEndTime = 0.96; // End later, closer to total completion
+    // Update wave text (0.2s-4.5s: wave animation) - Fades out before overlay
+    const textStartTime = 0.04; // Start earlier for better visibility (0.2s of 5.5s)
+    const textEndTime = 0.82; // End before sparkles (4.5s of 5.5s)
     
     if (progress >= textStartTime) {
       const textProgress = Math.min(1, (progress - textStartTime) / (textEndTime - textStartTime));
