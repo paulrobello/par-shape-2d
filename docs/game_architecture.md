@@ -14,6 +14,8 @@ PAR Shape 2D is a physics-based puzzle game using Next.js, TypeScript, and Matte
 
 Players remove screws from layered shapes to collect them in color-matched containers. Each level presents multiple layers of shapes with screws that must be strategically removed to allow shapes to fall and progress through the level.
 
+**Game Initiation**: Players must click or tap the start screen to begin gameplay, which displays clear instructions about the objective and controls. Auto-start functionality has been disabled to ensure deliberate user engagement.
+
 ### Key Features
 
 - **Physics-Based Gameplay**: Real-time physics simulation using Matter.js
@@ -251,6 +253,7 @@ graph TB
 - **Canvas bounds management** (emits `bounds:changed` events for system coordination)
 - Save/restore game state
 - Menu overlay interaction handling
+- **Start screen overlay management** (React-based start screen with game instructions and click-to-start functionality)
 
 **Input Event Processing**:
 - **Single-source responsibility**: Only GameManager handles canvas click/touch events
@@ -853,10 +856,12 @@ The game implements a **single-source input handling pattern** to prevent event 
 
 #### **Input Processing Pipeline**
 1. **Event Capture**: GameManager adds native `addEventListener` to canvas element
-2. **Coordinate Conversion**: Converts canvas coordinates to game world coordinates
-3. **Hit Detection**: Uses render state to find screws within interaction radius
-4. **Event Emission**: Emits single `screw:clicked` event per interaction
-5. **State Validation**: ScrewEventHandler validates screw exists in ScrewManager state
+2. **State Check**: Determines if start screen, game over, or menu overlay is active
+3. **Start Screen Handling**: Click/tap on start screen overlay triggers game start (bypasses screw detection)
+4. **Coordinate Conversion**: Converts canvas coordinates to game world coordinates (active gameplay only)
+5. **Hit Detection**: Uses render state to find screws within interaction radius (active gameplay only)
+6. **Event Emission**: Emits single `screw:clicked` event per interaction (active gameplay only)
+7. **State Validation**: ScrewEventHandler validates screw exists in ScrewManager state
 
 #### **Cross-Platform Support**
 - **Mouse Input**: 15px interaction radius for precise desktop interaction

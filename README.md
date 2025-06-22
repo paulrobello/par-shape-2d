@@ -10,6 +10,19 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Gameplay
 
+### Getting Started
+
+* The game displays a start screen with clear instructions on the objective and controls
+* **Click or tap anywhere on the start screen to begin** - auto-start has been disabled for better user control
+* The start screen provides essential gameplay information:
+  - 🎯 **Objective:** Remove screws to clear all container boxes
+  - 🔧 Tap screws to remove them from shapes
+  - 🎨 Screws fly to matching colored containers
+  - ⚠️ Blocked screws will shake - remove blocking shapes first
+  - 🏆 Fill all containers to complete the level
+
+### Core Gameplay
+
 * The objective is to clear all container boxes by filling them with screws of the corresponding color.
 * All game rendering takes place in an HTML Canvas element.
 * The top of the canvas has a HUD.
@@ -88,6 +101,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Mobile Support
 
+* **Start Screen Interaction**: Touch-friendly start screen with tap-to-start functionality
 * **Touch Controls**: Optimized touch events with intelligent multi-touch screw selection
 * **Container Priority Selection**: When multiple screws are in touch area, prioritizes screws matching available container colors
 * **Adaptive Touch Radius**: Configurable touch radius (UI_CONSTANTS.input.touchRadius for mobile, UI_CONSTANTS.input.mouseRadius for desktop)
@@ -125,8 +139,13 @@ This project features a **clean event-driven architecture** with comprehensive s
 - **Physics Pause**: Proper game pause when menu is shown - physics simulation actually stops
 
 ### Dual Modes
-- **Game Mode**: Full physics puzzle gameplay with progressive difficulty
+- **Game Mode**: Full physics puzzle gameplay with progressive difficulty and React overlay start screen
 - **Shape Editor**: Comprehensive creation tools with real-time physics simulation
+
+### User Experience
+- **Professional Onboarding**: React overlay start screen with clear game instructions and objectives
+- **User-Initiated Gameplay**: Click-to-start functionality replaces auto-start for better user control
+- **Cross-Platform Design**: Start screen optimized for both desktop click and mobile tap interactions
 
 The architecture ensures scalability, maintainability, and professional polish throughout.
 

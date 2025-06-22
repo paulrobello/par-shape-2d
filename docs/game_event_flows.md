@@ -186,7 +186,42 @@ The game implements a **single-source input handling pattern** to ensure reliabl
 
 ## Critical Event Flows
 
-### 0. System Initialization Flow
+### 0. Start Screen Interaction Flow
+
+The start screen provides user onboarding and requires deliberate user interaction to begin gameplay:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant React as GameCanvas (React)
+    participant GM as GameManager
+    participant GS as GameState
+    participant EB as EventBus
+    
+    Note over React: Systems initialized, start screen overlay visible
+    React->>React: showStartScreen = true
+    React->>React: Display start screen overlay with instructions
+    
+    User->>React: Click/Tap anywhere on start screen
+    React->>React: handleStart() called
+    React->>React: setShowStartScreen(false)
+    React->>GS: gameState.startGame()
+    
+    GS->>EB: emit('game:started')
+    GS->>EB: emit('level:started')
+    
+    Note over React: Start screen overlay hidden
+    Note over GM: Game now accepts screw interactions
+```
+
+**Key Features:**
+- **User-Initiated**: Game only starts when user explicitly clicks/taps
+- **Educational**: Start screen provides clear objective and control instructions
+- **Cross-Platform**: Works with both mouse clicks and touch interactions
+- **State Management**: `showStartScreen` state controls overlay visibility
+- **No Auto-Start**: Eliminated automatic game start for better user control
+
+### 1. System Initialization Flow
 
 The system initialization flow ensures all game systems are properly initialized and validated:
 
@@ -255,7 +290,7 @@ sequenceDiagram
 - **Early Detection**: Missing initialization events indicate system failures
 - **Type Safety**: All initialization events include system name for tracking
 
-### 1. Screw Removal Flow (Single-Source Input Handling)
+### 2. Screw Removal Flow (Single-Source Input Handling)
 
 ```mermaid
 sequenceDiagram
@@ -318,7 +353,7 @@ sequenceDiagram
     end
 ```
 
-### 2. Container Management Flow (Proactive + Reactive)
+### 3. Container Management Flow (Proactive + Reactive)
 
 **Features proactive management with race condition protection:**
 
@@ -391,7 +426,7 @@ sequenceDiagram
     end
 ```
 
-### 3. Level Progression Flow
+### 4. Level Progression Flow
 
 **Properly coordinated through GameEventCoordinator to prevent duplicate processing:**
 
@@ -443,7 +478,7 @@ sequenceDiagram
     Note over GEC: Single handler prevents duplicate level progression
 ```
 
-### 4. Level Completion Burst Effect Flow
+### 5. Level Completion Burst Effect Flow
 
 **Triggered when the last container is removed:**
 
@@ -472,7 +507,7 @@ sequenceDiagram
     end
 ```
 
-### 5. Game Over Trigger Flow (Holding Holes Full)
+### 6. Game Over Trigger Flow (Holding Holes Full)
 
 **Triggered when all holding holes are filled for 5 seconds:**
 
@@ -500,7 +535,7 @@ sequenceDiagram
     end
 ```
 
-### 6. Game Over Restart Flow
+### 7. Game Over Restart Flow
 
 **Features state preservation and level regeneration:**
 
@@ -532,7 +567,7 @@ sequenceDiagram
     Note over GM: Game returns to active state<br/>Same level, fresh layout
 ```
 
-### 5. Physics Integration Flow
+### 8. Physics Integration Flow
 
 **Features atomic screw state management and constraint handling:**
 
@@ -566,7 +601,7 @@ sequenceDiagram
     end
 ```
 
-### 5. Remaining Screw Counting Flow
+### 9. Remaining Screw Counting Flow
 
 The `remaining:screws:requested` event is critical for container replacement logic and win condition checking. It provides both screw counts and visible color information for accurate container planning.
 
@@ -615,7 +650,7 @@ sequenceDiagram
 - **Used by ContainerManager**: For intelligent container replacement decisions using visible colors only
 - **Used by ProgressTracker**: For accurate win condition detection based on visible layer progress
 
-### 6. Level Completion Burst Effect Flow
+### 10. Level Completion Burst Effect Flow
 
 The level completion visual effects system provides spectacular animation when the last container is removed:
 
@@ -688,7 +723,7 @@ sequenceDiagram
 - **Debug Support**: Manual triggering via 'C' key in debug mode for testing
 - **Event Integration**: Proper event emission for system coordination
 
-### 7. Ownership Transfer and Disposal Safety Flow
+### 11. Ownership Transfer and Disposal Safety Flow
 
 The ownership system ensures data integrity during shape destruction and layer clearing:
 
