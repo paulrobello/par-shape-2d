@@ -45,6 +45,13 @@ export class GameState extends BaseSystem {
     await this.saveLoadManager.initialize();
     
     this.setupEventHandlers();
+    
+    // Emit initialization event for EventFlowValidator
+    this.emit({
+      type: 'system:initialized',
+      timestamp: Date.now(),
+      systemName: 'GameState'
+    });
   }
 
 

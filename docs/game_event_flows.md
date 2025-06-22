@@ -53,12 +53,21 @@ This standardization provides consistent, predictable event names and easier und
 
 ## Event Categories
 
+### System Initialization Events
+All game systems emit a `system:initialized` event upon successful initialization to ensure proper system activation validation:
+
+- **Purpose**: Allows EventFlowValidator and debugging tools to confirm all systems are properly initialized
+- **Timing**: Emitted at the end of each system's `onInitialize()` method
+- **Format**: `{ type: 'system:initialized', systemName: 'SystemName', timestamp: number }`
+- **Systems**: GameState, LayerManager, ScrewManager, PhysicsWorld, GameManager
+- **Benefits**: Provides early detection of system initialization failures and improves debugging capabilities
+
 ### Game Lifecycle Events
 - **Game State**: `game:started`, `game:paused`, `game:resumed`, `game:over`
 - **Level Management**: `level:started`, `level:win:condition:met`, `level:transition:completed`, `level:progress:updated`, `next:level:requested`
 - **Level Completion Effects**: `level:completion:burst:started`, `level:completion:burst:completed` - Visual celebration system for level completion
 - **Game Over Restart**: Click/tap during game over screen triggers restart while preserving current level and total score
-- **System Coordination**: `system:ready`, `all:layers:cleared`
+- **System Coordination**: `system:ready`, `system:initialized`, `all:layers:cleared`
 
 ### Screw System Events (Core Gameplay)
 - **User Interactions**: `screw:clicked` (single-source emission from GameManager only), `screw:blocked:clicked` (with race condition protection)

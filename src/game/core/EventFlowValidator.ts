@@ -38,6 +38,7 @@ export class EventFlowValidator {
     this.subscribeToEventType('restore:requested');
     this.subscribeToEventType('debug:mode:toggled');
     this.subscribeToEventType('system:ready');
+    this.subscribeToEventType('system:initialized');
 
     if (DEBUG_CONFIG.logEventFlow) {
       console.log('✅ EventFlowValidator started monitoring events');
@@ -160,15 +161,28 @@ export class EventFlowValidator {
       recommendations.push('Ensure SystemCoordinator is only initialized once');
     }
 
-    // Check for event sources
-    const stats = this.getEventStats();
-    const expectedSources = ['GameManager', 'GameState', 'LayerManager', 'ScrewManager', 'PhysicsWorld'];
-    const actualSources = Object.keys(stats.eventsBySources);
+    // Check for system initialization events
+    const expectedSystems = ['GameManager', 'GameState', 'LayerManager', 'ScrewManager', 'PhysicsWorld'];
+    const initializedSystems = new Set(
+      this.eventLog
+        .filter(e => e.type === 'system:initialized')
+        .map(e => (e as unknown as { systemName: string }).systemName)
+    );
     
-    expectedSources.forEach(source => {
-      if (!actualSources.includes(source)) {
-        issues.push(`No events detected from ${source} - system may not be active`);
-        recommendations.push(`Check ${source} initialization and event emission`);
+    // Also check for any events from each system (alternative validation)
+    const stats = this.getEventStats();
+    const systemsWithEvents = new Set(Object.keys(stats.eventsBySources));
+    
+    expectedSystems.forEach(systemName => {
+      const hasInitEvent = initializedSystems.has(systemName);
+      const hasAnyEvents = systemsWithEvents.has(systemName);
+      
+      if (!hasInitEvent && !hasAnyEvents) {
+        issues.push(`No events detected from ${systemName} - system may not be active`);
+        recommendations.push(`Check ${systemName} initialization and event emission`);
+      } else if (!hasInitEvent) {
+        issues.push(`${systemName} active but missing system:initialized event`);
+        recommendations.push(`Add system:initialized event to ${systemName}.onInitialize() method`);
       }
     });
 

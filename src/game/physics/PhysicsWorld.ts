@@ -37,6 +37,13 @@ export class PhysicsWorld extends BaseSystem {
   protected async onInitialize(): Promise<void> {
     this.setupEventHandlers();
     this.setupPhysicsWorldEvents();
+    
+    // Emit initialization event for EventFlowValidator
+    this.emit({
+      type: 'system:initialized',
+      timestamp: Date.now(),
+      systemName: 'PhysicsWorld'
+    });
   }
 
   private setupEventHandlers(): void {

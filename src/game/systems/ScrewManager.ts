@@ -144,6 +144,13 @@ export class ScrewManager extends BaseSystem {
     if (DEBUG_CONFIG.logProgressTracking) {
       console.log(`🔧 ScrewManager initialized with container colors:`, this.state.containerColors);
     }
+    
+    // Emit initialization event for EventFlowValidator
+    this.emit({
+      type: 'system:initialized',
+      timestamp: Date.now(),
+      systemName: 'ScrewManager'
+    });
   }
 
   /**

@@ -66,6 +66,13 @@ export class LayerManager extends BaseSystem {
 
   protected async onInitialize(): Promise<void> {
     this.setupEventHandlers();
+    
+    // Emit initialization event for EventFlowValidator
+    this.emit({
+      type: 'system:initialized',
+      timestamp: Date.now(),
+      systemName: 'LayerManager'
+    });
   }
 
   private setupEventHandlers(): void {

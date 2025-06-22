@@ -529,6 +529,11 @@ export interface SystemReadyEvent extends BaseEvent {
   type: 'system:ready';
 }
 
+export interface SystemInitializedEvent extends BaseEvent {
+  type: 'system:initialized';
+  systemName: string;
+}
+
 // Pre-computation events
 // Removed LevelPrecomputedEvent - no longer using precomputation system
 
@@ -712,6 +717,7 @@ export type GameEvent =
   | RenderRequestedEvent
   | BoundsChangedEvent
   | SystemReadyEvent
+  | SystemInitializedEvent
   | ScrewProgressUpdatedEvent
   | ProgressUpdatedEvent
   | LevelWinConditionMetEvent

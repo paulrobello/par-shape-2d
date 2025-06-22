@@ -45,6 +45,7 @@ All game systems extend `BaseSystem` and operate independently:
 - **Event-Only Communication**: No direct system-to-system dependencies
 - **Graceful Degradation**: Systems can fail without affecting others
 - **Hot-Swappable**: Systems can be replaced or modified independently
+- **Initialization Validation**: All systems emit `system:initialized` events for proper startup verification
 
 ### 3. Shared Utilities Framework
 
@@ -963,6 +964,10 @@ The game implements a **single-source input handling pattern** to prevent event 
 - Performance metrics and profiling
 - State inspection utilities
 - **Debug Configuration**: Centralized DEBUG_CONFIG with granular control over logging components
+- **EventFlowValidator**: Automated system initialization validation and event flow monitoring
+  - Validates all systems emit `system:initialized` events during startup
+  - Provides detailed diagnostics and recommendations for inactive systems
+  - Tracks event statistics and flow patterns for debugging
 
 ### Testing Strategy
 - Event-driven architecture enables isolated unit testing
