@@ -431,14 +431,78 @@ graph TB
 - **Race Condition Safe**: Uses event-driven state collection
 
 #### **GameRenderManager** (`src/game/core/managers/GameRenderManager.ts`)
-**Responsibility**: Visual presentation and UI
-- Canvas rendering and scaling
-- HUD display (progress, score, level)
+**Responsibility**: Visual presentation and comprehensive HUD management
+- Canvas rendering and scaling with mobile-optimized layout
+- **Comprehensive HUD System**: Dynamic height calculation and rendering of all UI components:
+  - **Progress Bar**: Visual progress indicator with percentage complete
+  - **Text Information**: Screws remaining, level number, and current score
+  - **Container Boxes**: Color-matched collection targets with fade animations
+  - **Holding Holes**: Temporary storage for unmatched screws
+  - **Menu Button**: Top-right corner access to game controls
+- **Dynamic Layout Management**: HUD height calculated based on content (179px total)
+- **Mobile Compatibility**: Shape area positioning adapts to HUD height for optimal screen usage
 - Container and holding hole visualization with synchronized fade animations
 - Animation coordination including screw fade-out with containers
-- Mobile responsiveness
 - **Screw-Container Fade Synchronization**: Passes container fadeOpacity to ScrewRenderer for unified transitions
 - **Menu Overlay Rendering**: Displays pause menu with mobile-friendly "Click/Tap anywhere to resume" instruction
+
+## HUD Architecture
+
+### Comprehensive UI System
+
+The game features a sophisticated Heads-Up Display (HUD) that contains all user interface elements in a cohesive, mobile-optimized layout. The HUD is designed as a single, unified system that dynamically calculates its height based on content.
+
+#### **HUD Components (Top to Bottom)**
+
+1. **Progress Information Section**
+   - **Progress Bar** (Y: 15px): Visual indicator showing screw collection progress with smooth animations
+   - **Screws Remaining** (Y: 49px): Dynamic count of screws left to collect
+   - **Level Number** (Y: 67px): Current level being played
+   - **Current Score** (Y: 85px): Score for the active level
+
+2. **Container Section** (Y: 100px)
+   - **Container Boxes**: Up to 4 color-matched collection targets
+   - **Dimensions**: 80px width × 40px height per container
+   - **Functionality**: Each container has 1-3 holes for screw collection
+   - **Animations**: Fade in/out transitions (500ms duration)
+
+3. **Holding Holes Section** (Y: 158px)
+   - **Storage Holes**: Row of 5 temporary storage locations
+   - **Purpose**: Hold screws that don't match available containers
+   - **Dimensions**: 16px diameter holes with 20px spacing
+   - **Game Mechanic**: Full holding holes trigger 5-second warning
+
+4. **Menu Button** (Top-Right Corner)
+   - **Position**: Fixed at canvas top-right (30px × 30px)
+   - **Functionality**: Access to pause menu and game controls
+
+#### **Dynamic Height Calculation**
+
+The HUD uses content-aware height calculation:
+```
+HUD Height = Holding Hole End Y + Margin
+HUD Height = (158 + 16) + 5 = 179px
+```
+
+This ensures:
+- **Mobile Optimization**: Maximum screen space utilization
+- **Content Awareness**: Layout adapts to actual UI elements
+- **Consistent Spacing**: 5px margin below all HUD content
+
+#### **Shape Area Integration**
+
+The shape area (game play area) starts immediately after the HUD:
+- **Start Position**: Y = 179px (bottom of HUD)
+- **Available Space**: Remaining canvas height for gameplay
+- **Background Separation**: Visual border between HUD and game area
+- **Mobile Benefits**: Optimized layout for all screen sizes
+
+### Mobile Compatibility Features
+
+- **Responsive Layout**: All HUD elements scale properly across devices
+- **Touch Targets**: Appropriately sized for finger interaction
+- **Visual Hierarchy**: Clear separation between UI and gameplay areas
+- **Performance**: Efficient rendering with minimal overdraw
 
 ## Level Completion Architecture
 

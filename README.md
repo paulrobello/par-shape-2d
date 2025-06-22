@@ -25,24 +25,41 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 * The objective is to clear all container boxes by filling them with screws of the corresponding color.
 * All game rendering takes place in an HTML Canvas element.
-* The top of the canvas has a HUD.
-* The first line of the HUD should be a progress bar that shows the current screw progress and percent complete.
-* The 2nd line of the HUD should have screws remaining count.
-* The 3rd line of the HUD should be level number
-* The 4th line of the HUD should have the current level score
+
+## HUD Layout
+
+* The top of the canvas contains a comprehensive HUD (Heads-Up Display) that includes all UI elements:
+  * **Progress Bar** (Line 1): Shows current screw collection progress and percentage complete
+  * **Screws Remaining** (Line 2): Displays count of screws still to be collected
+  * **Level Number** (Line 3): Current level being played
+  * **Current Score** (Line 4): Score for the current level
+  * **Container Boxes** (Line 5): Set of up to 4 colored container boxes with 1-3 holes each
+  * **Holding Holes** (Line 6): Row of 5 temporary storage holes for unmatched screws
+  * **Menu Button**: Located in top-right corner for game controls
+* The HUD dynamically calculates its height based on content and extends to the bottom of holding holes plus 5px margin
 * After completing a level, increment the level number and reset the current level score to 0 and generate a new playing area.
-* Below the 4th line of the HUD is a set of up to 4 container boxes positioned in fixed slots, each with 1 to 3 holes in them.
+
+## Container Boxes
+
+* Container boxes are positioned in the HUD area and serve as collection targets for screws
 * The number of holes in each container box is determined by the number of screws remaining of the corresponding color in all shapes (across all layers, visible or not) and holding holes, up to 3 holes maximum.
 * Each container box has a color and is associated with a specific screw color.
 * When a screw is removed, it flies to the container box that matches its color, that has an empty hole and has the most holes filled.
 * When a container box is full, it should fade out over 500ms (0.5 seconds). 
 * Each screw removed with the container box adds to the screw progress tracking and adds to the current level score. If the level is completed, the score is added to the game total score.
 * When a container box is removed a new container box if needed should fade in at the same position with color selected from screw colors that are in visible shapes or holding holes only.
-* Under the row of container boxes is a row of 5 empty holding holes that are used to hold screws that get removed from shapes but do not match any of the container boxes.
+
+## Holding Holes
+
+* Holding holes are located in the HUD area below container boxes
+* Row of 5 empty holding holes that are used to hold screws that get removed from shapes but do not match any of the container boxes.
 * When a new container box is added, if any screws are in the holding holes, they should be moved to the new container box if it has an empty hole that matches their color.
 * When all holding holes are full, the player has 5 seconds to try and free up a holding hole or they loose the game and must restart the current level.
 * Screws when moving to a holding hole or container box should reserve their target hole so no other screws can move to that hole.
-* Under the row of holding holes is shape area
+
+## Shape Area
+
+* Below the HUD is the shape area which starts immediately after the holding holes
 * The shape area is a stack of layers that contain shapes.
 * Each level has 10 or more layers but only 4 are visible at a time.
 * The number of layers is computed as 10 + floor((level - 1) / 3).
@@ -105,6 +122,10 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * **Touch Controls**: Optimized touch events with intelligent multi-touch screw selection
 * **Container Priority Selection**: When multiple screws are in touch area, prioritizes screws matching available container colors
 * **Adaptive Touch Radius**: Configurable touch radius (UI_CONSTANTS.input.touchRadius for mobile, UI_CONSTANTS.input.mouseRadius for desktop)
+* **Dynamic HUD Layout**: HUD automatically calculates height based on content for optimal mobile compatibility
+  - Progress bar, text, containers, and holding holes all contained within HUD area
+  - Shape area starts immediately after HUD with proper margin
+  - Maximizes available gameplay space on mobile devices
 * **Haptic Feedback**: Comprehensive vibration feedback system via HapticUtils:
   - **Success**: 50ms vibration for screw removal
   - **Blocked**: 50ms vibration for blocked screw attempts  

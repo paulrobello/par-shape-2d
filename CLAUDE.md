@@ -40,7 +40,8 @@ It has 2 parts: the game itself and a shape editor. Both share common infrastruc
 - **Event-Driven Architecture**: 120+ game events, 40+ editor events with type safety
 - **Shared Utilities Framework**: Common rendering, animation, and utility functions
 - **Physics Integration**: Matter.js with poly-decomp-es for accurate simulation
-- **Mobile Support**: Multi-touch selection, haptic feedback, responsive UI
+- **Mobile Support**: Multi-touch selection, haptic feedback, responsive UI with dynamic HUD layout
+- **Dynamic HUD System**: Content-aware UI layout with all components (progress, containers, holding holes) in unified HUD
 
 See `docs/game_architecture.md` for detailed system documentation.
 
@@ -73,6 +74,7 @@ The game features professional visual polish with:
 
 - **Animation System**: 24+ easing functions, smooth transitions, screw rotation effects
 - **Rendering Pipeline**: Multi-layered shape rendering with shadows and rounded corners
+- **Dynamic HUD Rendering**: Content-aware UI layout with mobile-optimized positioning
 - **UI Styling**: Consistent button design system with accessibility support
 - **Canvas Effects**: Enhanced shadows, glows, and visual feedback
 
@@ -85,6 +87,7 @@ See `docs/game_architecture.md` for detailed rendering and animation system docu
 - **Shape System**: Multi-layered rendering pipeline supporting all polygon types with rounded corners
 - **Screw Management**: Robust ownership system preventing race conditions and ensuring data integrity
 - **Container System**: Intelligent hole placement and screw collection logic
+- **HUD System**: Comprehensive UI management with dynamic height calculation and mobile optimization
 
 See `docs/game_architecture.md` for detailed system documentation.
 
