@@ -499,10 +499,62 @@ The shape area (game play area) starts immediately after the HUD:
 
 ### Mobile Compatibility Features
 
+- **Full Viewport Canvas**: Complete mobile screen utilization without gaps
+  - Dynamic virtual coordinate system adapts to actual mobile screen dimensions
+  - CSS viewport units (`100vw × 100vh`) ensure complete screen coverage
+  - 1:1 pixel mapping on mobile eliminates scaling artifacts and improves performance
 - **Responsive Layout**: All HUD elements scale properly across devices
 - **Touch Targets**: Appropriately sized for finger interaction
 - **Visual Hierarchy**: Clear separation between UI and gameplay areas
 - **Performance**: Efficient rendering with minimal overdraw
+
+## Mobile Canvas Architecture
+
+### Dynamic Virtual Dimensions System
+
+The game implements a **dual rendering approach** that optimizes for both desktop and mobile experiences:
+
+#### **Desktop Rendering (Traditional)**
+- **Fixed Virtual Dimensions**: 640×800 pixel coordinate system
+- **Aspect Ratio Scaling**: Canvas scales to fit within viewport while maintaining proportions
+- **Letterboxing**: May have black bars on sides/top based on screen aspect ratio
+- **Centered Display**: Game area centered within available space
+
+#### **Mobile Rendering (Optimized)**
+- **Dynamic Virtual Dimensions**: Virtual coordinate system matches actual screen size
+- **Full Viewport Utilization**: Canvas fills entire mobile screen (`100vw × 100vh`)
+- **Identity Transform**: 1:1 pixel mapping eliminates scaling overhead
+- **No Letterboxing**: Game area extends to all screen edges
+
+### Implementation Details
+
+#### **Canvas Sizing Flow**
+```
+Mobile Detection → Canvas Dimensions → Virtual Dimensions → Rendering Transform
+
+Desktop: Fixed (640×800) → Scale Transform → Letterboxed Display
+Mobile:  Dynamic (actual) → Identity Transform → Full Screen Display
+```
+
+#### **GameRenderManager Architecture**
+- **initializeCanvas()**: Sets virtual dimensions based on device type
+- **updateCanvasSize()**: Maintains virtual dimensions on resize
+- **updateCanvasScaling()**: Applies appropriate transform (scale vs identity)
+
+#### **Device Detection Strategy**
+```typescript
+const isMobile = typeof window !== 'undefined' && (
+  window.innerWidth <= 768 || 
+  /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+);
+```
+
+#### **Benefits of Mobile-Optimized Rendering**
+- **Performance**: Identity transform reduces GPU/CPU load
+- **Visual Quality**: Eliminates scaling artifacts and maintains crisp pixels
+- **User Experience**: Full screen immersion without gaps or letterboxing
+- **Battery Life**: Reduced computational overhead extends mobile battery life
+- **Responsive Design**: Adapts to any mobile screen size automatically
 
 ## Level Completion Architecture
 
@@ -978,7 +1030,12 @@ The game implements a **single-source input handling pattern** to prevent event 
 - Container substitution integrated with animation cycle for timing precision
 
 #### **Rendering Optimization**:
-- **Canvas scaling** with proper aspect ratio maintenance and high-DPI support
+- **Dynamic Canvas Scaling** with mobile-optimized viewport handling:
+  - **Desktop**: Maintains aspect ratio with fixed 640×800 virtual dimensions
+  - **Mobile**: Uses dynamic virtual dimensions matching actual screen size for full viewport coverage
+  - **1:1 Mobile Rendering**: Optimized identity transform on mobile eliminates scaling overhead
+  - **Robust Device Detection**: Uses screen width and user agent for reliable mobile identification
+  - **No Mobile Gaps**: Eliminates empty space at top/bottom of mobile screens
 - **Advanced shape rendering** with multi-layered pipeline:
   - Shape entities generate rounded Path2D objects with quadratic curve corners
   - GeometryRenderer provides sophisticated polygon rounding algorithms
@@ -996,6 +1053,7 @@ The game implements a **single-source input handling pattern** to prevent event 
   - Animation interpolation for 60fps smooth movement
   - Conditional debug rendering controlled by DEBUG_CONFIG flags
   - Memory-efficient Path2D caching and reuse
+  - **Mobile-Optimized Transforms**: Identity transform on mobile reduces computational overhead
 
 ### Scalability Considerations
 

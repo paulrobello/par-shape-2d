@@ -118,6 +118,11 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Mobile Support
 
+* **Full Viewport Canvas**: Dynamic canvas sizing that fills entire mobile viewport without gaps
+  - **CSS Viewport Units**: Canvas uses `100vw × 100vh` for complete screen coverage
+  - **Dynamic Virtual Dimensions**: Virtual coordinate system adapts to actual mobile screen size
+  - **1:1 Rendering**: Optimized 1:1 pixel mapping on mobile for best performance
+  - **No Empty Space**: Eliminates gaps at top/bottom of mobile screens
 * **Start Screen Interaction**: Touch-friendly start screen with tap-to-start functionality and responsive font sizing
 * **Touch Controls**: Optimized touch events with intelligent multi-touch screw selection
 * **Container Priority Selection**: When multiple screws are in touch area, prioritizes screws matching available container colors
@@ -126,6 +131,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
   - Progress bar, text, containers, and holding holes all contained within HUD area
   - Shape area starts immediately after HUD with proper margin
   - Maximizes available gameplay space on mobile devices
+  - **Mobile-Optimized Background**: HUD and shape areas fill entire canvas height
 * **Haptic Feedback**: Comprehensive vibration feedback system via HapticUtils:
   - **Success**: 50ms vibration for screw removal
   - **Blocked**: 50ms vibration for blocked screw attempts  
@@ -137,6 +143,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
   - Clear visual instructions for mobile users
 * **Responsive Design**: Scales perfectly across all screen sizes and orientations
 * **One-Handed Play**: Optimized for single-handed mobile gameplay
+* **Robust Device Detection**: Uses both screen width and user agent detection for reliable mobile identification
 
 ## Technical Architecture
 

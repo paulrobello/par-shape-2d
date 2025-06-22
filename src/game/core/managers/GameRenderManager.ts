@@ -90,8 +90,22 @@ export class GameRenderManager implements IGameRenderManager {
       return false;
     }
 
+    // On mobile, use actual canvas dimensions as virtual dimensions to fill screen
+    // Import DeviceDetection dynamically to avoid SSR issues
+    const isMobile = typeof window !== 'undefined' && (
+      window.innerWidth <= 768 || 
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    );
+    if (isMobile) {
+      this.state.virtualGameWidth = canvas.width;
+      this.state.virtualGameHeight = canvas.height;
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log(`Mobile: Using canvas dimensions ${canvas.width}x${canvas.height} as virtual game dimensions`);
+      }
+    }
+
     if (DEBUG_CONFIG.logSystemLifecycle) {
-      console.log(`GameRenderManager initialized: Canvas ${canvas.width}x${canvas.height}`);
+      console.log(`GameRenderManager initialized: Canvas ${canvas.width}x${canvas.height}, Virtual ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
     }
 
     // Apply initial canvas scaling
@@ -102,6 +116,20 @@ export class GameRenderManager implements IGameRenderManager {
 
   updateCanvasSize(): void {
     if (!this.state.canvas) return;
+    
+    // On mobile, update virtual dimensions to match canvas dimensions
+    const isMobile = typeof window !== 'undefined' && (
+      window.innerWidth <= 768 || 
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    );
+    if (isMobile) {
+      this.state.virtualGameWidth = this.state.canvas.width;
+      this.state.virtualGameHeight = this.state.canvas.height;
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log(`Mobile resize: Updated virtual dimensions to ${this.state.virtualGameWidth}x${this.state.virtualGameHeight}`);
+      }
+    }
+    
     this.updateCanvasScaling();
   }
   
@@ -129,22 +157,37 @@ export class GameRenderManager implements IGameRenderManager {
     const canvasWidth = this.state.canvas.width;
     const canvasHeight = this.state.canvas.height;
 
-    // Calculate scale to fit virtual game dimensions within canvas
-    const scaleX = canvasWidth / this.state.virtualGameWidth;
-    const scaleY = canvasHeight / this.state.virtualGameHeight;
-    this.state.canvasScale = Math.min(scaleX, scaleY);
-
-    // Calculate offset to center the game
-    this.state.canvasOffset = {
-      x: (canvasWidth - this.state.virtualGameWidth * this.state.canvasScale) / 2,
-      y: (canvasHeight - this.state.virtualGameHeight * this.state.canvasScale) / 2
-    };
-
-    // Apply the transform
-    this.state.ctx.setTransform(
-      this.state.canvasScale, 0, 0, this.state.canvasScale,
-      this.state.canvasOffset.x, this.state.canvasOffset.y
+    // Check if we're on mobile where virtual dimensions match canvas dimensions
+    const isMobile = typeof window !== 'undefined' && (
+      window.innerWidth <= 768 || 
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
     );
+    
+    if (isMobile && this.state.virtualGameWidth === canvasWidth && this.state.virtualGameHeight === canvasHeight) {
+      // Mobile: 1:1 scaling since virtual dimensions match canvas
+      this.state.canvasScale = 1;
+      this.state.canvasOffset = { x: 0, y: 0 };
+      
+      // Apply identity transform for mobile
+      this.state.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    } else {
+      // Desktop: Calculate scale to fit virtual game dimensions within canvas
+      const scaleX = canvasWidth / this.state.virtualGameWidth;
+      const scaleY = canvasHeight / this.state.virtualGameHeight;
+      this.state.canvasScale = Math.min(scaleX, scaleY);
+
+      // Calculate offset to center the game
+      this.state.canvasOffset = {
+        x: (canvasWidth - this.state.virtualGameWidth * this.state.canvasScale) / 2,
+        y: (canvasHeight - this.state.virtualGameHeight * this.state.canvasScale) / 2
+      };
+
+      // Apply the transform
+      this.state.ctx.setTransform(
+        this.state.canvasScale, 0, 0, this.state.canvasScale,
+        this.state.canvasOffset.x, this.state.canvasOffset.y
+      );
+    }
   }
 
   updateRenderData(data: Partial<Pick<RenderState, 'visibleLayers' | 'containers' | 'holdingHoles' | 'allScrews'>>): void {
