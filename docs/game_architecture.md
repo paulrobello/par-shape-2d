@@ -292,7 +292,7 @@ graph TB
 #### **ContainerManager** (`src/game/core/managers/ContainerManager.ts`)
 **Responsibility**: Container lifecycle and screw assignment with fixed-slot positioning
 - Container instantiation with appropriate colors and hole counts (1-3 holes per container)
-- **Hole Planning**: Creates containers for colors present in visible layers or holding holes, with hole counts based on VISIBLE screws only for accurate container prioritization
+- **Hole Planning**: Creates containers for colors present in visible layers or holding holes, with hole counts based on TOTAL screws (across all layers) for proper capacity planning
 - Screw placement and hole management
 - Container completion detection
 - Intelligent container substitution with synchronized fade animations
@@ -341,7 +341,9 @@ graph TB
 - **Note**: Does NOT determine level completion - only handles layer management
 
 **Layer Properties**:
-- Each layer has unique visual tinting
+- Each layer has unique visual tinting using round-robin color assignment from 8 distinct colors
+- **Layer Color System**: Uses sequential color assignment (colorCounter % 8) ensuring variety and preventing color duplication issues
+- **Tint Colors**: Light red, green, blue, yellow, purple, pink, mint, and lime - chosen for visual distinction
 - Physics bodies only interact within their layer
 - 6 shapes per layer with strategic placement including capsule shapes
 - Depth-based collision detection for screw accessibility
