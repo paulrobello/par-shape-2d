@@ -202,7 +202,7 @@ export class Screw implements IScrew {
     if (!this.isBeingCollected || !this.targetPosition || !this.animationStartPosition) return false;
 
     // Animation duration in milliseconds
-    const animationDuration = 800;
+    const animationDuration = ANIMATION_CONSTANTS.collection.duration;
     const progressIncrement = deltaTime / animationDuration;
     
     this.collectionProgress = Math.min(1, this.collectionProgress + progressIncrement);
@@ -263,7 +263,7 @@ export class Screw implements IScrew {
     if (!this.isBeingTransferred || !this.transferStartPosition || !this.transferTargetPosition) return false;
 
     // Animation duration in milliseconds
-    const animationDuration = 600; // Slightly faster than collection animation
+    const animationDuration = ANIMATION_CONSTANTS.transfer.duration;
     const progressIncrement = deltaTime / animationDuration;
     
     const oldProgress = this.transferProgress;
@@ -325,7 +325,7 @@ export class Screw implements IScrew {
     if (!this.isShaking) return false;
 
     // Animation duration in milliseconds
-    const animationDuration = 400; // Moderate shake animation duration
+    const animationDuration = ANIMATION_CONSTANTS.shake.duration;
     const progressIncrement = deltaTime / animationDuration;
     
     this.shakeProgress = Math.min(1, this.shakeProgress + progressIncrement);

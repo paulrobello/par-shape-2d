@@ -11,6 +11,8 @@ import { GAME_CONFIG, DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { ScrewConstraintResult } from '@/shared/physics/ConstraintUtils';
 import { eventBus } from '../events/EventBus';
 import { findAndReserveScrewDestination } from '../utils/ScrewContainerUtils';
+import { HapticUtils } from '@/shared/utils/HapticUtils';
+import { DebugLogger } from '@/shared/utils/DebugLogger';
 // Utility imports no longer needed due to refactoring
 import {
   ScrewAnimationService,
@@ -211,9 +213,9 @@ export class ScrewManager extends BaseSystem {
               });
 
               // Trigger haptic feedback for successful screw removal
-              this.triggerHapticFeedback('success');
+              HapticUtils.trigger('success');
             } else {
-              console.warn(`⚠️ Could not find shape for collected screw ${screwId}`);
+              DebugLogger.logWarning(`Could not find shape for collected screw ${screwId}`);
             }
 
             // Update transfer service state before placement to ensure fresh container/holding hole data
@@ -602,7 +604,7 @@ export class ScrewManager extends BaseSystem {
       screw.startShake();
       
       // Vibrate if available (blocked screw feedback)
-      this.triggerHapticFeedback('blocked');
+      HapticUtils.trigger('blocked');
       
       this.emit({
         type: 'screw:blocked:clicked',
@@ -751,7 +753,7 @@ export class ScrewManager extends BaseSystem {
           });
 
           // Trigger celebratory haptic feedback for container completion
-          this.triggerHapticFeedback('container_filled');
+          HapticUtils.trigger('container_filled');
         }
         
         // Update container state
@@ -865,30 +867,6 @@ export class ScrewManager extends BaseSystem {
     }
   }
 
-  /**
-   * Trigger haptic feedback for different game actions
-   * @param actionType The type of action that occurred
-   */
-  private triggerHapticFeedback(actionType: 'success' | 'blocked' | 'container_filled'): void {
-    if (typeof navigator === 'undefined' || !navigator.vibrate) {
-      return; // Haptic feedback not available
-    }
-
-    switch (actionType) {
-      case 'success':
-        // Light feedback for successful screw removal (50ms as per README spec)
-        navigator.vibrate(50);
-        break;
-      case 'blocked':
-        // Medium feedback for blocked actions (fixed from 200ms to 50ms per README spec)
-        navigator.vibrate(50);
-        break;
-      case 'container_filled':
-        // Celebration pattern for container completion
-        navigator.vibrate([100, 50, 100]);
-        break;
-    }
-  }
 
   protected onDestroy(): void {
     this.clearAllScrews();

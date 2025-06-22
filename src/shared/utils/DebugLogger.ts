@@ -124,4 +124,55 @@ export class DebugLogger {
   static clearThrottleMap(): void {
     this.throttleMap.clear();
   }
+
+  /**
+   * General game state logging
+   */
+  static logGame(message: string, ...args: unknown[]): void {
+    this.logConditional(
+      DEBUG_CONFIG.logEventFlow, 
+      `🎮 GAME: ${message}`, 
+      ...args
+    );
+  }
+
+  /**
+   * Event flow logging
+   */
+  static logEvent(message: string, ...args: unknown[]): void {
+    this.logConditional(
+      DEBUG_CONFIG.logEventFlow, 
+      `📡 EVENT: ${message}`, 
+      ...args
+    );
+  }
+
+  /**
+   * Collision detection logging
+   */
+  static logCollision(message: string, ...args: unknown[]): void {
+    this.logConditional(
+      DEBUG_CONFIG.logCollisionDetection, 
+      `💥 COLLISION: ${message}`, 
+      ...args
+    );
+  }
+
+  /**
+   * Shape creation logging
+   */
+  static logShapeCreation(message: string, ...args: unknown[]): void {
+    this.logConditional(
+      DEBUG_CONFIG.logShapeCreation, 
+      `🔷 SHAPE: ${message}`, 
+      ...args
+    );
+  }
+
+  /**
+   * Info messages (always logged)
+   */
+  static logInfo(message: string, ...args: unknown[]): void {
+    console.log(`ℹ️ INFO: ${message}`, ...args);
+  }
 }

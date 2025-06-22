@@ -5,6 +5,7 @@
 import { IGameEventCoordinator, ManagerContext } from './GameManagerTypes';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { eventBus } from '@/game/events/EventBus';
+import { HapticUtils } from '@/shared/utils/HapticUtils';
 
 // Import event types
 import {
@@ -466,6 +467,9 @@ export class GameEventCoordinator implements IGameEventCoordinator {
         finalScore: this.managers!.stateManager.getScore().total,
         reason: 'holding_holes_full'
       });
+      
+      // Trigger haptic feedback for game over
+      HapticUtils.trigger('game_over');
     });
     
     if (DEBUG_CONFIG.logEventFlow) {

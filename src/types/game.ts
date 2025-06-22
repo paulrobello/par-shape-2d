@@ -12,6 +12,9 @@ export interface Rectangle {
   height: number;
 }
 
+// Shape types supported by the game
+// Note: 'polygon' type is used for regular polygons (triangle, square, pentagon, hexagon, heptagon, octagon)
+// with the number of sides specified via the 'sides' property
 export type ShapeType = 'rectangle' | 'circle' | 'polygon' | 'capsule' | 'arrow' | 'chevron' | 'star' | 'horseshoe';
 
 export type ScrewColor = 'pink' | 'red' | 'green' | 'blue' | 'lightBlue' | 'yellow' | 'purple' | 'orange' | 'brown';

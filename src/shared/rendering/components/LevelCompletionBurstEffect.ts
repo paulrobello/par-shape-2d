@@ -7,7 +7,7 @@ import { Vector2 } from '@/types/game';
 import { AnimationState } from '@/shared/utils/AnimationUtils';
 import { GeometryRenderer } from '@/shared/rendering/core/GeometryRenderer';
 import { applyEasing } from '@/shared/utils/EasingFunctions';
-import { DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { DEBUG_CONFIG, ANIMATION_CONSTANTS } from '@/shared/utils/Constants';
 
 /**
  * Configuration for the burst effect
@@ -39,7 +39,7 @@ export interface BurstEffectConfig {
  * Default configuration values
  */
 const DEFAULT_CONFIG: Required<BurstEffectConfig> = {
-  duration: 2500, // 2.5 seconds (under 3 second requirement)
+  duration: ANIMATION_CONSTANTS.levelCompletion.burstDuration, // 2.5 seconds (under 3 second requirement)
   burstParticleCount: 10,
   sparkleParticleCount: 18,
   burstRadius: 120,

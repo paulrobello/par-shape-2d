@@ -185,6 +185,10 @@ export const UI_CONSTANTS = {
   header: {
     height: 60,
   },
+  input: {
+    touchRadius: 30,  // Mobile touch interaction radius
+    mouseRadius: 15,  // Desktop mouse interaction radius
+  },
   containers: {
     width: 80,
     height: 40,
@@ -405,6 +409,26 @@ export const ANIMATION_CONSTANTS = {
   screwRotation: {
     collection: Math.PI * 2,  // 1 full rotation per second (was 2)
     transfer: Math.PI * 3,    // 1.5 full rotations per second (was 3)
+  },
+  // Screw animation durations
+  collection: {
+    duration: 800,       // Collection animation duration in ms
+  },
+  transfer: {
+    duration: 600,       // Transfer animation duration in ms
+  },
+  shake: {
+    duration: 300,       // Shake animation duration in ms
+    frequency: 8,        // Number of oscillations
+    amplitude: 3,        // Maximum shake distance in pixels
+  },
+  // Container animations
+  container: {
+    fadeDuration: 500,   // Container fade in/out duration in ms
+  },
+  // Level completion effects
+  levelCompletion: {
+    burstDuration: 2500, // Level completion burst effect duration in ms
   },
 } as const;
 

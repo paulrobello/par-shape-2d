@@ -5,7 +5,8 @@
 
 import { BaseSystem } from './BaseSystem';
 import { GameLoop } from './GameLoop';
-import { DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { DEBUG_CONFIG, UI_CONSTANTS } from '@/shared/utils/Constants';
+import { DebugLogger } from '@/shared/utils/DebugLogger';
 import { Vector2, Screw } from '@/types/game';
 import { pointInRectangle } from '@/game/utils/MathUtils';
 import { notifyUserClick } from '@/shared/utils/CollisionUtils';
@@ -100,7 +101,7 @@ export class GameManager extends BaseSystem {
         throw new Error('Unable to initialize canvas');
       }
 
-      console.log(`GameManager initialized: Canvas ${canvas.width}x${canvas.height}`);
+      DebugLogger.logInfo(`GameManager initialized: Canvas ${canvas.width}x${canvas.height}`);
 
       // Set up event listeners
       this.setupInputEventListeners(canvas);
@@ -119,14 +120,14 @@ export class GameManager extends BaseSystem {
   public start(): void {
     this.executeIfActive(() => {
       this.state.gameLoop.start();
-      console.log('Game loop started');
+      DebugLogger.logInfo('Game loop started');
     });
   }
 
   public stop(): void {
     this.executeIfActive(() => {
       this.state.gameLoop.stop();
-      console.log('Game loop stopped');
+      DebugLogger.logInfo('Game loop stopped');
     });
   }
 
@@ -259,7 +260,7 @@ export class GameManager extends BaseSystem {
     const isMenuButtonVisible = !gameState.gameOver && !gameState.levelComplete;
     if (isMenuButtonVisible && this.isMenuButtonClicked(point)) {
       if (DEBUG_CONFIG.logSystemLifecycle) {
-        console.log('🎛️ Menu button clicked, toggling menu overlay');
+        DebugLogger.logGame('Menu button clicked, toggling menu overlay');
       }
       this.toggleMenuOverlayWithPause();
       return;
@@ -268,7 +269,7 @@ export class GameManager extends BaseSystem {
     // Handle level complete screen clicks
     if (gameState.levelComplete) {
       if (DEBUG_CONFIG.logSystemLifecycle) {
-        console.log('🎯 Level complete screen clicked, requesting next level');
+        DebugLogger.logGame('Level complete screen clicked, requesting next level');
       }
       this.emit({
         type: 'next:level:requested',
@@ -280,7 +281,7 @@ export class GameManager extends BaseSystem {
     // Handle game over restart click
     if (gameState.gameOver) {
       if (DEBUG_CONFIG.logSystemLifecycle) {
-        console.log('🔄 Game over restart clicked');
+        DebugLogger.logGame('Game over restart clicked');
       }
       this.handleRestartGame();
       return;
@@ -293,7 +294,7 @@ export class GameManager extends BaseSystem {
     if (uiState.showMenuOverlay) {
       // Allow click/touch on overlay to resume game (mobile-friendly)
       if (DEBUG_CONFIG.logSystemLifecycle) {
-        console.log('🎛️ Menu overlay clicked, resuming game');
+        DebugLogger.logGame('Menu overlay clicked, resuming game');
       }
       this.hideMenuOverlayWithResume();
       return;
@@ -332,16 +333,16 @@ export class GameManager extends BaseSystem {
    * @returns Closest screw within range or null if none found
    */
   private findScrewAtPoint(point: Vector2, inputType: 'mouse' | 'touch'): Screw | null {
-    const maxDistance = inputType === 'touch' ? 30 : 15;
+    const maxDistance = inputType === 'touch' ? UI_CONSTANTS.input.touchRadius : UI_CONSTANTS.input.mouseRadius;
     const renderState = this.renderManager.getRenderState();
     
     if (DEBUG_CONFIG.logCollisionDetection) {
-      console.log(`🎯 findScrewAtPoint: Searching ${renderState.allScrews.length} screws for point (${point.x.toFixed(1)}, ${point.y.toFixed(1)}), maxDistance: ${maxDistance}`);
+      DebugLogger.logCollision(`findScrewAtPoint: Searching ${renderState.allScrews.length} screws for point (${point.x.toFixed(1)}, ${point.y.toFixed(1)}), maxDistance: ${maxDistance}`);
     }
     
     // Find closest screw within maxDistance
     let closestScrew: Screw | null = null;
-    let closestDistance = maxDistance;
+    let closestDistance: number = maxDistance;
 
     renderState.allScrews.forEach(screw => {
       const distance = Math.sqrt(
@@ -350,7 +351,7 @@ export class GameManager extends BaseSystem {
       );
       
       if (DEBUG_CONFIG.logCollisionDetection) {
-        console.log(`🎯 Screw ${screw.id} at (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), distance: ${distance.toFixed(1)}`);
+        DebugLogger.logCollision(`Screw ${screw.id} at (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), distance: ${distance.toFixed(1)}`);
       }
       
       if (distance <= closestDistance) {
@@ -361,7 +362,7 @@ export class GameManager extends BaseSystem {
 
     if (DEBUG_CONFIG.logCollisionDetection) {
       if (closestScrew) {
-        console.log(`🎯 Found screw: ${(closestScrew as Screw).id} at distance ${closestDistance.toFixed(1)}`);
+        DebugLogger.logCollision(`Found screw: ${(closestScrew as Screw).id} at distance ${closestDistance.toFixed(1)}`);
       } else {
         console.log(`🎯 Found screw: none`);
       }

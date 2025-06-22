@@ -171,8 +171,9 @@ export class LayerManager extends BaseSystem {
   private handleRestoreRequested(_event: RestoreRequestedEvent): void {
     void _event;
     this.executeIfActive(() => {
-      // Restoration will be handled through separate mechanism
-      // This is just a placeholder for coordination
+      // Layers are regenerated fresh when level starts via initializeLevel()
+      // No restoration needed - layers are not persisted between sessions
+      // This handler exists for event coordination but requires no action
     });
   }
 

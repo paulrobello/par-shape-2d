@@ -5,7 +5,7 @@
 
 import { BaseSystem } from '../BaseSystem';
 import { Container, ScrewColor } from '@/types/game';
-import { GAME_CONFIG, UI_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { GAME_CONFIG, UI_CONSTANTS, DEBUG_CONFIG, ANIMATION_CONSTANTS } from '@/shared/utils/Constants';
 import { ContainerPlanner, ContainerPlan } from '../../utils/ContainerPlanner';
 import {
   ContainerFilledEvent,
@@ -16,6 +16,7 @@ import {
   LevelCompletionBurstStartedEvent
 } from '../../events/EventTypes';
 import { LevelCompletionBurstEffect } from '@/shared/rendering/components/LevelCompletionBurstEffect';
+import { HapticUtils } from '@/shared/utils/HapticUtils';
 
 export class ContainerManager extends BaseSystem {
   private containers: Container[] = [];
@@ -251,7 +252,7 @@ export class ContainerManager extends BaseSystem {
       // Fade animation properties
       fadeOpacity: 1.0,
       fadeStartTime: 0,
-      fadeDuration: 500,
+      fadeDuration: ANIMATION_CONSTANTS.container.fadeDuration,
       isFadingOut: false,
       isFadingIn: false,
     };
@@ -351,7 +352,7 @@ export class ContainerManager extends BaseSystem {
             }
           });
           
-        }, container.fadeDuration || 500);
+        }, container.fadeDuration || ANIMATION_CONSTANTS.container.fadeDuration);
       }
     });
   }
@@ -598,7 +599,7 @@ export class ContainerManager extends BaseSystem {
       // Fade-in animation properties
       fadeOpacity: 0.0, // Start invisible
       fadeStartTime: Date.now(), // Start fading in immediately
-      fadeDuration: 500,
+      fadeDuration: ANIMATION_CONSTANTS.container.fadeDuration,
       isFadingOut: false,
       isFadingIn: true, // Start with fade-in animation
     };
@@ -694,8 +695,11 @@ export class ContainerManager extends BaseSystem {
         type: 'level:completion:burst:started',
         timestamp: Date.now(),
         position: centerPosition,
-        duration: 2500 // Default duration from the effect
+        duration: ANIMATION_CONSTANTS.levelCompletion.burstDuration
       } as LevelCompletionBurstStartedEvent);
+      
+      // Trigger haptic feedback for level completion
+      HapticUtils.trigger('level_complete');
       
       // Emit container all removed event
       this.emit({
@@ -769,8 +773,11 @@ export class ContainerManager extends BaseSystem {
       type: 'level:completion:burst:started',
       timestamp: Date.now(),
       position: centerPosition,
-      duration: 2500
+      duration: ANIMATION_CONSTANTS.levelCompletion.burstDuration
     } as LevelCompletionBurstStartedEvent);
+    
+    // Trigger haptic feedback for level completion
+    HapticUtils.trigger('level_complete');
   }
 
   /**

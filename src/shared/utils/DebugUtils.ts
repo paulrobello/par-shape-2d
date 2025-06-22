@@ -6,6 +6,8 @@ import { Shape } from '@/game/entities/Shape';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 
 export class DebugUtils {
+  private static debugKeyListener: ((event: KeyboardEvent) => void) | null = null;
+
   /**
    * Dump complete position information for all shapes and screws
    */
@@ -78,7 +80,11 @@ export class DebugUtils {
    * Set up keyboard listener for debug dump
    */
   static setupDebugKeyListener(getShapes: () => Shape[]): void {
-    const handleKeyPress = (event: KeyboardEvent) => {
+    // Clean up any existing listener first
+    this.cleanupDebugListeners();
+
+    // Create new listener
+    this.debugKeyListener = (event: KeyboardEvent) => {
       // Press 'D' key to dump positions
       if (event.key.toLowerCase() === 'd' && !event.ctrlKey && !event.altKey && !event.metaKey) {
         event.preventDefault();
@@ -87,9 +93,8 @@ export class DebugUtils {
       }
     };
 
-    // Remove any existing listener first
-    document.removeEventListener('keydown', handleKeyPress);
-    document.addEventListener('keydown', handleKeyPress);
+    // Add the listener
+    document.addEventListener('keydown', this.debugKeyListener);
     
     console.log('🔍 Debug key listener active: Press "D" to dump shape/screw positions');
   }
@@ -98,7 +103,9 @@ export class DebugUtils {
    * Clean up debug listeners
    */
   static cleanupDebugListeners(): void {
-    // Note: Since we can't easily remove specific listeners, this is a placeholder
-    // The listener will be replaced when setupDebugKeyListener is called again
+    if (this.debugKeyListener) {
+      document.removeEventListener('keydown', this.debugKeyListener);
+      this.debugKeyListener = null;
+    }
   }
 }
