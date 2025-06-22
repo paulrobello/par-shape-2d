@@ -111,7 +111,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
   const [isInitialized, setIsInitialized] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
   const [debugInfo, setDebugInfo] = useState<DebugInfo | null>(null);
-  const [gameStarted, setGameStarted] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [showStartScreen, setShowStartScreen] = useState(true);
   const [eventStats, setEventStats] = useState<{
     totalEvents: number;
     eventsByType: Record<string, number>;
@@ -156,7 +156,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           console.log('Game is over, performing restart instead of start');
           handleRestart();
         } else {
-          // Start the game normally
+          // Hide start screen and start the game
+          setShowStartScreen(false);
           gameState.startGame();
           console.log('Game started through event system');
         }
@@ -206,15 +207,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         // Start the coordinator
         coordinator.start();
 
-        // Automatically start the game after a longer delay to allow progress data to be set
-        setTimeout(() => {
-          const gameManager = coordinator.getGameManager();
-          if (gameManager) {
-            const progressData = gameManager.getState().progressData;
-            console.log(`Auto-starting game with progress data: ${progressData.totalScrews} total screws`);
-            handleStart();
-          }
-        }, 1500);
+        // Note: Removed auto-start functionality - user must click to begin
 
         // Validate event flow
         setTimeout(() => {
@@ -353,7 +346,11 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         const gameManager = coordinatorRef.current.getGameManager();
         if (gameManager) {
           const state = gameManager.getState() as { gameStarted?: boolean };
-          setGameStarted(state.gameStarted || false);
+          const started = state.gameStarted || false;
+          // Hide start screen when game has started
+          if (started) {
+            setShowStartScreen(false);
+          }
         }
       }
     };
@@ -471,6 +468,81 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           }}
         />
         
+        {/* Start Screen Overlay */}
+        {showStartScreen && isInitialized && (
+          <div 
+            onClick={handleStart}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(44, 62, 80, 0.95)',
+              display: 'flex',
+              flexDirection: 'column',
+              justifyContent: 'center',
+              alignItems: 'center',
+              cursor: 'pointer',
+              padding: '20px',
+              zIndex: 1000
+            }}
+          >
+            <div style={{
+              textAlign: 'center',
+              color: '#FFFFFF',
+              maxWidth: '600px',
+              width: '100%'
+            }}>
+              <h1 style={{
+                fontSize: '48px',
+                fontWeight: 'bold',
+                marginBottom: '20px',
+                color: '#3498DB',
+                textShadow: '2px 2px 4px rgba(0,0,0,0.5)'
+              }}>
+                PAR Shape 2D
+              </h1>
+              
+              <div style={{
+                fontSize: '20px',
+                marginBottom: '30px',
+                lineHeight: '1.6',
+                color: '#ECF0F1'
+              }}>
+                <p style={{ marginBottom: '15px', fontWeight: 'bold' }}>
+                  🎯 <strong>Objective:</strong> Remove screws to clear all container boxes
+                </p>
+                <p style={{ marginBottom: '10px' }}>
+                  🔧 Tap screws to remove them from shapes
+                </p>
+                <p style={{ marginBottom: '10px' }}>
+                  🎨 Screws fly to matching colored containers
+                </p>
+                <p style={{ marginBottom: '10px' }}>
+                  ⚠️ Blocked screws will shake - remove blocking shapes first
+                </p>
+                <p>
+                  🏆 Fill all containers to complete the level
+                </p>
+              </div>
+              
+              <div style={{
+                fontSize: '24px',
+                fontWeight: 'bold',
+                color: '#2ECC71',
+                marginTop: '40px',
+                padding: '15px 30px',
+                border: '2px solid #2ECC71',
+                borderRadius: '12px',
+                backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                animation: 'pulse 2s infinite'
+              }}>
+                🎮 Click anywhere to start!
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       
@@ -523,13 +595,15 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
       {/* System Status Display - Only show when not initialized */}
       {!isInitialized && (
         <div style={{
-          marginTop: '20px',
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#E74C3C',
+          fontSize: '18px',
+          fontWeight: 'bold',
           textAlign: 'center',
-          color: '#7F8C8D',
-          fontSize: '14px',
-          maxWidth: '600px',
-          margin: '20px auto 0',
-          padding: '0 20px',
+          zIndex: 1001
         }}>
           <p>⏳ Initializing game systems...</p>
         </div>
@@ -622,19 +696,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         </div>
       )}
 
-      {!isInitialized && (
-        <div style={{
-          position: 'absolute',
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          color: '#E74C3C',
-          fontSize: '18px',
-          fontWeight: 'bold',
-        }}>
-          Initializing event-driven systems...
-        </div>
-      )}
     </div>
   );
 };

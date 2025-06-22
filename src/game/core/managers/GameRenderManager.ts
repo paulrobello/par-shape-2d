@@ -204,12 +204,8 @@ export class GameRenderManager implements IGameRenderManager {
   private renderStartScreen(): void {
     if (!this.state.ctx || !this.gameStateManager) return;
 
-    this.state.ctx.fillStyle = '#FFFFFF';
-    this.state.ctx.font = '32px Arial';
-    this.state.ctx.textAlign = 'center';
-    this.state.ctx.fillText('Click to Start', this.state.virtualGameWidth / 2, this.state.virtualGameHeight / 2);
-
-    // Also render the HUD to show progress even before game starts
+    // Note: Start screen text is now handled by React overlay in GameCanvas.tsx
+    // Only render the HUD and menu button for the start screen
     this.renderHUD();
     this.renderMenuButton();
   }
