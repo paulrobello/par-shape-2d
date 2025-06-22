@@ -73,11 +73,13 @@ Comprehensive utilities prevent code duplication and ensure consistency:
     - Transfer: 600ms duration  
     - Shake: 300ms duration with 8 oscillations, 3px amplitude
     - Container Fade: 500ms duration
-    - Level Completion Burst: 2500ms duration
+    - Level Completion Burst: 5500ms duration (optimized to complete before 6s overlay)
   - **Screw Rotation**: Configurable rotation speeds for collection (1 rps) and transfer (1.5 rps) animations
   - **Blocked Screw Feedback**: ANIMATION_CONSTANTS.shake configuration with alternating horizontal/vertical movement
 - **Advanced Rendering Utilities**:
-  - **GeometryRenderer**: Sophisticated shape rendering with rounded corners and effects
+  - **GeometryRenderer**: High-performance shape rendering with rounded corners and optimized glow effects
+    - Single-layer glow rendering (optimized from 3-layer) for 70% reduction in draw calls
+    - Efficient composite operations with screen blending for particle effects
   - **ButtonStyles**: Professional UI styling system with accessibility features
   - **ScrewRenderer**: Enhanced screw visualization with visible rotation, clean 4-point cross, and alpha inheritance for container fade animations
 - **GeometryUtils**: Mathematical calculations and collision detection

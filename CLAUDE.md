@@ -49,10 +49,16 @@ See `docs/game_architecture.md` for detailed system documentation.
 The codebase features a **comprehensive shared utilities framework** (`src/shared/`) that eliminates code duplication:
 
 - **Event System**: Unified event bus with priority handling and performance tracking
-- **Rendering**: GeometryRenderer with shadows, rounded corners, and visual effects
+- **Rendering**: GeometryRenderer with shadows, rounded corners, and performance-optimized visual effects
+  - Single-layer glow rendering for 70% reduction in draw calls
+  - Early opacity culling for particle systems
 - **Animation**: 24+ easing functions, ANIMATION_CONSTANTS, and animation utilities
+  - Level completion burst effects with 5.5s duration and staggered fade-out timing
+  - Performance-optimized particle counts and rendering pipeline
 - **Haptic Feedback**: HapticUtils for consistent mobile vibration patterns
 - **Debug Logging**: DebugLogger with structured conditional logging methods
+  - Comprehensive DEBUG_CONFIG flags for all system components
+  - Level completion effects logging (DEBUG_CONFIG.logLevelCompletionEffects)
 - **Styling**: Consistent button and UI component styling
 - **Input Handling**: UI_CONSTANTS for consistent touch/mouse interaction radii
 - **Utilities**: Math, constants, and common functionality

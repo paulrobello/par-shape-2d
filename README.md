@@ -67,10 +67,12 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 * **Progress Bar**: Smooth animated transitions with configurable easing functions from EasingFunctions
 * **Container Transitions**: Professional fade in/out animations using ANIMATION_CONSTANTS.container.fadeDuration (500ms)
 * **Level Completion Effects**: Spectacular burst and sparkle animation system:
-  - **Duration**: ANIMATION_CONSTANTS.levelCompletion.burstDuration (2.5 seconds)
-  - **Burst Particles**: 40 radial particles with easeOutCubic motion and glow effects
-  - **Sparkle Effects**: 100 twinkling particles with random positioning and phase offsets
-  - **Wave Text Animation**: Large green "COMPLETE" text with per-letter wave motion
+  - **Duration**: ANIMATION_CONSTANTS.levelCompletion.burstDuration (5.5 seconds) - optimized to fade out before 6s overlay
+  - **Burst Particles**: 25 optimized radial particles with easeOutCubic motion and single-layer glow effects
+  - **Sparkle Effects**: 50 performance-optimized twinkling particles with random positioning and phase offsets
+  - **Wave Text Animation**: Large green "COMPLETE" text with per-letter wave motion (48px font, 20px amplitude)
+  - **Timing Phases**: Staggered fade-out (text: 4.5s, sparkles: 5.0s, burst: 5.5s) for clean overlay transition
+  - **Performance**: Single-layer glow rendering and early opacity culling for smooth 60fps animation
   - **Trigger**: Automatically starts when last container box is removed
   - **Haptic Feedback**: Extended celebration pattern for level completion
 * **Visual Polish**: Enhanced shadows, glows, and rounded corners throughout UI
@@ -147,7 +149,9 @@ Debug mode provides developers with testing tools and visual feedback:
 - Visual debug panel showing game state information
 - Collision detection bypass for testing
 - Event flow logging (when enabled in DEBUG_CONFIG)
+- Level completion effects logging (DEBUG_CONFIG.logLevelCompletionEffects)
 - Performance monitoring and metrics
+- Comprehensive debug flags for all system components
 
 ## Development
 

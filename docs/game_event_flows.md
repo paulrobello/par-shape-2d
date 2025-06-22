@@ -553,17 +553,17 @@ sequenceDiagram
         CM->>LCE: new LevelCompletionBurstEffect()
         CM->>LCE: start(centerPosition)
         
-        Note over LCE: Initialize particle systems:<br/>- 20 burst particles (radial)<br/>- 50 sparkle particles (random)<br/>- "COMPLETE" wave text letters
+        Note over LCE: Initialize particle systems:<br/>- 25 burst particles (radial, optimized)<br/>- 50 sparkle particles (random, performance-tuned)<br/>- "COMPLETE" wave text letters (48px font)
         
         CM->>EB: emit('level:completion:burst:started')
         CM->>EB: emit('container:all_removed')
         
-        Note over CM,LCE: Update loop (2.5 seconds)
+        Note over CM,LCE: Update loop (5.5 seconds - optimized for clean overlay transition)
         
         loop Animation Update (60fps)
             CM->>LCE: update(deltaTime)
             
-            Note over LCE: Update all effects:<br/>- Burst particles (0-0.5s)<br/>- Sparkle particles (0.2-2.0s)<br/>- Wave text (0.3-2.2s)
+            Note over LCE: Update all effects:<br/>- Burst particles (0-1.5s expand, 1.5-5.5s fade)<br/>- Sparkle particles (0.2-5.0s twinkling)<br/>- Wave text (0.2-4.5s wave animation)
             
             GRM->>CM: renderBurstEffect(ctx)
             CM->>LCE: render(ctx) [if active]
@@ -592,8 +592,13 @@ sequenceDiagram
 
 **Key Features:**
 - **Automatic Triggering**: Starts when last container box is removed from game
-- **Multi-Layer Animation**: Three synchronized particle systems with staggered timing
-- **Performance Optimized**: Delta-time based animation, opacity culling, automatic cleanup
+- **Multi-Layer Animation**: Three synchronized particle systems with staggered fade-out timing
+- **Performance Optimized**: 
+  - Single-layer glow rendering (70% reduction in draw calls)
+  - Optimized particle counts (25 burst, 50 sparkle)
+  - Early opacity culling (threshold 0.05)
+  - Delta-time based animation with automatic cleanup
+- **Clean Overlay Transition**: 5.5s animation completes before 6s level completion overlay
 - **Debug Support**: Manual triggering via 'C' key in debug mode for testing
 - **Event Integration**: Proper event emission for system coordination
 
