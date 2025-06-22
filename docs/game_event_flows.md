@@ -59,7 +59,13 @@ All game systems emit a `system:initialized` event upon successful initializatio
 - **Purpose**: Allows EventFlowValidator and debugging tools to confirm all systems are properly initialized
 - **Timing**: Emitted at the end of each system's `onInitialize()` method
 - **Format**: `{ type: 'system:initialized', systemName: 'SystemName', timestamp: number }`
-- **Systems**: GameState, LayerManager, ScrewManager, PhysicsWorld, GameManager
+- **Systems**: GameManager, GameState, LayerManager, ScrewManager, PhysicsWorld
+- **Implementation Details**:
+  - **GameManager**: Emits after event coordinator setup
+  - **GameState**: Emits after sub-manager initialization (GameStateCore, ContainerManager, HoldingHoleManager, SaveLoadManager)
+  - **LayerManager**: Emits after event handler setup
+  - **ScrewManager**: Emits after bounds initialization
+  - **PhysicsWorld**: Emits after physics world setup and event bridging
 - **Benefits**: Provides early detection of system initialization failures and improves debugging capabilities
 
 ### Game Lifecycle Events
