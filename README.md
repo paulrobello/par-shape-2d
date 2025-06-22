@@ -101,7 +101,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Mobile Support
 
-* **Start Screen Interaction**: Touch-friendly start screen with tap-to-start functionality
+* **Start Screen Interaction**: Touch-friendly start screen with tap-to-start functionality and responsive font sizing
 * **Touch Controls**: Optimized touch events with intelligent multi-touch screw selection
 * **Container Priority Selection**: When multiple screws are in touch area, prioritizes screws matching available container colors
 * **Adaptive Touch Radius**: Configurable touch radius (UI_CONSTANTS.input.touchRadius for mobile, UI_CONSTANTS.input.mouseRadius for desktop)
@@ -146,6 +146,7 @@ This project features a **clean event-driven architecture** with comprehensive s
 - **Professional Onboarding**: React overlay start screen with clear game instructions and objectives
 - **User-Initiated Gameplay**: Click-to-start functionality replaces auto-start for better user control
 - **Cross-Platform Design**: Start screen optimized for both desktop click and mobile tap interactions
+- **Mobile Optimized**: Responsive typography and proper z-index layering for full mobile compatibility
 
 The architecture ensures scalability, maintainability, and professional polish throughout.
 

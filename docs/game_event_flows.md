@@ -220,6 +220,7 @@ sequenceDiagram
 - **Cross-Platform**: Works with both mouse clicks and touch interactions
 - **State Management**: `showStartScreen` state controls overlay visibility
 - **No Auto-Start**: Eliminated automatic game start for better user control
+- **Mobile Optimized**: Responsive typography with CSS clamp() and proper z-index layering (1002) above canvas (1001)
 
 ### 1. System Initialization Flow
 
