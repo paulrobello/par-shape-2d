@@ -14,7 +14,3 @@
 
 ## Items
 
-- Do full mobile compatibility audit and fix any issues.
-  - Look for rendering issues especially placement of UI / HUD elements in the canvas rendering.
-    - The HUD should start at top of the canvas and only be tall enough to fit its contents + a 5px margin.
-    - The Shape placement area should start under the HUD and fill the rest of the canvas.
