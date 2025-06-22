@@ -101,6 +101,13 @@ export class GameManager extends BaseSystem {
 
   protected async onInitialize(): Promise<void> {
     this.eventCoordinator.setupEventHandlers();
+    
+    // Emit initialization event for EventFlowValidator
+    this.emit({
+      type: 'system:initialized',
+      timestamp: Date.now(),
+      systemName: 'GameManager'
+    });
   }
 
   // Public API methods (maintaining compatibility)
