@@ -60,18 +60,19 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 ## Animation
 
-* **Screw Collection**: Smooth sine-wave easing for screw movement to containers/holding holes
+* **Screw Collection**: Smooth sine-wave easing for screw movement using ANIMATION_CONSTANTS.collection (800ms)
 * **Screw Spinning**: Enhanced rotation effects during collection with constant velocity
-* **Blocked Screw Feedback**: 300ms shake animation with alternating horizontal/vertical oscillations
-* **Haptic Integration**: 50ms vibration for blocked screws, celebration patterns for successes
-* **Progress Bar**: Smooth animated transitions with configurable easing functions
-* **Container Transitions**: Professional fade in/out animations (500ms) for container management
+* **Blocked Screw Feedback**: Configurable shake animation using ANIMATION_CONSTANTS.shake (300ms duration, 8 oscillations, 3px amplitude) with alternating horizontal/vertical movement
+* **Haptic Integration**: HapticUtils patterns synchronized with animations for enhanced feedback
+* **Progress Bar**: Smooth animated transitions with configurable easing functions from EasingFunctions
+* **Container Transitions**: Professional fade in/out animations using ANIMATION_CONSTANTS.container.fadeDuration (500ms)
 * **Level Completion Effects**: Spectacular burst and sparkle animation system:
-  - **Burst Particles**: 20 radial particles with easeOutCubic motion and glow effects
-  - **Sparkle Effects**: 50 twinkling particles with random positioning and phase offsets
+  - **Duration**: ANIMATION_CONSTANTS.levelCompletion.burstDuration (2.5 seconds)
+  - **Burst Particles**: 40 radial particles with easeOutCubic motion and glow effects
+  - **Sparkle Effects**: 100 twinkling particles with random positioning and phase offsets
   - **Wave Text Animation**: Large green "COMPLETE" text with per-letter wave motion
-  - **Duration**: 2.5-second celebration before level complete overlay
   - **Trigger**: Automatically starts when last container box is removed
+  - **Haptic Feedback**: Extended celebration pattern for level completion
 * **Visual Polish**: Enhanced shadows, glows, and rounded corners throughout UI
 
 ## Graphics
@@ -87,11 +88,13 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
 
 * **Touch Controls**: Optimized touch events with intelligent multi-touch screw selection
 * **Container Priority Selection**: When multiple screws are in touch area, prioritizes screws matching available container colors
-* **Adaptive Touch Radius**: Larger touch radius (30px) for mobile vs desktop (15px) for better accessibility
-* **Haptic Feedback**: Comprehensive vibration feedback system:
-  - 50ms vibration for successful screw removal
-  - 50ms vibration for blocked screw attempts  
-  - [100, 50, 100] pattern for container filling celebration
+* **Adaptive Touch Radius**: Configurable touch radius (UI_CONSTANTS.input.touchRadius for mobile, UI_CONSTANTS.input.mouseRadius for desktop)
+* **Haptic Feedback**: Comprehensive vibration feedback system via HapticUtils:
+  - **Success**: 50ms vibration for screw removal
+  - **Blocked**: 50ms vibration for blocked screw attempts  
+  - **Container Filled**: [100, 50, 100] celebration pattern
+  - **Level Complete**: [100, 50, 100, 50, 150] extended celebration
+  - **Game Over**: [200, 100, 200] distinct pattern
 * **Mobile Menu System**: Canvas-rendered menu accessible via HUD menu button
   - Tap anywhere on the paused overlay to resume gameplay
   - Clear visual instructions for mobile users
@@ -106,7 +109,11 @@ This project features a **clean event-driven architecture** with comprehensive s
 - **Event-Driven Design**: 120+ game events, 40+ editor events with complete type safety
 - **Modular Architecture**: Clean separation between GameManager modules for maintainability
 - **Physics Integration**: Matter.js with proper pause/resume, boundaries, and precise geometric collision detection
-- **Shared Framework**: Eliminates code duplication across game and editor systems
+- **Shared Framework**: Comprehensive shared utilities framework including:
+  - **HapticUtils**: Centralized haptic feedback for mobile devices
+  - **DebugLogger**: Structured debug logging with conditional output
+  - **ANIMATION_CONSTANTS**: Centralized animation timing configuration
+  - **UI_CONSTANTS**: Consistent input radius and interface values
 
 ### Key Features
 - **Mobile-First**: Complete touch support with intelligent multi-selection

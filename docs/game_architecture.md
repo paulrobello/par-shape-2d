@@ -21,8 +21,9 @@ Players remove screws from layered shapes to collect them in color-matched conta
 - **Strategic Screw Removal**: Screws hold shapes in place and must be removed strategically
 - **Color-Matching Mechanics**: Screws must be placed in matching colored containers
 - **Progressive Difficulty**: Increasing complexity through additional layers and shapes
-- **Touch/Mouse Support**: Full cross-platform input handling with adaptive touch radius (30px mobile, 15px desktop)
+- **Touch/Mouse Support**: Full cross-platform input handling with adaptive touch radius (UI_CONSTANTS.input.touchRadius for mobile, UI_CONSTANTS.input.mouseRadius for desktop)
 - **Mobile-Friendly UI**: Menu overlay supports tap-to-resume for seamless mobile gameplay
+- **Haptic Feedback**: Comprehensive vibration patterns for mobile devices via HapticUtils
 
 ## Architectural Principles
 
@@ -52,12 +53,29 @@ Comprehensive utilities prevent code duplication and ensure consistency:
 - **EventEmissionUtils**: Standard event creation with automatic timestamps and completion patterns
 - **StateValidationUtils**: Unified validation with system, game state, and screw validation helpers  
 - **DebugLogger**: Consistent debug logging with conditional output, standardized formatting, and emojis
+  - **logGame()**: General game state logging
+  - **logEvent()**: Event flow logging
+  - **logCollision()**: Collision detection logging
+  - **logShapeCreation()**: Shape factory logging
+  - **logInfo()**: Always-visible information messages
+- **HapticUtils**: Centralized haptic feedback management for mobile devices
+  - **Success Pattern**: 50ms vibration for screw removal
+  - **Blocked Pattern**: 50ms vibration for blocked actions
+  - **Container Filled**: [100, 50, 100] celebration pattern
+  - **Level Complete**: [100, 50, 100, 50, 150] extended celebration
+  - **Game Over**: [200, 100, 200] distinct pattern
 - **Enhanced Animation System**:
   - **EasingFunctions**: 24+ professional easing functions (cubic, elastic, bounce, etc.)
   - **AnimationUtils**: State management with transition support for evolving animation APIs
   - **EasingPresets**: Curated configurations for UI, game, and physics animations
+  - **ANIMATION_CONSTANTS**: Centralized timing configuration
+    - Collection: 800ms duration
+    - Transfer: 600ms duration  
+    - Shake: 300ms duration with 8 oscillations, 3px amplitude
+    - Container Fade: 500ms duration
+    - Level Completion Burst: 2500ms duration
   - **Screw Rotation**: Configurable rotation speeds for collection (1 rps) and transfer (1.5 rps) animations
-  - **Blocked Screw Feedback**: 400ms shake animation with 3px amplitude, 8 oscillations, alternating horizontal/vertical movement
+  - **Blocked Screw Feedback**: ANIMATION_CONSTANTS.shake configuration with alternating horizontal/vertical movement
 - **Advanced Rendering Utilities**:
   - **GeometryRenderer**: Sophisticated shape rendering with rounded corners and effects
   - **ButtonStyles**: Professional UI styling system with accessibility features
@@ -141,7 +159,7 @@ graph TB
     ScrewPlacementService[ScrewPlacementService<br/>Strategic Placement]
     
     %% Shared Utilities
-    SharedUtils[Shared Utilities<br/>EventEmissionUtils<br/>StateValidationUtils<br/>DebugLogger<br/>GeometryRenderer<br/>ScrewRenderer<br/>AnimationUtils<br/>Constants]
+    SharedUtils[Shared Utilities<br/>EventEmissionUtils<br/>StateValidationUtils<br/>DebugLogger<br/>HapticUtils<br/>GeometryRenderer<br/>ScrewRenderer<br/>AnimationUtils<br/>Constants]
     
     %% Relationships - Core Management
     GameManager -.-> EventBus

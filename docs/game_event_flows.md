@@ -205,19 +205,25 @@ sequenceDiagram
                 SM->>CM: Animate to container
                 SM->>EB: emit('screw:animation:completed')
                 SM->>EB: emit('screw:collected', destination: 'container')
+                SM->>SM: HapticUtils.trigger('success')
                 CM->>EB: emit('container:filled') [if container full]
+                alt Container becomes full
+                    CM->>CM: HapticUtils.trigger('container_filled')
+                end
             else Container full, use holding hole
                 Note over SM: Transfer ownership to holding hole immediately
                 SM->>SM: screw.transferOwnership(holeId, 'holding_hole')
                 SM->>HM: Animate to holding hole
                 SM->>EB: emit('screw:animation:completed')
                 SM->>EB: emit('screw:collected', destination: 'holding_hole')
+                SM->>SM: HapticUtils.trigger('success')
                 HM->>EB: emit('holding_hole:filled')
                 HM->>EB: emit('holding_holes:full') [if all holes full]
             end
         else Screw is blocked
             SM->>EB: emit('screw:blocked:clicked')
-            SM->>SM: Start shake animation (400ms duration, 3px amplitude, 8 oscillations)
+            SM->>SM: Start shake animation (ANIMATION_CONSTANTS.shake.duration, amplitude, frequency)
+            SM->>SM: HapticUtils.trigger('blocked')
             SM->>EB: emit('screw:shake:updated') events during animation
             Note over SM: Horizontal/vertical oscillation with render data updates
         end
@@ -351,7 +357,64 @@ sequenceDiagram
     Note over GEC: Single handler prevents duplicate level progression
 ```
 
-### 4. Game Over Restart Flow
+### 4. Level Completion Burst Effect Flow
+
+**Triggered when the last container is removed:**
+
+```mermaid
+sequenceDiagram
+    participant CM as ContainerManager
+    participant EB as EventBus
+    participant GRM as GameRenderManager
+    participant BE as BurstEffect
+    
+    CM->>CM: checkForLastContainerRemoval()
+    alt remainingContainers.length === 0
+        CM->>BE: Create LevelCompletionBurstEffect
+        CM->>BE: start(centerPosition)
+        CM->>EB: emit('level:completion:burst:started')
+        CM->>CM: HapticUtils.trigger('level_complete')
+        
+        Note over BE: 2.5s burst animation plays
+        Note over BE: - 40 burst particles
+        Note over BE: - 100 sparkle particles
+        Note over BE: - "COMPLETE" wave text
+        
+        BE->>BE: Animation completes
+        CM->>EB: emit('level:completion:burst:completed')
+        CM->>EB: emit('container:all_removed')
+    end
+```
+
+### 5. Game Over Trigger Flow (Holding Holes Full)
+
+**Triggered when all holding holes are filled for 5 seconds:**
+
+```mermaid
+sequenceDiagram
+    participant HM as HoldingHoleManager
+    participant EB as EventBus
+    participant GEC as GameEventCoordinator
+    participant GM as GameManager
+    
+    HM->>EB: emit('holding_holes:full')
+    EB->>GEC: Start 5-second countdown timer
+    
+    Note over GEC: 5-second countdown begins
+    
+    alt Timer completes (no holes freed)
+        GEC->>EB: emit('game:over', reason: 'holding_holes_full')
+        GEC->>GEC: HapticUtils.trigger('game_over')
+        EB->>GM: Process game over state
+        GM->>GM: Show game over screen
+    else Hole becomes available
+        HM->>EB: emit('holding_holes:available')
+        EB->>GEC: Cancel countdown timer
+        Note over GEC: Game continues normally
+    end
+```
+
+### 6. Game Over Restart Flow
 
 **Features state preservation and level regeneration:**
 

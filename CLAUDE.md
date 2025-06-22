@@ -17,7 +17,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Always try to use proper types or type unions
 - Try not to duplicate code, if multiple areas could benefit for some functionality reason about how it could best be shared.
 - **Important:** Before creating any new functionality for the game or editor check that it does not already exist as shared functionality. If the functionality would be beneficial to both game and editor then create it as a shared resource.
-- Always add debug logging behind a DEBUG_CONFIG gate to it can be easily toggled on and off
+- Always add debug logging behind a DEBUG_CONFIG gate using DebugLogger utility methods
+- Use shared constants (ANIMATION_CONSTANTS, UI_CONSTANTS) instead of hardcoded values
+- Use HapticUtils for all haptic feedback instead of direct navigator.vibrate calls
 
 ## Workflow
 
@@ -48,8 +50,11 @@ The codebase features a **comprehensive shared utilities framework** (`src/share
 
 - **Event System**: Unified event bus with priority handling and performance tracking
 - **Rendering**: GeometryRenderer with shadows, rounded corners, and visual effects
-- **Animation**: 24+ easing functions and animation utilities
+- **Animation**: 24+ easing functions, ANIMATION_CONSTANTS, and animation utilities
+- **Haptic Feedback**: HapticUtils for consistent mobile vibration patterns
+- **Debug Logging**: DebugLogger with structured conditional logging methods
 - **Styling**: Consistent button and UI component styling
+- **Input Handling**: UI_CONSTANTS for consistent touch/mouse interaction radii
 - **Utilities**: Math, constants, and common functionality
 
 **Event Naming Convention**: All events follow `domain:action` format with colon separators.
