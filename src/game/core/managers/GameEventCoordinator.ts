@@ -146,15 +146,15 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     if (!this.managers) return;
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log(`🎯 Level ${levelTransitionCompletedEvent.level} won! Starting 3-second delay before showing completion screen`);
+      console.log(`🎯 Level ${levelTransitionCompletedEvent.level} won! Starting 6-second delay before showing completion screen`);
     }
     this.managers.stateManager.completeLevel(levelTransitionCompletedEvent.level, levelTransitionCompletedEvent.score);
     
-    // Start 3-second delay before showing level complete screen
+    // Start 6-second delay before showing level complete screen
     this.managers.timerManager.startLevelCompleteTimer(() => {
       this.managers!.stateManager.showLevelComplete();
       if (DEBUG_CONFIG.logEventFlow) {
-        console.log(`✨ Showing level complete screen after 3-second delay`);
+        console.log(`✨ Showing level complete screen after 6-second delay`);
       }
     });
   }
@@ -164,15 +164,15 @@ export class GameEventCoordinator implements IGameEventCoordinator {
     if (!this.managers) return;
     
     if (DEBUG_CONFIG.logEventFlow) {
-      console.log(`🎯 Level win condition met! Total screws: ${levelWinConditionMetEvent.totalScrews}, Final progress: ${levelWinConditionMetEvent.finalProgress}% - Starting 3-second delay`);
+      console.log(`🎯 Level win condition met! Total screws: ${levelWinConditionMetEvent.totalScrews}, Final progress: ${levelWinConditionMetEvent.finalProgress}% - Starting 6-second delay`);
     }
     this.managers.stateManager.updateGameState({ levelWon: true });
     
-    // Start 3-second delay before showing level complete screen
+    // Start 6-second delay before showing level complete screen
     this.managers.timerManager.startLevelCompleteTimer(() => {
       this.managers!.stateManager.showLevelComplete();
       if (DEBUG_CONFIG.logEventFlow) {
-        console.log(`✨ Showing level complete screen after 3-second delay`);
+        console.log(`✨ Showing level complete screen after 6-second delay`);
       }
     });
   }

@@ -150,8 +150,8 @@ export class GeometryRenderer {
     renderFn: () => void
   ): void {
     if (options.glowColor && options.glowBlur) {
-      // Render glow effect by drawing multiple times with increasing blur
-      const glowLayers = 3;
+      // Render glow effect with single layer for better performance
+      const glowLayers = 1;
       const maxBlur = options.glowBlur || 5;
       
       for (let i = 0; i < glowLayers; i++) {

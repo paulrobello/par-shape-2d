@@ -40,8 +40,8 @@ export interface BurstEffectConfig {
  */
 const DEFAULT_CONFIG: Required<BurstEffectConfig> = {
   duration: ANIMATION_CONSTANTS.levelCompletion.burstDuration, // 2.5 seconds (under 3 second requirement)
-  burstParticleCount: 10,
-  sparkleParticleCount: 18,
+  burstParticleCount: 20, // Increased from 10 for good visual impact but optimized for performance
+  sparkleParticleCount: 30, // Increased from 18 but reduced from doubled values for better performance
   burstRadius: 120,
   sparkleRadius: 80,
   burstParticleSize: 4,
@@ -340,14 +340,14 @@ export class LevelCompletionBurstEffect {
 
     // Render burst particles
     for (const particle of this.animationState.burstParticles) {
-      if (particle.opacity > 0.01) {
+      if (particle.opacity > 0.05) { // Early culling for better performance
         GeometryRenderer.renderCircle(ctx, {
           x: particle.currentPosition.x,
           y: particle.currentPosition.y,
           radius: particle.size,
           fillColor: particle.color,
           glowColor: particle.color,
-          glowBlur: particle.size * 2,
+          glowBlur: particle.size * 1.5, // Reduced glow for better performance
           shadowBlur: particle.size,
           shadowColor: particle.color,
           shadowOffsetX: 0,
@@ -358,10 +358,10 @@ export class LevelCompletionBurstEffect {
 
     // Render sparkle particles
     for (const particle of this.animationState.sparkleParticles) {
-      if (particle.opacity > 0.01) {
+      if (particle.opacity > 0.05) { // Early culling for better performance
         const renderRadius = particle.baseSize * particle.scale;
-        const alpha = Math.round(particle.opacity * 255).toString(16).padStart(2, '0');
-        const colorWithAlpha = particle.color + alpha;
+        // Use CSS rgba format instead of hex for better performance
+        const colorWithAlpha = `rgba(255, 255, 255, ${particle.opacity})`;
         
         GeometryRenderer.renderCircle(ctx, {
           x: particle.position.x,
@@ -369,7 +369,7 @@ export class LevelCompletionBurstEffect {
           radius: renderRadius,
           fillColor: colorWithAlpha,
           glowColor: particle.color,
-          glowBlur: renderRadius * 3,
+          glowBlur: renderRadius * 1.5, // Reduced glow for better performance
         });
       }
     }
@@ -518,9 +518,9 @@ export class LevelCompletionBurstEffect {
         const strokeColor = `rgba(39, 174, 96, ${opacity})`; // Darker green for stroke
         const glowColor = `rgba(88, 214, 141, ${opacity})`; // Lighter green for glow
         
-        // Render text with stronger glow effect for better visibility
+        // Render text with optimized glow effect for performance and visibility
         ctx.shadowColor = glowColor;
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = 8;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 0;
         

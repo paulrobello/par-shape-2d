@@ -50,14 +50,14 @@ export class GameTimerManager implements IGameTimerManager {
       clearTimeout(this.state.levelCompleteTimer);
     }
 
-    console.log('🎯 Starting 3-second delay before showing completion screen');
+    console.log('🎯 Starting 6-second delay before showing completion screen');
     
-    // Start 3-second delay before showing level complete screen
+    // Start 6-second delay before showing level complete screen
     this.state.levelCompleteTimer = setTimeout(() => {
       this.state.levelCompleteTimer = null;
-      console.log('✨ Showing level complete screen after 3-second delay');
+      console.log('✨ Showing level complete screen after 6-second delay');
       callback();
-    }, 3000);
+    }, 6000);
   }
 
   clearAllTimers(): void {
