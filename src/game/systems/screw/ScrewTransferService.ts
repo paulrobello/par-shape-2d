@@ -133,7 +133,9 @@ export class ScrewTransferService implements IScrewTransferService {
    * Check all holding holes for possible transfers to containers
    */
   public checkAllHoldingHolesForTransfers(): void {
-    console.log(`🔍 Checking all holding holes for possible transfers...`);
+    if (DEBUG_CONFIG.logScrewDebug) {
+      console.log(`🔍 Checking all holding holes for possible transfers...`);
+    }
     
     // Check each holding hole that has a screw
     this.state.holdingHoles.forEach((hole, holeIndex) => {
@@ -185,13 +187,15 @@ export class ScrewTransferService implements IScrewTransferService {
         const toPosition = calculateContainerHolePosition(containerIndex, emptyHoleIndex, this.state.virtualGameWidth, this.state.containers);
         
         // Start transfer animation
-        console.log(`🚀 Emitting screw:transfer:started for screw ${screw.id}:`, {
-          fromPosition,
-          toPosition,
-          fromHoleIndex: holeIndex,
-          toContainerIndex: containerIndex,
-          toHoleIndex: emptyHoleIndex
-        });
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🚀 Emitting screw:transfer:started for screw ${screw.id}:`, {
+            fromPosition,
+            toPosition,
+            fromHoleIndex: holeIndex,
+            toContainerIndex: containerIndex,
+            toHoleIndex: emptyHoleIndex
+          });
+        }
         
         this.eventBus.emit({
           type: 'screw:transfer:started',

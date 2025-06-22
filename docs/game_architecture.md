@@ -227,6 +227,7 @@ graph TB
 - Level progression management
 - System initialization and cleanup
 - **Exclusive input event handling** (mouse/touch clicks on canvas)
+- **Canvas bounds management** (emits `bounds:changed` events for system coordination)
 - Save/restore game state
 - Menu overlay interaction handling
 
@@ -248,6 +249,7 @@ graph TB
 - `game:started`, `game:paused`, `game:resumed`, `game:over`
 - `level:started`, `level:complete`
 - `screw:clicked` - Primary screw interaction event
+- `bounds:changed` - Canvas dimension updates (initialization + resize)
 
 #### **GameStateCore** (`src/game/core/GameStateCore.ts`)
 **Responsibility**: Central game state management
@@ -337,6 +339,7 @@ graph TB
 - Layer visibility and depth management
 - Physics group isolation between layers
 - Progressive layer revelation
+- **Canvas bounds coordination**: Listens to `bounds:changed` events to update shape area constraints
 - **Layer state notifications**: Emits layer clearing events for UI updates
 - **Note**: Does NOT determine level completion - only handles layer management
 
@@ -814,7 +817,7 @@ The game uses distributed state management with eventual consistency:
 - `game:state:request` → callback with current state
 
 #### **Notification Events**: Information broadcasts
-- `progress:updated`, `bounds:changed`, `physics:step:completed`
+- `progress:updated`, `bounds:changed` (canvas dimension updates), `physics:step:completed`
 
 ## Input Handling Architecture
 

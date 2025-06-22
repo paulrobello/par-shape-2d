@@ -323,7 +323,9 @@ export class LayerManager extends BaseSystem {
           height: GAME_CONFIG.canvas.height - LAYOUT_CONSTANTS.shapeArea.startY
         };
         layer.updateBounds(defaultShapeAreaBounds);
-        console.warn(`No current bounds available for layer ${layer.id}, using default shape area bounds`);
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.warn(`No current bounds available for layer ${layer.id}, using default shape area bounds`);
+        }
       }
       
       // Simply add layer to the end (layers are created in order)
@@ -1073,7 +1075,9 @@ export class LayerManager extends BaseSystem {
       // Preserve layers that should stay visible
       const shouldPreserveVisibility = layer.isVisible && (isFadingIn || recentlyMadeVisible);
       
-      console.log(`[LayerManager] Layer ${layer.id} (index=${index}): wasVisible=${wasVisible}, shouldBeVisibleByIndex=${shouldBeVisibleByIndex}, isFadingIn=${isFadingIn}, recentlyMadeVisible=${recentlyMadeVisible}, fadeOpacity=${layer.fadeOpacity}, fadeStartTime=${layer.fadeStartTime}`);
+      if (DEBUG_CONFIG.logLayerDebug) {
+        console.log(`[LayerManager] Layer ${layer.id} (index=${index}): wasVisible=${wasVisible}, shouldBeVisibleByIndex=${shouldBeVisibleByIndex}, isFadingIn=${isFadingIn}, recentlyMadeVisible=${recentlyMadeVisible}, fadeOpacity=${layer.fadeOpacity}, fadeStartTime=${layer.fadeStartTime}`);
+      }
       
       // Determine final visibility state
       // CRITICAL: If a layer was explicitly made visible (e.g., by showNextHiddenLayer), preserve that state
@@ -1081,7 +1085,9 @@ export class LayerManager extends BaseSystem {
       let shouldBeVisible: boolean;
       if (shouldPreserveVisibility) {
         shouldBeVisible = true; // Always preserve explicitly revealed layers
-        console.log(`[LayerManager] Preserving visibility for layer ${layer.id} (fade-in or recently revealed)`);
+        if (DEBUG_CONFIG.logLayerDebug) {
+          console.log(`[LayerManager] Preserving visibility for layer ${layer.id} (fade-in or recently revealed)`);
+        }
       } else {
         shouldBeVisible = shouldBeVisibleByIndex; // Use index-based rules for other layers
       }

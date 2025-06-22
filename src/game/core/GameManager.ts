@@ -580,8 +580,21 @@ export class GameManager extends BaseSystem {
   // Utility methods
 
   private emitBoundsChanged(): void {
-    // Bounds changed event emission removed for refactored architecture
-    // Other systems can get bounds information from the RenderManager if needed
+    const renderState = this.renderManager.getRenderState();
+    if (renderState.canvas) {
+      this.emit({
+        type: 'bounds:changed',
+        timestamp: Date.now(),
+        source: this.constructor.name,
+        width: renderState.canvas.width,
+        height: renderState.canvas.height,
+        scale: renderState.canvasScale || 1
+      });
+      
+      if (DEBUG_CONFIG.logBoundsOperations) {
+        console.log(`🔄 Bounds changed event emitted: ${renderState.canvas.width}x${renderState.canvas.height} (scale: ${renderState.canvasScale || 1})`);
+      }
+    }
   }
 
   // Cleanup
