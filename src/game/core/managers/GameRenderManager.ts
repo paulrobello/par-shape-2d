@@ -313,14 +313,15 @@ export class GameRenderManager implements IGameRenderManager {
     // Render background areas
     this.renderBackground();
     
-    // Render shapes and screws in the shape area
-    this.renderShapesAndScrews(); // Combined rendering with proper layering
+    // Render HUD elements first (containers and holding holes)
+    this.renderHUD();
     
-    // Render burst effect on top of game elements but below UI
+    // Render shapes and screws on top of HUD elements
+    this.renderShapesAndScrews(); // All screws (static and animating) render on top
+    
+    // Render burst effect on top of game elements
     this.renderBurstEffect();
     
-    // Render UI elements on top (HUD includes containers and holding holes)
-    this.renderHUD();
     this.renderMenuButton();
   }
 
@@ -535,7 +536,7 @@ export class GameRenderManager implements IGameRenderManager {
     );
     
     animatingScrews.forEach(screw => {
-      // Render animating screws on top of everything else
+      // Render animating screws on top of HUD elements
       ScrewRenderer.renderScrew(screw, renderContext);
     });
 
@@ -586,7 +587,7 @@ export class GameRenderManager implements IGameRenderManager {
       }
       
       if (transferringScrews.length > 0) {
-        console.log(`🎨 Rendering ${transferringScrews.length} transferring screws:`, 
+        console.log(`🎨 Rendering ${transferringScrews.length} transferring screws on top of HUD:`, 
           transferringScrews.map(s => ({ 
             id: s.id, 
             isBeingTransferred: s.isBeingTransferred,
@@ -602,7 +603,7 @@ export class GameRenderManager implements IGameRenderManager {
     }
     
     transferringScrews.forEach(screw => {
-      // Render transferring screws on top of everything else
+      // Render transferring screws on top of HUD elements
       ScrewRenderer.renderScrew(screw, renderContext);
     });
   }

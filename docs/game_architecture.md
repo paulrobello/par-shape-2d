@@ -433,6 +433,11 @@ graph TB
 #### **GameRenderManager** (`src/game/core/managers/GameRenderManager.ts`)
 **Responsibility**: Visual presentation and comprehensive HUD management
 - Canvas rendering and scaling with mobile-optimized layout
+- **Optimized Rendering Order**: HUD renders before shapes/screws to ensure proper visual layering
+  - **Background**: Canvas background and area separation
+  - **HUD Elements**: Containers, holding holes, progress bar, and text
+  - **Game Elements**: Shapes and all screws (static, animating, transferring) render on top
+  - **Visual Effects**: Burst effects and menu overlays render last
 - **Comprehensive HUD System**: Dynamic height calculation and rendering of all UI components:
   - **Progress Bar**: Visual progress indicator with percentage complete
   - **Text Information**: Screws remaining, level number, and current score
@@ -444,6 +449,7 @@ graph TB
 - Container and holding hole visualization with synchronized fade animations
 - Animation coordination including screw fade-out with containers
 - **Screw-Container Fade Synchronization**: Passes container fadeOpacity to ScrewRenderer for unified transitions
+- **Screw Animation Layering**: All screws (static and animating) render on top of HUD elements for proper visual depth
 - **Menu Overlay Rendering**: Displays pause menu with mobile-friendly "Click/Tap anywhere to resume" instruction
 
 ## HUD Architecture
@@ -1054,6 +1060,7 @@ The game implements a **single-source input handling pattern** to prevent event 
   - Conditional debug rendering controlled by DEBUG_CONFIG flags
   - Memory-efficient Path2D caching and reuse
   - **Mobile-Optimized Transforms**: Identity transform on mobile reduces computational overhead
+  - **Optimal Rendering Order**: HUD-first rendering ensures proper visual layering without Z-index complexity
 
 ### Scalability Considerations
 

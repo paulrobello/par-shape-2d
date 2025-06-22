@@ -39,3 +39,18 @@ This file provides guidance to Claude Code when working with this repository.
 - `docs/game_architecture.md` - Detailed system documentation
 - `docs/game_event_flows.md` & `docs/editor_event_flows.md` - Event flows
 - `docs/MatterJs_docs/` - Physics API reference
+
+## Recent Architecture Updates
+
+**Mobile Canvas Viewport Fix (2025-01):**
+- Implemented dynamic virtual dimensions in GameRenderManager for mobile devices
+- Mobile canvas now uses actual screen dimensions instead of fixed 640×800
+- Added 1:1 rendering transform on mobile for optimal performance
+- CSS ensures `100vw × 100vh` coverage without gaps
+- Robust device detection using screen width + user agent
+
+**Screw Animation Rendering Fix (2025-01):**
+- Fixed animating screws rendering behind containers and holding holes
+- Optimized rendering order: HUD first, then shapes/screws on top
+- All screws (static, animating, transferring) now render with proper visual depth
+- Simple solution that eliminates need for complex layering logic
