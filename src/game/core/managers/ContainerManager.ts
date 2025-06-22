@@ -682,10 +682,10 @@ export class ContainerManager extends BaseSystem {
         y: this.virtualGameHeight / 2
       };
       this.burstEffect = new LevelCompletionBurstEffect({
-        burstRadius: 150, // Bigger burst radius
-        sparkleRadius: 120, // Bigger sparkle radius
-        burstParticleCount: 20, // Double the burst particles (default: 10)
-        sparkleParticleCount: 50 // Double the sparkle particles (from 25)
+        burstRadius: 300, // Double the burst radius for double velocity (was 150)
+        sparkleRadius: 240, // Double the sparkle radius to match (was 120)
+        burstParticleCount: 40, // Double the burst particles (was 20)
+        sparkleParticleCount: 100 // Double the sparkle particles (was 50)
       });
       this.burstEffect.start(centerPosition);
       
@@ -755,8 +755,13 @@ export class ContainerManager extends BaseSystem {
       y: this.virtualGameHeight / 2
     };
     
-    // Create and start the burst effect
-    this.burstEffect = new LevelCompletionBurstEffect();
+    // Create and start the burst effect with doubled values
+    this.burstEffect = new LevelCompletionBurstEffect({
+      burstRadius: 300, // Double the burst radius for double velocity
+      sparkleRadius: 240, // Double the sparkle radius to match
+      burstParticleCount: 40, // Double the burst particles
+      sparkleParticleCount: 100 // Double the sparkle particles
+    });
     this.burstEffect.start(centerPosition);
     
     // Emit burst started event

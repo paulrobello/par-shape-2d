@@ -456,15 +456,16 @@ The level completion effects system creates a multi-layered animated celebration
 Located at `src/shared/rendering/components/LevelCompletionBurstEffect.ts`, this class is a fully self-contained animation system:
 
 ##### **Particle Systems**
-1. **Burst Particles (20 particles)**
+1. **Burst Particles (40 particles)**
    - Shoot outward radially from the center of the canvas
    - Use `easeOutCubic` easing for natural deceleration
+   - Doubled velocity with 300px burst radius (2x speed)
    - Varying distances (0.8-1.2x radius) for organic spread
    - Size: 4px base with ±20% variation for natural look
    - Colors: Gold (#FFD700), Orange-red (#FF6B35), Orange (#F7931E), Yellow (#FFFF00), Deep pink (#FF1493)
    - Glow and shadow effects for premium visual quality
 
-2. **Sparkle Particles (50 particles)**
+2. **Sparkle Particles (100 particles)**
    - Randomly positioned within sparkle radius around burst center
    - Twinkling animation with individual phase offsets
    - Scale animation between 0.5x and 2x for dynamic sparkle effect
@@ -539,10 +540,10 @@ The `BurstEffectConfig` interface allows full customization:
 ```typescript
 interface BurstEffectConfig {
   duration?: number;              // Default: 2500ms (under 3s requirement)
-  burstParticleCount?: number;    // Default: 20
-  sparkleParticleCount?: number;  // Default: 50
-  burstRadius?: number;           // Default: 120px
-  sparkleRadius?: number;         // Default: 80px
+  burstParticleCount?: number;    // Default: 10, game uses 40 (4x)
+  sparkleParticleCount?: number;  // Default: 18, game uses 100 (5.5x)
+  burstRadius?: number;           // Default: 120px, game uses 300px (2.5x velocity)
+  sparkleRadius?: number;         // Default: 80px, game uses 240px (3x)
   burstParticleSize?: number;     // Default: 4px
   sparkleParticleSize?: number;   // Default: 2.5px
   textFontSize?: number;          // Default: 64px
