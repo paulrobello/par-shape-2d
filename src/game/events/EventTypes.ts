@@ -261,7 +261,7 @@ export interface ScrewCountRequestedEvent extends BaseEvent {
 
 export interface RemainingScrewCountsRequestedEvent extends BaseEvent {
   type: 'remaining:screws:requested';
-  callback: (screwsByColor: Map<string, number>, visibleColors: Set<string>) => void;
+  callback: (visibleScrewsByColor: Map<string, number>, totalScrewsByColor: Map<string, number>, visibleColors: Set<string>) => void;
 }
 
 export interface ScrewCountResponseEvent extends BaseEvent {

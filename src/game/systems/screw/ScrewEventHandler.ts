@@ -647,9 +647,12 @@ export class ScrewEventHandler implements IScrewEventHandler {
       console.log('  - Colors eligible for containers (visible layers + holding holes):', Array.from(visibleColors));
     }
 
-    // Use the callback with visible screw counts (for accurate container planning) and visible colors
+    // Use the callback with both visible and total screw counts
+    // - visibleScrewsByColor: for container color selection (only visible layers)
+    // - screwsByColor: for container hole sizing (all layers)
+    // - visibleColors: colors eligible for container creation
     if (event.callback) {
-      event.callback(visibleScrewsByColor, visibleColors);
+      event.callback(visibleScrewsByColor, screwsByColor, visibleColors);
     }
   }
 

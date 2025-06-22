@@ -134,11 +134,14 @@ export const SCREW_COLORS: Record<ScrewColor, string> = {
 } as const;
 
 export const SHAPE_TINTS = [
-  '#FFE6E6', // Light red
-  '#E6FFE6', // Light green  
-  '#E6F3FF', // Light blue
-  '#FFFFE6', // Light yellow
-  '#F0E6FF', // Light purple
+  '#FFE0E0', // Light red
+  '#E0FFE0', // Light green  
+  '#E0E6FF', // Light blue
+  '#FFFDE0', // Light yellow
+  '#F0E0FF', // Light purple
+  '#FFE0F5', // Light pink
+  '#E0FFF0', // Light mint
+  '#F5FFE0', // Light lime
 ] as const;
 
 export const COLOR_PALETTES = {

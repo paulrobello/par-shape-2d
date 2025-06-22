@@ -114,27 +114,30 @@ export class ContainerManager extends BaseSystem {
     this.emit({
       type: 'remaining:screws:requested',
       timestamp: Date.now(),
-      callback: (screwInventory: Map<string, number>, visibleColors: Set<string>) => {
+      callback: (visibleScrewsByColor: Map<string, number>, totalScrewsByColor: Map<string, number>, visibleColors: Set<string>) => {
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log('🔢 Current screw inventory:', Array.from(screwInventory.entries()));
+          console.log('🔢 Visible screw counts:', Array.from(visibleScrewsByColor.entries()));
+          console.log('🔢 Total screw counts:', Array.from(totalScrewsByColor.entries()));
           console.log('👁️ Visible colors for container selection:', Array.from(visibleColors));
         }
         
-        // Filter screw inventory to only include visible colors for container creation
-        // but use ALL screw counts for hole sizing
-        const visibleScrewInventory = new Map<string, number>();
-        for (const [color, count] of screwInventory.entries()) {
-          if (visibleColors.has(color)) {
-            visibleScrewInventory.set(color, count);
+        // Create optimal inventory combining visible color selection with total screw counts for hole sizing
+        // This ensures containers are only created for visible colors but have enough holes for all screws
+        const optimalInventory = new Map<string, number>();
+        for (const color of visibleColors) {
+          // Use total screw count for hole sizing to ensure containers have enough capacity
+          const totalCount = totalScrewsByColor.get(color) || 0;
+          if (totalCount > 0) {
+            optimalInventory.set(color, totalCount);
           }
         }
         
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log('🎯 Filtered inventory for container creation:', Array.from(visibleScrewInventory.entries()));
+          console.log('🎯 Optimal inventory for container planning (visible colors + total counts):', Array.from(optimalInventory.entries()));
         }
         
-        // Calculate optimal container plan using visible colors only
-        const newPlan = ContainerPlanner.calculateOptimalContainers(visibleScrewInventory);
+        // Calculate optimal container plan using visible colors but total screw counts for proper hole sizing
+        const newPlan = ContainerPlanner.calculateOptimalContainers(optimalInventory);
         
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log('📋 Calculated container plan:', newPlan);
@@ -321,24 +324,25 @@ export class ContainerManager extends BaseSystem {
           this.emit({
             type: 'remaining:screws:requested',
             timestamp: Date.now(),
-            callback: (screwInventory: Map<string, number>, visibleColors: Set<string>) => {
-              const totalRemainingScrews = Array.from(screwInventory.values()).reduce((sum, count) => sum + count, 0);
+            callback: (visibleScrewsByColor: Map<string, number>, totalScrewsByColor: Map<string, number>, visibleColors: Set<string>) => {
+              const totalRemainingScrews = Array.from(totalScrewsByColor.values()).reduce((sum, count) => sum + count, 0);
               
-              // Filter for visible colors only
-              const visibleScrewInventory = new Map<string, number>();
-              for (const [color, count] of screwInventory.entries()) {
-                if (visibleColors.has(color)) {
-                  visibleScrewInventory.set(color, count);
+              // Create optimal inventory combining visible color selection with total screw counts for hole sizing
+              const optimalInventory = new Map<string, number>();
+              for (const color of visibleColors) {
+                const totalCount = totalScrewsByColor.get(color) || 0;
+                if (totalCount > 0) {
+                  optimalInventory.set(color, totalCount);
                 }
               }
               
-              const totalVisibleScrews = Array.from(visibleScrewInventory.values()).reduce((sum, count) => sum + count, 0);
+              const totalVisibleScrews = Array.from(optimalInventory.values()).reduce((sum, count) => sum + count, 0);
               
               if (totalVisibleScrews > 0) {
                 if (DEBUG_CONFIG.logScrewDebug) {
                   console.log(`🔄 Container removed, ${totalRemainingScrews} total screws remaining (${totalVisibleScrews} visible) - creating replacement containers with fade-in...`);
                 }
-                this.createReplacementContainersWithFadeIn(visibleScrewInventory);
+                this.createReplacementContainersWithFadeIn(optimalInventory);
               } else {
                 if (DEBUG_CONFIG.logScrewDebug) {
                   console.log(`✅ Container removed, no remaining screws - no replacement needed`);

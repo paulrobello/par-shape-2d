@@ -302,7 +302,14 @@ export class LayerManager extends BaseSystem {
       // So layer 0 (initial) should have low depthIndex (renders front)
       // And layer 4 (new) should have high depthIndex (renders behind)
       const depthIndex = index; // Higher index = higher depthIndex = renders behind
-      const layer = new Layer(id, index, depthIndex, physicsLayerGroup, 0, fadeIn, isRestored);
+      
+      // Use round-robin color assignment to ensure variety
+      // This prevents the issue where all non-visible layers get the same color
+      const colorIndex = this.state.colorCounter % SHAPE_TINTS.length;
+      this.state.colorCounter++;
+      
+      // Now create layer with the correct color from the start
+      const layer = new Layer(id, index, depthIndex, physicsLayerGroup, colorIndex, fadeIn, isRestored);
       
       // Update bounds immediately if available, or use shape area default
       if (this.state.currentBounds) {
@@ -325,11 +332,6 @@ export class LayerManager extends BaseSystem {
       
       // Update layer indices to ensure ScrewManager has current mappings
       this.updateLayerIndices();
-      
-      // Now assign color based on final visibility state
-      const colorIndex = this.getUnusedColorIndex();
-      layer.colorIndex = colorIndex;
-      layer.tint = SHAPE_TINTS[colorIndex % SHAPE_TINTS.length];
       
       if (DEBUG_CONFIG.logLayerOperations) {
         console.log(`🎨 Normal layer creation: ${layer.id} index=${index} colorIndex=${colorIndex} tint=${layer.tint} visible=${layer.isVisible}`);
@@ -697,21 +699,38 @@ export class LayerManager extends BaseSystem {
   private getUnusedColorIndex(): number {
     const totalColors = SHAPE_TINTS.length;
     
-    // Get currently visible layers (after indices have been updated)
+    // Only consider visible layers for color uniqueness
+    // This ensures visible layers always have unique colors
     const visibleLayers = this.getVisibleLayers();
     
     const usedColorIndices = new Set(
-      visibleLayers.map(layer => layer.colorIndex % totalColors)
+      visibleLayers
+        .filter(layer => 'colorIndex' in layer && layer.colorIndex >= 0) // Filter out placeholders
+        .map(layer => layer.colorIndex % totalColors)
     );
     
+    if (DEBUG_CONFIG.logLayerOperations) {
+      console.log(`🎨 Color assignment - Total colors: ${totalColors}, Visible layers: ${visibleLayers.length}`);
+      console.log(`🎨 Used color indices:`, Array.from(usedColorIndices));
+      console.log(`🎨 Visible layer details:`, visibleLayers.filter(l => 'colorIndex' in l).map(l => ({ id: l.id, colorIndex: l.colorIndex, tint: l.tint })));
+    }
+    
+    // Find first unused color among visible layers
     for (let colorIndex = 0; colorIndex < totalColors; colorIndex++) {
       if (!usedColorIndices.has(colorIndex)) {
+        if (DEBUG_CONFIG.logLayerOperations) {
+          console.log(`🎨 Found unused color index: ${colorIndex} (tint: ${SHAPE_TINTS[colorIndex]})`);
+        }
         return colorIndex;
       }
     }
     
+    // Fallback: cycle through colors if all are used (shouldn't happen with 8 colors and 4 visible layers)
     const fallbackIndex = this.state.colorCounter % totalColors;
     this.state.colorCounter++;
+    if (DEBUG_CONFIG.logLayerOperations) {
+      console.log(`🎨 All colors used, falling back to: ${fallbackIndex} (tint: ${SHAPE_TINTS[fallbackIndex]})`);
+    }
     return fallbackIndex;
   }
 

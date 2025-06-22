@@ -22,6 +22,7 @@ export class ContainerPlanner {
    * - Prioritizes colors with most screws (reduces total container count)
    * - Limits to 3 holes per container for visual clarity and game balance
    * - Ensures at least 1 hole for colors with any screws
+   * - Uses total screw count for hole sizing to prevent under-sizing
    * 
    * Design rationale: Fewer containers with appropriate capacity
    * provides better gameplay flow than many single-hole containers
