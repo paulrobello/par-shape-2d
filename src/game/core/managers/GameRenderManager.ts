@@ -24,6 +24,13 @@ export class GameRenderManager implements IGameRenderManager {
   
   // Debug tracking
   private hasBurstEffectLogged = false;
+  
+  // HUD Constants
+  private readonly HUD_MARGIN = 5; // Margin after HUD content
+  private readonly PROGRESS_BAR_Y = 15;
+  private readonly PROGRESS_BAR_HEIGHT = 16;
+  private readonly LINE_SPACING = 18;
+  private readonly HUD_LINES = 4; // Progress bar, screws remaining, level, score
 
   constructor() {
     this.state = this.createInitialState();
@@ -31,9 +38,9 @@ export class GameRenderManager implements IGameRenderManager {
     // Initialize progress bar
     this.progressBar = new ProgressBar({
       x: 20,
-      y: 15,
+      y: this.PROGRESS_BAR_Y,
       width: 200,
-      height: 16,
+      height: this.PROGRESS_BAR_HEIGHT,
       animationDuration: 300,
       easing: 'ease-out'
     });
@@ -96,6 +103,18 @@ export class GameRenderManager implements IGameRenderManager {
   updateCanvasSize(): void {
     if (!this.state.canvas) return;
     this.updateCanvasScaling();
+  }
+  
+  private calculateHUDHeight(): number {
+    // Calculate actual HUD height based on content
+    // Progress bar starts at PROGRESS_BAR_Y
+    // Then we have 3 more lines of text, each with LINE_SPACING
+    return this.PROGRESS_BAR_Y + this.PROGRESS_BAR_HEIGHT + (3 * this.LINE_SPACING) + this.HUD_MARGIN;
+  }
+  
+  getShapeAreaStartY(): number {
+    // Shape area starts immediately after HUD
+    return this.calculateHUDHeight();
   }
 
   private updateCanvasScaling(): void {
@@ -261,30 +280,32 @@ export class GameRenderManager implements IGameRenderManager {
   private renderBackground(): void {
     if (!this.state.ctx) return;
 
+    const shapeAreaStartY = this.getShapeAreaStartY();
+
     // Render HUD area background - extend to top of canvas
     this.state.ctx.fillStyle = '#222222'; // Dark gray HUD background
     this.state.ctx.fillRect(
       0, 
       0, // Start from very top of canvas
       this.state.virtualGameWidth, 
-      LAYOUT_CONSTANTS.shapeArea.startY // HUD area to 5px past holding holes
+      shapeAreaStartY // HUD area extends to shape area start
     );
 
     // Render shape area background (covers everything below HUD to bottom of canvas)
     this.state.ctx.fillStyle = LAYOUT_CONSTANTS.shapeArea.backgroundColor;
     this.state.ctx.fillRect(
       0,
-      LAYOUT_CONSTANTS.shapeArea.startY, // Start after HUD area
+      shapeAreaStartY, // Start after HUD area
       this.state.virtualGameWidth,
-      this.state.virtualGameHeight - LAYOUT_CONSTANTS.shapeArea.startY // Fill to bottom of canvas
+      this.state.virtualGameHeight - shapeAreaStartY // Fill to bottom of canvas
     );
 
     // Add border between HUD and shapes area
     this.state.ctx.strokeStyle = LAYOUT_CONSTANTS.shapeArea.borderColor;
     this.state.ctx.lineWidth = 2;
     this.state.ctx.beginPath();
-    this.state.ctx.moveTo(0, LAYOUT_CONSTANTS.shapeArea.startY);
-    this.state.ctx.lineTo(this.state.virtualGameWidth, LAYOUT_CONSTANTS.shapeArea.startY);
+    this.state.ctx.moveTo(0, shapeAreaStartY);
+    this.state.ctx.lineTo(this.state.virtualGameWidth, shapeAreaStartY);
     this.state.ctx.stroke();
   }
 
@@ -575,17 +596,15 @@ export class GameRenderManager implements IGameRenderManager {
 
     // Render screw count text
     const progressBarX = 20; // Match progress bar position
-    const progressBarY = 15;
-    const progressBarHeight = 16;
     
     this.state.ctx.fillStyle = '#FFFFFF';
     this.state.ctx.font = '14px Arial';
     this.state.ctx.textAlign = 'left';
-    this.state.ctx.fillText(screwsText, progressBarX, progressBarY + progressBarHeight + 18);
+    this.state.ctx.fillText(screwsText, progressBarX, this.PROGRESS_BAR_Y + this.PROGRESS_BAR_HEIGHT + this.LINE_SPACING);
 
     // Render level and score with better spacing
-    this.state.ctx.fillText(`Level: ${gameState.currentLevel}`, progressBarX, progressBarY + progressBarHeight + 36);
-    this.state.ctx.fillText(`Score: ${gameState.levelScore}`, progressBarX, progressBarY + progressBarHeight + 54);
+    this.state.ctx.fillText(`Level: ${gameState.currentLevel}`, progressBarX, this.PROGRESS_BAR_Y + this.PROGRESS_BAR_HEIGHT + (2 * this.LINE_SPACING));
+    this.state.ctx.fillText(`Score: ${gameState.levelScore}`, progressBarX, this.PROGRESS_BAR_Y + this.PROGRESS_BAR_HEIGHT + (3 * this.LINE_SPACING));
   }
 
   private renderMenuButton(): void {

@@ -90,6 +90,7 @@ export interface IGameRenderManager {
   updateRenderData(data: Partial<Pick<RenderState, 'visibleLayers' | 'containers' | 'holdingHoles' | 'allScrews'>>): void;
   render(): void;
   cleanup(): void;
+  getShapeAreaStartY(): number;
 }
 
 export interface IGameUIManager {

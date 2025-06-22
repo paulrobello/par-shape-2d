@@ -103,9 +103,9 @@ export class LayerManager extends BaseSystem {
       this.state.virtualGameWidth = event.width;
       this.state.virtualGameHeight = event.height;
       
-      // Define the shape area using layout constants
+      // Define the shape area using dynamic value from bounds event
       // But ensure it fits within the actual canvas
-      const defaultShapeAreaY = LAYOUT_CONSTANTS.shapeArea.startY;
+      const defaultShapeAreaY = event.shapeAreaStartY || LAYOUT_CONSTANTS.shapeArea.startY; // Fallback to static value
       
       // If canvas is too small, adjust the shape area to fit
       const minShapeAreaHeight = 200; // Minimum height for shapes
@@ -324,6 +324,7 @@ export class LayerManager extends BaseSystem {
         layer.updateBounds(this.state.currentBounds);
       } else {
         // Use shape area bounds as default (fallback)
+        // Since currentBounds is null here, use the static constant
         const defaultShapeAreaBounds = {
           x: 0,
           y: LAYOUT_CONSTANTS.shapeArea.startY,
@@ -831,7 +832,8 @@ export class LayerManager extends BaseSystem {
       );
       
       // Check if shape is hiding in the HUD area (above the game area)
-      const hidingInHUD = pos.y < LAYOUT_CONSTANTS.shapeArea.startY - 50; // 50px buffer
+      const shapeAreaStartY = this.state.currentBounds ? this.state.currentBounds.y : LAYOUT_CONSTANTS.shapeArea.startY;
+      const hidingInHUD = pos.y < shapeAreaStartY - 50; // 50px buffer
       
       // Additional check: if shape is far from visible area, remove it regardless
       const farFromVisibleArea = (
@@ -846,7 +848,7 @@ export class LayerManager extends BaseSystem {
             console.log(`  -> Removed due to being far from visible area`);
           }
           if (hidingInHUD) {
-            console.log(`  -> Removed due to hiding in HUD area (y=${pos.y.toFixed(1)} < ${LAYOUT_CONSTANTS.shapeArea.startY - 50})`);
+            console.log(`  -> Removed due to hiding in HUD area (y=${pos.y.toFixed(1)} < ${shapeAreaStartY - 50})`);
           }
         }
         shapesToRemove.push(shape.id);

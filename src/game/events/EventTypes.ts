@@ -522,6 +522,7 @@ export interface BoundsChangedEvent extends BaseEvent {
   width: number;
   height: number;
   scale: number;
+  shapeAreaStartY?: number; // Optional to maintain backward compatibility
 }
 
 // System coordination events

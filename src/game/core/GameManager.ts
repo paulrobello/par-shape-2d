@@ -614,7 +614,8 @@ export class GameManager extends BaseSystem {
         source: this.constructor.name,
         width: renderState.canvas.width,
         height: renderState.canvas.height,
-        scale: renderState.canvasScale || 1
+        scale: renderState.canvasScale || 1,
+        shapeAreaStartY: this.renderManager.getShapeAreaStartY()
       });
       
       if (DEBUG_CONFIG.logBoundsOperations) {

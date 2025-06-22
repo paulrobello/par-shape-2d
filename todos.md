@@ -14,8 +14,7 @@
 
 ## Items
 
-- Look for dummy / placeholder code that needs to be replaced with actual game logic.
-- Audit the codebase for any missing features or incomplete implementations based on the project requirements and specifications.
-- Look for redundant or duplicate code that can be refactored, removed or moved to the shared library.
-- Update or add comments and documentation to improve code clarity and maintainability.
-- Ensure comments are relevant and up-to-date.
+- Do full mobile compatibility audit and fix any issues.
+  - Look for rendering issues especially placement of UI / HUD elements in the canvas rendering.
+    - The HUD should start at top of the canvas and only be tall enough to fit its contents + a 5px margin.
+    - The Shape placement area should start under the HUD and fill the rest of the canvas.
