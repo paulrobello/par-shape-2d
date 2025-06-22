@@ -106,10 +106,16 @@ export class GameRenderManager implements IGameRenderManager {
   }
   
   private calculateHUDHeight(): number {
-    // Calculate actual HUD height based on content
-    // Progress bar starts at PROGRESS_BAR_Y
-    // Then we have 3 more lines of text, each with LINE_SPACING
-    return this.PROGRESS_BAR_Y + this.PROGRESS_BAR_HEIGHT + (3 * this.LINE_SPACING) + this.HUD_MARGIN;
+    // Calculate actual HUD height based on all HUD content:
+    // HUD includes: progress bar, text, containers, and holding holes
+    
+    // Holding holes are the bottommost element in the HUD
+    const holdingHoleStartY = UI_CONSTANTS.holdingHoles.startY;
+    const holdingHoleRadius = UI_CONSTANTS.holdingHoles.radius;
+    const holdingHoleEndY = holdingHoleStartY + (holdingHoleRadius * 2);
+    
+    // HUD extends from top to bottom of holding holes + margin
+    return holdingHoleEndY + this.HUD_MARGIN;
   }
   
   getShapeAreaStartY(): number {
@@ -264,15 +270,13 @@ export class GameRenderManager implements IGameRenderManager {
     // Render background areas
     this.renderBackground();
     
-    // Render all game elements
-    this.renderContainers();
-    this.renderHoldingHoles();
+    // Render shapes and screws in the shape area
     this.renderShapesAndScrews(); // Combined rendering with proper layering
     
     // Render burst effect on top of game elements but below UI
     this.renderBurstEffect();
     
-    // Render UI elements on top
+    // Render UI elements on top (HUD includes containers and holding holes)
     this.renderHUD();
     this.renderMenuButton();
   }
@@ -605,6 +609,10 @@ export class GameRenderManager implements IGameRenderManager {
     // Render level and score with better spacing
     this.state.ctx.fillText(`Level: ${gameState.currentLevel}`, progressBarX, this.PROGRESS_BAR_Y + this.PROGRESS_BAR_HEIGHT + (2 * this.LINE_SPACING));
     this.state.ctx.fillText(`Score: ${gameState.levelScore}`, progressBarX, this.PROGRESS_BAR_Y + this.PROGRESS_BAR_HEIGHT + (3 * this.LINE_SPACING));
+    
+    // Render containers and holding holes as part of HUD
+    this.renderContainers();
+    this.renderHoldingHoles();
   }
 
   private renderMenuButton(): void {
