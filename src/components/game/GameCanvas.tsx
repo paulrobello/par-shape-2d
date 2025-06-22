@@ -485,7 +485,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
               alignItems: 'center',
               cursor: 'pointer',
               padding: '20px',
-              zIndex: 1000
+              zIndex: 1002
             }}
           >
             <div style={{
@@ -495,7 +495,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
               width: '100%'
             }}>
               <h1 style={{
-                fontSize: '48px',
+                fontSize: 'clamp(32px, 8vw, 48px)',
                 fontWeight: 'bold',
                 marginBottom: '20px',
                 color: '#3498DB',
@@ -505,7 +505,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
               </h1>
               
               <div style={{
-                fontSize: '20px',
+                fontSize: 'clamp(16px, 4vw, 20px)',
                 marginBottom: '30px',
                 lineHeight: '1.6',
                 color: '#ECF0F1'
@@ -528,7 +528,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
               </div>
               
               <div style={{
-                fontSize: '24px',
+                fontSize: 'clamp(18px, 5vw, 24px)',
                 fontWeight: 'bold',
                 color: '#2ECC71',
                 marginTop: '40px',
@@ -603,7 +603,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           fontSize: '18px',
           fontWeight: 'bold',
           textAlign: 'center',
-          zIndex: 1001
+          zIndex: 1003
         }}>
           <p>⏳ Initializing game systems...</p>
         </div>
