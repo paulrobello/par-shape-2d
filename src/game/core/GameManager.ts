@@ -340,12 +340,18 @@ export class GameManager extends BaseSystem {
 
   /**
    * Finds the closest screw within interaction radius using proximity-based collision detection.
+   * Prioritizes closest non-blocked screw when the closest screw is blocked.
    * 
    * Algorithm:
    * 1. Retrieves all screws from current render state
    * 2. Calculates Euclidean distance from point to each screw center
-   * 3. Returns closest screw within adaptive radius (touch vs mouse)
-   * 4. Handles edge cases (no screws, all outside range)
+   * 3. Tracks both closest screw overall and closest non-blocked screw
+   * 4. Returns closest non-blocked screw, falling back to closest if none available
+   * 5. Handles edge cases (no screws, all outside range)
+   * 
+   * Selection Priority:
+   * 1. Closest non-blocked screw within radius
+   * 2. Closest screw (blocked or not) if no non-blocked screws available
    * 
    * Performance: O(n) where n = total screws in visible layers
    * 
@@ -355,19 +361,22 @@ export class GameManager extends BaseSystem {
    * 
    * @param point - Interaction point in game coordinates (not screen coordinates)
    * @param inputType - Input method determines interaction radius
-   * @returns Closest screw within range or null if none found
+   * @returns Best screw within range or null if none found
    */
   private findScrewAtPoint(point: Vector2, inputType: 'mouse' | 'touch'): Screw | null {
     const maxDistance = inputType === 'touch' ? UI_CONSTANTS.input.touchRadius : UI_CONSTANTS.input.mouseRadius;
     const renderState = this.renderManager.getRenderState();
+    const screwManager = this.state.systemCoordinator?.getScrewManager();
     
     if (DEBUG_CONFIG.logCollisionDetection) {
       DebugLogger.logCollision(`findScrewAtPoint: Searching ${renderState.allScrews.length} screws for point (${point.x.toFixed(1)}, ${point.y.toFixed(1)}), maxDistance: ${maxDistance}`);
     }
     
-    // Find closest screw within maxDistance
+    // Find closest screw (any) and closest non-blocked screw within maxDistance
     let closestScrew: Screw | null = null;
     let closestDistance: number = maxDistance;
+    let closestNonBlockedScrew: Screw | null = null;
+    let closestNonBlockedDistance: number = maxDistance;
 
     renderState.allScrews.forEach(screw => {
       const distance = Math.sqrt(
@@ -375,25 +384,42 @@ export class GameManager extends BaseSystem {
         Math.pow(screw.position.y - point.y, 2)
       );
       
-      if (DEBUG_CONFIG.logCollisionDetection) {
-        DebugLogger.logCollision(`Screw ${screw.id} at (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), distance: ${distance.toFixed(1)}`);
-      }
-      
-      if (distance <= closestDistance) {
-        closestDistance = distance;
-        closestScrew = screw;
+      if (distance <= maxDistance) {
+        // Check if this screw is blocked (only if screwManager is available)
+        const isBlocked = screwManager?.isScrewBlocked?.(screw.id) ?? false;
+        
+        if (DEBUG_CONFIG.logCollisionDetection) {
+          DebugLogger.logCollision(`Screw ${screw.id} at (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), distance: ${distance.toFixed(1)}, blocked: ${isBlocked}`);
+        }
+        
+        // Track closest screw overall
+        if (distance <= closestDistance) {
+          closestDistance = distance;
+          closestScrew = screw;
+        }
+        
+        // Track closest non-blocked screw
+        if (!isBlocked && distance <= closestNonBlockedDistance) {
+          closestNonBlockedDistance = distance;
+          closestNonBlockedScrew = screw;
+        }
       }
     });
 
+    // Prioritize non-blocked screw, fall back to closest screw if no non-blocked available
+    const selectedScrew = closestNonBlockedScrew !== null ? closestNonBlockedScrew : closestScrew;
+    const selectedDistance = closestNonBlockedScrew !== null ? closestNonBlockedDistance : closestDistance;
+    const wasBlocked = closestNonBlockedScrew === null && closestScrew !== null;
+
     if (DEBUG_CONFIG.logCollisionDetection) {
-      if (closestScrew) {
-        DebugLogger.logCollision(`Found screw: ${(closestScrew as Screw).id} at distance ${closestDistance.toFixed(1)}`);
+      if (selectedScrew !== null) {
+        DebugLogger.logCollision(`Found screw: ${(selectedScrew as Screw).id} at distance ${selectedDistance.toFixed(1)} ${wasBlocked ? '(closest was blocked, selected fallback)' : '(closest non-blocked)'}`);
       } else {
         console.log(`🎯 Found screw: none`);
       }
     }
 
-    return closestScrew;
+    return selectedScrew;
   }
 
   private isMenuButtonClicked(point: Vector2): boolean {

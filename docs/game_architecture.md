@@ -981,7 +981,10 @@ The game implements a **single-source input handling pattern** to prevent event 
 2. **State Check**: Determines if start screen, game over, or menu overlay is active
 3. **Start Screen Handling**: Click/tap on start screen overlay triggers game start (bypasses screw detection)
 4. **Coordinate Conversion**: Converts canvas coordinates to game world coordinates (active gameplay only)
-5. **Hit Detection**: Uses render state to find screws within interaction radius (active gameplay only)
+5. **Smart Hit Detection**: Intelligent screw selection within interaction radius (active gameplay only)
+   - **Priority 1**: Closest non-blocked screw within radius
+   - **Priority 2**: Closest screw (blocked or not) if no non-blocked screws available
+   - Uses ScrewManager.isScrewBlocked() for blocking detection
 6. **Event Emission**: Emits single `screw:clicked` event per interaction (active gameplay only)
 7. **State Validation**: ScrewEventHandler validates screw exists in ScrewManager state
 

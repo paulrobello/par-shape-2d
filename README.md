@@ -19,6 +19,7 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
   - 🔧 Tap screws to remove them from shapes
   - 🎨 Screws fly to matching colored containers
   - ⚠️ Blocked screws will shake - remove blocking shapes first
+  - 🎯 **Smart Selection:** Game prioritizes closest non-blocked screws for better interaction
   - 🏆 Fill all containers to complete the level
 
 ### Core Gameplay
@@ -125,8 +126,9 @@ This project uses [`next/font`](https://nextjs.org/docs/app/building-your-applic
   - **No Empty Space**: Eliminates gaps at top/bottom of mobile screens
 * **Start Screen Interaction**: Touch-friendly start screen with tap-to-start functionality and responsive font sizing
 * **Touch Controls**: Optimized touch events with intelligent multi-touch screw selection
+* **Smart Screw Selection**: Prioritizes closest non-blocked screws within touch radius for better gameplay
 * **Container Priority Selection**: When multiple screws are in touch area, prioritizes screws matching available container colors
-* **Adaptive Touch Radius**: Configurable touch radius (UI_CONSTANTS.input.touchRadius for mobile, UI_CONSTANTS.input.mouseRadius for desktop)
+* **Adaptive Touch Radius**: Configurable touch radius (30px for mobile, 15px for desktop)
 * **Dynamic HUD Layout**: HUD automatically calculates height based on content for optimal mobile compatibility
   - Progress bar, text, containers, and holding holes all contained within HUD area
   - Shape area starts immediately after HUD with proper margin

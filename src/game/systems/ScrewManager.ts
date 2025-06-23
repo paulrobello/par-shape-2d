@@ -495,6 +495,16 @@ export class ScrewManager extends BaseSystem {
     return this.state.screws.get(screwId) || null;
   }
 
+  /**
+   * Check if a screw is blocked for gameplay interaction
+   * Used by GameManager for intelligent screw selection
+   * @param screwId - ID of the screw to check
+   * @returns true if screw is blocked by other shapes, false otherwise
+   */
+  public isScrewBlocked(screwId: string): boolean {
+    return this.isScrewBlockedForGameplay(screwId);
+  }
+
   public getRemainingScrewCountsByColor(): Map<string, number> {
     const counts = new Map<string, number>();
     
