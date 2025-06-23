@@ -339,19 +339,20 @@ export class GameManager extends BaseSystem {
   }
 
   /**
-   * Finds the closest screw within interaction radius using proximity-based collision detection.
-   * Prioritizes closest non-blocked screw when the closest screw is blocked.
+   * Finds the best screw within interaction radius using proximity-based collision detection.
+   * Selects closest screw, with slight preference for non-blocked screws when distances are similar.
    * 
    * Algorithm:
    * 1. Retrieves all screws from current render state
    * 2. Calculates Euclidean distance from point to each screw center
    * 3. Tracks both closest screw overall and closest non-blocked screw
-   * 4. Returns closest non-blocked screw, falling back to closest if none available
+   * 4. Applies intelligent selection with distance threshold
    * 5. Handles edge cases (no screws, all outside range)
    * 
    * Selection Priority:
-   * 1. Closest non-blocked screw within radius
-   * 2. Closest screw (blocked or not) if no non-blocked screws available
+   * 1. Closest screw gets selected (blocked or not) for consistent interaction
+   * 2. Non-blocked screw preferred only if within 5px of blocked screw distance
+   * 3. Ensures blocked screws maintain full interaction radius for shake feedback
    * 
    * Performance: O(n) where n = total screws in visible layers
    * 
@@ -406,14 +407,38 @@ export class GameManager extends BaseSystem {
       }
     });
 
-    // Prioritize non-blocked screw, fall back to closest screw if no non-blocked available
-    const selectedScrew = closestNonBlockedScrew !== null ? closestNonBlockedScrew : closestScrew;
-    const selectedDistance = closestNonBlockedScrew !== null ? closestNonBlockedDistance : closestDistance;
-    const wasBlocked = closestNonBlockedScrew === null && closestScrew !== null;
+    // Select the closest screw, but prefer non-blocked if distances are similar
+    // This ensures blocked screws can still be selected with full radius for shake feedback
+    let selectedScrew: Screw | null = null;
+    let selectedDistance: number = maxDistance;
+    let wasBlocked = false;
+    
+    // If we have both blocked and non-blocked options, use a small threshold to decide
+    if (closestScrew !== null && closestNonBlockedScrew !== null) {
+      // Only prefer non-blocked screw if it's reasonably close to the blocked one
+      const distanceThreshold = 5; // pixels - small threshold for preferring non-blocked
+      if (closestNonBlockedDistance <= closestDistance + distanceThreshold) {
+        selectedScrew = closestNonBlockedScrew;
+        selectedDistance = closestNonBlockedDistance;
+      } else {
+        selectedScrew = closestScrew;
+        selectedDistance = closestDistance;
+        wasBlocked = true;
+      }
+    } else {
+      // Simple case: only one type available
+      selectedScrew = closestScrew || closestNonBlockedScrew;
+      selectedDistance = closestScrew ? closestDistance : closestNonBlockedDistance;
+      wasBlocked = closestScrew !== null && closestNonBlockedScrew === null;
+    }
 
     if (DEBUG_CONFIG.logCollisionDetection) {
       if (selectedScrew !== null) {
-        DebugLogger.logCollision(`Found screw: ${(selectedScrew as Screw).id} at distance ${selectedDistance.toFixed(1)} ${wasBlocked ? '(closest was blocked, selected fallback)' : '(closest non-blocked)'}`);
+        const screwType = wasBlocked ? 'blocked' : 'non-blocked';
+        const selectionReason = closestScrew !== null && closestNonBlockedScrew !== null
+          ? `(selected ${screwType} - closest overall: ${closestDistance.toFixed(1)}px, closest non-blocked: ${closestNonBlockedDistance.toFixed(1)}px)`
+          : `(only ${screwType} screws in range)`;
+        DebugLogger.logCollision(`Found screw: ${(selectedScrew as Screw).id} at distance ${selectedDistance.toFixed(1)} ${selectionReason}`);
       } else {
         console.log(`🎯 Found screw: none`);
       }
