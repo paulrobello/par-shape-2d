@@ -157,9 +157,10 @@ The game implements a **single-source input handling pattern** to ensure reliabl
 #### **Input Processing Flow**
 1. **Native Event Capture**: GameManager adds `addEventListener` to canvas for click/touch
 2. **Smart Hit Detection**: Intelligent screw selection using GameRenderManager.getRenderState().allScrews
-   - **Priority Algorithm**: Closest non-blocked screw within radius, fallback to closest screw
+   - **Selection Algorithm**: Closest screw selected; non-blocked preferred within 5px threshold
    - **Blocking Check**: Uses ScrewManager.isScrewBlocked() for real-time blocking detection
-   - **Radius**: 30px for touch, 15px for mouse interaction
+   - **Consistent Radius**: All screws respond within full radius (30px touch, 15px mouse)
+   - **Result**: Blocked screws properly trigger shake feedback at full interaction distance
 3. **State Validation**: ScrewEventHandler validates screw exists in ScrewManager.state.screws
 4. **Single Emission**: One `screw:clicked` event per user interaction
 
@@ -309,7 +310,7 @@ sequenceDiagram
 
     User->>GM: Click/Touch on canvas
     GM->>GM: Smart hit detection using render state
-    GM->>GM: Find best screw at coordinates (priority: non-blocked > closest)
+    GM->>GM: Find closest screw (5px preference for non-blocked)
     
     alt Screw found
         GM->>EB: emit('screw:clicked') [SINGLE SOURCE - No duplication]
