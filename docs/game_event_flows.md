@@ -59,13 +59,14 @@ All game systems emit a `system:initialized` event upon successful initializatio
 - **Purpose**: Allows EventFlowValidator and debugging tools to confirm all systems are properly initialized
 - **Timing**: Emitted at the end of each system's `onInitialize()` method
 - **Format**: `{ type: 'system:initialized', systemName: 'SystemName', timestamp: number }`
-- **Systems**: GameManager, GameState, LayerManager, ScrewManager, PhysicsWorld
+- **Systems**: GameManager, GameState, LayerManager, ScrewManager, PhysicsWorld, ProgressTracker
 - **Implementation Details**:
   - **GameManager**: Emits after event coordinator setup
   - **GameState**: Emits after sub-manager initialization (GameStateCore, ContainerManager, HoldingHoleManager, SaveLoadManager)
   - **LayerManager**: Emits after event handler setup
   - **ScrewManager**: Emits after bounds initialization
   - **PhysicsWorld**: Emits after physics world setup and event bridging
+  - **ProgressTracker**: Emits after event listeners setup
 - **Benefits**: Provides early detection of system initialization failures and improves debugging capabilities
 
 ### Game Lifecycle Events
@@ -92,7 +93,7 @@ All game systems emit a `system:initialized` event upon successful initializatio
 ### Layer System Events
 - **Management**: `layer:created`, `layer:cleared`, `layer:visibility:changed`
 - **State**: `layers:updated`, `layer:bounds:changed`, `layer:indices:updated`
-- **Readiness**: `layer:shapes:ready`, `all_layers:screws:ready`
+- **Readiness**: `layer:shapes:ready`, `all:layers:screws:ready`
 - **Layer Clearing**: `all:layers:cleared` - **Note**: Visual state only, NOT level completion
 
 ### Container System Events
@@ -116,6 +117,35 @@ All game systems emit a `system:initialized` event upon successful initializatio
 - **Save/Load**: `save:requested`, `save:completed`, `restore:requested`, `restore:completed`
 - **State**: `save:state:changed`
 
+### Score Tracking Events
+- **Score Updates**: `score:updated`, `level:score:updated`, `total:score:updated`
+- **Progress**: `screw:progress:updated`, `progress:updated`
+- **Screw Counting**: `total:screw:count:set`, `total:screw:count:add`
+
+### Debug Events
+- **Mode Control**: `debug:mode:toggled`
+- **Information**: `debug:info:requested`
+- **Testing**: `debug:performance:test`
+
+### Error Handling Events
+- **System Errors**: `system:error`
+- **Physics Errors**: `physics:error`
+- **Save/Load Errors**: `save:error`
+
+### Rendering Events
+- **Render Control**: `render:requested`
+- **Canvas Updates**: `bounds:changed`
+
+### Request/Response Events
+- **State Requests**: `game:state:request`, `container:state:request`, `holding:hole:state:request`
+- **Screw Counting**: `screw:count:requested`, `screw:count:response`, `remaining:screws:requested`
+- **Transfer Requests**: `screw:transfer:request`, `holding_holes:check_transfers`
+- **Color Requests**: `screw:colors:requested`
+
+### State Restoration Events
+- **Restore State**: `game:state:restore`, `container:state:restore`, `holding:hole:state:restore`
+- **Completion**: `game:restored`
+
 ## Event Emitters and Subscribers Matrix
 
 ### Major Event Emitters
@@ -124,20 +154,21 @@ All game systems emit a `system:initialized` event upon successful initializatio
 |--------|------------------------|
 | **GameManager** | `system:initialized`, `game:started`, `game:paused`, `game:resumed`, `game:over`, `level:started`, `screw:clicked` (single-source input)<br/>**Note**: `game:started` is reused for restart functionality |
 | **GameState** | `system:initialized`, `container:initialize`, `screw:transfer:started`, `screw:transfer:failed` |
+| **GameStateCore** | `game:started`, `level:started`, `game:over`, `level:transition:completed`, `score:updated`, `level:score:updated`, `total:score:updated`, `save:state:changed` |
 | **LayerManager** | `system:initialized`, `layer:created`, `shape:created`, `physics:body:added`, `layer:shapes:ready`, `all:layers:screws:ready`, `total:screw:count:set` |
 | **ScrewManager** | `system:initialized`, `screw:collected`, `screw:removed`, `screw:animation:*`, `screw:transfer:*`, `shape:screws:ready`, `container:filled` |
 | **PhysicsWorld** | `system:initialized`, `physics:body:*`, `physics:constraint:*`, `physics:collision:detected`, `physics:step:completed`, `physics:error` |
 | **ContainerManager** | `container:filled`, `container:state:updated`, `container:colors:updated`, `container:replaced`, `container:all_removed`, `container:removing:screws`, `level:completion:burst:started`, `level:completion:burst:completed` |
 | **HoldingHoleManager** | `holding_hole:filled`, `holding_hole:state:updated`, `holding_holes:full`, `holding_holes:available` |
-| **GameStateCore** | `level:transition:completed`, game state transitions, progress tracking events |
+| **GameEventCoordinator** | `save:requested`, `game:over` (holding holes timeout) |
 | **ProgressTracker** | `level:win:condition:met`, `progress:updated`, progress tracking events |
-| **SaveLoadManager** | `save:completed`, `restore:completed`, error events |
+| **SaveLoadManager** | `save:completed`, `restore:completed`, `save:state:changed`<br/>**Note**: Errors are included in save:completed/restore:completed events, not separate error events |
 
 ### Major Event Subscribers
 
 | System | Primary Events Subscribed |
 |--------|---------------------------|
-| **GameEventCoordinator** | `game:started`, `game:over`, `level:complete`, `debug:*`, `score:*`, `progress:updated`, `holding_hole:filled`, `container:filled` |
+| **GameEventCoordinator** | `game:started`, `game:over`, `level:transition:completed`, `level:win:condition:met`, `next:level:requested`, `debug:*`, `score:*`, `progress:updated`, `holding_hole:filled`, `container:filled`, `screw:*` animations/transfers, `layers:updated`, `layer:indices:updated`, `holding_holes:full`, `holding_holes:available`, `physics:collision:detected`, and more (30+ total subscriptions) |
 | **ContainerManager** | `container:filled`, `container:initialize`, `screw:transfer:*`, `screw:collected`, `bounds:changed`, `layers:updated`, `layer:indices:updated` |
 | **GameRenderManager** | Render-related events, bounds changes |
 | **GameDebugManager** | `debug:mode:toggled`, `debug:info:requested` |
@@ -238,6 +269,7 @@ sequenceDiagram
     participant GS as GameState
     participant LM as LayerManager
     participant SM as ScrewManager
+    participant PT as ProgressTracker
     participant PW as PhysicsWorld
     participant EFV as EventFlowValidator
     participant EB as EventBus
@@ -250,6 +282,7 @@ sequenceDiagram
     SC->>PW: new PhysicsWorld()
     SC->>GS: new GameState()
     SC->>SM: new ScrewManager()
+    SC->>PT: new ProgressTracker()
     SC->>LM: new LayerManager()
     SC->>GM: new GameManager()
     
@@ -266,6 +299,10 @@ sequenceDiagram
     SC->>SM: initialize()
     SM->>SM: setupEventHandlers() + initialize bounds
     SM->>EB: emit('system:initialized', { systemName: 'ScrewManager' })
+    
+    SC->>PT: initialize()
+    PT->>PT: setupEventListeners()
+    PT->>EB: emit('system:initialized', { systemName: 'ProgressTracker' })
     
     SC->>LM: initialize()
     LM->>LM: setupEventHandlers()
@@ -326,23 +363,29 @@ sequenceDiagram
             SM->>EB: emit('screw:animation:started')
             
             alt Container available
-                Note over SM: Transfer ownership to container immediately
-                SM->>SM: screw.transferOwnership(containerId, 'container')
-                SM->>CM: Animate to container
-                SM->>EB: emit('screw:animation:completed')
-                SM->>EB: emit('screw:collected', destination: 'container')
+                Note over SM: Start animation (ownership remains with shape)
+                SM->>CM: Start animation to container
+                SM->>EB: emit('screw:animation:started')
                 SM->>SM: HapticUtils.trigger('success')
+                
+                Note over SM: Animation completes
+                SM->>EB: emit('screw:animation:completed')
+                SM->>SM: screw.transferOwnership(containerId, 'container')
+                SM->>EB: emit('screw:collected', destination: 'container')
                 CM->>EB: emit('container:filled') [if container full]
                 alt Container becomes full
                     CM->>CM: HapticUtils.trigger('container_filled')
                 end
             else Container full, use holding hole
-                Note over SM: Transfer ownership to holding hole immediately
-                SM->>SM: screw.transferOwnership(holeId, 'holding_hole')
-                SM->>HM: Animate to holding hole
-                SM->>EB: emit('screw:animation:completed')
-                SM->>EB: emit('screw:collected', destination: 'holding_hole')
+                Note over SM: Start animation (ownership remains with shape)
+                SM->>HM: Start animation to holding hole
+                SM->>EB: emit('screw:animation:started')
                 SM->>SM: HapticUtils.trigger('success')
+                
+                Note over SM: Animation completes
+                SM->>EB: emit('screw:animation:completed')
+                SM->>SM: screw.transferOwnership(holeId, 'holding_hole')
+                SM->>EB: emit('screw:collected', destination: 'holding_hole')
                 HM->>EB: emit('holding_hole:filled')
                 HM->>EB: emit('holding_holes:full') [if all holes full]
             end
@@ -440,6 +483,7 @@ sequenceDiagram
     participant User
     participant GM as GameManager
     participant GEC as GameEventCoordinator
+    participant GSC as GameStateCore
     participant PT as ProgressTracker
     participant CM as ContainerManager
     participant SEH as ScrewEventHandler
@@ -459,14 +503,14 @@ sequenceDiagram
         
         alt No screws remaining
             PT->>EB: emit('level:win:condition:met')
-            EB->>GEC: Process win condition (score addition)
-            Note over GEC: GameStateCore adds level score to total
-            GEC->>EB: emit('level:transition:completed')
+            EB->>GSC: Process win condition
+            Note over GSC: Add level score to total score
+            GSC->>EB: emit('level:transition:completed')
             EB->>GEC: Handle level transition
             GEC->>LM: Clear all layers
             LM->>EB: emit('all:layers:cleared')
             
-            Note over GEC: Show level complete screen after 3s delay
+            Note over GEC: Show level complete screen after 6s delay
             Note over GEC: Display "Click to Continue" message
         end
     end

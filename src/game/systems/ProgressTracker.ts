@@ -44,6 +44,13 @@ export class ProgressTracker extends BaseSystem {
     if (DEBUG_CONFIG.logProgressTracking) {
       console.log(`[ProgressTracker] System initialized and listening for events`);
     }
+    
+    // Emit system initialized event for validation
+    this.emit({
+      type: 'system:initialized',
+      systemName: this.systemName,
+      timestamp: Date.now()
+    });
   }
 
   private setupEventListeners(): void {

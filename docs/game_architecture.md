@@ -41,7 +41,7 @@ The entire game operates on a comprehensive event system that ensures complete d
 
 ### 2. System Decoupling
 
-All game systems extend `BaseSystem` and operate independently:
+All game systems extend `BaseSystem` and operate independently (except GameRenderManager which uses an interface-based architecture):
 
 - **Autonomous Operation**: Each system manages its own state and responsibilities
 - **Event-Only Communication**: No direct system-to-system dependencies
@@ -630,26 +630,30 @@ Located at `src/shared/rendering/components/LevelCompletionBurstEffect.ts`, this
    - Per-letter phase offsets create flowing wave across the word
    - Fade in/out transitions for professional appearance
 
-##### **Animation Timeline (2.5 seconds total)**
+##### **Animation Timeline (5.5 seconds total)**
 ```
-0.0-0.5s: Burst Phase
+0.0-1.5s: Burst Phase
 ├── Burst particles expand rapidly (easeOutCubic)
-├── Particles fade to 30% opacity
+├── Particles reach maximum spread at 1.5s
 └── High-energy explosive motion
 
-0.2-2.0s: Sparkle Phase (overlaps with burst)
+1.5-5.5s: Burst Fade Phase
+├── Particles fade from 100% to 0% opacity
+└── Gradual dissipation effect
+
+0.2-5.0s: Sparkle Phase (overlaps with burst)
 ├── Sparkle particles begin twinkling
 ├── 6 full twinkle cycles
 ├── Random phase offsets prevent uniform motion
 └── Gradual fade out over time
 
-0.3-2.2s: Wave Text Phase (overlaps with sparkles)
+0.2-4.5s: Wave Text Phase (overlaps with sparkles)
 ├── Text fades in over first 20% of phase
 ├── Continuous wave motion across letters
 ├── Full opacity in middle 60% of phase
 └── Fade out over final 20% of phase
 
-2.0-2.5s: Final Fade
+5.0-5.5s: Final Fade
 ├── All effects fade to completion
 ├── Automatic cleanup and resource release
 └── Event emission for effect completion
@@ -688,9 +692,9 @@ The `BurstEffectConfig` interface allows full customization:
 
 ```typescript
 interface BurstEffectConfig {
-  duration?: number;              // Default: 2500ms (under 3s requirement)
-  burstParticleCount?: number;    // Default: 10, game uses 40 (4x)
-  sparkleParticleCount?: number;  // Default: 18, game uses 100 (5.5x)
+  duration?: number;              // Default: 5500ms (game uses 5.5s from ANIMATION_CONSTANTS)
+  burstParticleCount?: number;    // Default: 10, game uses 25 (2.5x)
+  sparkleParticleCount?: number;  // Default: 18, game uses 50 (2.8x)
   burstRadius?: number;           // Default: 120px, game uses 300px (2.5x velocity)
   sparkleRadius?: number;         // Default: 80px, game uses 240px (3x)
   burstParticleSize?: number;     // Default: 4px
