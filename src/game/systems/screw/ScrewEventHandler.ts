@@ -25,6 +25,7 @@ import {
   ContainerRemovedEvent,
 } from '@/game/events/EventTypes';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { DebugLogger } from '@/shared/utils/DebugLogger';
 import { Screw } from '@/game/entities/Screw';
 import { Shape } from '@/game/entities/Shape';
 import { Container, HoldingHole, ScrewColor } from '@/types/game';
@@ -111,7 +112,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     subscribe('physics:body:added', this.handlePhysicsBodyAdded.bind(this));
     
     // Screw interaction events
-    console.log(`🔧 ScrewEventHandler: Setting up screw:clicked subscription`);
+    DebugLogger.logScrew(`ScrewEventHandler: Setting up screw:clicked subscription`);
     subscribe('screw:clicked', this.handleScrewClicked.bind(this));
     
     // Container events
@@ -156,7 +157,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     this.state.allShapes.push(event.shape);
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`ScrewEventHandler: Shape created - ${event.shape.id}, now tracking ${this.state.allShapes.length} shapes`);
+      DebugLogger.logScrew(`ScrewEventHandler: Shape created - ${event.shape.id}, now tracking ${this.state.allShapes.length} shapes`);
     }
 
     this.callbacks.onShapeCreated?.(event.shape);
@@ -165,7 +166,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
   public handlePhysicsBodyAdded(event: PhysicsBodyAddedEvent): void {
     // Debug logging to trace event filtering
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🔍 ScrewEventHandler.handlePhysicsBodyAdded:`, {
+      DebugLogger.logPhysics(`ScrewEventHandler.handlePhysicsBodyAdded:`, {
         hasShape: !!event.shape,
         eventSource: event.source,
         thisSource: this.source,
@@ -184,7 +185,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
       if (shape.screws && shape.screws.length > 0) {
         // Shape already has screws from saved state, don't generate new ones
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`⏭️ Shape ${shape.id} already has ${shape.screws.length} screws, skipping generation`);
+          DebugLogger.logScrew(`Shape ${shape.id} already has ${shape.screws.length} screws, skipping generation`);
         }
         return;
       }
@@ -193,18 +194,18 @@ export class ScrewEventHandler implements IScrewEventHandler {
         // For composite bodies, ensure position is synced before generating screws
         shape.updateFromBody();
         if (DEBUG_CONFIG.logPhysicsDebug) {
-          console.log(`🔧 Composite body added - syncing position before screw generation`);
+          DebugLogger.logPhysics(`Composite body added - syncing position before screw generation`);
         }
       }
       
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`✅ Calling onPhysicsBodyAdded callback for shape ${shape.id}`);
+        DebugLogger.logPhysics(`Calling onPhysicsBodyAdded callback for shape ${shape.id}`);
       }
       
       this.callbacks.onPhysicsBodyAdded?.(shape);
     } else {
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`❌ Event filtered out - not calling onPhysicsBodyAdded callback`);
+        DebugLogger.logPhysics(`Event filtered out - not calling onPhysicsBodyAdded callback`);
       }
     }
   }
@@ -223,7 +224,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
       if (screw.shapeId === event.shape.id) {
         screwsToRemove.push(screwId);
         if (DEBUG_CONFIG.logShapeDestruction && DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Marking screw ${screwId} for removal due to shape destruction`);
+          DebugLogger.logScrew(`Marking screw ${screwId} for removal due to shape destruction`);
         }
       }
     }
@@ -237,19 +238,19 @@ export class ScrewEventHandler implements IScrewEventHandler {
         this.callbacks.onScrewDestroyed?.(screwId);
         this.state.screws.delete(screwId);
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Removed screw ${screwId} from shape ${event.shape.id} (shape was owner)`);
+          DebugLogger.logScrew(`Removed screw ${screwId} from shape ${event.shape.id} (shape was owner)`);
         }
       } else if (screw) {
         // Screw is owned by someone else (container or holding hole), preserve it
         if (DEBUG_CONFIG.logScrewDebug) {
           const ownerInfo = screw.getOwnerInfo();
-          console.log(`Preserving screw ${screwId} from shape ${event.shape.id} - owned by ${ownerInfo.ownerType} ${ownerInfo.owner}`);
+          DebugLogger.logScrew(`Preserving screw ${screwId} from shape ${event.shape.id} - owned by ${ownerInfo.ownerType} ${ownerInfo.owner}`);
         }
       }
     }
 
     if (screwsToRemove.length > 0 && DEBUG_CONFIG.logScrewDebug) {
-      console.log(`Removed ${screwsToRemove.length} screws from destroyed shape ${event.shape.id}`);
+      DebugLogger.logScrew(`Removed ${screwsToRemove.length} screws from destroyed shape ${event.shape.id}`);
     }
   }
 
@@ -259,7 +260,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     this.state.virtualGameHeight = height;
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`ScrewEventHandler: Bounds changed to ${width}x${height}`);
+      DebugLogger.logGame(`ScrewEventHandler: Bounds changed to ${width}x${height}`);
     }
 
     this.callbacks.onBoundsChanged?.(width, height);
@@ -267,8 +268,8 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleScrewClicked(event: ScrewClickedEvent): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🎯 ScrewEventHandler.handleScrewClicked received event for screw ${event.screw.id}`);
-      console.log(`🔍 ScrewManager has ${this.state.screws.size} screws in state`);
+      DebugLogger.logScrew(`ScrewEventHandler.handleScrewClicked received event for screw ${event.screw.id}`);
+      DebugLogger.logScrew(`ScrewManager has ${this.state.screws.size} screws in state`);
     }
 
     const screw = this.state.screws.get(event.screw.id);
@@ -289,35 +290,35 @@ export class ScrewEventHandler implements IScrewEventHandler {
     // Validate screw state to prevent race conditions
     if (screw.isCollected || screw.isBeingCollected) {
       if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`⚠️ Ignoring click on screw ${screw.id} - already processed (collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
+        DebugLogger.logScrew(`Ignoring click on screw ${screw.id} - already processed (collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
       }
       return;
     }
 
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`👆 Screw clicked: ${screw.id} (removable: ${screw.isRemovable}, collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
-      console.log(`🎯 Calling onScrewClicked callback...`);
+      DebugLogger.logScrew(`Screw clicked: ${screw.id} (removable: ${screw.isRemovable}, collected: ${screw.isCollected}, beingCollected: ${screw.isBeingCollected})`);
+      DebugLogger.logScrew(`Calling onScrewClicked callback...`);
     }
 
     const forceRemoval = event.forceRemoval === true;
     this.callbacks.onScrewClicked?.(screw, forceRemoval);
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`✅ onScrewClicked callback completed for screw ${screw.id}`);
+      DebugLogger.logScrew(`onScrewClicked callback completed for screw ${screw.id}`);
     }
   }
 
   public handleContainerColorsUpdated(event: ContainerColorsUpdatedEvent): void {
     this.state.containerColors = event.colors;
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log('Container colors updated:', event.colors);
+      DebugLogger.logContainer('Container colors updated:', event.colors);
     }
   }
 
   public handleSaveRequested(): void {
     // Currently no state saving needed for screws
     if (DEBUG_CONFIG.logPhysicsDebug) {
-      console.log('ScrewEventHandler: Save requested - no state to save');
+      DebugLogger.logGame('ScrewEventHandler: Save requested - no state to save');
     }
   }
 
@@ -330,8 +331,8 @@ export class ScrewEventHandler implements IScrewEventHandler {
     // Update local container state when container state changes
     this.state.containers = event.containers;
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🏭 ScrewEventHandler: Container state updated - now have ${event.containers.length} containers`);
-      console.log(`🏭 Container details:`, event.containers.map(c => ({ id: c.id, color: c.color, isFull: c.isFull })));
+      DebugLogger.logContainer(`ScrewEventHandler: Container state updated - now have ${event.containers.length} containers`);
+      DebugLogger.logContainer(`Container details:`, event.containers.map(c => ({ id: c.id, color: c.color, isFull: c.isFull })));
     }
     this.callbacks.onCheckTransfers?.();
   }
@@ -340,15 +341,15 @@ export class ScrewEventHandler implements IScrewEventHandler {
     // Update local holding hole state when holding hole state changes
     this.state.holdingHoles = event.holdingHoles;
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🕳️ ScrewEventHandler: Holding hole state updated - now have ${event.holdingHoles.length} holding holes`);
-      console.log(`🕳️ Holding hole details:`, event.holdingHoles.map(h => ({ id: h.id, screwId: h.screwId, position: h.position })));
+      DebugLogger.logContainer(`ScrewEventHandler: Holding hole state updated - now have ${event.holdingHoles.length} holding holes`);
+      DebugLogger.logContainer(`Holding hole details:`, event.holdingHoles.map(h => ({ id: h.id, screwId: h.screwId, position: h.position })));
     }
   }
 
   public handleScrewTransferStarted(event: ScrewTransferStartedEvent): void {
     const screw = this.state.screws.get(event.screwId);
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🚀 Transfer started for screw ${event.screwId}`);
+      DebugLogger.logScrew(`Transfer started for screw ${event.screwId}`);
     }
     
     if (screw) {
@@ -359,7 +360,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
   public handleScrewTransferCompleted(event: ScrewTransferCompletedEvent): void {
     const screw = this.state.screws.get(event.screwId);
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`✅ Transfer completed for screw ${event.screwId}`);
+      DebugLogger.logScrew(`Transfer completed for screw ${event.screwId}`);
     }
     
     if (screw) {
@@ -369,7 +370,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleScrewColorsRequested(event: ScrewColorsRequestedEvent): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🎨 Screw colors requested`);
+      DebugLogger.logScrew(`Screw colors requested`);
     }
 
     const colorCounts = new Map<ScrewColor, number>();
@@ -388,7 +389,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleScrewTransferColorCheck(event: ScrewTransferColorCheckEvent): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🔄 Transfer color check requested for ${event.targetColor}`);
+      DebugLogger.logScrew(`Transfer color check requested for ${event.targetColor}`);
     }
     
     // Find valid transfers that match the target color
@@ -415,12 +416,12 @@ export class ScrewEventHandler implements IScrewEventHandler {
     });
     
     if (DEBUG_CONFIG.logLayerDebug) {
-      console.log(`ScrewEventHandler: Visible layers updated: ${Array.from(this.state.visibleLayers).join(', ')}`);
+      DebugLogger.logLayer(`ScrewEventHandler: Visible layers updated: ${Array.from(this.state.visibleLayers).join(', ')}`);
     }
     
     // DEBUG: Log detailed state for debugging
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🔍 ScrewEventHandler: After updating visibleLayers:`, {
+      DebugLogger.logLayer(`ScrewEventHandler: After updating visibleLayers:`, {
         visibleLayersSize: this.state.visibleLayers.size,
         visibleLayersArray: Array.from(this.state.visibleLayers),
         eventVisibleLayers: event.visibleLayers.map(l => l.id),
@@ -440,7 +441,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     }
     
     if (DEBUG_CONFIG.logLayerDebug) {
-      console.log(`ScrewEventHandler: Layer indices updated:`, Array.from(this.state.layerIndexLookup.entries()));
+      DebugLogger.logLayer(`ScrewEventHandler: Layer indices updated:`, Array.from(this.state.layerIndexLookup.entries()));
     }
     
     // Update screw removability based on new layer ordering
@@ -449,7 +450,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleLayerCleared(event: LayerClearedEvent): void {
     if (DEBUG_CONFIG.logLayerDebug) {
-      console.log(`ScrewEventHandler: Layer ${event.layer.id} cleared - removing associated screws`);
+      DebugLogger.logLayer(`ScrewEventHandler: Layer ${event.layer.id} cleared - removing associated screws`);
     }
     
     // Find and remove all screws from shapes in the cleared layer
@@ -477,13 +478,13 @@ export class ScrewEventHandler implements IScrewEventHandler {
         this.callbacks.onScrewDestroyed?.(screwId);
         this.state.screws.delete(screwId);
         if (DEBUG_CONFIG.logScrewDebug) {
-          console.log(`Removed screw ${screwId} from layer ${event.layer.id} (shape was owner)`);
+          DebugLogger.logScrew(`Removed screw ${screwId} from layer ${event.layer.id} (shape was owner)`);
         }
       } else if (screw) {
         // Screw is owned by someone else (container or holding hole), preserve it
         if (DEBUG_CONFIG.logScrewDebug) {
           const ownerInfo = screw.getOwnerInfo();
-          console.log(`Preserving screw ${screwId} from layer ${event.layer.id} - owned by ${ownerInfo.ownerType} ${ownerInfo.owner}`);
+          DebugLogger.logScrew(`Preserving screw ${screwId} from layer ${event.layer.id} - owned by ${ownerInfo.ownerType} ${ownerInfo.owner}`);
         }
       }
     }
@@ -494,7 +495,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleScrewCountRequested(event: ScrewCountRequestedEvent): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`Screw count requested by ${event.source}`);
+      DebugLogger.logScrew(`Screw count requested by ${event.source}`);
     }
     
     // Count total screws
@@ -511,7 +512,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleRemainingScrewCountsRequested(event: import('@/game/events/EventTypes').RemainingScrewCountsRequestedEvent): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log('🔧 Remaining screw counts requested - analyzing all screws...');
+      DebugLogger.logScrew('Remaining screw counts requested - analyzing all screws...');
     }
     
     // Count screws by color that need container space (shapes + holding holes, excluding same-color containers)
@@ -575,7 +576,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
     }
     
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`📊 Screw analysis details:`, {
+      DebugLogger.logScrew(`Screw analysis details:`, {
         totalCountedScrews,
         screwDetailsByColor: Object.fromEntries(screwDetailsByColor)
       });
@@ -583,7 +584,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
       // Additional debug: analyze what's being excluded
       const allScrews = Array.from(this.state.screws.values());
       const excludedScrews = allScrews.filter(s => s.isCollected || s.ownerType !== 'shape');
-      console.log(`🚫 Excluded screws (${excludedScrews.length} total):`, {
+      DebugLogger.logScrew(`Excluded screws (${excludedScrews.length} total):`, {
         collected: excludedScrews.filter(s => s.isCollected).length,
         notOnShapes: excludedScrews.filter(s => !s.isCollected && s.ownerType !== 'shape').length,
         excludedDetails: excludedScrews.reduce((acc, s) => {
@@ -620,9 +621,9 @@ export class ScrewEventHandler implements IScrewEventHandler {
     }
 
     if (DEBUG_CONFIG.logScrewDebug && holdingHoleScrews.size > 0) {
-      console.log('🕳️ Screws in holding holes by color:', Array.from(holdingHoleScrews.entries()));
-      console.log('🕳️ Total holding holes:', this.state.holdingHoles.length);
-      console.log('🕳️ Occupied holding holes:', this.state.holdingHoles.filter(h => h.screwId).length);
+      DebugLogger.logContainer('Screws in holding holes by color:', Array.from(holdingHoleScrews.entries()));
+      DebugLogger.logContainer('Total holding holes:', this.state.holdingHoles.length);
+      DebugLogger.logContainer('Occupied holding holes:', this.state.holdingHoles.filter(h => h.screwId).length);
     }
 
     if (DEBUG_CONFIG.logScrewDebug) {
@@ -634,17 +635,17 @@ export class ScrewEventHandler implements IScrewEventHandler {
       const screwsNotOnShapes = Array.from(this.state.screws.values()).filter(s => !s.isCollected && !s.isBeingCollected && s.ownerType !== 'shape').length;
       
       const totalInContainers = Array.from(screwsInContainersByColor.values()).reduce((sum, set) => sum + set.size, 0);
-      console.log('🔧 Remaining screw count analysis:');
-      console.log('  - Total screws:', totalScrews);
-      console.log('  - Collected screws:', collectedScrews);
-      console.log('  - Being collected screws:', beingCollectedScrews);
-      console.log('  - Screws on shapes needing container space (counted):', screwsOnShapes);
-      console.log('  - Screws not on shapes (in containers/holes, excluded):', screwsNotOnShapes);
-      console.log('  - Screws already in containers by color:', Array.from(screwsInContainersByColor.entries()).map(([color, set]) => `${color}: ${set.size}`));
-      console.log('  - Total screws in containers:', totalInContainers);
-      console.log('  - ALL screws needing container space by color:', Array.from(screwsByColor.entries()));
-      console.log('  - VISIBLE screws for container planning by color:', Array.from(visibleScrewsByColor.entries()));
-      console.log('  - Colors eligible for containers (visible layers + holding holes):', Array.from(visibleColors));
+      DebugLogger.logScrew('Remaining screw count analysis:');
+      DebugLogger.logScrew('  - Total screws:', totalScrews);
+      DebugLogger.logScrew('  - Collected screws:', collectedScrews);
+      DebugLogger.logScrew('  - Being collected screws:', beingCollectedScrews);
+      DebugLogger.logScrew('  - Screws on shapes needing container space (counted):', screwsOnShapes);
+      DebugLogger.logScrew('  - Screws not on shapes (in containers/holes, excluded):', screwsNotOnShapes);
+      DebugLogger.logScrew('  - Screws already in containers by color:', Array.from(screwsInContainersByColor.entries()).map(([color, set]) => `${color}: ${set.size}`));
+      DebugLogger.logScrew('  - Total screws in containers:', totalInContainers);
+      DebugLogger.logScrew('  - ALL screws needing container space by color:', Array.from(screwsByColor.entries()));
+      DebugLogger.logScrew('  - VISIBLE screws for container planning by color:', Array.from(visibleScrewsByColor.entries()));
+      DebugLogger.logScrew('  - Colors eligible for containers (visible layers + holding holes):', Array.from(visibleColors));
     }
 
     // Use the callback with both visible and total screw counts
@@ -658,7 +659,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleLevelStarted(event: LevelStartedEvent): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`ScrewEventHandler: Level ${event.level} started - clearing all screws`);
+      DebugLogger.logGame(`ScrewEventHandler: Level ${event.level} started - clearing all screws`);
     }
     
     // Clear all screws for the new level
@@ -673,7 +674,7 @@ export class ScrewEventHandler implements IScrewEventHandler {
 
   public handleContainerRemoved(event: ContainerRemovedEvent): void {
     if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`ScrewEventHandler: Container removed with ${event.screwIds.length} screws:`, event.screwIds);
+      DebugLogger.logContainer(`ScrewEventHandler: Container removed with ${event.screwIds.length} screws:`, event.screwIds);
     }
     
     // Notify ScrewManager to mark these screws as truly collected

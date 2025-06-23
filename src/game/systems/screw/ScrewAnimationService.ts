@@ -5,7 +5,7 @@
 
 import { Screw } from '@/game/entities/Screw';
 import { EventBus } from '@/game/events/EventBus';
-import { DEBUG_CONFIG } from '@/shared/utils/Constants';
+import { DebugLogger } from '@/shared/utils/DebugLogger';
 
 export interface AnimationResult {
   completed: string[];
@@ -51,9 +51,7 @@ export class ScrewAnimationService implements IScrewAnimationService {
             screw
           });
           
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`Screw ${screw.id} collection completed`);
-          }
+          DebugLogger.logScrew(`Screw ${screw.id} collection completed`);
         }
       }
     }
@@ -76,7 +74,7 @@ export class ScrewAnimationService implements IScrewAnimationService {
           transferredScrews.push(screw);
           
           // Log the transfer properties before emitting
-          console.log(`📊 Transfer properties for ${screw.id}:`, {
+          DebugLogger.logScrew(`Transfer properties for ${screw.id}:`, {
             fromHoleIndex: screw.transferFromHoleIndex,
             toContainerIndex: screw.transferToContainerIndex,
             toHoleIndex: screw.transferToHoleIndex
@@ -92,9 +90,7 @@ export class ScrewAnimationService implements IScrewAnimationService {
             toHoleIndex: screw.transferToHoleIndex ?? -1
           });
           
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`Screw ${screw.id} transfer animation completed`);
-          }
+          DebugLogger.logScrew(`Screw ${screw.id} transfer animation completed`);
         }
       }
     }
@@ -115,9 +111,7 @@ export class ScrewAnimationService implements IScrewAnimationService {
         hasActiveShaking = true;
         const wasComplete = screw.updateShakeAnimation(deltaTime);
         if (wasComplete) {
-          if (DEBUG_CONFIG.logScrewDebug) {
-            console.log(`📳 Shake animation completed for screw ${screw.id}`);
-          }
+          DebugLogger.logScrew(`Shake animation completed for screw ${screw.id}`);
         }
       }
     }
@@ -135,9 +129,7 @@ export class ScrewAnimationService implements IScrewAnimationService {
     
     // Only log when there are shaking screws to avoid spam
     if (shakingCount > 0 && Date.now() % 1000 < 50) {
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`📳 Updating ${shakingCount} shaking screws`);
-      }
+      DebugLogger.logScrew(`Updating ${shakingCount} shaking screws`);
     }
   }
 

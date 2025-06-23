@@ -52,16 +52,24 @@ export class ScrewManager extends BaseSystem {
   private transferService: ScrewTransferService;
   private eventHandler: ScrewEventHandler;
   
-  // Cleanup counter for periodic tasks
+  /** Counter for periodic cleanup tasks (increments each update frame) */
   private cleanupCounter = 0;
   
-  // Throttle screw removability updates
+  /** Timestamp of last removability update to prevent excessive calculations */
   private lastRemovabilityUpdate = 0;
+  /** 
+   * Throttle removability updates to 10 times per second (100ms)
+   * This balances responsiveness with performance, as removability rarely changes faster
+   */
   private static readonly REMOVABILITY_UPDATE_THROTTLE_MS = 100;
   
-  // Throttle removability debug logging
+  /** Timestamp of last removability debug log to prevent log spam */
   private lastRemovabilityDebugLog = 0;
-  private static readonly REMOVABILITY_DEBUG_THROTTLE_MS = 5000; // 5 seconds
+  /** 
+   * Throttle debug logging to once every 5 seconds
+   * This provides periodic status updates without overwhelming the console
+   */
+  private static readonly REMOVABILITY_DEBUG_THROTTLE_MS = 5000;
 
   constructor() {
     super('ScrewManager');
@@ -181,12 +189,16 @@ export class ScrewManager extends BaseSystem {
       }
 
       // Validate and cleanup reservations periodically (prevents race conditions)
-      if (this.cleanupCounter % 180 === 0) { // ~3 seconds at 60 FPS
+      if (this.cleanupCounter % 180 === 0) { // Every 3 seconds at 60 FPS (180 frames)
+        // Clean up any orphaned reservations from interrupted animations or errors
+        // Run periodically to ensure container/hole slots don't get permanently blocked
         this.validateAndCleanupReservations();
       }
 
       // Check for stuck shapes that should be falling periodically (physics recovery)
-      if (this.cleanupCounter % 300 === 0) { // ~5 seconds at 60 FPS
+      if (this.cleanupCounter % 300 === 0) { // Every 5 seconds at 60 FPS (300 frames)
+        // Detect and fix shapes that should be falling but aren't due to physics glitches
+        // Run less frequently as stuck shapes are rare and the check is expensive
         this.checkForStuckShapes();
       }
 
