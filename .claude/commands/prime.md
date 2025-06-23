@@ -1,3 +1,3 @@
 - Read `README.md` to understand the project requirements and specifications.
-- Read `docs/game_event_flow.md` to understand the game event flow.
+- Read `docs/game_event_flows.md` to understand the game event flow.
 - Read `docs/game_architecture.md` to understand the game architecture.

@@ -9,8 +9,9 @@
 - Items are in order of priority and should be addressed in the order they are presented.
 - This game is not yet released and backwards compatability is not required Do not create legacy compatability related logic, and remove any legacy compatability code that is no longer needed.
 - Read `README.md` to understand the project requirements and specifications.
-- Read `game_event_flow.md` to understand the game event flow.
-- Read `game_architecture.md` to understand the game architecture.
+- Read `docs/game_event_flows.md` to understand the game event flow.
+- Read `docs/game_architecture.md` to understand the game architecture.
 
 ## Items
 
+Conduct full comprehensive audit of `docs/game_event_flows.md` and `docs/game_architecture.md`. Ensure that the documents match the current coded implementations.

@@ -12,7 +12,7 @@
 ## Items
 
 - Read `README.md` to understand the project requirements and specifications.
-- Read `docs/game_event_flow.md` to understand the game event flow.
+- Read `docs/game_event_flows.md` to understand the game event flow.
 - Read `docs/game_architecture.md` to understand the game architecture.
 - Create a refactor.md file to document any significant refactoring changes made to the codebase.
 - Audit the codebase for any missing features or incomplete implementations based on the project requirements and specifications.
