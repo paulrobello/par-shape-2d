@@ -5,9 +5,17 @@
 
 import { BaseSystem } from './BaseSystem';
 import { GameLoop } from './GameLoop';
+import { eventBus } from '../events/EventBus';
 import { DEBUG_CONFIG, UI_CONSTANTS } from '@/shared/utils/Constants';
 import { DebugLogger } from '@/shared/utils/DebugLogger';
+import { EventEmissionUtils } from '@/shared/utils/EventEmissionUtils';
 import { Vector2, Screw } from '@/types/game';
+import { 
+  DebugModeToggledEvent,
+  ScrewClickedEvent,
+  GameOverEvent,
+  LevelWinConditionMetEvent
+} from '../events/EventTypes';
 import { pointInRectangle } from '@/game/utils/MathUtils';
 import { notifyUserClick } from '@/shared/utils/CollisionUtils';
 
@@ -103,11 +111,7 @@ export class GameManager extends BaseSystem {
     this.eventCoordinator.setupEventHandlers();
     
     // Emit initialization event for EventFlowValidator
-    this.emit({
-      type: 'system:initialized',
-      timestamp: Date.now(),
-      systemName: 'GameManager'
-    });
+    EventEmissionUtils.emitSystemInitialized(eventBus, 'GameManager');
   }
 
   // Public API methods (maintaining compatibility)
@@ -135,10 +139,7 @@ export class GameManager extends BaseSystem {
       this.emitBoundsChanged();
 
       // Try to restore game state
-      this.emit({
-        type: 'restore:requested',
-        timestamp: Date.now()
-      });
+      EventEmissionUtils.emit(eventBus, 'restore:requested');
     });
   }
 
@@ -236,11 +237,8 @@ export class GameManager extends BaseSystem {
           // Toggle debug mode
           const newDebugMode = this.debugManager.toggleDebugMode();
           // Emit the event for other systems
-          this.emit({
-            type: 'debug:mode:toggled',
-            timestamp: Date.now(),
-            enabled: newDebugMode,
-            source: 'GameManager'
+          EventEmissionUtils.emit<DebugModeToggledEvent>(eventBus, 'debug:mode:toggled', {
+            enabled: newDebugMode
           });
           break;
         case 'r':
@@ -296,10 +294,7 @@ export class GameManager extends BaseSystem {
       if (DEBUG_CONFIG.logSystemLifecycle) {
         DebugLogger.logGame('Level complete screen clicked, requesting next level');
       }
-      this.emit({
-        type: 'next:level:requested',
-        timestamp: Date.now()
-      });
+      EventEmissionUtils.emit(eventBus, 'next:level:requested');
       return;
     }
 
@@ -328,9 +323,7 @@ export class GameManager extends BaseSystem {
     // Handle screw interaction
     const screw = this.findScrewAtPoint(point, inputType);
     if (screw) {
-      this.emit({
-        type: 'screw:clicked',
-        timestamp: Date.now(),
+      EventEmissionUtils.emit<ScrewClickedEvent>(eventBus, 'screw:clicked', {
         screw: screw,
         position: point,
         forceRemoval: this.debugManager.isDebugBypassEnabled()
@@ -542,18 +535,13 @@ export class GameManager extends BaseSystem {
 
     // Reset all game systems by emitting game started event
     if (this.state.systemCoordinator) {
-      this.emit({
-        type: 'game:started',
-        timestamp: Date.now()
-      });
+      EventEmissionUtils.emit(eventBus, 'game:started');
     }
   }
 
   private handleGameOver(): void {
     console.log('🚨 Game over triggered manually');
-    this.emit({
-      type: 'game:over',
-      timestamp: Date.now(),
+    EventEmissionUtils.emit<GameOverEvent>(eventBus, 'game:over', {
       finalScore: this.stateManager.getScore().total,
       reason: 'user_triggered'
     });
@@ -583,10 +571,7 @@ export class GameManager extends BaseSystem {
     this.uiManager.showMenuOverlay();
     
     // Pause physics when menu is shown
-    this.emit({
-      type: 'game:paused',
-      timestamp: Date.now()
-    });
+    EventEmissionUtils.emit(eventBus, 'game:paused');
 
     if (DEBUG_CONFIG.logSystemLifecycle) {
       console.log('🔋 Game paused: Menu overlay shown');
@@ -597,10 +582,7 @@ export class GameManager extends BaseSystem {
     this.uiManager.hideMenuOverlay();
     
     // Resume physics when menu is hidden
-    this.emit({
-      type: 'game:resumed',
-      timestamp: Date.now()
-    });
+    EventEmissionUtils.emit(eventBus, 'game:resumed');
 
     if (DEBUG_CONFIG.logSystemLifecycle) {
       console.log('▶️ Game resumed: Menu overlay hidden');
@@ -624,12 +606,9 @@ export class GameManager extends BaseSystem {
     }
 
     // Emit level win condition met event to trigger level completion
-    this.emit({
-      type: 'level:win:condition:met',
+    EventEmissionUtils.emit<LevelWinConditionMetEvent>(eventBus, 'level:win:condition:met', {
       totalScrews: 100, // Dummy values for debug
-      finalProgress: 100,
-      timestamp: Date.now(),
-      source: 'GameManager-Debug'
+      finalProgress: 100
     });
   }
 
@@ -659,15 +638,13 @@ export class GameManager extends BaseSystem {
   private emitBoundsChanged(): void {
     const renderState = this.renderManager.getRenderState();
     if (renderState.canvas) {
-      this.emit({
-        type: 'bounds:changed',
-        timestamp: Date.now(),
-        source: this.constructor.name,
-        width: renderState.canvas.width,
-        height: renderState.canvas.height,
-        scale: renderState.canvasScale || 1,
-        shapeAreaStartY: this.renderManager.getShapeAreaStartY()
-      });
+      EventEmissionUtils.emitBoundsChanged(
+        eventBus,
+        renderState.canvas.width,
+        renderState.canvas.height,
+        renderState.canvasScale || 1,
+        this.renderManager.getShapeAreaStartY()
+      );
       
       if (DEBUG_CONFIG.logBoundsOperations) {
         console.log(`🔄 Bounds changed event emitted: ${renderState.canvas.width}x${renderState.canvas.height} (scale: ${renderState.canvasScale || 1})`);

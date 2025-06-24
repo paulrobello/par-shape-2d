@@ -622,20 +622,11 @@ export class GameRenderManager implements IGameRenderManager {
     const screwsCollectedFromRemovedContainers = gameState.progressData.screwsInContainer;
     const screwsRemaining = Math.max(0, totalScrews - screwsCollectedFromRemovedContainers);
     
+    // Don't show 0 if we haven't received the actual screw count yet
+    // This prevents showing "Screws remaining: 0" at level start before screws are generated
     const screwsText = totalScrews > 0 
       ? `Screws remaining: ${screwsRemaining}` 
-      : 'Screws remaining: 0';
-    
-    // Debug: Log progress data occasionally to diagnose the issue
-    if (DEBUG_CONFIG.logProgressTracking && Date.now() % 3000 < 16) { // Log roughly every 3 seconds (only during frame renders)
-      console.log(`[GameRenderManager] Current progress data:`, {
-        totalScrews: totalScrews,
-        screwsCollectedFromRemovedContainers: screwsCollectedFromRemovedContainers,
-        screwsRemaining: screwsRemaining,
-        progress: progressPercent,
-        displayText: screwsText
-      });
-    }
+      : 'Screws remaining: ...';
 
     // Update and render animated progress bar
     this.progressBar.setProgress(progressPercent);

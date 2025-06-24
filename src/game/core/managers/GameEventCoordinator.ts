@@ -6,6 +6,7 @@ import { IGameEventCoordinator, ManagerContext } from './GameManagerTypes';
 import { DEBUG_CONFIG } from '@/shared/utils/Constants';
 import { eventBus } from '@/game/events/EventBus';
 import { HapticUtils } from '@/shared/utils/HapticUtils';
+import { EventHandlerRegistry } from '@/shared/utils/EventHandlerRegistry';
 
 // Import event types
 import {
@@ -28,7 +29,7 @@ import {
 
 export class GameEventCoordinator implements IGameEventCoordinator {
   private managers: ManagerContext | null = null;
-  private eventSubscriptions: Map<string, string> = new Map(); // Map event type to subscription ID
+  private eventRegistry: EventHandlerRegistry | null = null;
   private systemCoordinator: import('../SystemCoordinator').SystemCoordinator | null = null;
 
   constructor() {
@@ -49,55 +50,65 @@ export class GameEventCoordinator implements IGameEventCoordinator {
       return;
     }
 
+    // Create event registry with namespace
+    this.eventRegistry = new EventHandlerRegistry(eventBus)
+      .withNamespace('GameEventCoordinator')
+      .withDebug(DEBUG_CONFIG.logEventFlow);
+
     // Game state events
-    this.subscribe('game:started', this.handleGameStarted.bind(this));
-    this.subscribe('game:over', this.handleGameOver.bind(this));
-    this.subscribe('level:transition:completed', this.handleLevelTransitionCompleted.bind(this));
-    this.subscribe('level:win:condition:met', this.handleLevelWinConditionMet.bind(this));
-    this.subscribe('next:level:requested', this.handleNextLevelRequested.bind(this));
+    this.eventRegistry
+      .on('game:started', this.handleGameStarted.bind(this))
+      .on('game:over', this.handleGameOver.bind(this))
+      .on('level:transition:completed', this.handleLevelTransitionCompleted.bind(this))
+      .on('level:win:condition:met', this.handleLevelWinConditionMet.bind(this))
+      .on('next:level:requested', this.handleNextLevelRequested.bind(this));
     
     // Debug events
-    this.subscribe('debug:mode:toggled', this.handleDebugModeToggled.bind(this));
-    this.subscribe('debug:info:requested', this.handleDebugInfoRequested.bind(this));
+    this.eventRegistry
+      .on('debug:mode:toggled', this.handleDebugModeToggled.bind(this))
+      .on('debug:info:requested', this.handleDebugInfoRequested.bind(this));
     
     // Rendering data events (to keep rendering data in sync)
-    this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
-    this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
-    this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
-    this.subscribe('screw:animation:started', this.handleScrewAnimationStarted.bind(this));
-    this.subscribe('screw:shake:updated', this.handleScrewShakeUpdated.bind(this));
-    this.subscribe('screw:transfer:started', this.handleScrewTransferStarted.bind(this));
-    this.subscribe('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this));
-    this.subscribe('score:updated', this.handleScoreUpdated.bind(this));
-    this.subscribe('level:score:updated', this.handleLevelScoreUpdated.bind(this));
-    this.subscribe('total:score:updated', this.handleTotalScoreUpdated.bind(this));
-    this.subscribe('level:started', this.handleLevelStarted.bind(this));
-    this.subscribe('level:progress:updated', this.handleLevelProgressUpdated.bind(this));
+    this.eventRegistry
+      .on('layers:updated', this.handleLayersUpdated.bind(this))
+      .on('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this))
+      .on('screw:collected', this.handleScrewCollected.bind(this))
+      .on('screw:animation:started', this.handleScrewAnimationStarted.bind(this))
+      .on('screw:shake:updated', this.handleScrewShakeUpdated.bind(this))
+      .on('screw:transfer:started', this.handleScrewTransferStarted.bind(this))
+      .on('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this))
+      .on('score:updated', this.handleScoreUpdated.bind(this))
+      .on('level:score:updated', this.handleLevelScoreUpdated.bind(this))
+      .on('total:score:updated', this.handleTotalScoreUpdated.bind(this))
+      .on('level:started', this.handleLevelStarted.bind(this))
+      .on('level:progress:updated', this.handleLevelProgressUpdated.bind(this));
+    
     if (DEBUG_CONFIG.logEventFlow) {
       console.log('[GameEventCoordinator] Subscribing to progress:updated events');
     }
-    this.subscribe('progress:updated', this.handleProgressUpdated.bind(this));
+    this.eventRegistry.on('progress:updated', this.handleProgressUpdated.bind(this));
     
     // Container/holding hole events (to update rendering data)
-    this.subscribe('holding_hole:filled', this.handleHoldingHoleFilled.bind(this));
-    this.subscribe('container:filled', this.handleContainerFilled.bind(this));
-    this.subscribe('holding_holes:full', this.handleHoldingHolesFull.bind(this));
-    this.subscribe('holding_holes:available', this.handleHoldingHolesAvailable.bind(this));
+    this.eventRegistry
+      .on('holding_hole:filled', this.handleHoldingHoleFilled.bind(this))
+      .on('container:filled', this.handleContainerFilled.bind(this))
+      .on('holding_holes:full', this.handleHoldingHolesFull.bind(this))
+      .on('holding_holes:available', this.handleHoldingHolesAvailable.bind(this));
     
     // Physics events for debug monitoring
-    this.subscribe('physics:collision:detected', this.handleCollisionDetected.bind(this));
-    this.subscribe('container:replaced', this.handleContainerReplaced.bind(this));
+    this.eventRegistry
+      .on('physics:collision:detected', this.handleCollisionDetected.bind(this))
+      .on('container:replaced', this.handleContainerReplaced.bind(this));
     
     // Container and holding hole state updates
-    this.subscribe('container:state:updated', this.handleContainerStateUpdated.bind(this));
-    this.subscribe('holding_hole:state:updated', this.handleHoldingHoleStateUpdated.bind(this));
+    this.eventRegistry
+      .on('container:state:updated', this.handleContainerStateUpdated.bind(this))
+      .on('holding_hole:state:updated', this.handleHoldingHoleStateUpdated.bind(this));
+
+    // Register all handlers
+    this.eventRegistry.register();
   }
 
-  private subscribe(eventType: string, handler: (event: unknown) => void): void {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const subscriptionId = eventBus.subscribe(eventType as any, handler as any);
-    this.eventSubscriptions.set(eventType, subscriptionId);
-  }
 
   private emit(event: unknown): void {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -548,11 +559,11 @@ export class GameEventCoordinator implements IGameEventCoordinator {
   }
 
   cleanup(): void {
-    // Unsubscribe from all events
-    this.eventSubscriptions.forEach((subscriptionId) => {
-      eventBus.unsubscribe(subscriptionId);
-    });
-    this.eventSubscriptions.clear();
+    // Unsubscribe from all events using the registry
+    if (this.eventRegistry) {
+      this.eventRegistry.unregisterAll();
+      this.eventRegistry = null;
+    }
     this.managers = null;
   }
 }

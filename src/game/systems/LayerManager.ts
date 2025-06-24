@@ -36,6 +36,8 @@ interface LayerManagerState {
   layersWithScrewsReady: Set<string>; // Set of layerIds that have completed screw generation
   allLayersScrewsReadyEmitted: boolean; // Flag to prevent multiple emissions
   expectedShapesPerLayer: Map<string, number>; // layerId -> expected number of shapes
+  screwCountsByShape?: Map<string, number>; // shapeId -> number of screws (from event)
+  screwsByShape?: Map<string, { id: string; color: ScrewColor }[]>; // shapeId -> screws data from event
   virtualGameWidth?: number;
   virtualGameHeight?: number;
 }
@@ -60,6 +62,8 @@ export class LayerManager extends BaseSystem {
       shapesWithScrewsReady: new Map(),
       layersWithScrewsReady: new Set(),
       allLayersScrewsReadyEmitted: false,
+      screwCountsByShape: new Map(),
+      screwsByShape: new Map(),
       expectedShapesPerLayer: new Map(),
     };
   }
@@ -205,6 +209,18 @@ export class LayerManager extends BaseSystem {
       }
       this.state.shapesWithScrewsReady.get(layer.id)!.add(shape.id);
 
+      // Track screw counts per shape from the event
+      if (!this.state.screwCountsByShape) {
+        this.state.screwCountsByShape = new Map();
+      }
+      this.state.screwCountsByShape.set(shape.id, screws.length);
+      
+      // Also track the actual screw data from the event
+      if (!this.state.screwsByShape) {
+        this.state.screwsByShape = new Map();
+      }
+      this.state.screwsByShape.set(shape.id, screws.map(s => ({ id: s.id, color: s.color })));
+
       // Check if all shapes in this layer have screws ready
       const expectedShapeCount = this.state.expectedShapesPerLayer.get(layer.id) || 0;
       const shapesWithScrewsInLayer = this.state.shapesWithScrewsReady.get(layer.id)!;
@@ -220,7 +236,9 @@ export class LayerManager extends BaseSystem {
         // All shapes in this layer have screws ready - collect screw colors
         const screwColors: ScrewColor[] = [];
         for (const layerShape of allShapesInLayer) {
-          for (const screw of layerShape.getAllScrews()) {
+          // Use tracked screw data from events instead of shape.getAllScrews()
+          const screwsData = this.state.screwsByShape?.get(layerShape.id) || [];
+          for (const screw of screwsData) {
             if (!screwColors.includes(screw.color)) {
               screwColors.push(screw.color);
             }
@@ -252,7 +270,9 @@ export class LayerManager extends BaseSystem {
           // Calculate total screws across all layers for debugging
           const totalScrews = this.state.layers.reduce((total, layer) => {
             return total + layer.getAllShapes().reduce((shapeTotal, shape) => {
-              return shapeTotal + shape.getAllScrews().length;
+              // Use tracked screw count from event, fallback to shape.getAllScrews() if not available
+              const screwCount = this.state.screwCountsByShape?.get(shape.id) ?? shape.getAllScrews().length;
+              return shapeTotal + screwCount;
             }, 0);
           }, 0);
           
@@ -262,7 +282,9 @@ export class LayerManager extends BaseSystem {
             // Only count screws from layers that are initially visible
             if (layer.isVisible) {
               return total + layer.getAllShapes().reduce((shapeTotal, shape) => {
-                return shapeTotal + shape.getAllScrews().length;
+                // Use tracked screw count from event, fallback to shape.getAllScrews() if not available
+                const screwCount = this.state.screwCountsByShape?.get(shape.id) ?? shape.getAllScrews().length;
+                return shapeTotal + screwCount;
               }, 0);
             }
             return total;
@@ -271,6 +293,9 @@ export class LayerManager extends BaseSystem {
           if (DEBUG_CONFIG.logScrewDebug) {
             console.log(`LayerManager: ALL layers have completed screw generation. Total layers: ${this.state.layers.length}, Total shapes: ${totalShapes}, Total screws: ${totalScrews}, Initially visible screws: ${initiallyVisibleScrews}`);
           }
+          
+          // Always log when emitting total screw count for debugging
+          console.log(`[LayerManager] Emitting total:screw:count:set with ${initiallyVisibleScrews} screws`);
           
           // Mark as emitted to prevent loops
           this.state.allLayersScrewsReadyEmitted = true;
@@ -1042,6 +1067,8 @@ export class LayerManager extends BaseSystem {
       this.state.layersWithScrewsReady.clear();
       this.state.allLayersScrewsReadyEmitted = false;
       this.state.expectedShapesPerLayer.clear();
+      this.state.screwCountsByShape?.clear();
+      this.state.screwsByShape?.clear();
     });
   }
 

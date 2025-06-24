@@ -13,10 +13,20 @@ import {
   ScrewTransferFailedEvent,
   ScrewTransferColorCheckEvent,
   ContainerAllRemovedEvent,
-  LevelCompletionBurstStartedEvent
+  LevelCompletionBurstStartedEvent,
+  LevelCompletionBurstCompletedEvent,
+  RemainingScrewCountsRequestedEvent,
+  ContainerRemovingScrewsEvent,
+  ContainerStateUpdatedEvent,
+  ContainerRemovedEvent,
+  ScrewColorsRequestedEvent
 } from '../../events/EventTypes';
 import { LevelCompletionBurstEffect } from '@/shared/rendering/components/LevelCompletionBurstEffect';
 import { HapticUtils } from '@/shared/utils/HapticUtils';
+import { EventEmissionUtils } from '@/shared/utils/EventEmissionUtils';
+import { EventHandlerRegistry } from '@/shared/utils/EventHandlerRegistry';
+import { ThrottleUtils } from '@/shared/utils/ThrottleUtils';
+import { eventBus } from '../../events/EventBus';
 
 export class ContainerManager extends BaseSystem {
   private containers: Container[] = [];
@@ -29,15 +39,29 @@ export class ContainerManager extends BaseSystem {
   private virtualGameHeight = GAME_CONFIG.canvas.height;
   private currentPlan: ContainerPlan | null = null;
   
-  // Throttling for proactive container updates
-  private lastProactiveUpdate = 0;
-  private static readonly PROACTIVE_UPDATE_THROTTLE_MS = 1000; // 1 second throttle
+  // Throttled container update function
+  private throttledUpdateContainers: ((reason: string) => void) & { cancel: () => void; flush: () => void };
   
   // Level completion burst effect
   private burstEffect: LevelCompletionBurstEffect | null = null;
+  
+  // Event registry for bulk subscriptions
+  private eventRegistry: EventHandlerRegistry | null = null;
 
   constructor() {
     super('ContainerManager');
+    
+    // Create throttled update function
+    this.throttledUpdateContainers = ThrottleUtils.throttle(
+      (reason: string) => {
+        if (DEBUG_CONFIG.logScrewDebug) {
+          console.log(`🔄 ContainerManager: Proactively updating containers (${reason})...`);
+        }
+        this.updateContainersFromInventory();
+      },
+      1000, // 1 second throttle
+      { leading: true, trailing: true }
+    );
   }
 
   protected async onInitialize(): Promise<void> {
@@ -53,22 +77,34 @@ export class ContainerManager extends BaseSystem {
   }
 
   private setupEventHandlers(): void {
+    // Create event registry with namespace
+    this.eventRegistry = new EventHandlerRegistry(eventBus)
+      .withNamespace('ContainerManager')
+      .withDebug(DEBUG_CONFIG.logScrewDebug);
+
     // Container lifecycle events
-    this.subscribe('container:filled', this.handleContainerFilled.bind(this));
-    this.subscribe('container:initialize', this.handleContainerInitialize.bind(this));
+    this.eventRegistry
+      .on('container:filled', this.handleContainerFilled.bind(this))
+      .on('container:initialize', this.handleContainerInitialize.bind(this));
     
     // Transfer events
-    this.subscribe('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this));
-    this.subscribe('screw:transfer:failed', this.handleScrewTransferFailed.bind(this));
-    this.subscribe('screw:transfer:color_check', this.handleScrewTransferColorCheck.bind(this));
+    this.eventRegistry
+      .on('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this))
+      .on('screw:transfer:failed', this.handleScrewTransferFailed.bind(this))
+      .on('screw:transfer:color_check', this.handleScrewTransferColorCheck.bind(this));
     
     // Proactive container management - update when screw availability changes
-    this.subscribe('layers:updated', this.handleLayersUpdated.bind(this));
-    this.subscribe('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this));
-    this.subscribe('screw:collected', this.handleScrewCollected.bind(this));
+    this.eventRegistry
+      .on('layers:updated', this.handleLayersUpdated.bind(this))
+      .on('layer:indices:updated', this.handleLayerIndicesUpdated.bind(this))
+      .on('screw:collected', this.handleScrewCollected.bind(this));
     
     // Bounds events
-    this.subscribe('bounds:changed', this.handleBoundsChanged.bind(this));
+    this.eventRegistry
+      .on('bounds:changed', this.handleBoundsChanged.bind(this));
+
+    // Register all handlers
+    this.eventRegistry.register();
   }
 
   // ========== NEW CLEAN CONTAINER PLANNING SYSTEM ==========
@@ -112,10 +148,11 @@ export class ContainerManager extends BaseSystem {
    */
   private updateContainersFromInventory(clearExisting = false): void {
     // Get complete screw inventory from ScrewManager via event-driven request
-    this.emit({
-      type: 'remaining:screws:requested',
-      timestamp: Date.now(),
-      callback: (visibleScrewsByColor: Map<string, number>, totalScrewsByColor: Map<string, number>, visibleColors: Set<string>) => {
+    EventEmissionUtils.emit<RemainingScrewCountsRequestedEvent>(
+      eventBus,
+      'remaining:screws:requested',
+      {
+        callback: (visibleScrewsByColor: Map<string, number>, totalScrewsByColor: Map<string, number>, visibleColors: Set<string>) => {
         if (DEBUG_CONFIG.logScrewDebug) {
           console.log('🔢 Visible screw counts:', Array.from(visibleScrewsByColor.entries()));
           console.log('🔢 Total screw counts:', Array.from(totalScrewsByColor.entries()));
@@ -224,11 +261,13 @@ export class ContainerManager extends BaseSystem {
     this.repositionAllContainers();
     
     // Emit state update
-    this.emit({
-      type: 'container:state:updated',
-      timestamp: Date.now(),
-      containers: this.getContainers() // Use getter to maintain proper order
-    });
+    EventEmissionUtils.emit<ContainerStateUpdatedEvent>(
+      eventBus,
+      'container:state:updated',
+      {
+        containers: this.getContainers() // Use getter to maintain proper order
+      }
+    );
   }
 
   /**
@@ -278,12 +317,14 @@ export class ContainerManager extends BaseSystem {
         const visualIndex = orderedContainers.indexOf(container);
         
         // Emit event to clear any holding holes containing screws from this container
-        this.emit({
-          type: 'container:removing:screws',
-          timestamp: Date.now(),
-          containerIndex: visualIndex,
-          screwIds: event.screws
-        });
+        EventEmissionUtils.emit<ContainerRemovingScrewsEvent>(
+          eventBus,
+          'container:removing:screws',
+          {
+            containerIndex: visualIndex,
+            screwIds: event.screws
+          }
+        );
         
         // Mark for removal with fade animation
         container.isMarkedForRemoval = true;
@@ -306,13 +347,15 @@ export class ContainerManager extends BaseSystem {
           }
           
           // Emit removal event
-          this.emit({
-            type: 'container:removed',
-            timestamp: Date.now(),
-            containerIndex: visualIndex,
-            screwIds: event.screws,
-            color: container.color
-          });
+          EventEmissionUtils.emit<ContainerRemovedEvent>(
+            eventBus,
+            'container:removed',
+            {
+              containerIndex: visualIndex,
+              screwIds: event.screws,
+              color: container.color
+            }
+          );
           
           if (DEBUG_CONFIG.logScrewDebug) {
             console.log(`🗑️ Container ${container.id} physically removed after fade animation`);
@@ -322,10 +365,11 @@ export class ContainerManager extends BaseSystem {
           this.checkForLastContainerRemoval();
           
           // NOW check for replacement containers and create them with fade-in animation
-          this.emit({
-            type: 'remaining:screws:requested',
-            timestamp: Date.now(),
-            callback: (visibleScrewsByColor: Map<string, number>, totalScrewsByColor: Map<string, number>, visibleColors: Set<string>) => {
+          EventEmissionUtils.emit<RemainingScrewCountsRequestedEvent>(
+            eventBus,
+            'remaining:screws:requested',
+            {
+              callback: (visibleScrewsByColor: Map<string, number>, totalScrewsByColor: Map<string, number>, visibleColors: Set<string>) => {
               const totalRemainingScrews = Array.from(totalScrewsByColor.values()).reduce((sum, count) => sum + count, 0);
               
               // Create optimal inventory combining visible color selection with total screw counts for hole sizing
@@ -390,21 +434,25 @@ export class ContainerManager extends BaseSystem {
           if (container.holes.filter(h => h !== null).length === container.maxHoles) {
             container.isFull = true;
             
-            this.emit({
-              type: 'container:filled',
-              timestamp: Date.now(),
-              containerIndex: toContainerIndex,
-              color: container.color,
-              screws: container.holes.filter(id => id !== null) as string[]
-            });
+            EventEmissionUtils.emit<ContainerFilledEvent>(
+              eventBus,
+              'container:filled',
+              {
+                containerIndex: toContainerIndex,
+                color: container.color,
+                screws: container.holes.filter(id => id !== null) as string[]
+              }
+            );
           }
           
           // Emit container state update
-          this.emit({
-            type: 'container:state:updated',
-            timestamp: Date.now(),
-            containers: this.getContainers() // Use getter to maintain proper order
-          });
+          EventEmissionUtils.emit<ContainerStateUpdatedEvent>(
+            eventBus,
+            'container:state:updated',
+            {
+              containers: this.getContainers() // Use getter to maintain proper order
+            }
+          );
         }
       }
     });
@@ -438,12 +486,13 @@ export class ContainerManager extends BaseSystem {
       const { targetColor, holdingHoleScrews, callback } = event;
       
       // Request screw colors from ScrewManager to validate color matches
-      this.emit({
-        type: 'screw:colors:requested',
-        timestamp: Date.now(),
-        containerIndex: -1,
-        existingColors: [],
-        callback: (screwColors: ScrewColor[]) => {
+      EventEmissionUtils.emit<ScrewColorsRequestedEvent>(
+        eventBus,
+        'screw:colors:requested',
+        {
+          containerIndex: -1,
+          existingColors: [],
+          callback: (screwColors: ScrewColor[]) => {
           // Filter holding hole screws that match the target color
           const validTransfers = holdingHoleScrews.filter((screwData, index) => {
             const screwColor = screwColors[index];
@@ -458,40 +507,21 @@ export class ContainerManager extends BaseSystem {
 
   private handleLayersUpdated(): void {
     this.executeIfActive(() => {
-      this.proactivelyUpdateContainers('layers updated');
+      this.throttledUpdateContainers('layers updated');
     });
   }
 
   private handleLayerIndicesUpdated(): void {
     this.executeIfActive(() => {
-      this.proactivelyUpdateContainers('layer indices updated');
+      this.throttledUpdateContainers('layer indices updated');
     });
-  }
-
-  /**
-   * Proactively update containers with throttling to prevent excessive recalculations
-   */
-  private proactivelyUpdateContainers(reason: string): void {
-    const now = Date.now();
-    if (now - this.lastProactiveUpdate < ContainerManager.PROACTIVE_UPDATE_THROTTLE_MS) {
-      if (DEBUG_CONFIG.logScrewDebug) {
-        console.log(`🔄 ContainerManager: Throttling proactive update (${reason}) - last update was ${now - this.lastProactiveUpdate}ms ago`);
-      }
-      return;
-    }
-    
-    this.lastProactiveUpdate = now;
-    if (DEBUG_CONFIG.logScrewDebug) {
-      console.log(`🔄 ContainerManager: Proactively updating containers (${reason})...`);
-    }
-    this.updateContainersFromInventory();
   }
 
   private handleScrewCollected(): void {
     this.executeIfActive(() => {
       // When screws are collected, proactively update containers
       // This is less critical than layer updates but ensures consistency
-      this.proactivelyUpdateContainers('screw collected');
+      this.throttledUpdateContainers('screw collected');
     });
   }
 
@@ -505,11 +535,13 @@ export class ContainerManager extends BaseSystem {
       this.repositionAllContainers();
       
       // Emit state update
-      this.emit({
-        type: 'container:state:updated',
-        timestamp: Date.now(),
-        containers: this.getContainers() // Use getter to maintain proper order
-      });
+      EventEmissionUtils.emit<ContainerStateUpdatedEvent>(
+        eventBus,
+        'container:state:updated',
+        {
+          containers: this.getContainers() // Use getter to maintain proper order
+        }
+      );
     });
   }
 
@@ -570,11 +602,13 @@ export class ContainerManager extends BaseSystem {
       this.repositionAllContainers();
       
       // Emit state update
-      this.emit({
-        type: 'container:state:updated',
-        timestamp: Date.now(),
-        containers: this.getContainers() // Use getter to maintain proper order
-      });
+      EventEmissionUtils.emit<ContainerStateUpdatedEvent>(
+        eventBus,
+        'container:state:updated',
+        {
+          containers: this.getContainers() // Use getter to maintain proper order
+        }
+      );
     }
   }
 
@@ -691,21 +725,24 @@ export class ContainerManager extends BaseSystem {
       this.burstEffect.start(centerPosition);
       
       // Emit burst started event
-      this.emit({
-        type: 'level:completion:burst:started',
-        timestamp: Date.now(),
-        position: centerPosition,
-        duration: ANIMATION_CONSTANTS.levelCompletion.burstDuration
-      } as LevelCompletionBurstStartedEvent);
+      EventEmissionUtils.emit<LevelCompletionBurstStartedEvent>(
+        eventBus,
+        'level:completion:burst:started',
+        {
+          position: centerPosition,
+          duration: ANIMATION_CONSTANTS.levelCompletion.burstDuration
+        }
+      );
       
       // Trigger haptic feedback for level completion
       HapticUtils.trigger('level_complete');
       
       // Emit container all removed event
-      this.emit({
-        type: 'container:all_removed',
-        timestamp: Date.now()
-      } as ContainerAllRemovedEvent);
+      EventEmissionUtils.emit<ContainerAllRemovedEvent>(
+        eventBus,
+        'container:all_removed',
+        {}
+      );
     }
   }
 
@@ -722,11 +759,13 @@ export class ContainerManager extends BaseSystem {
         }
         
         // Emit burst completed event
-        this.emit({
-          type: 'level:completion:burst:completed',
-          timestamp: Date.now(),
-          position: { x: 0, y: 0 } // Position not needed for completion event
-        });
+        EventEmissionUtils.emit<LevelCompletionBurstCompletedEvent>(
+          eventBus,
+          'level:completion:burst:completed',
+          {
+            position: { x: 0, y: 0 } // Position not needed for completion event
+          }
+        );
         
         // Clean up the effect
         this.burstEffect = null;
@@ -769,12 +808,14 @@ export class ContainerManager extends BaseSystem {
     this.burstEffect.start(centerPosition);
     
     // Emit burst started event
-    this.emit({
-      type: 'level:completion:burst:started',
-      timestamp: Date.now(),
-      position: centerPosition,
-      duration: ANIMATION_CONSTANTS.levelCompletion.burstDuration
-    } as LevelCompletionBurstStartedEvent);
+    EventEmissionUtils.emit<LevelCompletionBurstStartedEvent>(
+      eventBus,
+      'level:completion:burst:started',
+      {
+        position: centerPosition,
+        duration: ANIMATION_CONSTANTS.levelCompletion.burstDuration
+      }
+    );
     
     // Trigger haptic feedback for level completion
     HapticUtils.trigger('level_complete');
@@ -841,5 +882,24 @@ export class ContainerManager extends BaseSystem {
     }
     
     return availableByColor;
+  }
+
+  protected onDestroy(): void {
+    // Clean up event registry
+    if (this.eventRegistry) {
+      this.eventRegistry.unregisterAll();
+      this.eventRegistry = null;
+    }
+    
+    // Cancel throttled updates
+    this.throttledUpdateContainers.cancel();
+    
+    // Clear burst effect
+    this.burstEffect = null;
+    
+    // Clear containers
+    this.containers = [];
+    this.containerSlots.fill(null);
+    this.currentPlan = null;
   }
 }
