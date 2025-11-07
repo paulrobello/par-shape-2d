@@ -3,11 +3,14 @@
  * Provides a single source of truth for creating Matter.js bodies
  */
 
-import { Bodies, Body, Constraint, IBodyDefinition } from 'matter-js';
+import { Bodies, Body, Constraint, IBodyDefinition, IChamferableBodyDefinition } from 'matter-js';
 import { Vector2 } from '@/types/game';
 import { Shape } from '@/game/entities/Shape';
 import { Screw } from '@/game/entities/Screw';
 import { PHYSICS_CONSTANTS, DEBUG_CONFIG } from '@/shared/utils/Constants';
+
+// Helper type to make IBodyDefinition compatible with chamferable body methods
+type BodyDefinitionOptions = Omit<IBodyDefinition, 'chamfer'> & { chamfer?: IChamferableBodyDefinition['chamfer'] };
 
 export interface BodyOptions {
   isStatic?: boolean;
@@ -53,7 +56,7 @@ export class PhysicsBodyFactory {
    * Create a physics body for a shape entity
    */
   static createShapeBody(shape: Shape, options: BodyOptions = {}): ShapeBodyResult {
-    const defaultOptions: IBodyDefinition = {
+    const defaultOptions: BodyDefinitionOptions = {
       isStatic: options.isStatic ?? false,
       density: options.density ?? PHYSICS_CONSTANTS.shape.density,
       friction: options.friction ?? PHYSICS_CONSTANTS.shape.friction,
@@ -114,7 +117,7 @@ export class PhysicsBodyFactory {
   /**
    * Create a capsule body (composite of rectangle + 2 circles)
    */
-  private static createCapsuleBody(shape: Shape, options: IBodyDefinition): ShapeBodyResult {
+  private static createCapsuleBody(shape: Shape, options: BodyDefinitionOptions): ShapeBodyResult {
     const width = shape.width || 120;
     const height = shape.height || 50;
     const radius = height / 2;
@@ -174,7 +177,7 @@ export class PhysicsBodyFactory {
     dimensions: { radius?: number; width?: number; height?: number },
     options: BodyOptions = {}
   ): ShapeBodyResult {
-    const defaultOptions: IBodyDefinition = {
+    const defaultOptions: BodyDefinitionOptions = {
       isStatic: options.isStatic ?? false,
       density: options.density ?? PHYSICS_CONSTANTS.shape.density,
       friction: options.friction ?? PHYSICS_CONSTANTS.shape.friction,
