@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "matter-js": "^0.20.0",
-    "next": "^15.3.3",
+    "next": "^15.4.8",
     "poly-decomp-es": "^0.4.2",
     "react": "^19.0.0",
     "react-device-detect": "^2.2.3",
