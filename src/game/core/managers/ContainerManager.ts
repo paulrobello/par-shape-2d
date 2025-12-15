@@ -11,7 +11,6 @@ import {
   ContainerFilledEvent,
   ScrewTransferCompletedEvent,
   ScrewTransferFailedEvent,
-  ScrewTransferColorCheckEvent,
   ContainerAllRemovedEvent,
   LevelCompletionBurstStartedEvent,
   LevelCompletionBurstCompletedEvent,
@@ -19,7 +18,7 @@ import {
   ContainerRemovingScrewsEvent,
   ContainerStateUpdatedEvent,
   ContainerRemovedEvent,
-  ScrewColorsRequestedEvent
+  
 } from '../../events/EventTypes';
 import { LevelCompletionBurstEffect } from '@/shared/rendering/components/LevelCompletionBurstEffect';
 import { HapticUtils } from '@/shared/utils/HapticUtils';
@@ -90,8 +89,7 @@ export class ContainerManager extends BaseSystem {
     // Transfer events
     this.eventRegistry
       .on('screw:transfer:completed', this.handleScrewTransferCompleted.bind(this))
-      .on('screw:transfer:failed', this.handleScrewTransferFailed.bind(this))
-      .on('screw:transfer:color_check', this.handleScrewTransferColorCheck.bind(this));
+      .on('screw:transfer:failed', this.handleScrewTransferFailed.bind(this));
     
     // Proactive container management - update when screw availability changes
     this.eventRegistry
@@ -387,7 +385,8 @@ export class ContainerManager extends BaseSystem {
                 if (DEBUG_CONFIG.logScrewDebug) {
                   console.log(`🔄 Container removed, ${totalRemainingScrews} total screws remaining (${totalVisibleScrews} visible) - creating replacement containers with fade-in...`);
                 }
-                this.createReplacementContainersWithFadeIn(optimalInventory);
+                // Prefer the vacated slot for replacement fade-in
+                this.createReplacementContainersWithFadeIn(optimalInventory, [slotIndex]);
               } else {
                 if (DEBUG_CONFIG.logScrewDebug) {
                   console.log(`✅ Container removed, no remaining screws - no replacement needed`);
@@ -481,29 +480,7 @@ export class ContainerManager extends BaseSystem {
     });
   }
 
-  private handleScrewTransferColorCheck(event: ScrewTransferColorCheckEvent): void {
-    this.executeIfActive(() => {
-      const { targetColor, holdingHoleScrews, callback } = event;
-      
-      // Request screw colors from ScrewManager to validate color matches
-      EventEmissionUtils.emit<ScrewColorsRequestedEvent>(
-        eventBus,
-        'screw:colors:requested',
-        {
-          containerIndex: -1,
-          existingColors: [],
-          callback: (screwColors: ScrewColor[]) => {
-          // Filter holding hole screws that match the target color
-          const validTransfers = holdingHoleScrews.filter((screwData, index) => {
-            const screwColor = screwColors[index];
-            return screwColor === targetColor;
-          });
-          
-          callback(validTransfers);
-        }
-      });
-    });
-  }
+  // Removed local color check handler; ScrewEventHandler is the single source of truth
 
   private handleLayersUpdated(): void {
     this.executeIfActive(() => {
@@ -560,7 +537,7 @@ export class ContainerManager extends BaseSystem {
   /**
    * Create replacement containers with fade-in animation based on screw inventory
    */
-  private createReplacementContainersWithFadeIn(screwInventory: Map<string, number>): void {
+  private createReplacementContainersWithFadeIn(screwInventory: Map<string, number>, preferredSlots: number[] = []): void {
     // Calculate optimal container plan
     const newPlan = ContainerPlanner.calculateOptimalContainers(screwInventory);
     
@@ -579,11 +556,22 @@ export class ContainerManager extends BaseSystem {
       }
       
       // Add containers for missing colors with fade-in animation
+      const usedPreferred = new Set<number>();
       missingColors.forEach(color => {
         const spec = newPlan.containers.find(s => s.color === color);
         if (spec) {
-          // Find first vacant slot
-          const vacantSlotIndex = this.containerSlots.findIndex(slot => slot === null);
+          // Pick preferred vacant slot first if available; otherwise first vacant
+          let vacantSlotIndex = -1;
+          for (const idx of preferredSlots) {
+            if (!usedPreferred.has(idx) && idx >= 0 && idx < this.containerSlots.length && this.containerSlots[idx] === null) {
+              vacantSlotIndex = idx;
+              usedPreferred.add(idx);
+              break;
+            }
+          }
+          if (vacantSlotIndex === -1) {
+            vacantSlotIndex = this.containerSlots.findIndex(slot => slot === null);
+          }
           if (vacantSlotIndex !== -1) {
             const container = this.createContainerFromSpecWithFadeIn(spec, vacantSlotIndex);
             

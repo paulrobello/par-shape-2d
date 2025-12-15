@@ -9,6 +9,7 @@ import { ScrewRenderer } from '@/shared/rendering/components/ScrewRenderer';
 import { createRenderContext } from '@/shared/rendering/core/RenderContext';
 import { GeometryRenderer } from '@/shared/rendering/core/GeometryRenderer';
 import { ProgressBar } from '@/shared/rendering/components/ProgressBar';
+import { DeviceDetection } from '@/game/utils/DeviceDetection';
 
 export class GameRenderManager implements IGameRenderManager {
   private state: RenderState;
@@ -91,11 +92,7 @@ export class GameRenderManager implements IGameRenderManager {
     }
 
     // On mobile, use actual canvas dimensions as virtual dimensions to fill screen
-    // Import DeviceDetection dynamically to avoid SSR issues
-    const isMobile = typeof window !== 'undefined' && (
-      window.innerWidth <= 768 || 
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    );
+    const isMobile = DeviceDetection.isMobileDevice();
     if (isMobile) {
       this.state.virtualGameWidth = canvas.width;
       this.state.virtualGameHeight = canvas.height;
@@ -118,10 +115,7 @@ export class GameRenderManager implements IGameRenderManager {
     if (!this.state.canvas) return;
     
     // On mobile, update virtual dimensions to match canvas dimensions
-    const isMobile = typeof window !== 'undefined' && (
-      window.innerWidth <= 768 || 
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    );
+    const isMobile = DeviceDetection.isMobileDevice();
     if (isMobile) {
       this.state.virtualGameWidth = this.state.canvas.width;
       this.state.virtualGameHeight = this.state.canvas.height;
@@ -133,17 +127,35 @@ export class GameRenderManager implements IGameRenderManager {
     this.updateCanvasScaling();
   }
   
+  /**
+   * Calculates the actual HUD height dynamically based on all HUD content.
+   * This method computes the bottom position of each HUD element and returns
+   * the maximum, ensuring the HUD area correctly encompasses all UI elements.
+   *
+   * HUD elements (top to bottom):
+   * 1. Progress bar and text lines (score, level, screws remaining)
+   * 2. Containers (colored boxes for collecting screws)
+   * 3. Holding holes (temporary screw storage)
+   *
+   * @returns The Y coordinate where the shape area should begin
+   */
   private calculateHUDHeight(): number {
-    // Calculate actual HUD height based on all HUD content:
-    // HUD includes: progress bar, text, containers, and holding holes
-    
-    // Holding holes are the bottommost element in the HUD
-    const holdingHoleStartY = UI_CONSTANTS.holdingHoles.startY;
-    const holdingHoleRadius = UI_CONSTANTS.holdingHoles.radius;
-    const holdingHoleEndY = holdingHoleStartY + (holdingHoleRadius * 2);
-    
-    // HUD extends from top to bottom of holding holes + margin
-    return holdingHoleEndY + this.HUD_MARGIN;
+    // Calculate bottom of text area (progress bar + text lines)
+    // Text area: progress bar at PROGRESS_BAR_Y, then additional text lines below
+    const textAreaBottom = this.PROGRESS_BAR_Y + this.PROGRESS_BAR_HEIGHT + ((this.HUD_LINES - 1) * this.LINE_SPACING);
+
+    // Calculate bottom of containers
+    // Containers are positioned with startY as top edge
+    const containerBottom = UI_CONSTANTS.containers.startY + UI_CONSTANTS.containers.height;
+
+    // Calculate bottom of holding holes
+    // Holding holes use startY as center position, so bottom = startY + radius
+    const holdingHoleBottom = UI_CONSTANTS.holdingHoles.startY + UI_CONSTANTS.holdingHoles.radius;
+
+    // HUD height is the maximum bottom position of all elements + margin
+    const maxBottom = Math.max(textAreaBottom, containerBottom, holdingHoleBottom);
+
+    return maxBottom + this.HUD_MARGIN;
   }
   
   getShapeAreaStartY(): number {
@@ -158,10 +170,7 @@ export class GameRenderManager implements IGameRenderManager {
     const canvasHeight = this.state.canvas.height;
 
     // Check if we're on mobile where virtual dimensions match canvas dimensions
-    const isMobile = typeof window !== 'undefined' && (
-      window.innerWidth <= 768 || 
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
-    );
+    const isMobile = DeviceDetection.isMobileDevice();
     
     if (isMobile && this.state.virtualGameWidth === canvasWidth && this.state.virtualGameHeight === canvasHeight) {
       // Mobile: 1:1 scaling since virtual dimensions match canvas

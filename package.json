@@ -10,23 +10,22 @@
   },
   "dependencies": {
     "matter-js": "^0.20.0",
-    "next": "^15.3.3",
+    "next": "^16.0.10",
     "poly-decomp-es": "^0.4.2",
-    "react": "^19.0.0",
+    "react": "^19.2.3",
     "react-device-detect": "^2.2.3",
-    "react-dom": "^19.0.0",
+    "react-dom": "^19.2.3",
     "react-toastify": "^11.0.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
-    "@types/matter-js": "^0.19.8",
-    "@types/node": "^20",
+    "@types/matter-js": "^0.20.2",
+    "@types/node": "^25",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/react-toastify": "^4.0.2",
     "eslint": "^9",
-    "eslint-config-next": "15.3.2",
+    "eslint-config-next": "16.0.10",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

@@ -110,7 +110,8 @@ export class ShapeFactory {
       testRadius,
       existingShapes,
       layerBounds,
-      definition.category === 'composite'
+      definition.category === 'composite',
+      dimensions
     );
     
     if (!validPosition) {
@@ -646,21 +647,33 @@ export class ShapeFactory {
     testRadius: number,
     existingShapes: Shape[],
     layerBounds: { x: number; y: number; width: number; height: number },
-    isComposite: boolean = false
+    isComposite: boolean = false,
+    dimensions?: ShapeDimensions
   ): Vector2 | null {
     // Implementation remains the same as before
     const minSeparation = 30;
     // Add extra margin for composite shapes (like capsules) that extend beyond their center
-    const margin = isComposite ? 60 : 20;
-    const playAreaX = layerBounds.x + margin;
-    const playAreaY = layerBounds.y + margin;
-    const playAreaWidth = layerBounds.width - (margin * 2);
-    const playAreaHeight = layerBounds.height - (margin * 2);
-    
+    const baseMargin = isComposite ? 60 : 20;
+
+    // Calculate half-dimensions for proper clamping
+    // For non-circular shapes, use actual dimensions; otherwise fall back to testRadius
+    const halfWidth = dimensions?.width ? dimensions.width / 2 : testRadius;
+    const halfHeight = dimensions?.height ? dimensions.height / 2 : testRadius;
+
+    // Use the larger of testRadius or actual half-dimensions for margin
+    const marginX = Math.max(baseMargin, halfWidth + 10);
+    const marginY = Math.max(baseMargin, halfHeight + 10);
+
+    const playAreaX = layerBounds.x + marginX;
+    const playAreaY = layerBounds.y + marginY;
+    const playAreaWidth = layerBounds.width - (marginX * 2);
+    const playAreaHeight = layerBounds.height - (marginY * 2);
+
     const clampPosition = (pos: Vector2): Vector2 => {
+      // Use actual half-dimensions for clamping to ensure shape stays within bounds
       return {
-        x: Math.max(playAreaX + testRadius, Math.min(playAreaX + playAreaWidth - testRadius, pos.x)),
-        y: Math.max(playAreaY + testRadius, Math.min(playAreaY + playAreaHeight - testRadius, pos.y))
+        x: Math.max(layerBounds.x + halfWidth + 5, Math.min(layerBounds.x + layerBounds.width - halfWidth - 5, pos.x)),
+        y: Math.max(layerBounds.y + halfHeight + 5, Math.min(layerBounds.y + layerBounds.height - halfHeight - 5, pos.y))
       };
     };
     
@@ -706,11 +719,11 @@ export class ShapeFactory {
     }
     
     // Try grid positions
-    const gridSize = Math.max(testRadius * 2 + minSeparation, 80);
+    const gridSize = Math.max(Math.max(halfWidth, halfHeight) * 2 + minSeparation, 80);
     const gridPositions: Vector2[] = [];
-    
-    for (let gx = playAreaX + testRadius; gx <= playAreaX + playAreaWidth - testRadius; gx += gridSize) {
-      for (let gy = playAreaY + testRadius; gy <= playAreaY + playAreaHeight - testRadius; gy += gridSize) {
+
+    for (let gx = layerBounds.x + halfWidth + 10; gx <= layerBounds.x + layerBounds.width - halfWidth - 10; gx += gridSize) {
+      for (let gy = layerBounds.y + halfHeight + 10; gy <= layerBounds.y + layerBounds.height - halfHeight - 10; gy += gridSize) {
         gridPositions.push({ x: gx, y: gy });
       }
     }
@@ -728,13 +741,13 @@ export class ShapeFactory {
       }
     }
     
-    // Try corners and center
+    // Try corners and center - use proper half-dimensions for each axis
     const corners = [
-      { x: playAreaX + testRadius + 20, y: playAreaY + testRadius + 20 },
-      { x: playAreaX + playAreaWidth - testRadius - 20, y: playAreaY + testRadius + 20 },
-      { x: playAreaX + testRadius + 20, y: playAreaY + playAreaHeight - testRadius - 20 },
-      { x: playAreaX + playAreaWidth - testRadius - 20, y: playAreaY + playAreaHeight - testRadius - 20 },
-      { x: playAreaX + playAreaWidth / 2, y: playAreaY + playAreaHeight / 2 }
+      { x: layerBounds.x + halfWidth + 20, y: layerBounds.y + halfHeight + 20 },
+      { x: layerBounds.x + layerBounds.width - halfWidth - 20, y: layerBounds.y + halfHeight + 20 },
+      { x: layerBounds.x + halfWidth + 20, y: layerBounds.y + layerBounds.height - halfHeight - 20 },
+      { x: layerBounds.x + layerBounds.width - halfWidth - 20, y: layerBounds.y + layerBounds.height - halfHeight - 20 },
+      { x: layerBounds.x + layerBounds.width / 2, y: layerBounds.y + layerBounds.height / 2 }
     ];
     
     for (const corner of corners) {

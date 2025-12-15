@@ -138,7 +138,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
           bubbles: true
         });
         window.dispatchEvent(event);
-        console.log('Game restarted through GameManager restart logic');
+        if (DEBUG_CONFIG.logSystemLifecycle) {
+          console.log('Game restarted through GameManager restart logic');
+        }
       }
     }
   }, []);
@@ -153,13 +155,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         
         // If game is over, perform restart instead
         if (managerState.gameOver) {
-          console.log('Game is over, performing restart instead of start');
+          if (DEBUG_CONFIG.logSystemLifecycle) {
+            console.log('Game is over, performing restart instead of start');
+          }
           handleRestart();
         } else {
           // Hide start screen and start the game
           setShowStartScreen(false);
           gameState.startGame();
-          console.log('Game started through event system');
+          if (DEBUG_CONFIG.logSystemLifecycle) {
+            console.log('Game started through event system');
+          }
         }
       }
     }
@@ -181,12 +187,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     
     // On mobile, don't set explicit CSS sizes - let the CSS viewport units handle it
     if (DeviceDetection.isMobileDevice()) {
-      console.log(`Mobile: Canvas internal=${width}x${height}, letting CSS handle display size with viewport units`);
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log(`Mobile: Canvas internal=${width}x${height}, letting CSS handle display size with viewport units`);
+      }
     } else {
       // Desktop: Set explicit sizes
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      console.log(`Desktop: Canvas initialized: Internal=${width}x${height}, CSS=${canvas.style.width}x${canvas.style.height}`);
+      if (DEBUG_CONFIG.logSystemLifecycle) {
+        console.log(`Desktop: Canvas initialized: Internal=${width}x${height}, CSS=${canvas.style.width}x${canvas.style.height}`);
+      }
     }
     
     // Initialize system coordinator
@@ -202,7 +212,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         await coordinator.initialize(canvas);
         coordinator.updateCanvasSize(width, height);
         setIsInitialized(true);
-        console.log('Event-driven systems initialized successfully');
+        if (DEBUG_CONFIG.logSystemLifecycle) {
+          console.log('Event-driven systems initialized successfully');
+        }
 
         // Start the coordinator
         coordinator.start();
@@ -212,7 +224,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         // Validate event flow
         setTimeout(() => {
           const validation = eventFlowValidator.validateEventFlow();
-          console.log('Event flow validation:', validation);
+          if (DEBUG_CONFIG.logEventFlow) {
+            console.log('Event flow validation:', validation);
+          }
           setEventStats(eventFlowValidator.getEventStats());
         }, 1000);
 
@@ -377,12 +391,16 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
         
         // On mobile, don't set explicit CSS sizes - let the CSS viewport units handle it
         if (DeviceDetection.isMobileDevice()) {
-          console.log(`Mobile resize: Canvas internal=${width}x${height}, letting CSS handle display size with viewport units`);
+          if (DEBUG_CONFIG.logBoundsOperations) {
+            console.log(`Mobile resize: Canvas internal=${width}x${height}, letting CSS handle display size with viewport units`);
+          }
         } else {
           // Desktop: Set explicit sizes
           canvas.style.width = `${width}px`;
           canvas.style.height = `${height}px`;
-          console.log(`Desktop resize: Canvas resized to: Internal=${width}x${height}, CSS=${canvas.style.width}x${canvas.style.height}`);
+          if (DEBUG_CONFIG.logBoundsOperations) {
+            console.log(`Desktop resize: Canvas resized to: Internal=${width}x${height}, CSS=${canvas.style.width}x${canvas.style.height}`);
+          }
         }
         
         coordinatorRef.current.updateCanvasSize(width, height);
@@ -395,7 +413,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({ className = '' }) => {
     // Handle Visual Viewport API changes (iOS Safari toolbar show/hide)
     if (hasVisualViewport(window)) {
       const handleViewportChange = () => {
-        console.log('Visual viewport changed, triggering canvas resize');
+        if (DEBUG_CONFIG.logBoundsOperations) {
+          console.log('Visual viewport changed, triggering canvas resize');
+        }
         handleResize();
       };
 

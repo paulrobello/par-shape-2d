@@ -361,83 +361,66 @@ export class GameManager extends BaseSystem {
     const maxDistance = inputType === 'touch' ? UI_CONSTANTS.input.touchRadius : UI_CONSTANTS.input.mouseRadius;
     const renderState = this.renderManager.getRenderState();
     const screwManager = this.state.systemCoordinator?.getScrewManager();
+    const availableByColor = (this.state.systemCoordinator?.getSystem<import('./GameState').GameState>('GameState')?.getAvailableHolesByColor()) ?? new Map<string, number>();
     
     if (DEBUG_CONFIG.logCollisionDetection) {
       DebugLogger.logCollision(`findScrewAtPoint: Searching ${renderState.allScrews.length} screws for point (${point.x.toFixed(1)}, ${point.y.toFixed(1)}), maxDistance: ${maxDistance}`);
     }
     
-    // Find closest screw (any) and closest non-blocked screw within maxDistance
-    let closestScrew: Screw | null = null;
-    let closestDistance: number = maxDistance;
-    let closestNonBlockedScrew: Screw | null = null;
-    let closestNonBlockedDistance: number = maxDistance;
+    // Build candidate list within interaction radius, annotated with block/capacity state
+    type Candidate = { screw: Screw; distance: number; isBlocked: boolean; hasCapacity: boolean };
+    const candidates: Candidate[] = [];
 
     renderState.allScrews.forEach(screw => {
-      const distance = Math.sqrt(
-        Math.pow(screw.position.x - point.x, 2) + 
-        Math.pow(screw.position.y - point.y, 2)
-      );
-      
+      const distance = Math.hypot(screw.position.x - point.x, screw.position.y - point.y);
       if (distance <= maxDistance) {
-        // Check if this screw is blocked (only if screwManager is available)
         const isBlocked = screwManager?.isScrewBlocked?.(screw.id) ?? false;
-        
+        const hasCapacity = (availableByColor.get(screw.color) || 0) > 0;
         if (DEBUG_CONFIG.logCollisionDetection) {
-          DebugLogger.logCollision(`Screw ${screw.id} at (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), distance: ${distance.toFixed(1)}, blocked: ${isBlocked}`);
+          DebugLogger.logCollision(`Screw ${screw.id} at (${screw.position.x.toFixed(1)}, ${screw.position.y.toFixed(1)}), dist: ${distance.toFixed(1)}, blocked: ${isBlocked}, capacity: ${hasCapacity}`);
         }
-        
-        // Track closest screw overall
-        if (distance <= closestDistance) {
-          closestDistance = distance;
-          closestScrew = screw;
-        }
-        
-        // Track closest non-blocked screw
-        if (!isBlocked && distance <= closestNonBlockedDistance) {
-          closestNonBlockedDistance = distance;
-          closestNonBlockedScrew = screw;
-        }
+        candidates.push({ screw, distance, isBlocked, hasCapacity });
       }
     });
 
-    // Select the closest screw, but prefer non-blocked if distances are similar
-    // This ensures blocked screws can still be selected with full radius for shake feedback
-    let selectedScrew: Screw | null = null;
-    let selectedDistance: number = maxDistance;
-    let wasBlocked = false;
-    
-    // If we have both blocked and non-blocked options, use a small threshold to decide
-    if (closestScrew !== null && closestNonBlockedScrew !== null) {
-      // Only prefer non-blocked screw if it's reasonably close to the blocked one
-      const distanceThreshold = 5; // pixels - small threshold for preferring non-blocked
-      if (closestNonBlockedDistance <= closestDistance + distanceThreshold) {
-        selectedScrew = closestNonBlockedScrew;
-        selectedDistance = closestNonBlockedDistance;
-      } else {
-        selectedScrew = closestScrew;
-        selectedDistance = closestDistance;
-        wasBlocked = true;
+    const pickBest = (list: Candidate[]): { screw: Screw | null; distance: number; wasBlocked: boolean } => {
+      let closestAny: Candidate | null = null;
+      let closestNonBlocked: Candidate | null = null;
+      for (const c of list) {
+        if (!closestAny || c.distance <= closestAny.distance) closestAny = c;
+        if (!c.isBlocked && (!closestNonBlocked || c.distance <= closestNonBlocked.distance)) closestNonBlocked = c;
       }
-    } else {
-      // Simple case: only one type available
-      selectedScrew = closestScrew || closestNonBlockedScrew;
-      selectedDistance = closestScrew ? closestDistance : closestNonBlockedDistance;
-      wasBlocked = closestScrew !== null && closestNonBlockedScrew === null;
-    }
+      if (!closestAny && !closestNonBlocked) return { screw: null, distance: maxDistance, wasBlocked: false };
+      if (closestAny && closestNonBlocked) {
+        const threshold = 5; // px tolerance to prefer non-blocked
+        if (closestNonBlocked.distance <= closestAny.distance + threshold) {
+          return { screw: closestNonBlocked.screw, distance: closestNonBlocked.distance, wasBlocked: false };
+        }
+        return { screw: closestAny.screw, distance: closestAny.distance, wasBlocked: closestAny.isBlocked };
+      }
+      const chosen = closestAny || closestNonBlocked!;
+      return { screw: chosen.screw, distance: chosen.distance, wasBlocked: chosen.isBlocked };
+    };
+
+    // Prefer screws whose colors have available container holes
+    const availableCandidates = candidates.filter(c => c.hasCapacity);
+    const { screw: selectedAvail, distance: distAvail, wasBlocked: wasBlockedAvail } = pickBest(availableCandidates);
+    const { screw: selectedAny, distance: distAny, wasBlocked: wasBlockedAny } = pickBest(candidates);
+
+    const selectedScrew = selectedAvail ?? selectedAny;
+    const selectedDistance = selectedAvail ? distAvail : distAny;
+    const wasBlocked = selectedAvail ? wasBlockedAvail : wasBlockedAny;
 
     if (DEBUG_CONFIG.logCollisionDetection) {
-      if (selectedScrew !== null) {
+      if (selectedScrew) {
         const screwType = wasBlocked ? 'blocked' : 'non-blocked';
-        const selectionReason = closestScrew !== null && closestNonBlockedScrew !== null
-          ? `(selected ${screwType} - closest overall: ${closestDistance.toFixed(1)}px, closest non-blocked: ${closestNonBlockedDistance.toFixed(1)}px)`
-          : `(only ${screwType} screws in range)`;
-        DebugLogger.logCollision(`Found screw: ${(selectedScrew as Screw).id} at distance ${selectedDistance.toFixed(1)} ${selectionReason}`);
+        DebugLogger.logCollision(`Selected screw ${selectedScrew.id} at ${selectedDistance.toFixed(1)} (${screwType}) [capacityFirst=${!!selectedAvail}]`);
       } else {
-        console.log(`🎯 Found screw: none`);
+        console.log('🎯 Found screw: none');
       }
     }
 
-    return selectedScrew;
+    return selectedScrew ?? null;
   }
 
   private isMenuButtonClicked(point: Vector2): boolean {
@@ -638,16 +621,22 @@ export class GameManager extends BaseSystem {
   private emitBoundsChanged(): void {
     const renderState = this.renderManager.getRenderState();
     if (renderState.canvas) {
+      // Use virtual game dimensions for bounds, not raw canvas dimensions
+      // Virtual dimensions are the logical game space where shapes are placed
+      // On desktop: typically 640x800; on mobile: matches canvas dimensions
+      const width = renderState.virtualGameWidth;
+      const height = renderState.virtualGameHeight;
+
       EventEmissionUtils.emitBoundsChanged(
         eventBus,
-        renderState.canvas.width,
-        renderState.canvas.height,
+        width,
+        height,
         renderState.canvasScale || 1,
         this.renderManager.getShapeAreaStartY()
       );
-      
+
       if (DEBUG_CONFIG.logBoundsOperations) {
-        console.log(`🔄 Bounds changed event emitted: ${renderState.canvas.width}x${renderState.canvas.height} (scale: ${renderState.canvasScale || 1})`);
+        console.log(`🔄 Bounds changed event emitted: ${width}x${height} (virtual), canvas: ${renderState.canvas.width}x${renderState.canvas.height} (scale: ${renderState.canvasScale || 1})`);
       }
     }
   }

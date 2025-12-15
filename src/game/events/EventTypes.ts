@@ -129,10 +129,7 @@ export interface ScrewBlockedClickEvent extends BaseEvent {
   position: { x: number; y: number };
 }
 
-export interface ScrewShakeUpdatedEvent extends BaseEvent {
-  type: 'screw:shake:updated';
-  shakingCount: number;
-}
+// Duplicate declaration removed; ScrewShakeUpdatedEvent is defined once above.
 
 export interface ScrewTransferStartedEvent extends BaseEvent {
   type: 'screw:transfer:started';
